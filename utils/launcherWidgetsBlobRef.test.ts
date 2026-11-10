@@ -33,20 +33,16 @@ describe('桌面小組件圖的 blobref 讀寫路徑', () => {
     expect(upload).not.toContain('skipCompression');
   });
 
-  it('桌面（Launcher）的三個槽位都走 TokenImg，不是裸 <img>', () => {
-    // 首頁方圖（DesktopSquareImage）
-    expect(launcherSource).toContain('<TokenImg value={image} alt="" className="w-full h-full object-cover" loading="lazy" />');
-    expect(launcherSource).not.toContain('<img src={image} alt="" className="w-full h-full object-cover" loading="lazy" />');
-    // 第三頁的 tl / tr 與 wide
-    expect(launcherSource).toContain('<TokenImg value={w[key]}');
-    expect(launcherSource).toContain("<TokenImg value={w['wide']}");
+  it('桌面（Launcher）的圖片小組件走 TokenImg，不是裸 <img>', () => {
+    // 2026-11 起桌面改成網格（utils/launcherLayout.ts），舊的方圖、tl / tr、wide 都變成圖片小組件（ImageWidget）
+    expect(launcherSource).toContain('<TokenImg value={image} alt="" className={`w-full h-full ${frame ? \'object-cover\' : \'object-contain\'}`} loading="lazy" />');
+    expect(launcherSource).not.toContain('<img src={image}');
     expect(launcherSource).not.toContain('<img src={w[key]}');
     expect(launcherSource).not.toContain("<img src={w['wide']}");
   });
 
   it('外觀設置頁的槽位縮略圖與 DIY 預覽都走 TokenImg', () => {
-    // dsq / tl / tr / wide 四個槽位共用同一段縮略圖 JSX
-    expect(appearanceSource).toContain('<TokenImg value={img} className="w-full h-full object-cover" />');
+    // 槽位縮略圖拿掉了（搬到桌面上直接排），留著的不能是裸 <img>
     expect(appearanceSource).not.toContain('<img src={img} className="w-full h-full object-cover" />');
     // 桌面裝飾 DIY 的實時預覽
     expect(appearanceSource).toContain('<TokenImg value={w[k]} className="w-full h-full object-cover" />');

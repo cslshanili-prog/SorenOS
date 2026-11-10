@@ -143,6 +143,8 @@ export interface OSTheme {
   launcherAppOrder?: string[];
   launcherDockOrder?: string[];
   launcherPinwheelOrder?: Array<'music' | 'appsA' | 'appsB' | 'image'>;
+  /** 桌面網格（utils/launcherLayout.ts）：存過就照它排；沒有的話由上面幾個舊欄位排出來 */
+  launcherLayout?: import('./utils/launcherLayout').LauncherLayout;
   /** 自定義透明圖標是否保留原始輪廓並移除系統圓角底框。默認 false。 */
   preserveCustomIconOutlines?: boolean;
   /** 默認皮膚桌面「正在播放」音樂卡片改用淺色系樣式（新安裝默認 true）。 */

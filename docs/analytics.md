@@ -1237,6 +1237,7 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 设置桌面陪伴语音语种
 - 打开角色日程面板
 - 进入桌面整理模式
+- 桌面新增小组件（`类型`：clock / character / schedule / music / image / calendar / events；`尺寸`：`宽×高`，如 2×2、4×1）
 
 **自由活动**
 
