@@ -23,6 +23,7 @@
 | **見面改版 · 線下故事＋自訂預設** | [`plans/offline-date-redesign.md`](./plans/offline-date-redesign.md) | 改見面一般模式（線下故事、ST 預設匯入／巨集／正則、裝飾 iframe、劇情大綱、開場白、總結、完結、情緒褪色、關閉線上、畫面美化、語音標籤）前必讀；GAL／立繪在這次改版拿掉，匯入的預設不轉繁體 |
 | **見面 · 觀測協議 OBSERVE** | [`docs/date-observe.md`](./docs/date-observe.md) | 改見面的角色觀測卡片前必讀：提示詞注入、掉格式解析容錯（兩層）、卡片渲染；只在內建規則下生效，舊訊息的觀測塊不管開不開都要剝掉 |
 | **資料庫（相簿改版）** | [`plans/asset-library-design.md`](./plans/asset-library-design.md) | 改資料庫（原本的相簿）、角色傳照片（現場生成的 `SEND_PHOTO`、資料庫現成的 `SEND_SAVED_PHOTO`）、上傳與描述、分配給角色、協同文件歸檔前必讀；沿用 `gallery` 表加欄位、不另開新表，純邏輯在 `utils/library.ts`、角色那頭在 `utils/libraryPrompt.ts`、從私聊發出去在 `utils/libraryShare.ts`；四批做完後補了雲端、批次 AI 寫、從私聊發照片／文件 |
+| **桌面網格與小組件** | [`plans/desktop-grid-widgets.md`](./plans/desktop-grid-widgets.md) | 改預設桌面（Launcher）的排版、拖放、頁面、內建小組件或自訂小組件前必讀；每頁 4×6、Android 式（可留空）、寬×高寬在前；版面存 `OSTheme.launcherLayout`，純邏輯在 `utils/launcherLayout.ts`，沒存過的照舊欄位現排、第一次整理才存 |
 | **見面 · 畫面美化** | [`docs/date-appearance.md`](./docs/date-appearance.md) | 改見面的底圖遮罩、字級、深淺兩套字色、裝飾卡片底色、自訂 CSS 或加 class 鉤子前必讀；自訂 CSS 一律過 `scopeDateCss` 限定在 `.date-root`，設定頁和彈窗不能放進 `.date-root` |
 | **彼方 · 信號墜落處（跨用戶接龍詩）** | [`docs/signal-poetry.md`](./docs/signal-poetry.md) | 改彼方(VRWorld)「信號墜落處」房間：跨實例合寫現代詩、複用漂流瓶後端、`po_poems`/`po_poem_lines` 表與 `/poem/*` 端點、兩層容錯解析、併發安全前必讀 |
 | **捏人器 PSD 導入 / 部件投影層** | [`docs/char-creator-psd-import.md`](./docs/char-creator-psd-import.md) | 改捏人器素材管線、部件陰影（正片疊底預轉）、PSD 圖層組約定前必讀 |

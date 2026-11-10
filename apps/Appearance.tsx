@@ -1367,113 +1367,14 @@ const Appearance: React.FC = () => {
                 <BootAnimationSettings theme={theme} updateTheme={updateTheme} />
                 </section>
 
-                {/* Page 1 Desktop Square Image */}
-                <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">首頁方形圖片</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">桌面首頁右下角的方形圖片槽位，長按移除</p>
-                    <div className="flex justify-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        {(() => {
-                            const slot = 'dsq';
-                            const img = (theme.launcherWidgets || {})[slot];
-                            return (
-                                <LongPressArea
-                                    className={`w-40 aspect-square rounded-2xl overflow-hidden relative cursor-pointer transition-transform active:scale-95 ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
-                                    onLongPress={() => {
-                                        if (img) {
-                                            removeWidget(slot);
-                                            addToast('已移除方圖', 'success');
-                                        }
-                                    }}
-                                >
-                                    {img ? (
-                                        <>
-                                            <TokenImg value={img} className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="text-slate-300 text-center">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 mx-auto mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                            <span className="text-[10px]">方圖</span>
-                                        </div>
-                                    )}
-                                </LongPressArea>
-                            );
-                        })()}
-                    </div>
-                </section>
-
-                {/* Page 2 Widget Images */}
+                {/* 桌面小組件：2026-11 起改到桌面上直接排（apps/Launcher.tsx、utils/launcherLayout.ts） */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">桌面小組件</h2>
-                    <p className="text-[10px] text-slate-400 mb-4">上傳小組件圖片（如時鐘截圖、推圖等），長按移除</p>
-                    <input type="file" ref={widgetInputRef} className="hidden" accept="image/*" onChange={(e) => e.target.files?.[0] && handleWidgetUpload(e.target.files[0])} />
-                    <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
-                        <div className="flex gap-2">
-                            {['tl', 'tr'].map(slot => {
-                                const img = (theme.launcherWidgets || {})[slot];
-                                return (
-                                    <LongPressArea
-                                        key={slot}
-                                        className={`flex-1 aspect-square rounded-xl overflow-hidden relative cursor-pointer transition-transform active:scale-95 ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                        onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
-                                        onLongPress={() => {
-                                            if (img) {
-                                                removeWidget(slot);
-                                                addToast('已移除小組件', 'success');
-                                            }
-                                        }}
-                                    >
-                                        {img ? (
-                                            <>
-                                                <TokenImg value={img} className="w-full h-full object-cover" />
-                                                <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                    <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
-                                                </div>
-                                            </>
-                                        ) : (
-                                            <div className="text-slate-300 text-center">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 mx-auto mb-1"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                                <span className="text-[9px]">圖片</span>
-                                            </div>
-                                        )}
-                                    </LongPressArea>
-                                );
-                            })}
-                        </div>
-                        {(() => {
-                            const slot = 'wide';
-                            const img = (theme.launcherWidgets || {})[slot];
-                            return (
-                                <LongPressArea
-                                    className={`w-full h-20 rounded-xl overflow-hidden relative cursor-pointer transition-transform active:scale-[0.98] ${img ? 'shadow-sm' : 'border-2 border-dashed border-slate-200 bg-white flex items-center justify-center'}`}
-                                    onClick={() => { setActiveWidgetSlot(slot); widgetInputRef.current?.click(); }}
-                                    onLongPress={() => {
-                                        if (img) {
-                                            removeWidget(slot);
-                                            addToast('已移除橫幅', 'success');
-                                        }
-                                    }}
-                                >
-                                    {img ? (
-                                        <>
-                                            <TokenImg value={img} className="w-full h-full object-cover" />
-                                            <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                                                <span className="text-white text-[10px] font-bold bg-black/40 px-2 py-0.5 rounded-full">更換</span>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <div className="text-slate-300 text-center">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mx-auto mb-0.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                                            <span className="text-[9px]">橫幅</span>
-                                        </div>
-                                    )}
-                                </LongPressArea>
-                            );
-                        })()}
-                    </div>
+                    <p className="text-[12px] text-slate-500 leading-relaxed">
+                        搬到桌面上了：在桌面<b>長按</b>進入整理，按上方的<b>「＋小組件」</b>加圖片、時鐘、角色卡、日程、月曆這些，
+                        點一下小組件可以換尺寸、換圖片、開關外框。app 和小組件都能拖到任何空格，也能新增、刪除頁面。
+                    </p>
+                    <p className="mt-2 text-[10px] text-slate-400 leading-relaxed">以前在這裡放的方圖、左右兩張和橫幅，已經照原位置變成桌面上的圖片小組件。</p>
                 </section>
 
                 {/* Desktop Decoration DIY Section */}
