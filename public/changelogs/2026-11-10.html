@@ -1,0 +1,36 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>2026 年 11 月 10 日更新說明 · 資料庫</title><style>:root{--ink:#232a33;--soft:#5c6672;--paper:#f3f5f8;--card:#fff;--line:#d6dde6;--accent:#4f6fb3;--wash:#e6edf8}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.9 system-ui,-apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:auto;padding:38px 22px 64px}
+header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:8px}
+header small{letter-spacing:3px;color:var(--accent);font-size:10px;font-weight:700}
+h1{font:34px/1.4 "Songti TC","Noto Serif TC",serif;margin:18px 0 12px;letter-spacing:-.01em}
+.lede{color:var(--soft);margin:0}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:0;list-style:none}
+.toc li{margin:0;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--soft);background:var(--card)}
+.toc li:before{display:none}
+h2{font:22px/1.6 "Songti TC","Noto Serif TC",serif;margin:40px 0 6px}
+h2 span{color:var(--accent);font:700 12px/1 ui-monospace,monospace;letter-spacing:2px;display:block;margin-bottom:6px}
+.where{display:inline-block;margin:0 0 6px;padding:1px 9px;border-radius:8px;background:var(--wash);color:var(--accent);font-size:11px;font-weight:700}
+p{margin:8px 0 14px;color:var(--soft)}
+ul{margin:10px 0 18px;padding:0;list-style:none}
+li{position:relative;padding:6px 0 6px 20px;color:var(--soft)}
+li:before{content:"";position:absolute;left:3px;top:16px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+li b,p b{color:var(--ink);font-weight:600}
+.note{margin:18px 0;border-left:3px solid var(--accent);border-radius:3px 12px 12px 3px;background:var(--wash);padding:12px 16px;color:var(--soft);font-size:12.5px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding-top:16px;font-size:11px;letter-spacing:2px;color:var(--accent)}</style></head><body><main>
+<header><small>SOREN · 2026.11.07 – 11.10</small><h1>相簿長大了，<br>叫資料庫。</h1><p class="lede">照片和文件都能放進來、寫描述、分給角色。角色知道自己手邊有哪些照片，也能原樣傳給你。</p>
+<ul class="toc"><li>相簿改成資料庫</li><li>角色知道手邊有哪些照片</li><li>在資料庫裡生成</li><li>文件也能收進來</li><li>其他</li></ul></header>
+<h2><span>01</span>相簿改成資料庫</h2>
+<div class="where">桌面 → 資料庫</div>
+<ul><li>所有照片放在一起，按來源篩（角色傳的、你傳的、見面拍的、你上傳的、在這裡生成的），也能按「誰能用」篩。</li><li>每張可以寫<b>描述</b>；描述欄右上角有<b>「AI 寫」</b>，選一個能看圖的 API 幫你寫。</li><li>照片沒描述的話，篩選列下面會出現一條提醒，點<b>「批次 AI 寫」</b>一張張補上，可以中途停。</li><li><b>分配給誰用</b>：所有角色共用、照世界分、或指定角色。</li><li>可以自己<b>上傳</b>現成的圖。</li></ul>
+<h2><span>02</span>角色知道手邊有哪些照片</h2>
+<ul><li>分配給它、而且有描述的照片，角色在私聊時會知道（最近 20 張）。</li><li>它可以<b>原樣傳出其中一張</b>給你：不重新生成、不花錢，臉也不會飄。</li><li>角色自己拍過的照片、見面「拍下這一刻」的照片會自動帶描述，之後能再傳。</li><li>頁面關著時的主動消息、即時對話也一樣能傳。</li></ul>
+<p class="note">用主動消息 2.0 的話，要<b>重新部署一次 Worker</b> 才接得住角色傳資料庫的照片：設定頁會提示有新版。沒更新的話，雲端那邊角色說要傳照片，照片不會出現。</p>
+<h2><span>03</span>在資料庫裡生成</h2>
+<div class="where">資料庫 → 右上角「生成」</div>
+<ul><li>四種：<b>獨照、合照</b>（最多 8 人，「你」也算一個）、<b>物品、風景</b>。</li><li>有參考圖就一起送去鎖臉，預覽下面會說鎖了幾張；滿意了寫描述、選誰能用再存，不滿意就重來，沒存的不留。</li></ul>
+<h2><span>04</span>文件也能收進來</h2>
+<ul><li>協同工作的文件櫃<b>長按一份文件 → 歸檔到資料庫</b>。資料庫多了「照片／文件」兩個分頁，文件可以打開或下載。</li><li>私聊「＋」多了一格<b>「資料庫」</b>：挑一張照片或一份文件發給角色。照片角色看得到；文件目前角色只看得到檔名和備註，還打不開內容。</li></ul>
+<h2><span>05</span>其他</h2>
+<ul><li>修好 iOS 27 加到主螢幕後，頂端無故出現一塊霧濛濛的玻璃：現在頂端會蓋上跟畫面相近的顏色。</li></ul>
+<footer>收好了，想給誰看都可以。</footer></main></body></html>

@@ -1,4 +1,5 @@
 import { SAR_CHANGELOG } from '../utils/sarUpdate';
+import { SOREN_CHANGELOG_ENTRIES } from '../utils/sorenChangelog';
 
 import React, { useEffect, useState } from 'react';
 import { useOS } from '../context/OSContext';
@@ -111,6 +112,8 @@ interface ChangelogEntry {
 }
 
 const CHANGELOG_ENTRIES: ChangelogEntry[] = [
+    // Soren 自己的更新（2026-09-14 起），新的在前；清單在 utils/sorenChangelog.ts
+    ...SOREN_CHANGELOG_ENTRIES,
     {
         id: SAR_CHANGELOG,
         title: '2026 年 9 月 11 日 · 彼方來信 · SAR',

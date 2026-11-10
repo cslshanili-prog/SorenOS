@@ -1,0 +1,36 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>2026 年 11 月 9 日更新說明 · 見面改版</title><style>:root{--ink:#2b2622;--soft:#6b625a;--paper:#f7f3ee;--card:#fff;--line:#e0d6cb;--accent:#a0663f;--wash:#f5e9de}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.9 system-ui,-apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:auto;padding:38px 22px 64px}
+header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:8px}
+header small{letter-spacing:3px;color:var(--accent);font-size:10px;font-weight:700}
+h1{font:34px/1.4 "Songti TC","Noto Serif TC",serif;margin:18px 0 12px;letter-spacing:-.01em}
+.lede{color:var(--soft);margin:0}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:0;list-style:none}
+.toc li{margin:0;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--soft);background:var(--card)}
+.toc li:before{display:none}
+h2{font:22px/1.6 "Songti TC","Noto Serif TC",serif;margin:40px 0 6px}
+h2 span{color:var(--accent);font:700 12px/1 ui-monospace,monospace;letter-spacing:2px;display:block;margin-bottom:6px}
+.where{display:inline-block;margin:0 0 6px;padding:1px 9px;border-radius:8px;background:var(--wash);color:var(--accent);font-size:11px;font-weight:700}
+p{margin:8px 0 14px;color:var(--soft)}
+ul{margin:10px 0 18px;padding:0;list-style:none}
+li{position:relative;padding:6px 0 6px 20px;color:var(--soft)}
+li:before{content:"";position:absolute;left:3px;top:16px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+li b,p b{color:var(--ink);font-weight:600}
+.note{margin:18px 0;border-left:3px solid var(--accent);border-radius:3px 12px 12px 3px;background:var(--wash);padding:12px 16px;color:var(--soft);font-size:12.5px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding-top:16px;font-size:11px;letter-spacing:2px;color:var(--accent)}</style></head><body><main>
+<header><small>SOREN · 2026.11.06 – 11.09</small><h1>見面，<br>變成一場一場的故事。</h1><p class="lede">見面整個重寫：可以匯入自己的 SillyTavern 預設，每一次見面是一場有大綱、有總結、會完結的故事。</p>
+<ul class="toc"><li>只留閱讀模式</li><li>自訂預設：把 SillyTavern 的預設帶進來</li><li>一場一場的故事</li><li>情緒會褪色</li><li>畫面與細節</li></ul></header>
+<h2><span>01</span>只留閱讀模式</h2>
+<ul><li>見面畫面<b>只留閱讀模式</b>：拿掉立繪（GAL）模式和逐句播放，寫法改成散文，台詞深、旁白淺一階。</li><li>開了見面語音時，台詞開頭會帶英文語氣標籤（[softly]、[chuckles]…），顯示時藏起來，念的時候照服務商處理。</li><li>角色立繪管理搬到<b>神經鏈接 → 形象</b>：桌面陪伴、節日活動、視訊通話還在用。</li></ul>
+<h2><span>02</span>自訂預設：把 SillyTavern 的預設帶進來</h2>
+<div class="where">見面設定 → 預設</div>
+<ul><li><b>一鍵匯入</b> SillyTavern 的對話補全預設：條目、變數、巨集、正則照預設跑；裝飾卡片在安全的沙盒裡顯示。</li><li>預設清單所有角色共用，選哪份是每個角色自己的；一次只跑標著<b>「使用中」</b>的那份，見面選單最上面也寫著。</li><li><b>看得到預設在跑</b>：每則回覆上面一行標籤（第幾則、字數、時間、預設），有思考過程或原文就多兩顆可以點開；開了串流會一邊收一邊顯示。</li><li>長按編輯打開的是<b>完整原文</b>（思考、結構標籤都在），編輯框也加高了。</li><li><b>附說明重 Roll</b>：寫一句哪裡不滿意再重生；常用的說明可以「存為預設」。</li><li>開場也照預設的格式跑。</li><li>管理頁：<b>正則可以編輯、新增、刪除</b>，附試跑框；條目可以<b>新增、刪除、排序</b>，正則也能排序。</li><li>每份預設可以<b>複製、匯出</b>成 SillyTavern 的 .json，丟回酒館能直接用。</li><li><b>內建規則也能複製成一份預設</b>，從內建的寫法開始改。</li></ul>
+<p class="note">用了自訂預設，內建的格式規則、文風設定就不會送出，全交給預設；角色、記憶、世界書、情緒、時間這些照樣由 Soren 填進去。</p>
+<h2><span>03</span>一場一場的故事</h2>
+<div class="where">見面設定</div>
+<ul><li>見面現在是<b>一場一場的故事</b>，舊存檔會自動轉成一場；可以按故事回看。</li><li><b>劇情大綱、開場白庫、回應字數</b>。</li><li><b>對話總結＋前情提要</b>：自動、立即或選範圍總結，可以送進記憶宮殿。</li><li><b>完結故事</b>：寫一份整場總結、送進記憶宮殿。</li><li><b>故事的時間</b>：真實或自訂 × 流動或靜止。</li><li><b>故事進行中關閉線上功能</b>：主動消息先停，完結後排回去。</li></ul>
+<h2><span>04</span>情緒會褪色</h2>
+<ul><li>每條情緒都有淺、中、深，<b>隨現實時間褪色</b>（淺的幾小時、中的一天、深的三四天），淡掉就自己消失；最多記 12 條，提示詞只帶此刻最強的幾條。私聊和見面都一樣。</li><li>情緒面板可以刪單條、直接改「當下情緒總結」。</li><li><b>線下情緒獨立</b>（見面設定）：開著時見面的情緒跟著這場故事走，帶著私聊當下的情緒進來，之後各走各的。每則見面回覆會多評估一次情緒。</li></ul>
+<h2><span>05</span>畫面與細節</h2>
+<ul><li><b>畫面美化</b>：底圖遮罩、字級、深淺兩套字色、裝飾卡片深色底，也能寫自訂 CSS。</li><li><b>拍下這一刻</b>：見面時生成一張兩個人的照片，兩張臉一起鎖，收進資料庫；身份卡加了長相。</li><li><b>觀測協議 OBSERVE 回來了</b>：改成開關，只在用內建規則時生效；五種面板樣式、自訂觀測維度都在。以前寫的觀測塊不會再以原文露出來。</li></ul>
+<footer>每一場都有開始，也有結尾。</footer></main></body></html>
