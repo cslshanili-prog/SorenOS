@@ -145,6 +145,8 @@ export interface OSTheme {
   launcherPinwheelOrder?: Array<'music' | 'appsA' | 'appsB' | 'image'>;
   /** 桌面網格（utils/launcherLayout.ts）：存過就照它排；沒有的話由上面幾個舊欄位排出來 */
   launcherLayout?: import('./utils/launcherLayout').LauncherLayout;
+  /** 桌面自訂小組件的模板（utils/customWidget.ts）；放上桌面的每一份記在 launcherLayout 裡 */
+  launcherCustomWidgets?: import('./utils/customWidget').CustomWidgetTemplate[];
   /** 自定義透明圖標是否保留原始輪廓並移除系統圓角底框。默認 false。 */
   preserveCustomIconOutlines?: boolean;
   /** 默認皮膚桌面「正在播放」音樂卡片改用淺色系樣式（新安裝默認 true）。 */

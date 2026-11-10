@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { STORAGE_SHIM } from '../../utils/sandboxShims';
 
 // 預設美化正則產出的 HTML（文字標題、摘要卡片…）放進沙盒 iframe 顯示。
 // sandbox 只給 allow-scripts、不給 allow-same-origin：裡面的腳本是匯入的第三方程式碼，
 // 拿不到 Soren 的資料、IndexedDB、API Key。代價是 localStorage 在不透明來源裡一碰就拋錯，
 // 這裡先塞一個記憶體版的替身（不跨卡片、不保存）。高度由裡面量好 postMessage 回來。
 
-const STORAGE_SHIM = `<script>(function(){function mk(){var d={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(d,k)?d[k]:null},setItem:function(k,v){d[k]=String(v)},removeItem:function(k){delete d[k]},clear:function(){d={}},key:function(i){return Object.keys(d)[i]||null},get length(){return Object.keys(d).length}}}['localStorage','sessionStorage'].forEach(function(n){try{window[n].getItem('__probe')}catch(e){try{Object.defineProperty(window,n,{value:mk(),configurable:true})}catch(_){}}})})();</script>`;
+// localStorage 替身搬到 utils/sandboxShims.ts，桌面自訂小組件也用同一份
 
 // 量的是內容本身多高（body 和各子元素的底），不是 documentElement.scrollHeight——後者至少等於 iframe 自己的高度，
 // 卡片只會長高、縮不回來，矮卡片下面就多一塊空白。
