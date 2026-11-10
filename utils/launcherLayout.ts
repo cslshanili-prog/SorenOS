@@ -43,6 +43,8 @@ export interface LauncherWidgetItem {
     values?: Record<string, string>;
     images?: Record<string, string>;
     charId?: string;
+    /** 小組件自己用 widget.setState 存的（待辦打勾、計數…），只屬於這一份 */
+    state?: Record<string, string>;
 }
 
 export type LauncherItem = LauncherAppItem | LauncherWidgetItem;
@@ -319,7 +321,7 @@ export const removeWidget = (layout: LauncherLayout, itemId: string): LauncherLa
         : page)),
 });
 
-export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame' | 'values' | 'images' | 'charId'>>): LauncherLayout => ({
+export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame' | 'values' | 'images' | 'charId' | 'state'>>): LauncherLayout => ({
     ...layout,
     pages: layout.pages.map(page => (page.items.some(i => i.id === itemId)
         ? { ...page, items: page.items.map(i => (i.id === itemId && i.kind === 'widget' ? { ...i, ...patch } : i)) }

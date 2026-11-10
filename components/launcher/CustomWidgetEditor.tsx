@@ -19,7 +19,7 @@ import CustomWidgetFrame from './CustomWidgetFrame';
 type Tab = 'html' | 'css' | 'images' | 'fields' | 'help';
 
 const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
-    text: '一行字', textarea: '多行字', color: '顏色', select: '選項', number: '數字',
+    text: '一行字', textarea: '多行字', color: '顏色', select: '選項', number: '數字', date: '日期',
 };
 
 const GAP_X = 8;   // 跟桌面網格的 columnGap / rowGap 一樣（0.5rem / 0.75rem）
@@ -232,7 +232,7 @@ const CustomWidgetEditor: React.FC<{
                                             <input value={field.default || ''} onChange={e => patchField(index, { default: e.target.value })} placeholder="預設值（可留空）" className={input} />
                                         </div>
                                     ) : (
-                                        <input value={field.default || ''} onChange={e => patchField(index, { default: e.target.value })} placeholder="預設值（可留空）" aria-label="預設值" className={input} />
+                                        <input type={field.type === 'date' ? 'date' : field.type === 'number' ? 'number' : 'text'} value={field.default || ''} onChange={e => patchField(index, { default: e.target.value })} placeholder="預設值（可留空）" aria-label="預設值" className={input} />
                                     )}
                                 </div>
                                 {field.type === 'select' && (
@@ -263,6 +263,7 @@ const CustomWidgetEditor: React.FC<{
                         <p className="text-[#3f362c]/65">角色資料跟著放上桌面那一份綁的角色；沒綁就是目前的角色。HTML 文字裡的 <code className="font-mono">{'{{time}}'}</code> 會自己走，其他地方是放上去那一刻的值。</p>
                         <p className="text-[#3f362c]/65">可以寫 <code className="font-mono">{'<script>'}</code>，小組件關在沙盒裡跑，讀不到 Soren 的資料。程式裡能用：</p>
                         <pre className="overflow-x-auto rounded-xl bg-[#3f362c]/[0.06] p-3 font-mono text-[11px]">{`await widget.getState('鍵')   // 欄位值，沒填是 null
+await widget.setState('鍵', 值) // 記住（點過之後才存）
 await widget.getAll()         // 全部
 widget.open('chat')           // 打開綁定角色的聊天
 widget.size                   // { w, h } 幾格`}</pre>

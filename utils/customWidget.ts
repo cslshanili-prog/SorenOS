@@ -16,7 +16,7 @@
 import type { WidgetSize } from './launcherLayout';
 import { STORAGE_SHIM } from './sandboxShims';
 
-export type CustomFieldType = 'text' | 'textarea' | 'color' | 'select' | 'number';
+export type CustomFieldType = 'text' | 'textarea' | 'color' | 'select' | 'number' | 'date';
 
 export interface CustomWidgetField {
     key: string;
@@ -122,7 +122,27 @@ export interface WidgetRenderInput {
     now?: Date;
     /** 桌面的字色，當作小組件的預設字色 */
     contentColor?: string;
+    /** 小組件自己用 widget.setState 存的東西（這一份的） */
+    state?: Record<string, string>;
 }
+
+/** widget.setState 的上限：每一份最多幾個鍵、一個值多長、全部加起來多長 */
+export const WIDGET_STATE_LIMITS = { keys: 30, value: 5_000, total: 20_000 };
+
+/** 合併一筆 setState；超過上限回 null（這筆不存） */
+export const applyWidgetState = (current: Record<string, string> | undefined, key: string, value: string | null): Record<string, string> | null => {
+    if (!key || key.length > 40) return null;
+    const next = { ...(current || {}) };
+    if (value === null) delete next[key];
+    else {
+        if (value.length > WIDGET_STATE_LIMITS.value) return null;
+        next[key] = value;
+    }
+    const keys = Object.keys(next);
+    if (keys.length > WIDGET_STATE_LIMITS.keys) return null;
+    if (keys.reduce((n, k) => n + k.length + next[k].length, 0) > WIDGET_STATE_LIMITS.total) return null;
+    return next;
+};
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
@@ -214,8 +234,9 @@ export const fillCss = (css: string, values: Record<string, string | null>) => f
 const jsonForScript = (value: unknown) => JSON.stringify(value)
     .replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
-// iframe 裡最先跑的：提供 widget 物件（跟匯入格式一樣是 async 的 getState）
-const bootScript = (state: Record<string, string | null>, size: WidgetSize) => `<script>(function(){var S=${jsonForScript(state)};function post(m){try{parent.postMessage(m,'*')}catch(e){}}window.widget={getState:function(k){return Promise.resolve(Object.prototype.hasOwnProperty.call(S,k)?S[k]:null)},getAll:function(){var o={};for(var k in S)o[k]=S[k];return Promise.resolve(o)},open:function(t){post({sorenWidget:'open',target:String(t||'')})},size:${jsonForScript(size)}}})();</script>`;
+// iframe 裡最先跑的：提供 widget 物件（跟匯入格式一樣是 async 的 getState）。
+// T 是小組件自己 setState 存的，getState 先看它、再看欄位和佔位符；改了先記在 iframe 裡，再告訴外面去存
+const bootScript = (values: Record<string, string | null>, state: Record<string, string>, size: WidgetSize) => `<script>(function(){var S=${jsonForScript(values)},T=${jsonForScript(state)},H=Object.prototype.hasOwnProperty;function post(m){try{parent.postMessage(m,'*')}catch(e){}}window.widget={getState:function(k){k=String(k);return Promise.resolve(H.call(T,k)?T[k]:H.call(S,k)?S[k]:null)},setState:function(k,v){k=String(k);if(!k||k.length>40)return Promise.resolve(false);var s=v===null||v===undefined?null:typeof v==='string'?v:JSON.stringify(v);if(s!==null&&s.length>${WIDGET_STATE_LIMITS.value})return Promise.resolve(false);if(s===null)delete T[k];else T[k]=s;post({sorenWidget:'state',key:k,value:s});return Promise.resolve(true)},getAll:function(){var o={},k;for(k in S)o[k]=S[k];for(k in T)o[k]=T[k];return Promise.resolve(o)},open:function(t){post({sorenWidget:'open',target:String(t||'')})},size:${jsonForScript({ w: size.w, h: size.h })}}})();</script>`;
 
 // 最後跑的：會走的時間、轉進來的點擊、data-open、擋連結跳轉、回報毛玻璃（iframe 裡的 backdrop-filter 模糊不到桌布，交給外層做）
 const TAIL_SCRIPT = `<script>(function(){function post(m){try{parent.postMessage(m,'*')}catch(e){}}
@@ -235,7 +256,7 @@ export const buildWidgetSrcDoc = (input: WidgetRenderInput): string => {
     const color = /^[#\w(),.%\s-]+$/.test(input.contentColor || '') ? input.contentColor : '#ffffff';
     const head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
         + `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;color:${color};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;}</style>`
-        + STORAGE_SHIM + bootScript(values, input.size)
+        + STORAGE_SHIM + bootScript(values, input.state || {}, input.size)
         + `<style>${fillCss(input.template.css || '', values).replace(/<\/style/gi, '<\\/style')}</style>`;
     const body = fillHtml(input.template.html || '', values);
     const trimmed = body.trim();
@@ -254,7 +275,7 @@ export const WIDGET_FILE_TYPE = 'custom_widget_template';
 export const WIDGET_FILE_EXT = '.widget.json';
 
 const LIMITS = { html: 300_000, css: 200_000, fields: 40, images: 20, options: 50, label: 60, value: 2_000 };
-const FIELD_TYPES: CustomFieldType[] = ['text', 'textarea', 'color', 'select', 'number'];
+const FIELD_TYPES: CustomFieldType[] = ['text', 'textarea', 'color', 'select', 'number', 'date'];
 
 export type ParsedWidgetFile = {
     template: Omit<CustomWidgetTemplate, 'id' | 'createdAt' | 'updatedAt' | 'images'>;

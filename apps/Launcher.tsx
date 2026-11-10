@@ -32,7 +32,8 @@ import { shareOrDownloadFile } from '../utils/shareExport';
 import { safeShareFileName } from '../utils/pngShare';
 import CustomWidgetFrame from '../components/launcher/CustomWidgetFrame';
 import CustomWidgetSettings from '../components/launcher/CustomWidgetSettings';
-import CustomWidgetEditor from '../components/launcher/CustomWidgetEditor';
+import CustomWidgetEditor, { pixelSize } from '../components/launcher/CustomWidgetEditor';
+import { WIDGET_STARTERS, instantiateStarter, type WidgetStarter } from '../utils/widgetStarters';
 
 const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'));
 
@@ -1030,7 +1031,17 @@ const Launcher: React.FC = () => {
       const pageIndex = result.layout.pages.findIndex(p => p.id === result.pageId);
       if (pageIndex >= 0 && pageIndex !== activePageIndexRef.current) scrollToPage(pageIndex);
       trackEvent('桌面新增小组件', { 类型: 'custom', 尺寸: sizeLabel(size) });
+      return result.item;
   };
+  /** 用範本：複製一份成自己的模板、放上桌面；要填東西才好看的（日子、照片）順手打開這一份的設定 */
+  const applyStarter = (starter: WidgetStarter) => {
+      const template = instantiateStarter(starter, makeTemplateId());
+      const item = placeCustomWidget(template, { launcherCustomWidgets: [...customTemplates, template] });
+      trackEvent('使用桌面小组件范本', { 范本: starter.id });
+      if (starter.needsSetup) setSettingsItemId(item.id);
+  };
+  // 範本預覽用的模板（固定 id，不存）
+  const starterPreviews = useMemo(() => WIDGET_STARTERS.map(starter => ({ starter, template: instantiateStarter(starter, `starter_${starter.id}`, 0) })), []);
   const saveTemplate = (template: CustomWidgetTemplate) => {
       const exists = customTemplates.some(t => t.id === template.id);
       const next = exists ? customTemplates.map(t => (t.id === template.id ? template : t)) : [...customTemplates, template];
@@ -1182,6 +1193,8 @@ const Launcher: React.FC = () => {
                     contentColor={contentColor}
                     interactive={!layoutEditing}
                     onOpen={target => handleCustomOpen(target, char)}
+                    state={item.state}
+                    onStateChange={next => commitLayout(patchWidget(layoutRef.current, item.id, { state: next }))}
                   />
               );
           }
@@ -1245,7 +1258,7 @@ const Launcher: React.FC = () => {
       {layoutEditing && (
           <div className="absolute top-[calc(var(--safe-top)+0.65rem)] left-3 right-3 z-50 flex items-center gap-1.5 rounded-full px-2.5 py-1.5" style={editBar} data-launcher-control>
               <span className="min-w-0 flex-1 truncate pl-1 text-[10px] font-semibold tracking-wide">拖到空格放下，一樣大的會交換</span>
-              <button onClick={() => setAddSheetOpen(true)} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">＋小組件</button>
+              <button onClick={() => { measureGridCell(); setAddSheetOpen(true); }} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">＋小組件</button>
               <button onClick={handleAddPage} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white/15 active:scale-95">＋頁面</button>
               <button onClick={finishLayoutEditing} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-white text-[#4b4136] active:scale-95">完成</button>
           </div>
@@ -1412,7 +1425,32 @@ const Launcher: React.FC = () => {
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#3f362c]/15" />
                   <h3 className="text-[15px] font-bold">加一個小組件</h3>
                   <p className="mt-0.5 text-[11px] text-[#3f362c]/55">選尺寸（寬×高）就放上目前這一頁；放不下會放到後面有空的頁。</p>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 text-[11px] font-bold text-[#3f362c]/55">不知道放什麼？從範本開始</div>
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                      {starterPreviews.map(({ starter, template }) => {
+                          const real = pixelSize(template, gridCell);
+                          const scale = Math.min(1, 132 / real.width, 92 / real.height);
+                          return (
+                              <div key={starter.id} className="flex flex-col rounded-2xl bg-[#3f362c]/[0.04] p-2">
+                                  <div className="grid h-[100px] place-items-center overflow-hidden rounded-xl" style={{ background: 'linear-gradient(135deg,#8a9bb0,#c3a6a0 55%,#e6d3b8)' }} aria-hidden="true">
+                                      <div style={{ width: real.width * scale, height: real.height * scale }}>
+                                          <div style={{ width: real.width, height: real.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                                              <CustomWidgetFrame template={template} size={template} char={widgetChar} userName={userProfile?.name} contentColor={contentColor} interactive={false} />
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <div className="mt-1.5 flex items-baseline justify-between gap-1 px-0.5">
+                                      <span className="truncate text-[12px] font-bold">{starter.name}</span>
+                                      <span className="shrink-0 text-[10px] tabular-nums text-[#3f362c]/45">{sizeLabel(template)}</span>
+                                  </div>
+                                  <p className="mb-1.5 mt-0.5 line-clamp-2 px-0.5 text-[10px] leading-snug text-[#3f362c]/55">{starter.description}</p>
+                                  <button type="button" onClick={() => applyStarter(starter)} className="mt-auto rounded-full bg-[#4b4136] py-1 text-[11px] font-bold text-white active:scale-95">用這個</button>
+                              </div>
+                          );
+                      })}
+                  </div>
+                  <div className="mt-5 text-[11px] font-bold text-[#3f362c]/55">內建</div>
+                  <div className="mt-1.5 space-y-3">
                       {(Object.keys(BUILTIN_WIDGETS) as BuiltinWidgetType[]).map(type => {
                           const spec = BUILTIN_WIDGETS[type];
                           const taken = !spec.multiple && hasWidget(layout, type);
@@ -1442,9 +1480,10 @@ const Launcher: React.FC = () => {
                       </div>
                   </div>
                   <p className="mt-0.5 text-[11px] text-[#3f362c]/55">自己寫 HTML／CSS，或匯入 <code className="font-mono">{WIDGET_FILE_EXT}</code> 小組件檔。</p>
-                  <div className="mt-2.5 space-y-2">
+                  <div className="mt-4 text-[11px] font-bold text-[#3f362c]/55">我的小組件</div>
+                  <div className="mt-1.5 space-y-2">
                       {customTemplates.length === 0 && (
-                          <div className="rounded-2xl border border-dashed border-[#3f362c]/20 px-3.5 py-4 text-center text-[11px] text-[#3f362c]/45">還沒有自訂小組件</div>
+                          <div className="rounded-2xl border border-dashed border-[#3f362c]/20 px-3.5 py-4 text-center text-[11px] text-[#3f362c]/45">還沒有自己的。用上面的範本，或按「＋新建」</div>
                       )}
                       {customTemplates.map(template => {
                           const used = countCustomWidgetsOf(layout, template.id);
