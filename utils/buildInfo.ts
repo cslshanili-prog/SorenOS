@@ -13,11 +13,16 @@ export const BUILD_LABEL = `${__BUILD_BRANCH__}@${__BUILD_COMMIT__}`;
 /** 構建時間標籤，固定由 Vite 按 UTC+8 注入，避免受用戶本機時區影響。 */
 export const BUILD_TIME_LABEL = __BUILD_TIME__;
 
-/** 設置頁底部的產品版本名（手工維護），跟構建 hash 是兩碼事——發版前改這裡。 */
-export const APP_VERSION = 'v3.10 (SAR)';
+/**
+ * 設置頁底部的產品版本名（手工維護），跟構建 hash 是兩碼事——發版前改這裡。
+ *
+ * Soren 自己一條線，S 開頭（2026-11-10 起，之前是上游的 v3.10）：大功能才升小版本（S1.1、S1.2…），
+ * 底層大翻修才升 S2.0。不接上游的 v3.x，免得兩邊放一起比對不上。
+ */
+export const APP_VERSION = 'S1.0 (First Light)';
 
 /**
- * 版本號那半截（`v3.0`）。統計給每條記錄打的標籤用它，面板裡按版本切分數據時
+ * 版本號那半截（`S1.0`）。統計給每條記錄打的標籤用它，面板裡按版本切分數據時
  * 標籤越短越好篩，代號留給設置頁展示。跟著 APP_VERSION 走，改一處就夠。
  */
 export const APP_VERSION_TAG = APP_VERSION.split(' ')[0];

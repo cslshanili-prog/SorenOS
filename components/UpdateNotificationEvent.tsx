@@ -619,7 +619,7 @@ const SorenUpdatePopup: React.FC<UpdatePopupProps> = ({ onDone, onExit }) => {
                 <div className="relative overflow-hidden bg-[#2f3529] px-6 pb-7 pt-6 text-white">
                     <div className="pointer-events-none absolute right-[-4rem] top-[-5rem] h-48 w-48 rounded-full border-[28px] border-[#a9bb84]/20" aria-hidden="true" />
                     <div className="soren-update-reveal relative flex items-center justify-between">
-                        <p className="text-[9px] font-bold tracking-[.3em] text-[#c3d1a3]">SOREN · 2026.09 – 11</p>
+                        <p className="text-[9px] font-bold tracking-[.3em] text-[#c3d1a3]">SOREN S1.0 · FIRST LIGHT</p>
                         <span className="rounded-full border border-[#c3d1a3]/40 px-2.5 py-1 text-[9px] font-bold tracking-[.12em] text-[#dfe8c8]">NEW</span>
                     </div>
                     <div className="soren-update-reveal relative mt-8 max-w-[17rem]" style={{ animationDelay: '90ms' }}>
