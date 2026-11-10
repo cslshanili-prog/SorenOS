@@ -1,6 +1,6 @@
 # 桌面網格與小組件
 
-> 狀態：兩批都做完（2026-11-10）。第 1 批：統一網格、自由拖放與跨頁、加頁刪頁、內建小組件可增刪換尺寸、圖片小組件不再有白框。第 2 批：自訂小組件（HTML／CSS／圖片／欄位／綁角色）、沙盒 iframe、匯入匯出 `.widget.json`。
+> 狀態：三批都做完（2026-11-10）。第 1 批：統一網格、自由拖放與跨頁、加頁刪頁、內建小組件可增刪換尺寸、圖片小組件不再有白框。第 2 批：自訂小組件（HTML／CSS／圖片／欄位／綁角色）、沙盒 iframe、匯入匯出 `.widget.json`。第 3 批：`widget.setState`、日期欄位、七個內建範本。
 > 提議來自 Liora（2026-11-10）：桌面 app 位置太死（第 1、2 頁寫死，第 3 頁以後只有兩排），小組件只有外觀訂製裡三個圖片位，去背 PNG 還有白框。
 
 ## 已定案
@@ -77,7 +77,7 @@ type LauncherItem =
 **沙盒**
 - `sandbox="allow-scripts"`，不給 same-origin、top-navigation、popups：讀不到 Soren 的資料、跳不走頁面。localStorage 用 `utils/sandboxShims.ts` 的記憶體替身（見面裝飾卡片也搬過來共用）
 - 沙盒讀不到 Soren 的 blob，圖片（模板的、這一份的、角色頭像）先轉成 data URL 再填進去；編輯器和設定頁上傳的圖壓到 1000px 寬
-- iframe 裡先跑的腳本提供 `widget`：`getState(key)`（async，跟匯入格式一樣，沒值回 `null`）、`getAll()`、`open(target)`、`size`
+- iframe 裡先跑的腳本提供 `widget`：`getState(key)`（async，跟匯入格式一樣，沒值回 `null`）、`setState(key, value)`（第 3 批）、`getAll()`、`open(target)`、`size`（只有 `{ w, h }`）
 - **iframe 不吃指標事件**：桌面照常滑頁、長按整理、拖動。不在整理中時上面蓋一層透明的，點一下把座標 postMessage 進去，裡面 `elementFromPoint` 派一個 click，碰到 `data-open` 就回報。所以只有「點一下」：小組件裡的拖曳、捲動、輸入框不會動
 - `data-open="chat"` 或 `widget.open('chat')` 打開綁定角色的聊天；填 App 代號（`constants.tsx` 的 id）就開那個 App，其他值不理。只認點完 1.5 秒內的，程式不能一載入就把人帶走
 - 連結點了不跳（攔掉 `a[href]` 的 click）。遠端圖片、字型還是載得到，跟見面的裝飾卡片一樣
@@ -88,10 +88,35 @@ type LauncherItem =
 - 匯出：`buildWidgetFile`，`type: custom_widget_template`、`version: 2`；尺寸剛好是 2×2／4×2／4×4 寫 small／medium／large，其他寫 `"1x2"`。模板自帶的圖轉成 data URL 放在 `images`（鍵 → data URL，範例格式沒有這欄，別的 app 不認也不影響）；每一份自己換的圖不帶
 - 欄位多帶一個 `default`（範例格式沒有，讀的時候也收 `defaultValue`）
 
+## 第 3 批：小組件自己存東西＋內建範本
+
+**`widget.setState(key, value)`**
+- 存在這一份格子的 `state`（`launcherLayout` 裡，跟 `values` 分開：`values` 是用戶在設定裡填的，`state` 是小組件自己點出來的）。`getState` 先看 `state` 再看欄位和佔位符
+- 值一律存成字串（不是字串的先 `JSON.stringify`），`null` 是刪掉。上限 `WIDGET_STATE_LIMITS`：30 個鍵、一個值 5000 字、全部 2 萬字，超過的那筆不存（`applyWidgetState`）
+- **只認點完 5 秒內的**：不然一個每秒存一次的小組件會一直寫主題。iframe 裡先記著，外面停 0.6 秒才一起存回去；存的東西不在 srcdoc 的依賴裡，存一次不會重載 iframe
+- 設定裡有「小組件記住的東西 → 清除」，清掉會重載那一份
+- 匯出不帶 `state`，備份會帶（跟著 `launcherLayout`）
+
+**日期欄位**：`type: 'date'`，值是 `YYYY-MM-DD`，設定裡是原生日期選擇器。
+
+**內建範本**（`utils/widgetStarters.ts`）：「＋小組件」最上面一塊「不知道放什麼？從範本開始」，每個有即時預覽。「用這個」複製一份成自己的模板（新 id，之後照樣編輯、匯出、刪除，不影響範本）並放上桌面；要先填才好看的（在一起的天數、拍立得）順手打開這一份的設定。
+
+| 範本 | 尺寸 | 用到的東西 |
+|---|---|---|
+| 倒數日 | 2×2 | 日期欄位、getState |
+| 在一起的天數 | 4×1 | `{{char.avatar}}`、日期欄位、`data-open="chat"` |
+| 角色近況 | 4×2 | `{{char}}`、`{{char.mood}}`、`{{char.lastMessage}}`、`{{char.unread}}`、`data-open` |
+| 拍立得 | 2×2 | 三個圖片鍵、點一下換下一張（setState 記第幾張） |
+| 今日待辦 | 2×2 | 多行字欄位、點一下打勾（setState，可每天重來） |
+| 喝水計數 | 2×2 | 數字欄位、點一下加一、右上「−」減一（setState，每天歸零） |
+| 便條紙 | 2×2 | 多行字、選項欄位放在屬性裡配 CSS 選擇器，沒有程式 |
+
+寫範本要注意：字級用 `vmin`（4×1 這種扁的用 `vh`），換尺寸才會跟著縮放；最外層蓋滿整格，毛玻璃才會交給外層代套；**程式裡別直接寫 `{{…}}`**，會先被填成值（「在一起的天數」把 `{{char}}` 拆開寫就是這個原因）。範本的欄位鍵不能撞內建佔位符（`date` 就撞了，倒數日用 `day`），測試會擋。
+
 ### 還沒做的
 
-- 小組件自己存狀態（`widget.setState`）：會讓每一點都重寫一次主題，等真的有人要做待辦清單再說
-- 欄位類型只有一行字、多行字、顏色、選項、數字
+- 欄位類型：開關、檔案
+- 範本只有七個；之後想加，照上面的注意事項寫進 `WIDGET_STARTERS`，`widgetStarters.test.ts` 會檢查鍵、尺寸、選項
 
 ### 要相容的匯入格式（Liora 給的範例）
 

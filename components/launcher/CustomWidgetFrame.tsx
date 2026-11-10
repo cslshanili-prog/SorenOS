@@ -3,7 +3,7 @@ import type { CharacterProfile } from '../../types';
 import { DB } from '../../utils/db';
 import { resolveRefToDataUrl } from '../../utils/blobRef';
 import { isChatPreviewMessage } from '../../utils/chatMessageVisibility';
-import { buildWidgetSrcDoc, type CustomWidgetTemplate, type WidgetCharInfo } from '../../utils/customWidget';
+import { applyWidgetState, buildWidgetSrcDoc, type CustomWidgetTemplate, type WidgetCharInfo } from '../../utils/customWidget';
 import type { WidgetSize } from '../../utils/launcherLayout';
 
 /**
@@ -12,6 +12,8 @@ import type { WidgetSize } from '../../utils/launcherLayout';
  * iframe 本身 pointer-events: none：手指落在小組件上，桌面照常滑頁、長按整理；
  * 不在整理中時，上面蓋一層透明的接住「點一下」，把座標轉進 iframe（裡面找到那個元素派 click、看 data-open）。
  * 裡面要打開 App 只認點完 1.5 秒內的，程式不能自己一載入就把人帶走。
+ * widget.setState 只認點完 5 秒內的（不然一個每秒存一次的小組件就會一直寫主題），停一下才一起存回去；
+ * 存的東西不進 srcdoc 的依賴，存一次不會重載 iframe（iframe 裡自己已經記著了）。
  *
  * 圖片在沙盒裡讀不到 Soren 的 blob，一律先轉成 data URL 再填進去。
  */
@@ -53,15 +55,39 @@ export interface CustomWidgetFrameProps {
     /** false：不接點擊（整理中、編輯器預覽） */
     interactive?: boolean;
     onOpen?: (target: string) => void;
+    /** 這一份 widget.setState 存的東西 */
+    state?: Record<string, string>;
+    /** 沒給就只記在 iframe 裡（編輯器預覽） */
+    onStateChange?: (state: Record<string, string> | undefined) => void;
 }
 
 const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
     template, size, values, images, char, unread = 0, lastMsgTimestamp, userName, contentColor, interactive = true, onOpen,
+    state, onStateChange,
 }) => {
     const frameRef = useRef<HTMLIFrameElement>(null);
     const lastTapAt = useRef(0);
+    const lastGestureAt = useRef(0);
     const onOpenRef = useRef(onOpen);
     onOpenRef.current = onOpen;
+    const onStateRef = useRef(onStateChange);
+    onStateRef.current = onStateChange;
+    // 最新的狀態（含還沒存回去的）；srcdoc 因為別的原因重組時拿它，不用等存完
+    const stateRef = useRef<Record<string, string> | undefined>(state);
+    const pendingState = useRef<Record<string, string> | undefined | null>(null);
+    const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [resetCount, setResetCount] = useState(0);
+    useEffect(() => {
+        if (pendingState.current !== null) return;
+        const hadState = !!stateRef.current && Object.keys(stateRef.current).length > 0;
+        stateRef.current = state;
+        // 外面把它清掉了（設定裡的「清除」）：iframe 裡還記著舊的，重載一次
+        if (hadState && (!state || !Object.keys(state).length)) setResetCount(c => c + 1);
+    }, [state]);
+    useEffect(() => () => {
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        if (pendingState.current !== null) onStateRef.current?.(pendingState.current || undefined);
+    }, []);
     const [imageUrls, setImageUrls] = useState<Record<string, string> | null>(null);
     const [avatarUrl, setAvatarUrl] = useState('');
     const [lastMessage, setLastMessage] = useState('');
@@ -98,7 +124,8 @@ const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
     const charKey = charInfo ? JSON.stringify(charInfo) : '';
     const srcDoc = useMemo(() => (imageUrls ? buildWidgetSrcDoc({
         template, values, imageUrls, userName, char: charInfo, size, contentColor,
-    }) : ''), [template, values, imageUrls, userName, charKey, size.w, size.h, contentColor]); // eslint-disable-line react-hooks/exhaustive-deps
+        state: stateRef.current,
+    }) : ''), [template, values, imageUrls, userName, charKey, size.w, size.h, contentColor, resetCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
@@ -112,6 +139,24 @@ const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
                 setBackdrop(filter && /^[\w\s().,%-]+$/.test(filter)
                     ? { filter, radius: typeof value.radius === 'string' && /^[\d\s.%px]+$/.test(value.radius) ? value.radius : '0px' }
                     : null);
+            } else if (data.sorenWidget === 'state') {
+                if (!onStateRef.current || Date.now() - lastGestureAt.current > 5000) return;
+                const key = typeof data.key === 'string' ? data.key : '';
+                const value = typeof data.value === 'string' ? data.value : data.value === null ? null : undefined;
+                if (value === undefined) return;
+                const base = pendingState.current !== null ? pendingState.current : stateRef.current;
+                const next = applyWidgetState(base, key, value);
+                if (!next) return;
+                const cleaned = Object.keys(next).length ? next : undefined;
+                pendingState.current = cleaned;
+                stateRef.current = cleaned;
+                if (saveTimer.current) clearTimeout(saveTimer.current);
+                saveTimer.current = setTimeout(() => {
+                    const toSave = pendingState.current;
+                    pendingState.current = null;
+                    saveTimer.current = null;
+                    if (toSave !== null) onStateRef.current?.(toSave || undefined);
+                }, 600);
             } else if (data.sorenWidget === 'open') {
                 if (Date.now() - lastTapAt.current > 1500) return;
                 lastTapAt.current = 0;
@@ -128,6 +173,7 @@ const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
         if (!frame?.contentWindow) return;
         const rect = frame.getBoundingClientRect();
         lastTapAt.current = Date.now();
+        lastGestureAt.current = Date.now();
         frame.contentWindow.postMessage({ sorenWidget: 'tap', x: event.clientX - rect.left, y: event.clientY - rect.top }, '*');
     };
 

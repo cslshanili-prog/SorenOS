@@ -11,7 +11,7 @@ import { sizeLabel, type LauncherWidgetItem, type WidgetSize } from '../../utils
  * 欄位跟圖都只改這一份，模板（還有桌面上其他份）不受影響；改模板走「編輯模板」。
  */
 
-type Patch = Partial<Pick<LauncherWidgetItem, 'values' | 'images' | 'charId'>>;
+type Patch = Partial<Pick<LauncherWidgetItem, 'values' | 'images' | 'charId' | 'state'>>;
 
 /** 打字的欄位：先存在這裡，停一下（或離開輸入框）才寫回去，不然每個字都重載一次小組件 */
 const TextValue: React.FC<{ field: CustomWidgetField; value: string; multiline?: boolean; onCommit: (value: string) => void }> = ({ field, value, multiline, onCommit }) => {
@@ -34,7 +34,7 @@ const TextValue: React.FC<{ field: CustomWidgetField; value: string; multiline?:
     };
     return multiline
         ? <textarea {...common} rows={3} onChange={e => setText(e.target.value.slice(0, 2000))} />
-        : <input {...common} type={field.type === 'number' ? 'number' : 'text'} onChange={e => setText(e.target.value.slice(0, 2000))} />;
+        : <input {...common} type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'} onChange={e => setText(e.target.value.slice(0, 2000))} />;
 };
 
 const CustomWidgetSettings: React.FC<{
@@ -161,6 +161,17 @@ const CustomWidgetSettings: React.FC<{
                             );
                         })}
                         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={pickImage} />
+                    </div>
+                )}
+
+                {item.state && Object.keys(item.state).length > 0 && (
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#3f362c]/[0.04] px-3 py-2.5">
+                        <span className="min-w-0">
+                            <span className="block text-[12px] font-bold">小組件記住的東西</span>
+                            <span className="block text-[10px] text-[#3f362c]/50">打勾、計數這類點出來的，清掉就從頭開始</span>
+                        </span>
+                        <button type="button" onClick={() => { if (window.confirm('清掉這一份記住的東西？')) onPatch({ state: undefined }); }}
+                            className="shrink-0 rounded-full bg-white px-3 py-1 text-[11px] font-bold text-red-500 shadow-sm">清除</button>
                     </div>
                 )}
 
