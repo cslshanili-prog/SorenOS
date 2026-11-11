@@ -70,7 +70,7 @@ export const BUILTIN_WIDGETS: Record<BuiltinWidgetType, { name: string; sizes: W
     schedule: { name: '角色日程', sizes: [{ w: 4, h: 2 }, { w: 4, h: 3 }], multiple: false },
     music: { name: '正在播放', sizes: [{ w: 2, h: 2 }], multiple: false },
     image: { name: '圖片', sizes: [{ w: 2, h: 2 }, { w: 1, h: 1 }, { w: 1, h: 2 }, { w: 2, h: 1 }, { w: 4, h: 1 }, { w: 4, h: 2 }, { w: 4, h: 3 }, { w: 4, h: 4 }], multiple: true },
-    calendar: { name: '月曆', sizes: [{ w: 4, h: 3 }, { w: 4, h: 4 }], multiple: false },
+    calendar: { name: '月曆', sizes: [{ w: 4, h: 3 }, { w: 4, h: 4 }, { w: 4, h: 1 }, { w: 2, h: 2 }], multiple: false },
     events: { name: '紀念日', sizes: [{ w: 4, h: 3 }, { w: 4, h: 2 }, { w: 4, h: 4 }], multiple: false },
 };
 

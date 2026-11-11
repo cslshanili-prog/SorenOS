@@ -1,16 +1,17 @@
 /**
  * 自訂小組件的內建範本（plans/desktop-grid-widgets.md 第 3 批）。
  *
- * 給一打開「＋小組件」還沒想法的人：挑一個「用這個」，就複製一份到自己的模板（之後可以照樣編輯、匯出），
- * 順手放上桌面。範本本身不存進主題，改的都是複製出來那一份。
+ * 給一打開「＋小組件」還沒想法的人：挑一個「用這個」放上桌面，那一份直接指著範本（見文末）。
  *
  * 每個範本都只用 customWidget.ts 公開的東西：佔位符、widget.getState / setState、data-open，
- * 剛好也是寫小組件的示範。字級用 vmin，換尺寸會跟著縮放；最外層蓋滿整格，毛玻璃交給外層代套。
+ * 剛好也是寫小組件的示範。每個範本列出排得好看的尺寸（sizes），用 iframe 裡的 media query 依寬高比換版型；
+ * 有卡片底的共用「背景」欄位（淺色毛玻璃／深色毛玻璃／透明／底圖）。最外層蓋滿整格，毛玻璃交給外層代套。
  */
 
-import type { CustomWidgetTemplate } from './customWidget';
+import type { CustomWidgetField, CustomWidgetTemplate } from './customWidget';
+import type { WidgetSize } from './launcherLayout';
 
-export type WidgetStarterId = 'countdown' | 'together' | 'charNote' | 'polaroid' | 'todo' | 'water' | 'sticky';
+export type WidgetStarterId = 'countdown' | 'together' | 'charNote' | 'polaroid' | 'todo' | 'water' | 'sticky' | 'typewriter';
 
 export interface WidgetStarter {
     id: WidgetStarterId;
@@ -22,7 +23,17 @@ export interface WidgetStarter {
     template: Omit<CustomWidgetTemplate, 'id' | 'createdAt' | 'updatedAt'>;
 }
 
-// 共用的卡片底：淺色毛玻璃、深色字，桌布深淺都看得清楚
+// ─── 共用的底：淺色毛玻璃／深色毛玻璃／透明／底圖 ─────────────────────────
+// 卡片外層寫 data-bg="{{bg}}"、style="--bg-img:url('{{底圖}}')"，CSS 依 data-bg 換底和字色。
+// 字色一律用 var(--ink)，次要的字用 opacity 調淡；卡片裡的小底塊用 var(--surface)。
+// 透明的字色跟桌面的字色走（--soren-content-color，customWidget.ts 放進每個小組件）。
+
+const BG_FIELD: CustomWidgetField = { key: 'bg', label: '背景（選「底圖」記得在下面放圖）', type: 'select', options: ['淺色毛玻璃', '深色毛玻璃', '透明', '底圖'], default: '淺色毛玻璃' };
+const bgField = (defaultValue = '淺色毛玻璃'): CustomWidgetField => ({ ...BG_FIELD, options: [...BG_FIELD.options!], default: defaultValue });
+/** 底圖的圖片鍵（中文鍵：放上桌面後設定裡直接看得懂） */
+const BG_IMAGE = '底圖';
+const CARD_ATTRS = `data-bg="{{bg}}" style="--bg-img:url('{{${BG_IMAGE}}}')"`;
+
 const CARD = `.card {
   position: relative;
   box-sizing: border-box;
@@ -30,14 +41,30 @@ const CARD = `.card {
   height: 100%;
   overflow: hidden;
   border-radius: min(22px, 9vmin);
+  --ink: #2f2a25;
+  --surface: rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  color: #2f2a25;
+  color: var(--ink);
   font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
-}`;
+}
+.card[data-bg="深色毛玻璃"] { --ink: #fbf7f2; --surface: rgba(255, 255, 255, 0.12); background: rgba(24, 20, 28, 0.42); }
+.card[data-bg="透明"] { --ink: var(--soren-content-color, #fff); --surface: rgba(255, 255, 255, 0.14); background: transparent; backdrop-filter: none; -webkit-backdrop-filter: none; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22); }
+.card[data-bg="底圖"] { --ink: #fff; --surface: rgba(0, 0, 0, 0.28); background: var(--bg-img) center / cover no-repeat rgba(0, 0, 0, 0.18); backdrop-filter: none; -webkit-backdrop-filter: none; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
+.card[data-bg="底圖"]::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3)); pointer-events: none; }
+.card > * { position: relative; }`;
 
 const ymd = 'const ymd = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");';
+const size = (w: number, h: number): WidgetSize => ({ w, h });
+
+// 版型斷點（iframe 裡的 media query 量的是這一格自己）：
+//   扁長（4×1，寬高比約 3.8）：(min-aspect-ratio: 5/2)
+//   橫的（2×1、4×2，約 1.8）：(min-aspect-ratio: 3/2) and (max-aspect-ratio: 5/2)
+//   方的（2×2、4×3、4×4，1.2 以下）：預設
+const WIDE = '@media (min-aspect-ratio: 5/2)';
+const LANDSCAPE = '@media (min-aspect-ratio: 3/2) and (max-aspect-ratio: 5/2)';
+const SQUAREISH = '@media (max-aspect-ratio: 3/2)';
 
 export const WIDGET_STARTERS: WidgetStarter[] = [
     {
@@ -47,16 +74,20 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
         template: {
             name: '倒數日',
             w: 2, h: 2,
-            imageKeys: [], images: {},
+            sizes: [size(2, 2), size(2, 1), size(4, 1), size(4, 2)],
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'title', label: '標題', type: 'text', default: '距離聖誕節' },
                 { key: 'day', label: '日子', type: 'date', default: '2026-12-25' },
                 { key: 'accent', label: '數字顏色', type: 'color', default: '#d9776a' },
+                bgField(),
             ],
-            html: `<div class="card cd">
-  <div class="title">{{title}}</div>
-  <div class="num"><span id="n">–</span><small id="unit">天</small></div>
-  <div class="sub" id="sub"></div>
+            html: `<div class="card cd" ${CARD_ATTRS}>
+  <div class="text">
+    <div class="title">{{title}}</div>
+    <div class="sub" id="sub"></div>
+  </div>
+  <div class="num"><span id="n">–</span><small>天</small></div>
 </div>
 <script>
 (async () => {
@@ -77,11 +108,25 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
 })();
 </script>`,
             css: `${CARD}
-.cd { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 8vmin; }
-.title { font-size: 9vmin; font-weight: 700; opacity: 0.7; }
-.num { margin: 3vmin 0 2vmin; color: {{accent}}; font-size: 34vmin; font-weight: 800; line-height: 1; letter-spacing: -1px; }
+.cd { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 8vmin; gap: 2vmin; }
+.cd .text { display: contents; }
+.title { order: 1; font-size: 9vmin; font-weight: 700; opacity: 0.7; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.num { order: 2; color: {{accent}}; font-size: 34vmin; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 .num small { margin-left: 1vmin; font-size: 9vmin; font-weight: 700; }
-.sub { font-size: 7vmin; opacity: 0.55; letter-spacing: 0.5px; }`,
+.sub { order: 3; font-size: 7vmin; opacity: 0.55; letter-spacing: 0.5px; }
+/* 橫的、扁長：左邊標題和日子，右邊大數字 */
+@media (min-aspect-ratio: 3/2) {
+  .cd { flex-direction: row; justify-content: space-between; text-align: left; padding: 0 7vw; gap: 4vw; }
+  .cd .text { display: flex; flex-direction: column; gap: 4vh; min-width: 0; }
+  .title { font-size: 13vh; }
+  .sub { font-size: 10vh; white-space: nowrap; }
+  .num { font-size: 46vh; flex-shrink: 0; }
+  .num small { font-size: 13vh; }
+}
+${WIDE} {
+  .title { font-size: 19vh; }
+  .num { font-size: 64vh; }
+}`,
         },
     },
     {
@@ -92,25 +137,27 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
         template: {
             name: '在一起的天數',
             w: 4, h: 1,
-            imageKeys: [], images: {},
+            sizes: [size(4, 1), size(4, 2), size(2, 2)],
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'start', label: '從哪天開始', type: 'date' },
                 { key: 'words', label: '前面那句', type: 'text', default: '和 {{char}} 在一起的' },
                 { key: 'accent', label: '天數顏色', type: 'color', default: '#c9708a' },
+                bgField(),
             ],
-            html: `<div class="card tg" data-open="chat">
+            html: `<div class="card tg" ${CARD_ATTRS} data-open="chat">
   <img class="avatar" src="{{char.avatar}}" alt="">
   <div class="text">
     <div class="words" id="words"></div>
-    <div class="days"><span id="days">第 ? 天</span></div>
+    <div class="days" id="days">第 ? 天</div>
   </div>
   <div class="heart">♡</div>
 </div>
 <script>
 (async () => {
-  const name = await widget.getState('char');
   // 欄位裡的 {{char}} 換成名字（程式裡的佔位符會先被填掉，所以拆開寫）
   const mark = '{' + '{char}' + '}';
+  const name = await widget.getState('char');
   const words = (await widget.getState('words')) || '和 ' + mark + ' 在一起的';
   document.getElementById('words').textContent = words.split(mark).join(name || 'TA');
   const raw = await widget.getState('start');
@@ -127,13 +174,33 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
 })();
 </script>`,
             css: `${CARD}
-.tg { display: flex; align-items: center; gap: 4vw; padding: 0 5vw; }
-.avatar { width: 62vh; height: 62vh; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: rgba(0, 0, 0, 0.06); border: 2px solid rgba(255, 255, 255, 0.9); }
-.text { min-width: 0; flex: 1; }
-.words { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15vh; opacity: 0.6; }
-.days { margin-top: 2vh; color: {{accent}}; font-size: 30vh; font-weight: 800; line-height: 1.1; }
-.hint { font-size: 14vh; font-weight: 600; opacity: 0.6; color: #2f2a25; }
-.heart { color: {{accent}}; font-size: 30vh; opacity: 0.5; }`,
+.tg { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 3vmin; padding: 7vmin; }
+.avatar { width: 34vmin; height: 34vmin; flex-shrink: 0; border-radius: 50%; object-fit: cover; background: var(--surface); border: 2px solid rgba(255, 255, 255, 0.9); }
+.text { min-width: 0; max-width: 100%; }
+.words { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 7.5vmin; opacity: 0.7; }
+.days { margin-top: 1.5vmin; color: {{accent}}; font-size: 14vmin; font-weight: 800; line-height: 1.1; }
+.hint { margin-top: 1.5vmin; font-size: 7vmin; font-weight: 600; opacity: 0.6; }
+.heart { position: absolute; right: 6vmin; top: 5vmin; color: {{accent}}; font-size: 10vmin; opacity: 0.5; }
+/* 橫的、扁長：頭像在左，字在中間，愛心在右 */
+@media (min-aspect-ratio: 3/2) {
+  .tg { flex-direction: row; text-align: left; justify-content: flex-start; gap: 4vw; padding: 0 5vw; }
+  .text { flex: 1; }
+  .heart { position: static; }
+}
+${LANDSCAPE} {
+  .avatar { width: 44vh; height: 44vh; }
+  .words { font-size: 9vh; }
+  .days { margin-top: 2vh; font-size: 17vh; white-space: nowrap; }
+  .hint { font-size: 8vh; }
+  .heart { font-size: 16vh; }
+}
+${WIDE} {
+  .avatar { width: 62vh; height: 62vh; }
+  .words { font-size: 15vh; }
+  .days { margin-top: 2vh; font-size: 30vh; }
+  .hint { margin-top: 2vh; font-size: 14vh; }
+  .heart { font-size: 30vh; }
+}`,
         },
     },
     {
@@ -143,12 +210,14 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
         template: {
             name: '角色近況',
             w: 4, h: 2,
-            imageKeys: [], images: {},
+            sizes: [size(4, 2), size(4, 1), size(2, 2)],
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'empty', label: '還沒聊過時顯示', type: 'text', default: '今天也來聊聊吧' },
                 { key: 'accent', label: '重點色', type: 'color', default: '#8a7bb8' },
+                bgField(),
             ],
-            html: `<div class="card cn" data-open="chat">
+            html: `<div class="card cn" ${CARD_ATTRS} data-open="chat">
   <div class="top">
     <img class="avatar" src="{{char.avatar}}" alt="">
     <div class="who">
@@ -170,13 +239,34 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
             css: `${CARD}
 .cn { display: flex; flex-direction: column; padding: 5vh 5vw; gap: 4vh; }
 .top { display: flex; align-items: center; gap: 3.5vw; }
-.avatar { width: 30vh; height: 30vh; border-radius: 50%; object-fit: cover; background: rgba(0, 0, 0, 0.06); flex-shrink: 0; }
+.avatar { width: 30vh; height: 30vh; border-radius: 50%; object-fit: cover; background: var(--surface); flex-shrink: 0; }
 .who { min-width: 0; flex: 1; }
 .name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11vh; font-weight: 800; }
-.mood { display: inline-block; margin-top: 1.5vh; padding: 0.8vh 3vw; border-radius: 99px; background: {{accent}}; color: #fff; font-size: 7vh; font-weight: 700; }
-.badge { min-width: 13vh; height: 13vh; padding: 0 2vw; border-radius: 99px; background: #e5534b; color: #fff; font-size: 7.5vh; font-weight: 800; display: grid; place-items: center; }
-.msg { flex: 1; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; padding: 3.5vh 4vw; border-radius: 6vh; background: rgba(255, 255, 255, 0.7); font-size: 8.5vh; line-height: 1.45; }
-.msg.empty { opacity: 0.5; }`,
+.mood { display: inline-block; white-space: nowrap; margin-top: 1.5vh; padding: 0.8vh 3vw; border-radius: 99px; background: {{accent}}; color: #fff; font-size: 7vh; font-weight: 700; text-shadow: none; }
+.badge { min-width: 13vh; height: 13vh; padding: 0 2vw; border-radius: 99px; background: #e5534b; color: #fff; font-size: 7.5vh; font-weight: 800; display: grid; place-items: center; text-shadow: none; }
+.msg { flex: 1; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; padding: 3.5vh 4vw; border-radius: 6vh; background: var(--surface); font-size: 8.5vh; line-height: 1.45; }
+.msg.empty { opacity: 0.55; }
+/* 扁長：一排排完，訊息只留一行 */
+${WIDE} {
+  .cn { flex-direction: row; align-items: center; padding: 0 4vw; gap: 3vw; }
+  .top { display: contents; }
+  .avatar { order: 1; width: 62vh; height: 62vh; }
+  .who { order: 2; flex: 0 1 auto; max-width: 30%; }
+  .name { font-size: 18vh; }
+  .mood { margin-top: 2vh; padding: 1vh 2vw; font-size: 11vh; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .msg { order: 3; flex: 1; min-width: 0; display: block; white-space: nowrap; text-overflow: ellipsis; padding: 5vh 3vw; border-radius: 99px; font-size: 14vh; line-height: 1.3; }
+  .badge { order: 4; flex-shrink: 0; min-width: 24vh; height: 24vh; font-size: 13vh; }
+}
+/* 方的：頭像和名字在上，訊息多幾行 */
+${SQUAREISH} {
+  .cn { padding: 7vmin; gap: 4vmin; }
+  .top { gap: 3vmin; }
+  .avatar { width: 22vmin; height: 22vmin; }
+  .name { font-size: 9vmin; }
+  .mood { margin-top: 1vmin; padding: 0.6vmin 2.5vmin; font-size: 6vmin; }
+  .badge { min-width: 11vmin; height: 11vmin; padding: 0 2vmin; font-size: 6.5vmin; }
+  .msg { -webkit-line-clamp: 5; padding: 4vmin; border-radius: 5vmin; font-size: 7vmin; }
+}`,
         },
     },
     {
@@ -187,6 +277,7 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
         template: {
             name: '拍立得',
             w: 2, h: 2,
+            sizes: [size(2, 2), size(4, 4)],
             imageKeys: ['photo1', 'photo2', 'photo3'], images: {},
             fields: [
                 { key: 'caption', label: '底下那行字', type: 'text', default: '那天的天氣很好' },
@@ -237,14 +328,16 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
         template: {
             name: '今日待辦',
             w: 2, h: 2,
-            imageKeys: [], images: {},
+            sizes: [size(2, 2), size(4, 2), size(4, 3), size(4, 4)],
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'title', label: '標題', type: 'text', default: '今天要做的' },
                 { key: 'items', label: '要做的事（一行一件）', type: 'textarea', default: '喝水\n回訊息\n早點睡' },
                 { key: 'daily', label: '打勾', type: 'select', options: ['每天重來', '一直留著'], default: '每天重來' },
                 { key: 'accent', label: '勾勾顏色', type: 'color', default: '#6fa38a' },
+                bgField(),
             ],
-            html: `<div class="card td">
+            html: `<div class="card td" ${CARD_ATTRS}>
   <div class="head"><span>{{title}}</span><span id="count"></span></div>
   <ul id="list"></ul>
 </div>
@@ -279,15 +372,17 @@ export const WIDGET_STARTERS: WidgetStarter[] = [
 })();
 </script>`,
             css: `${CARD}
-.td { display: flex; flex-direction: column; padding: 7vmin 7vmin 4vmin; }
-.head { display: flex; justify-content: space-between; align-items: baseline; font-size: 8.5vmin; font-weight: 800; margin-bottom: 3vmin; }
-.head span:last-child { font-size: 6.5vmin; font-weight: 700; opacity: 0.45; }
+.td { display: flex; flex-direction: column; padding: clamp(12px, 7vmin, 22px) clamp(14px, 7vmin, 24px) 8px; }
+.head { display: flex; justify-content: space-between; align-items: baseline; font-size: clamp(14px, 8.5vmin, 19px); font-weight: 800; margin-bottom: 4px; }
+.head span:last-child { font-size: 0.75em; font-weight: 700; opacity: 0.5; }
 ul { flex: 1; min-height: 0; margin: 0; padding: 0; list-style: none; overflow: hidden; }
-li { display: flex; align-items: center; gap: 3.5vmin; padding: 2.4vmin 0; font-size: 7.5vmin; cursor: pointer; }
-li i { width: 6.5vmin; height: 6.5vmin; flex-shrink: 0; box-sizing: border-box; border: 0.6vmin solid {{accent}}; border-radius: 50%; }
-li.done i { background: {{accent}}; box-shadow: inset 0 0 0 1vmin #fff; }
+li { display: flex; align-items: center; gap: 10px; padding: clamp(4px, 2.4vmin, 9px) 0; font-size: clamp(13px, 7.5vmin, 17px); cursor: pointer; }
+li i { width: 1.05em; height: 1.05em; flex-shrink: 0; box-sizing: border-box; border: 2px solid {{accent}}; border-radius: 50%; }
+li.done i { background: {{accent}}; box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, 0.85); }
 li.done span { opacity: 0.4; text-decoration: line-through; }
-li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
+li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* 橫的：兩欄排 */
+${LANDSCAPE} { ul { columns: 2; column-gap: 18px; } li { break-inside: avoid; } }`,
         },
     },
     {
@@ -297,16 +392,18 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
         template: {
             name: '喝水計數',
             w: 2, h: 2,
-            imageKeys: [], images: {},
+            sizes: [size(2, 2), size(2, 1), size(4, 1)],
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'label', label: '名稱', type: 'text', default: '今天喝水' },
                 { key: 'goal', label: '目標', type: 'number', default: '8' },
                 { key: 'unit', label: '單位', type: 'text', default: '杯' },
                 { key: 'accent', label: '顏色', type: 'color', default: '#5b9bd5' },
+                bgField(),
             ],
-            html: `<div class="card wt" id="card">
+            html: `<div class="card wt" id="card" ${CARD_ATTRS}>
   <div class="ring" id="ring"><div class="inner"><b id="n">0</b><small id="goal"></small></div></div>
-  <div class="label">{{label}}</div>
+  <div class="label">{{label}}<span class="of" id="of"></span></div>
   <button class="minus" id="minus" aria-label="減一">−</button>
 </div>
 <script>
@@ -321,6 +418,7 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
   const draw = () => {
     document.getElementById('n').textContent = n;
     document.getElementById('goal').textContent = '/ ' + goal + ' ' + unit;
+    document.getElementById('of').textContent = n + ' / ' + goal + ' ' + unit;
     document.getElementById('ring').style.setProperty('--p', Math.min(1, n / goal) * 360 + 'deg');
   };
   const save = () => widget.setState('count', JSON.stringify({ day: ymd(new Date()), n }));
@@ -331,12 +429,32 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
 </script>`,
             css: `${CARD}
 .wt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vmin; cursor: pointer; }
-.ring { --p: 0deg; width: 58vmin; height: 58vmin; border-radius: 50%; background: conic-gradient({{accent}} var(--p), rgba(0, 0, 0, 0.07) 0); display: grid; place-items: center; transition: background 0.3s; }
-.inner { width: 46vmin; height: 46vmin; border-radius: 50%; background: rgba(255, 255, 255, 0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring { --p: 0deg; width: 58vmin; height: 58vmin; flex-shrink: 0; border-radius: 50%; background: conic-gradient({{accent}} var(--p), rgba(127, 127, 127, 0.18) 0); display: grid; place-items: center; transition: background 0.3s; }
+.inner { width: 46vmin; height: 46vmin; border-radius: 50%; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.card[data-bg="淺色毛玻璃"] .inner { background: rgba(255, 255, 255, 0.92); }
 .inner b { color: {{accent}}; font-size: 20vmin; line-height: 1; }
-.inner small { margin-top: 1vmin; font-size: 6vmin; opacity: 0.5; }
-.label { font-size: 7.5vmin; font-weight: 700; opacity: 0.7; }
-.minus { position: absolute; right: 5vmin; top: 5vmin; width: 11vmin; height: 11vmin; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.06); color: #2f2a25; font-size: 8vmin; line-height: 1; }`,
+.inner small { margin-top: 1vmin; font-size: 6vmin; opacity: 0.55; }
+.label { font-size: 7.5vmin; font-weight: 700; opacity: 0.75; }
+.of { display: none; }
+.minus { position: absolute; right: 5vmin; top: 5vmin; width: 11vmin; height: 11vmin; border: 0; border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 8vmin; line-height: 1; }
+/* 橫的、扁長：圈在左，名稱和杯數在右 */
+@media (min-aspect-ratio: 3/2) {
+  .wt { flex-direction: row; justify-content: flex-start; gap: 5vw; padding: 0 6vw; }
+  .ring { width: 74vh; height: 74vh; }
+  .inner { width: 58vh; height: 58vh; }
+  .inner b { font-size: 30vh; }
+  .inner small { display: none; }
+  .label { display: flex; flex-direction: column; gap: 3vh; font-size: 17vh; opacity: 0.85; }
+  .of { display: block; font-size: 13vh; font-weight: 600; opacity: 0.6; }
+  .minus { top: 50%; right: 5vw; transform: translateY(-50%); width: 26vh; height: 26vh; font-size: 18vh; }
+}
+/* 2×1：窄，「−」縮到右上角，字讓出位置 */
+${LANDSCAPE} {
+  .wt { padding: 0 16vw 0 5vw; gap: 4vw; }
+  .label { font-size: 14vh; }
+  .of { font-size: 11vh; }
+  .minus { top: 7vh; right: 3vw; transform: none; width: 22vh; height: 22vh; font-size: 15vh; }
+}`,
         },
     },
     {
@@ -346,6 +464,7 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
         template: {
             name: '便條紙',
             w: 2, h: 2,
+            sizes: [size(2, 2), size(4, 2)],
             imageKeys: [], images: {},
             fields: [
                 { key: 'note', label: '寫什麼', type: 'textarea', default: '記得對自己好一點 ♡' },
@@ -358,7 +477,73 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
 .note[data-paper="天空藍"] { background: #d4e6f5; }
 .note[data-paper="薄荷綠"] { background: #d6eedb; }
 .tape { position: absolute; left: 50%; top: -3vmin; width: 32vmin; height: 10vmin; transform: translateX(-50%) rotate(-3deg); background: rgba(255, 255, 255, 0.55); box-shadow: 0 0.5vmin 1.5vmin rgba(0, 0, 0, 0.08); }
-.note p { margin: 0; font-size: 9vmin; line-height: 1.55; white-space: pre-line; word-break: break-word; overflow: hidden; max-height: 100%; }`,
+.note p { margin: 0; font-size: 9vmin; line-height: 1.55; white-space: pre-line; word-break: break-word; overflow: hidden; max-height: 100%; }
+/* 橫的：長條便條 */
+${LANDSCAPE} {
+  .note { width: 90vw; height: 80vh; padding: 16vh 6vw 8vh; transform: rotate(-1.2deg); }
+  .tape { width: 22vw; height: 12vh; top: -4vh; }
+  .note p { font-size: 11vh; }
+}`,
+        },
+    },
+    {
+        id: 'typewriter',
+        name: '打字機',
+        description: '一個字一個字打出你寫的句子，打完換下一句',
+        template: {
+            name: '打字機',
+            w: 4, h: 1,
+            sizes: [size(4, 1), size(2, 1), size(4, 2)],
+            imageKeys: [BG_IMAGE], images: {},
+            fields: [
+                { key: 'lines', label: '句子（一行一句，輪流打）', type: 'textarea', default: '把今天過成想要的樣子\n慢慢來也沒關係\n晚安，明天見' },
+                { key: 'speed', label: '打字速度', type: 'select', options: ['慢', '普通', '快'], default: '普通' },
+                { key: 'slashColor', label: '斜線顏色（留空跟字一樣）', type: 'color' },
+                { key: 'textColor', label: '字的顏色（留空跟桌面一樣）', type: 'color' },
+                { key: 'lineColor', label: '底線顏色（留空跟字一樣）', type: 'color' },
+                bgField('透明'),
+            ],
+            html: `<div class="card tw" ${CARD_ATTRS}>
+  <div class="line">
+    <span class="slash">//</span>
+    <span class="text"><span id="t"></span><i class="caret"></i></span>
+  </div>
+</div>
+<script>
+(async () => {
+  const lines = ((await widget.getState('lines')) || '').split('\\n').map(s => s.trim()).filter(Boolean);
+  const t = document.getElementById('t');
+  if (!lines.length) { t.textContent = '整理桌面時點我，寫幾句話'; return; }
+  const gap = { '慢': 200, '快': 70 }[await widget.getState('speed')] || 120;
+  let li = 0;
+  const run = () => {
+    const chars = Array.from(lines[li % lines.length]);
+    let i = 0;
+    t.textContent = '';
+    const step = () => {
+      if (i < chars.length) { t.textContent += chars[i++]; setTimeout(step, gap); }
+      else { li += 1; setTimeout(run, 3000); }
+    };
+    step();
+  };
+  run();
+})();
+</script>`,
+            css: `${CARD}
+.tw { display: flex; align-items: center; padding: 0 6vw; }
+/* 顏色欄位留空時那條宣告是空的、瀏覽器會略過，就照上一條（跟字一樣） */
+.line { width: 100%; display: flex; align-items: baseline; gap: 2.5vw; padding-bottom: 1.5vh; border-bottom: 1px solid currentColor; }
+.line { border-bottom-color: {{lineColor}}; }
+.slash { flex-shrink: 0; color: {{slashColor}}; font-size: 22vh; font-weight: 300; }
+.text { min-width: 0; flex: 1; color: {{textColor}}; font-size: 15vh; font-style: italic; font-weight: 300; letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.caret { display: inline-block; width: 1px; height: 1em; margin-left: 2px; vertical-align: -0.12em; background: currentColor; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+/* 2×1：字小一點 */
+${LANDSCAPE} {
+  .tw { padding: 0 7vw; align-items: center; }
+  .slash { font-size: 18vh; }
+  .text { font-size: 12vh; white-space: normal; }
+}`,
         },
     },
 ];
@@ -367,6 +552,7 @@ li span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }`,
 export const instantiateStarter = (starter: WidgetStarter, id: string, now = Date.now()): CustomWidgetTemplate => ({
     ...starter.template,
     imageKeys: [...starter.template.imageKeys],
+    ...(starter.template.sizes ? { sizes: starter.template.sizes.map(z => ({ ...z })) } : {}),
     images: { ...starter.template.images },
     fields: starter.template.fields.map(f => ({ ...f, ...(f.options ? { options: [...f.options] } : {}) })),
     id,
@@ -397,8 +583,31 @@ export const findUntouchedStarterCopies = (templates: CustomWidgetTemplate[]): M
     const out = new Map<string, string>();
     for (const t of templates) {
         if (isStarterTemplateId(t.id) || Object.values(t.images || {}).some(Boolean)) continue;
-        const starterId = byContent.get(contentKey(t));
+        const key = contentKey(t);
+        const legacy = LEGACY_STARTER_FINGERPRINTS[contentFingerprint(key)];
+        const starterId = byContent.get(key) || (legacy ? starterTemplateId(legacy) : undefined);
         if (starterId) out.set(t.id, starterId);
     }
     return out;
+};
+
+/** 內容指紋（djb2＋長度）：只拿來認舊版範本的複製品，不是安全用途 */
+export const contentFingerprint = (text: string) => {
+    let h = 5381;
+    for (let i = 0; i < text.length; i += 1) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+    return `${h.toString(36)}:${text.length.toString(36)}`;
+};
+
+/**
+ * 舊版範本（2026-11-10 #141 那一版，2026-11-11 改了版型和背景）的內容指紋 → 範本 id。
+ * 那時「用這個」複製進「我的小組件」的，內容是舊版的，跟現在的範本對不上；靠這張表照樣認出來改指範本。
+ */
+const LEGACY_STARTER_FINGERPRINTS: Record<string, WidgetStarterId> = {
+    '1tmt8tw:1h0': 'countdown',
+    '1a0loq5:1sp': 'together',
+    '112egw:1t0': 'charNote',
+    '1mn534r:1o6': 'polaroid',
+    'vccw6h:2b9': 'todo',
+    'u3pa36:28z': 'water',
+    '1kv9rcm:x5': 'sticky',
 };

@@ -111,12 +111,21 @@ const CustomWidgetEditor: React.FC<{
         onSave(cleaned);
     };
 
+    // 沒打鍵名就自動取 img1、img2…，加好直接打開選圖（以前空白按下去只會跳「這個鍵不能用」）
     const addImageKey = () => {
-        const key = newImageKey.trim();
+        let key = newImageKey.trim();
+        if (!key) {
+            const taken = new Set([...draft.imageKeys, ...draft.fields.map(f => f.key)]);
+            let n = 1;
+            while (taken.has(`img${n}`)) n += 1;
+            key = `img${n}`;
+        }
         if (!isValidKey(key) || isReservedKey(key)) { notify('這個鍵不能用：1～40 字、不要空白和大括號，也別用內建的佔位符', 'error'); return; }
         if (draft.imageKeys.includes(key) || draft.fields.some(f => f.key === key)) { notify(`鍵「${key}」已經有了`, 'error'); return; }
         patch({ imageKeys: [...draft.imageKeys, key] });
         setNewImageKey('');
+        uploadKey.current = key;
+        fileRef.current?.click();
     };
 
     const pickImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,7 +219,7 @@ const CustomWidgetEditor: React.FC<{
                             </div>
                         ))}
                         <div className="flex gap-2">
-                            <input value={newImageKey} onChange={e => setNewImageKey(e.target.value)} placeholder="新的圖片鍵，例如 img1" className={input}
+                            <input value={newImageKey} onChange={e => setNewImageKey(e.target.value)} placeholder="鍵名（可留空，自動取 img1）" className={input}
                                 onKeyDown={e => { if (e.key === 'Enter') addImageKey(); }} autoCapitalize="off" />
                             <button type="button" onClick={addImageKey} className="shrink-0 rounded-lg bg-[#4b4136] px-3 text-[12px] font-bold text-white">加一張</button>
                         </div>

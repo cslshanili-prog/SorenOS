@@ -160,3 +160,30 @@ describe('桌面上的自訂小組件', () => {
         expect(normalized.pages[0].items.map(i => i.id)).toEqual([a.item.id]);
     });
 });
+
+describe('別的 app 匯出的寫法', () => {
+    it('size_4x1、widget.onReady、widget.getAllState 都收', () => {
+        expect(parseSizeSpec('size_4x1')).toEqual({ w: 4, h: 1 });
+        expect(parseSizeSpec('size-2x2')).toEqual({ w: 2, h: 2 });
+        const parsed = parseWidgetFile(JSON.stringify({
+            type: 'custom_widget_template', name: '流水', size: 'size_4x1',
+            html: '<span id="t"></span><script>widget.onReady(async () => { const s = await widget.getAllState(); })</script>',
+            css: 'body{}', imageKeys: [], userFields: [{ key: 'typeText', label: '文案', type: 'text' }],
+        }));
+        expect(parsed.ok).toBe(true);
+        if (!parsed.ok) return;
+        expect({ w: parsed.file.template.w, h: parsed.file.template.h }).toEqual({ w: 4, h: 1 });
+        expect(parsed.file.notes).toEqual([]);
+        const doc = buildWidgetSrcDoc({ template: parsed.file.template, imageUrls: {}, size: { w: 4, h: 1 } });
+        expect(doc).toContain('getAllState:function()');
+        expect(doc).toContain('onReady:function(cb)');
+    });
+
+    it('模板可以限定能換的尺寸，匯出匯入都帶著', () => {
+        const t = template({ html: '<b></b>', sizes: [{ w: 4, h: 1 }, { w: 2, h: 2 }] });
+        const file = buildWidgetFile(t);
+        expect(file.sizes).toEqual(['4x1', 'small']);
+        const back = parseWidgetFile(JSON.stringify(file));
+        expect(back.ok && back.file.template.sizes).toEqual([{ w: 4, h: 1 }, { w: 2, h: 2 }]);
+    });
+});

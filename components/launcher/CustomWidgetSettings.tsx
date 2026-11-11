@@ -4,7 +4,7 @@ import TokenImg from '../os/TokenImg';
 import { useResetHiddenScroll } from './useResetHiddenScroll';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
-import { CUSTOM_WIDGET_SIZES, type CustomWidgetField, type CustomWidgetTemplate } from '../../utils/customWidget';
+import { templateSizes, type CustomWidgetField, type CustomWidgetTemplate } from '../../utils/customWidget';
 import { sizeLabel, type LauncherWidgetItem, type WidgetSize } from '../../utils/launcherLayout';
 
 /**
@@ -94,7 +94,7 @@ const CustomWidgetSettings: React.FC<{
                 <div className="mt-3">
                     <div className={label}>尺寸（寬×高）</div>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {CUSTOM_WIDGET_SIZES.map(size => {
+                        {templateSizes(template).map(size => {
                             const current = size.w === item.w && size.h === item.h;
                             return (
                                 <button key={sizeLabel(size)} type="button" onClick={() => onResize(size)}
