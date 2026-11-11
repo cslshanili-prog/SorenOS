@@ -40,7 +40,8 @@ const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'))
 // --- Isolated Components to prevent full re-renders ---
 
 // 1. Clock Component (Consumes virtualTime)
-const DesktopClock = React.memo(() => {
+/** compact：4×1 只留一排星期、日期和時間，不把 4×2 那套等比縮小 */
+const DesktopClock = React.memo(({ compact = false }: { compact?: boolean }) => {
     const { virtualTime, theme } = useOS();
     const contentColor = theme.contentColor || '#ffffff';
     const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
@@ -61,6 +62,19 @@ const DesktopClock = React.memo(() => {
 
     const hh = virtualTime.hours.toString().padStart(2, '0');
     const mm = virtualTime.minutes.toString().padStart(2, '0');
+
+    if (compact) {
+        const acnhSkin = theme.skin === 'animalcrossing';
+        return (
+            <div className="flex h-full w-full flex-col justify-center px-1 select-none" style={{ color: acnhSkin ? '#8b7355' : contentColor }}>
+                <div className="text-[10px] font-bold tracking-[0.22em] opacity-75">{dayName}, {Number(dateNum)} {monthName}</div>
+                <div className={`mt-1 leading-[0.9] ${acnhSkin ? 'text-[2.9rem] font-extrabold tracking-[2px]' : paper ? 'text-[3.2rem] font-semibold tracking-[-0.04em]' : 'text-[3.4rem] font-black tracking-tighter drop-shadow-xl'}`}
+                    style={{ fontFamily: acnhSkin ? undefined : paper ? `'Iowan Old Style', 'Baskerville', 'Times New Roman', serif` : `'Space Grotesk', 'SF Pro Display', sans-serif`, fontFeatureSettings: '"tnum"' }}>
+                    {hh}<span className="mx-0.5 font-thin opacity-35 animate-pulse">:</span>{mm}
+                </div>
+            </div>
+        );
+    }
 
     // 動森彩蛋：NookPhone 主屏時鐘 —— 問候 + 大號時間(主角) + 星期·日期
     if (theme.skin === 'animalcrossing') {
@@ -375,50 +389,116 @@ const cardStyle = (acnh: boolean, paper: boolean): React.CSSProperties | undefin
         : undefined;
 const cardClass = (acnh: boolean, paper: boolean) => (acnh ? 'shadow-sm' : paper ? '' : 'bg-white/25 border border-white/25 shadow-xl');
 
-// 4. 月曆（原本最後一頁上半）
-const CalendarWidget = React.memo(({ contentColor, openApp, anniversaries, acnh = false, paper = false }: any) => {
+// 4. 月曆（原本最後一頁上半）。尺寸不同畫法不同：
+//   4×3／4×4 整個月（格子撐滿高度，4×4 底下多一行「下一個紀念日」）；4×1 只有這一週一條；2×2 只顯示今天。
+const calendarHasEvent = (anniversaries: Anniversary[], dateStr: string) =>
+    anniversaries.some(a => a.date === dateStr || (a.repeatAnnually && a.date.slice(5) === dateStr.slice(5)));
+const ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const MONTHS_EN = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const WEEKDAYS_EN = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+const CalendarWidget = React.memo(({ contentColor, openApp, anniversaries, acnh = false, paper = false, w = 4, h = 3 }: any) => {
     const acDot = acnh ? '#6fba2c' : undefined;
+    const dotColor = acDot || (paper ? '#a66f52' : '#c084fc');
     const now = new Date();
+    const todayStr = ymdOf(now);
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
-    const monthName = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'][currentMonth];
-    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const startOffset = new Date(currentYear, currentMonth, 1).getDay();
-    const calendarDays = Array.from({ length: totalDays }, (_, i) => i + 1);
-    const paddingDays = Array.from({ length: startOffset }, () => null);
-    return (
-        <FitBox>
-            <div className={`rounded-3xl p-5 ${cardClass(acnh, paper)}`} style={cardStyle(acnh, paper)}>
-                <div className="flex justify-between items-center mb-3" style={{ color: contentColor }}>
-                    <h3 className="text-xl font-bold tracking-widest">{monthName} {currentYear}</h3>
-                    <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${acnh ? 'bg-[#82D5BB]/30 hover:bg-[#82D5BB]/50' : paper ? 'bg-[#788369]/10 hover:bg-[#788369]/20' : 'bg-white/20 hover:bg-white/40'}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    </div>
+    const monthName = MONTHS_EN[currentMonth];
+    const todayBubble = (isToday: boolean): { className: string; style: React.CSSProperties } => isToday
+        ? (acnh ? { className: 'text-white font-bold', style: { background: '#19c8b9' } }
+            : paper ? { className: 'text-white font-bold', style: { background: '#788369', boxShadow: '0 4px 10px rgba(91,72,51,0.14)' } }
+            : { className: 'bg-white text-black font-bold shadow-lg', style: {} })
+        : { className: 'opacity-80', style: { color: contentColor } };
+    const upcoming = useMemo(() => (anniversaries as Anniversary[])
+        .map(a => ({ a, next: nextOccurrenceDate(a, todayStr) }))
+        .filter(x => x.next >= todayStr)
+        .sort((x, y) => x.next.localeCompare(y.next))[0], [anniversaries, todayStr]);
+    const daysUntil = (dateStr: string) => Math.round((new Date(`${dateStr}T00:00:00`).getTime() - new Date(`${todayStr}T00:00:00`).getTime()) / 86400000);
+    const todayEvents = (anniversaries as Anniversary[]).filter(a => calendarHasEvent([a], todayStr));
+    const shell = `h-full w-full rounded-3xl ${cardClass(acnh, paper)}`;
+
+    // 2×2：今天
+    if (w <= 2) {
+        return (
+            <div className={`${shell} flex flex-col items-center justify-center p-3 text-center`} style={{ ...cardStyle(acnh, paper), color: contentColor }}>
+                <div className="text-[10px] font-bold tracking-[0.22em] opacity-60">{monthName} {currentYear}</div>
+                <div className="my-1 text-[3.4rem] font-black leading-none" style={{ fontFamily: `'Space Grotesk', sans-serif` }}>{now.getDate()}</div>
+                <div className="text-[10px] font-bold tracking-[0.22em] opacity-80">{WEEKDAYS_EN[now.getDay()]}</div>
+                <div className="mt-2 flex max-w-full items-center gap-1 text-[10px] opacity-70">
+                    {todayEvents.length ? <><span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} /><span className="truncate">{todayEvents[0].title}</span></>
+                        : upcoming ? <span className="truncate">{upcoming.a.title} · 還有 {daysUntil(upcoming.next)} 天</span> : null}
                 </div>
-                <div className="grid grid-cols-7 gap-x-1 text-center mb-1.5">
-                    {CALENDAR_WEEKDAYS.map(day => <div key={day.key} className="text-[10px] font-bold opacity-40" style={{ color: contentColor }}>{day.label}</div>)}
+            </div>
+        );
+    }
+
+    // 4×1：這一週
+    if (h <= 1) {
+        const start = new Date(currentYear, currentMonth, now.getDate() - now.getDay());
+        const week = Array.from({ length: 7 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+        return (
+            <div className={`${shell} flex items-center gap-2 px-3`} style={cardStyle(acnh, paper)}>
+                <div className="shrink-0 text-center leading-tight" style={{ color: contentColor }}>
+                    <div className="text-[13px] font-black tracking-widest">{monthName}</div>
+                    <div className="text-[9px] font-bold opacity-50">{currentYear}</div>
                 </div>
-                <div className="grid grid-cols-7 gap-y-1 gap-x-1 text-center">
-                    {paddingDays.map((_, i) => <div key={`pad-${i}`} />)}
-                    {calendarDays.map(day => {
-                        const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                        const isToday = day === now.getDate();
-                        const hasEvent = anniversaries.some((a: any) => a.date === dateStr || (a.repeatAnnually && a.date.slice(5) === dateStr.slice(5)));
+                <div className="grid min-w-0 flex-1 grid-cols-7 text-center">
+                    {week.map((d, i) => {
+                        const isToday = ymdOf(d) === todayStr;
+                        const bubble = todayBubble(isToday);
                         return (
-                            <div key={day} className="flex flex-col items-center justify-center h-8 relative">
-                                <div
-                                    className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium ${isToday ? (acnh ? 'text-white font-bold' : paper ? 'text-white font-bold' : 'bg-white text-black font-bold shadow-lg') : 'opacity-80'}`}
-                                    style={isToday ? (acnh ? { background: '#19c8b9' } : paper ? { background: '#788369', boxShadow: '0 4px 10px rgba(91,72,51,0.14)' } : {}) : { color: contentColor }}
-                                >
-                                    {day}
-                                </div>
-                                {hasEvent && <div className="w-1.5 h-1.5 rounded-full absolute bottom-0 shadow-sm border border-black/10" style={{ background: acDot || (paper ? '#a66f52' : '#c084fc') }}></div>}
+                            <div key={i} className="relative flex flex-col items-center gap-0.5">
+                                <div className="text-[9px] font-bold opacity-40" style={{ color: contentColor }}>{CALENDAR_WEEKDAYS[i].label}</div>
+                                <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-medium ${bubble.className}`} style={bubble.style}>{d.getDate()}</div>
+                                {calendarHasEvent(anniversaries, ymdOf(d)) && <div className="absolute -bottom-1 h-1 w-1 rounded-full" style={{ background: dotColor }} />}
                             </div>
                         );
                     })}
                 </div>
             </div>
-        </FitBox>
+        );
+    }
+
+    // 4×3／4×4：整個月，格子撐滿
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const startOffset = new Date(currentYear, currentMonth, 1).getDay();
+    const cells: Array<number | null> = [...Array.from({ length: startOffset }, () => null), ...Array.from({ length: totalDays }, (_, i) => i + 1)];
+    const weeks = Math.ceil(cells.length / 7);
+    const big = h >= 4;
+    return (
+        <div className={`${shell} flex flex-col p-4`} style={cardStyle(acnh, paper)}>
+            <div className="mb-2 flex shrink-0 items-center justify-between" style={{ color: contentColor }}>
+                <h3 className="text-xl font-bold tracking-widest">{monthName} {currentYear}</h3>
+                <div onClick={() => openApp('schedule')} className={`p-2 rounded-full cursor-pointer transition-colors ${acnh ? 'bg-[#82D5BB]/30 hover:bg-[#82D5BB]/50' : paper ? 'bg-[#788369]/10 hover:bg-[#788369]/20' : 'bg-white/20 hover:bg-white/40'}`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                </div>
+            </div>
+            <div className="mb-1 grid shrink-0 grid-cols-7 gap-x-1 text-center">
+                {CALENDAR_WEEKDAYS.map(day => <div key={day.key} className="text-[10px] font-bold opacity-40" style={{ color: contentColor }}>{day.label}</div>)}
+            </div>
+            <div className="grid min-h-0 flex-1 grid-cols-7 gap-x-1 text-center" style={{ gridTemplateRows: `repeat(${weeks}, minmax(0, 1fr))` }}>
+                {cells.map((day, index) => {
+                    if (day === null) return <div key={`pad-${index}`} />;
+                    const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const bubble = todayBubble(day === now.getDate());
+                    return (
+                        <div key={day} className="relative flex min-h-0 items-center justify-center">
+                            <div className={`flex aspect-square h-full max-h-9 items-center justify-center rounded-full ${big ? 'text-[15px]' : 'text-sm'} font-medium ${bubble.className}`} style={bubble.style}>{day}</div>
+                            {calendarHasEvent(anniversaries, dateStr) && <div className="absolute bottom-0 h-1.5 w-1.5 rounded-full border border-black/10 shadow-sm" style={{ background: dotColor }} />}
+                        </div>
+                    );
+                })}
+            </div>
+            {big && (
+                <div className="mt-2 flex shrink-0 items-center gap-1.5 border-t border-current/10 pt-2 text-[11px]" style={{ color: contentColor, borderColor: 'rgba(127,127,127,0.18)' }}>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: dotColor }} />
+                    {upcoming
+                        ? <span className="min-w-0 truncate opacity-80">{daysUntil(upcoming.next) === 0 ? `今天是「${upcoming.a.title}」` : `${upcoming.a.title} · 還有 ${daysUntil(upcoming.next)} 天`}</span>
+                        : <span className="opacity-50">還沒有紀念日</span>}
+                </div>
+            )}
+        </div>
     );
 });
 
@@ -1215,7 +1295,7 @@ const Launcher: React.FC = () => {
   const renderWidget = (item: LauncherWidgetItem) => {
       switch (item.widget) {
           case 'clock':
-              return <FitBox><DesktopClock /></FitBox>;
+              return item.h <= 1 ? <DesktopClock compact /> : <FitBox><DesktopClock /></FitBox>;
           case 'character':
               return <CharacterWidget char={widgetChar} unreadCount={widgetUnread} lastMessage={lastMessage} onClick={openWidgetChat} contentColor={contentColor} paper={paper} fill />;
           case 'schedule':
@@ -1236,7 +1316,7 @@ const Launcher: React.FC = () => {
           case 'image':
               return <ImageWidget image={item.image} frame={item.frame} contentColor={contentColor} acnh={acnh} editing={layoutEditing} />;
           case 'calendar':
-              return <CalendarWidget contentColor={contentColor} openApp={(id: string) => { if (!layoutEditing) openApp(id as AppID); }} anniversaries={anniversaries} acnh={acnh} paper={paper} />;
+              return <CalendarWidget contentColor={contentColor} openApp={(id: string) => { if (!layoutEditing) openApp(id as AppID); }} anniversaries={anniversaries} acnh={acnh} paper={paper} w={item.w} h={item.h} />;
           case 'events':
               return <EventsWidget contentColor={contentColor} anniversaries={anniversaries} characters={characters} rows={item.h} acnh={acnh} paper={paper} />;
           case 'custom': {

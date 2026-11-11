@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { STARTER_TEMPLATES, WIDGET_STARTERS, findUntouchedStarterCopies, instantiateStarter, isStarterTemplateId, starterTemplateId } from './widgetStarters';
+import { STARTER_TEMPLATES, WIDGET_STARTERS, contentFingerprint, findUntouchedStarterCopies, instantiateStarter, isStarterTemplateId, starterTemplateId } from './widgetStarters';
 import { applyWidgetState, buildPlaceholderValues, buildWidgetSrcDoc, fillHtml, isCustomWidgetSize, isReservedKey, isValidKey, parseWidgetFile, buildWidgetFile, WIDGET_STATE_LIMITS } from './customWidget';
 
 describe('內建範本', () => {
@@ -88,5 +88,13 @@ describe('範本直接指著用，不複製進「我的小組件」', () => {
         const renamed = { ...instantiateStarter(todo, 'cw_old4', 5), name: '我的待辦' };
         const copies = findUntouchedStarterCopies([untouched, edited, withImage, renamed]);
         expect([...copies.entries()]).toEqual([['cw_old1', 'starter:todo']]);
+    });
+});
+
+describe('內容指紋', () => {
+    it('同樣內容同樣指紋，差一個字就不同', () => {
+        expect(contentFingerprint('abc')).toBe(contentFingerprint('abc'));
+        expect(contentFingerprint('abc')).not.toBe(contentFingerprint('abd'));
+        expect(contentFingerprint('')).toMatch(/^[0-9a-z]+:0$/);
     });
 });

@@ -1241,7 +1241,7 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 新建桌面自订小组件
 - 导入桌面小组件文件
 - 导出桌面小组件文件
-- 使用桌面小组件范本（`范本`：countdown / together / charNote / polaroid / todo / water / sticky）
+- 使用桌面小组件范本（`范本`：countdown / together / charNote / polaroid / todo / water / sticky / typewriter）
 
 **自由活动**
 

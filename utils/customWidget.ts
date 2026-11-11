@@ -41,6 +41,8 @@ export interface CustomWidgetTemplate {
     /** 模板自帶的圖（blobref 令牌）；放上桌面的每一份可以換成自己的 */
     images: Record<string, string>;
     fields: CustomWidgetField[];
+    /** 放上桌面後能換的尺寸；沒有就是 CUSTOM_WIDGET_SIZES 全部（範本會限定排得好看的那幾種） */
+    sizes?: WidgetSize[];
     createdAt: number;
     updatedAt: number;
 }
@@ -53,6 +55,10 @@ export const CUSTOM_WIDGET_SIZES: WidgetSize[] = [
 
 export const isCustomWidgetSize = (size: WidgetSize) => CUSTOM_WIDGET_SIZES.some(s => s.w === size.w && s.h === size.h);
 
+/** 這個模板放上桌面後能換哪些尺寸 */
+export const templateSizes = (template: Pick<CustomWidgetTemplate, 'sizes'>): WidgetSize[] =>
+    template.sizes?.length ? template.sizes : CUSTOM_WIDGET_SIZES;
+
 const NAMED_SIZES: Record<string, WidgetSize> = { small: { w: 2, h: 2 }, medium: { w: 4, h: 2 }, large: { w: 4, h: 4 } };
 
 /** 匯入檔的 size：small／medium／large，或直接寫格數的 "4x2"、"4×2"、{ w, h } */
@@ -63,7 +69,8 @@ export const parseSizeSpec = (value: unknown): WidgetSize | null => {
         return isCustomWidgetSize(size) ? size : null;
     }
     if (typeof value !== 'string') return null;
-    const text = value.trim().toLowerCase();
+    // 也收 "size_4x1"（別的 app 匯出的寫法）
+    const text = value.trim().toLowerCase().replace(/^size[_-]?/, '');
     if (NAMED_SIZES[text]) return NAMED_SIZES[text];
     const match = text.match(/^(\d)\s*[x×*]\s*(\d)$/);
     if (!match) return null;
@@ -236,7 +243,7 @@ const jsonForScript = (value: unknown) => JSON.stringify(value)
 
 // iframe 裡最先跑的：提供 widget 物件（跟匯入格式一樣是 async 的 getState）。
 // T 是小組件自己 setState 存的，getState 先看它、再看欄位和佔位符；改了先記在 iframe 裡，再告訴外面去存
-const bootScript = (values: Record<string, string | null>, state: Record<string, string>, size: WidgetSize) => `<script>(function(){var S=${jsonForScript(values)},T=${jsonForScript(state)},H=Object.prototype.hasOwnProperty;function post(m){try{parent.postMessage(m,'*')}catch(e){}}window.widget={getState:function(k){k=String(k);return Promise.resolve(H.call(T,k)?T[k]:H.call(S,k)?S[k]:null)},setState:function(k,v){k=String(k);if(!k||k.length>40)return Promise.resolve(false);var s=v===null||v===undefined?null:typeof v==='string'?v:JSON.stringify(v);if(s!==null&&s.length>${WIDGET_STATE_LIMITS.value})return Promise.resolve(false);if(s===null)delete T[k];else T[k]=s;post({sorenWidget:'state',key:k,value:s});return Promise.resolve(true)},getAll:function(){var o={},k;for(k in S)o[k]=S[k];for(k in T)o[k]=T[k];return Promise.resolve(o)},open:function(t){post({sorenWidget:'open',target:String(t||'')})},size:${jsonForScript({ w: size.w, h: size.h })}}})();</script>`;
+const bootScript = (values: Record<string, string | null>, state: Record<string, string>, size: WidgetSize) => `<script>(function(){var S=${jsonForScript(values)},T=${jsonForScript(state)},H=Object.prototype.hasOwnProperty;function post(m){try{parent.postMessage(m,'*')}catch(e){}}window.widget={getState:function(k){k=String(k);return Promise.resolve(H.call(T,k)?T[k]:H.call(S,k)?S[k]:null)},setState:function(k,v){k=String(k);if(!k||k.length>40)return Promise.resolve(false);var s=v===null||v===undefined?null:typeof v==='string'?v:JSON.stringify(v);if(s!==null&&s.length>${WIDGET_STATE_LIMITS.value})return Promise.resolve(false);if(s===null)delete T[k];else T[k]=s;post({sorenWidget:'state',key:k,value:s});return Promise.resolve(true)},getAll:function(){var o={},k;for(k in S)o[k]=S[k];for(k in T)o[k]=T[k];return Promise.resolve(o)},getAllState:function(){return window.widget.getAll()},onReady:function(cb){if(typeof cb!=='function')return;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){cb()});else setTimeout(function(){cb()},0)},open:function(t){post({sorenWidget:'open',target:String(t||'')})},size:${jsonForScript({ w: size.w, h: size.h })}}})();</script>`;
 
 // 最後跑的：會走的時間、轉進來的點擊、data-open、擋連結跳轉、回報毛玻璃（iframe 裡的 backdrop-filter 模糊不到桌布，交給外層做）
 const TAIL_SCRIPT = `<script>(function(){function post(m){try{parent.postMessage(m,'*')}catch(e){}}
@@ -255,7 +262,7 @@ export const buildWidgetSrcDoc = (input: WidgetRenderInput): string => {
     const values = buildPlaceholderValues(input);
     const color = /^[#\w(),.%\s-]+$/.test(input.contentColor || '') ? input.contentColor : '#ffffff';
     const head = `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">`
-        + `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;color:${color};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;}</style>`
+        + `<style>:root{--soren-content-color:${color};}html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;color:${color};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-tap-highlight-color:transparent;}</style>`
         + STORAGE_SHIM + bootScript(values, input.state || {}, input.size)
         + `<style>${fillCss(input.template.css || '', values).replace(/<\/style/gi, '<\\/style')}</style>`;
     const body = fillHtml(input.template.html || '', values);
@@ -341,6 +348,10 @@ export const parseWidgetFile = (text: string): { ok: true; file: ParsedWidgetFil
     }
     const size = parseSizeSpec(data.size);
     if (data.size !== undefined && !size) notes.push(`尺寸「${String(data.size).slice(0, 20)}」認不得，先用 4×2`);
+    const sizes = Array.isArray(data.sizes)
+        ? data.sizes.map(parseSizeSpec).filter((s: WidgetSize | null): s is WidgetSize => !!s)
+            .filter((s: WidgetSize, i: number, all: WidgetSize[]) => all.findIndex(o => o.w === s.w && o.h === s.h) === i)
+        : [];
     return {
         ok: true,
         file: {
@@ -351,6 +362,7 @@ export const parseWidgetFile = (text: string): { ok: true; file: ParsedWidgetFil
                 ...(size || { w: 4, h: 2 }),
                 imageKeys,
                 fields,
+                ...(sizes.length ? { sizes } : {}),
             },
             imageData,
             notes,
@@ -374,6 +386,7 @@ export const buildWidgetFile = (template: CustomWidgetTemplate, imageData: Recor
             ...(f.options ? { options: f.options } : {}),
             ...(f.default !== undefined ? { default: f.default } : {}),
         })),
+        ...(template.sizes?.length ? { sizes: template.sizes.map(sizeToSpec) } : {}),
         ...(Object.keys(images).length ? { images } : {}),
     };
 };
