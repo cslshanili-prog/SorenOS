@@ -65,7 +65,7 @@ export const sizeLabel = (size: WidgetSize) => `${size.w}×${size.h}`;
 
 /** 每種內建小組件能用的尺寸（第一個是預設） */
 export const BUILTIN_WIDGETS: Record<BuiltinWidgetType, { name: string; sizes: WidgetSize[]; multiple: boolean }> = {
-    clock: { name: '時鐘', sizes: [{ w: 4, h: 2 }, { w: 4, h: 1 }], multiple: true },
+    clock: { name: '時鐘', sizes: [{ w: 4, h: 2 }, { w: 4, h: 1 }, { w: 2, h: 1 }], multiple: true },
     character: { name: '角色卡', sizes: [{ w: 4, h: 1 }, { w: 4, h: 2 }], multiple: true },
     schedule: { name: '角色日程', sizes: [{ w: 4, h: 2 }, { w: 4, h: 3 }], multiple: false },
     music: { name: '正在播放', sizes: [{ w: 2, h: 2 }], multiple: false },
