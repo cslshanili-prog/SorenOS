@@ -4,7 +4,7 @@ import { DOCK_APPS, INSTALLED_APPS } from '../../constants';
 import AppIcon from '../os/AppIcon';
 import { useBlobRefUrl, putImageBlob } from '../../utils/blobRef';
 import { processImageToBlob } from '../../utils/file';
-import { DEFAULT_DOCK_CUSTOM, dockContainerLook, normalizeDockCustom, type DockCustomStyle, type DockStyleKind } from '../../utils/dockStyle';
+import { DEFAULT_DOCK_CUSTOM, DOCK_FIXED_WIDTH, dockContainerLook, dockJustify, normalizeDockCustom, type DockCustomStyle, type DockStyleKind } from '../../utils/dockStyle';
 
 /**
  * 外觀 → Dock：Liquid Glass（預設）／無膠囊／自訂。上面一直有預覽（用桌面同一個 dockContainerLook 畫）。
@@ -84,7 +84,7 @@ const DockStyleSettings: React.FC<{
             <div className="relative overflow-hidden rounded-2xl px-3 pb-4 pt-16" style={{ background: wallpaperCss }} aria-label="Dock 預覽">
                 <div className="absolute inset-0 bg-black/10" />
                 <div className="relative flex justify-center">
-                    <div className={`rounded-[1.75rem] px-4 py-3 flex gap-3 items-center ${look.className}`} style={look.style}>
+                    <div className={`rounded-[1.75rem] px-4 py-3 flex gap-2 items-center ${look.className}`} style={{ ...look.style, width: DOCK_FIXED_WIDTH, justifyContent: dockJustify(previewApps.length) }}>
                         {previewApps.map(app => <div key={app.id} className="pointer-events-none"><AppIcon app={app} onClick={() => {}} variant="dock" size="md" /></div>)}
                     </div>
                 </div>

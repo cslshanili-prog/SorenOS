@@ -142,6 +142,7 @@ type LauncherItem =
 - Dock 的 app 拖到網格：空格就放；正好蓋住一個 app 就交換（那個 app 進 Dock 原本的位置）；蓋到小組件就放下去、往下擠
 - Dock 和版面一次寫回去（`commitLayout(layout, { launcherDockOrder })`，分兩次寫後一次會蓋掉前一次）。拖 Dock 的 app 到左右邊緣也會翻頁
 - Dock 空了平常不畫，整理中留一塊「把 app 拖到這裡」
+- 寬度固定成放滿 5 個的寬（`DOCK_FIXED_WIDTH` = 21.5rem，螢幕更窄就縮到 100%），放幾個都一樣寬：4、5 個貼齊兩邊、少了把間距拉開，3 個以下平均分（`dockJustify`）。外觀頁的預覽用同一套
 - 順手修：訊息未讀紅點以前只認舊的 `chat` 代號，Dock 換成 Message（`chat_hub`）後就沒出現過；現在 Message 在 Dock 或網格上都掛
 
 **樣式**（外觀 → Dock，`utils/dockStyle.ts`，存 `OSTheme.dockStyle`／`dockCustom`）
