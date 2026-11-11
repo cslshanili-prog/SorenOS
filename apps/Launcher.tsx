@@ -5,6 +5,7 @@ import { isDevDebugAvailable, subscribeDevDebugAvailability } from '../utils/dev
 import AppIcon from '../components/os/AppIcon';
 import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl } from '../utils/blobRef';
+import { dockContainerLook } from '../utils/dockStyle';
 import { DB } from '../utils/db';
 import { isChatPreviewMessage } from '../utils/chatMessageVisibility';
 import { CharacterProfile, Anniversary, AppID, DailySchedule, type OSTheme } from '../types';
@@ -22,6 +23,7 @@ import { putImageBlob } from '../utils/blobRef';
 import {
     BUILTIN_WIDGETS, GRID_COLS, GRID_ROWS, addCustomWidget, addPage, addWidget, buildLegacyLayout, cellFromPoint, countCustomWidgetsOf, hasWidget, inBounds, itemsInArea,
     moveItem, normalizeLayout, patchWidget, removeCustomWidgetsOf, removePage, removeWidget, resizeWidget, sizeLabel,
+    DOCK_MAX, moveAppToDock, moveDockAppToGrid, normalizeDockOrder,
     type BuiltinWidgetType, type LauncherItem, type LauncherLayout, type LauncherWidgetItem, type WidgetSize,
 } from '../utils/launcherLayout';
 import {
@@ -611,6 +613,8 @@ const Launcher: React.FC = () => {
       grabCellY?: number;
       lastTarget?: string;
       targetElement?: HTMLElement;
+      /** 網格的 app 拖到 Dock 上：index 是蓋到 Dock 的第幾個（交換），沒有是放在空處（接在最後） */
+      dockTarget?: { index?: number } | null;
       /** 按下去的時候已經在整理中 */
       editMode?: boolean;
       preview?: DropPreview | null;
@@ -643,13 +647,10 @@ const Launcher: React.FC = () => {
   // 點「關閉」/ 刷新（prod 自動失效）也立刻消失。
   const [devDebugVisible, setDevDebugVisible] = useState(() => isDevDebugAvailable());
   useEffect(() => subscribeDevDebugAvailability(setDevDebugVisible), []);
-  const availableGridApps = useMemo(() => {
-    return INSTALLED_APPS.filter(app =>
-      !DOCK_APPS.includes(app.id)
-      // 「捏臉·開發」僅在開發模式（右下角開發徽標可見或手動解鎖時）顯示
-      && (app.id !== AppID.CharCreatorDev || devDebugVisible)
-    );
-  }, [devDebugVisible]);
+  // 桌面上能出現的 app（Dock 和網格合起來）；「捏臉·開發」僅在開發模式（右下角開發徽標可見或手動解鎖時）顯示
+  const installedIds = useMemo(() => INSTALLED_APPS
+      .filter(app => app.id !== AppID.CharCreatorDev || devDebugVisible)
+      .map(app => app.id as string), [devDebugVisible]);
   const appsById = useMemo(() => new Map(INSTALLED_APPS.map(app => [app.id as string, app])), []);
 
   // Dock 第三格從舊的 Social 換成朋友圈（Moments）：存過自訂順序的，原位替換，不然 Social 被濾掉、
@@ -661,16 +662,22 @@ const Launcher: React.FC = () => {
       return [...(saved || []).filter((id, index, all) => valid.has(id) && all.indexOf(id) === index), ...available.filter(id => !(saved || []).includes(id))];
   }, []);
 
-  const availableGridIds = useMemo(() => availableGridApps.map(app => app.id as string), [availableGridApps]);
-  const [launcherDockOrder, setLauncherDockOrder] = useState<string[]>(() => normalizeOrder(migrateLegacyDockOrder(theme.launcherDockOrder), DOCK_APPS));
+  // Dock（utils/launcherLayout.ts 的 normalizeDockOrder）：沒存過是預設那四個；存過照存的，搬走的不會自動補回來
+  const [launcherDockOrder, setLauncherDockOrder] = useState<string[]>(() => normalizeDockOrder(migrateLegacyDockOrder(theme.launcherDockOrder), installedIds, DOCK_APPS));
   const launcherDockOrderRef = useRef(launcherDockOrder);
   useEffect(() => { launcherDockOrderRef.current = launcherDockOrder; }, [launcherDockOrder]);
   useEffect(() => {
       if (layoutEditing) return;
-      const next = normalizeOrder(migrateLegacyDockOrder(theme.launcherDockOrder), DOCK_APPS);
+      const next = normalizeDockOrder(migrateLegacyDockOrder(theme.launcherDockOrder), installedIds, DOCK_APPS);
       launcherDockOrderRef.current = next;
       setLauncherDockOrder(next);
-  }, [layoutEditing, normalizeOrder, theme.launcherDockOrder]);
+  }, [layoutEditing, installedIds, theme.launcherDockOrder]);
+  const setDockOrder = useCallback((next: string[]) => {
+      launcherDockOrderRef.current = next;
+      setLauncherDockOrder(next);
+  }, []);
+  // 網格上的 app＝全部扣掉 Dock 裡的
+  const availableGridIds = useMemo(() => installedIds.filter(id => !launcherDockOrder.includes(id)), [installedIds, launcherDockOrder]);
 
   // 桌面網格（utils/launcherLayout.ts）：存過就用存的，沒存過照舊版寫死的那幾頁排出來
   const resolveLayout = useCallback((): LauncherLayout => {
@@ -698,6 +705,9 @@ const Launcher: React.FC = () => {
       setLayout(next);
       void updateTheme({ ...extra, launcherLayout: next });
   }, [updateTheme]);
+
+  // Dock 樣式（外觀 → Dock，utils/dockStyle.ts）：自訂的底圖要先把令牌解成網址
+  const dockImageUrl = useBlobRefUrl(theme.dockStyle === 'custom' ? theme.dockCustom?.image : undefined);
 
   // 自訂小組件的模板（utils/customWidget.ts）
   const customTemplates = useMemo(() => theme.launcherCustomWidgets || [], [theme.launcherCustomWidgets]);
@@ -912,7 +922,7 @@ const Launcher: React.FC = () => {
       const turn = () => {
           const pointer = layoutPointer.current;
           const scroller = scrollContainerRef.current;
-          if (!pointer?.active || pointer.kind !== 'grid' || !scroller || layoutPageTurnDirection.current !== direction) {
+          if (!pointer?.active || !scroller || layoutPageTurnDirection.current !== direction) {
               clearLayoutPageTurn();
               return;
           }
@@ -983,22 +993,26 @@ const Launcher: React.FC = () => {
   const updateGridPreview = (pointer: NonNullable<typeof layoutPointer.current>, clientX: number, clientY: number) => {
       const grid = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('[data-launcher-grid]');
       const pageId = grid?.dataset.launcherGrid;
-      const item = layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
-      if (!grid || !pageId || !item) {
+      // 從 Dock 拖出來的：pointer.key 是 app id，不在網格上
+      const fromDock = pointer.kind === 'dock';
+      const item = fromDock ? null : layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
+      if (!grid || !pageId || (!fromDock && !item)) {
           if (pointer.preview) { pointer.preview = null; setDropPreview(null); }
           return;
       }
       const cell = cellFromPoint(grid.getBoundingClientRect(), clientX, clientY);
-      const size: WidgetSize = isWidget(item) ? { w: item.w, h: item.h } : { w: 1, h: 1 };
+      const size: WidgetSize = item && isWidget(item) ? { w: item.w, h: item.h } : { w: 1, h: 1 };
       const x = Math.max(0, Math.min(GRID_COLS - size.w, cell.x - (pointer.grabCellX || 0)));
       const y = Math.max(0, Math.min(GRID_ROWS - size.h, cell.y - (pointer.grabCellY || 0)));
       const prev = pointer.preview;
       if (prev && prev.pageId === pageId && prev.x === x && prev.y === y) return;
-      const result = inBounds(x, y, size) ? moveItem(layoutRef.current, pointer.key, pageId, x, y) : null;
+      const result = !inBounds(x, y, size) ? null
+          : fromDock ? moveDockAppToGrid(layoutRef.current, launcherDockOrderRef.current, pointer.key, pageId, x, y)
+          : moveItem(layoutRef.current, pointer.key, pageId, x, y);
       const ok = !!result?.ok;
       // 蓋到東西、又不是一樣大的交換：放下去會往下擠
       const targetPage = layoutRef.current.pages.find(p => p.id === pageId);
-      const blockers = targetPage ? itemsInArea(targetPage, { x, y, ...size }, pointer.key) : [];
+      const blockers = targetPage ? itemsInArea(targetPage, { x, y, ...size }, fromDock ? undefined : pointer.key) : [];
       const swap = blockers.length === 1 && blockers[0].x === x && blockers[0].y === y
           && (isWidget(blockers[0]) ? blockers[0].w : 1) === size.w && (isWidget(blockers[0]) ? blockers[0].h : 1) === size.h;
       const next = { pageId, x, y, ...size, ok, push: ok && blockers.length > 0 && !swap };
@@ -1025,29 +1039,43 @@ const Launcher: React.FC = () => {
           pointer.ghost.style.left = `${e.clientX - (pointer.grabOffsetX || 0)}px`;
           pointer.ghost.style.top = `${e.clientY - (pointer.grabOffsetY || 0)}px`;
       }
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const overDock = under?.closest<HTMLElement>('[data-launcher-dock]');
       const rootRect = e.currentTarget.getBoundingClientRect();
-      if (pointer.kind === 'grid' && e.clientX <= rootRect.left + 40) queueLayoutPageTurn(-1);
-      else if (pointer.kind === 'grid' && e.clientX >= rootRect.right - 40) queueLayoutPageTurn(1);
+      if (!overDock && e.clientX <= rootRect.left + 40) queueLayoutPageTurn(-1);
+      else if (!overDock && e.clientX >= rootRect.right - 40) queueLayoutPageTurn(1);
       else clearLayoutPageTurn();
-      if (pointer.kind === 'grid') {
+      const highlight = (el: HTMLElement | undefined, className: string) => {
+          if (el === pointer.targetElement) return;
+          pointer.targetElement?.classList.remove('launcher-drop-target', 'launcher-dock-drop');
+          el?.classList.add(className);
+          pointer.targetElement = el;
+      };
+
+      if (!overDock) {
+          // 在網格上：網格的東西照舊；Dock 拖出來的 app 也看格子
+          highlight(undefined, '');
+          pointer.lastTarget = undefined;
+          pointer.dockTarget = null;
           updateGridPreview(pointer, e.clientX, e.clientY);
           return;
       }
-      const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-launcher-item]');
-      const targetKey = target?.dataset.launcherItem;
-      const targetKind = target?.dataset.launcherKind;
-      const validTarget = !!targetKey && targetKind === pointer.kind && targetKey !== pointer.key;
-      if (!validTarget) {
-          pointer.targetElement?.classList.remove('launcher-drop-target');
-          pointer.targetElement = undefined;
-          pointer.lastTarget = undefined;
+      if (pointer.preview) { pointer.preview = null; setDropPreview(null); }
+      const dockItem = under?.closest<HTMLElement>('[data-launcher-kind="dock"]');
+      const dockKey = dockItem?.dataset.launcherItem;
+      if (pointer.kind === 'dock') {
+          // Dock 裡互換順序
+          if (dockKey && dockKey !== pointer.key) { highlight(dockItem!, 'launcher-drop-target'); pointer.lastTarget = dockKey; }
+          else { highlight(undefined, ''); pointer.lastTarget = undefined; }
           return;
       }
-      if (target === pointer.targetElement) return;
-      pointer.targetElement?.classList.remove('launcher-drop-target');
-      target?.classList.add('launcher-drop-target');
-      pointer.targetElement = target;
-      pointer.lastTarget = targetKey;
+      // 網格的 app 拖到 Dock：蓋到某一個是交換，空處是接在最後（小組件放不進 Dock）
+      const dragged = layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
+      if (!dragged || dragged.kind !== 'app') { highlight(undefined, ''); pointer.dockTarget = null; return; }
+      const index = dockKey ? launcherDockOrderRef.current.indexOf(dockKey) : -1;
+      if (index >= 0) { highlight(dockItem!, 'launcher-drop-target'); pointer.dockTarget = { index }; }
+      else if (launcherDockOrderRef.current.length < DOCK_MAX) { highlight(overDock, 'launcher-dock-drop'); pointer.dockTarget = {}; }
+      else { highlight(undefined, ''); pointer.dockTarget = null; }
   };
 
   const finishLayoutPointer = (e?: React.PointerEvent<HTMLDivElement>) => {
@@ -1065,11 +1093,24 @@ const Launcher: React.FC = () => {
           pointer.element.style.pointerEvents = '';
           pointer.element.classList.remove('launcher-dragging');
           pointer.ghost?.remove();
-          pointer.targetElement?.classList.remove('launcher-drop-target');
+          pointer.targetElement?.classList.remove('launcher-drop-target', 'launcher-dock-drop');
           if (!pointer.ghost && e?.type === 'pointerup') {
               // 整理中點一下：小組件打開設定
               const tapped = layoutRef.current.pages.flatMap(p => p.items).find(i => i.id === pointer.key);
               if (tapped && isWidget(tapped)) setSettingsItemId(tapped.id);
+          } else if (pointer.kind === 'grid' && pointer.dockTarget) {
+              // 網格的 app 放進 Dock（Dock 和版面一次寫回去）
+              const result = moveAppToDock(layoutRef.current, launcherDockOrderRef.current, pointer.key, pointer.dockTarget.index);
+              if (result.ok) { setDockOrder(result.dock); commitLayout(result.layout, { launcherDockOrder: result.dock }); }
+          } else if (pointer.kind === 'dock' && pointer.preview?.ok) {
+              // Dock 的 app 放到網格
+              const preview = pointer.preview;
+              const result = moveDockAppToGrid(layoutRef.current, launcherDockOrderRef.current, pointer.key, preview.pageId, preview.x, preview.y);
+              if (result.ok) {
+                  setDockOrder(result.dock);
+                  commitLayout(result.layout, { launcherDockOrder: result.dock });
+                  if (result.overflowed) addToast(`這頁擠不下，${result.overflowed} 個移到後面的頁了`, 'info');
+              }
           } else if (pointer.kind === 'grid') {
               const preview = pointer.preview;
               if (preview?.ok) {
@@ -1079,8 +1120,8 @@ const Launcher: React.FC = () => {
                       if (result.overflowed) addToast(`這頁擠不下，${result.overflowed} 個移到後面的頁了`, 'info');
                   }
               }
-          } else if (pointer.kind === 'dock') {
-              if (pointer.lastTarget) reorderDock(pointer.key, pointer.lastTarget);
+          } else if (pointer.kind === 'dock' && pointer.lastTarget) {
+              reorderDock(pointer.key, pointer.lastTarget);
               void updateTheme({ launcherDockOrder: launcherDockOrderRef.current });
           }
       }
@@ -1268,6 +1309,13 @@ const Launcher: React.FC = () => {
   const launcherBottomInset = '1.25rem';
 
   const totalUnread = Object.values(unreadMessages).reduce((a, b) => a + b, 0);
+  // 訊息的未讀紅點：Message（chat_hub）在 Dock 或桌面上都掛。以前只認舊的 chat 代號，Dock 換成 Message 後就沒出現過
+  const unreadBadge = (appId: string) => (appId === AppID.ChatHub || appId === AppID.Chat) && totalUnread > 0 ? (
+      <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center border-2 border-white/20 shadow-sm font-bold pointer-events-none animate-pop-in">
+          {totalUnread > 9 ? '9+' : totalUnread}
+      </div>
+  ) : null;
+  const dockLook = dockContainerLook(theme.dockStyle, theme.dockCustom, { acnh, paper, imageUrl: dockImageUrl });
   const widgetUnread = widgetChar && unreadMessages[widgetChar.id] ? unreadMessages[widgetChar.id] : 0;
   // 角色卡片：直接進這個角色的聊天視窗，返回回桌面。還沒有角色時退回 Chat 主頁。
   const openWidgetChat = () => {
@@ -1409,6 +1457,10 @@ const Launcher: React.FC = () => {
           cursor: grabbing;
           animation: none;
         }
+        .launcher-dock-drop {
+          outline: 2px dashed rgba(255,255,255,.75);
+          outline-offset: 3px;
+        }
         .launcher-drop-target {
           transform: scale(.93);
           opacity: .52;
@@ -1476,7 +1528,7 @@ const Launcher: React.FC = () => {
                             style={{ gridColumn: `${item.x + 1} / span ${isWidget(item) ? item.w : 1}`, gridRow: `${item.y + 1} / span ${isWidget(item) ? item.h : 1}` }}
                           >
                               {item.kind === 'app' ? (
-                                  appsById.get(item.appId) ? <AppIcon app={appsById.get(item.appId)!} onClick={() => { if (!layoutEditing) openApp(item.appId as AppID); }} size="md" /> : null
+                                  appsById.get(item.appId) ? <><AppIcon app={appsById.get(item.appId)!} onClick={() => { if (!layoutEditing) openApp(item.appId as AppID); }} size="md" />{unreadBadge(item.appId)}</> : null
                               ) : renderWidget(item)}
                               {layoutEditing && isWidget(item) && (
                                   <button
@@ -1561,25 +1613,22 @@ const Launcher: React.FC = () => {
            className="mt-auto flex justify-center w-full px-4 relative z-30"
            style={{ paddingBottom: launcherBottomInset }}
       >
+           {/* data-launcher-dock：拖動時認得出「在 Dock 上」；空的 Dock 平常不畫，整理中留一塊能放東西的地方 */}
+           {(dockAppsConfig.length > 0 || layoutEditing) && (
            <div
-             className={`rounded-[1.75rem] px-4 py-3 flex gap-3 sm:gap-6 items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${acnh || paper ? '' : 'bg-white/30 border border-white/25 shadow-[0_8px_40px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.08)]'}`}
-             style={acnh ? { background: 'transparent' } : paper ? {
-               background: 'rgba(224,221,215,0.42)',
-               border: '1px solid rgba(91,72,51,0.07)',
-               boxShadow: '0 6px 18px rgba(91,72,51,0.065)',
-             } : undefined}
+             data-launcher-dock
+             className={`rounded-[1.75rem] px-4 py-3 flex ${dockAppsConfig.length >= DOCK_MAX ? 'gap-2' : 'gap-3 sm:gap-6'} items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${dockLook.className}`}
+             style={{ ...dockLook.style, ...(dockAppsConfig.length === 0 ? { minWidth: '12rem', minHeight: '4.75rem', justifyContent: 'center' } : {}) }}
            >
+               {dockAppsConfig.length === 0 && <span className="text-[10px] font-semibold opacity-60" style={{ color: contentColor }}>把 app 拖到這裡</span>}
                {dockAppsConfig.map(app => (
                    <div key={app.id} data-launcher-item={app.id} data-launcher-kind="dock" className={`relative ${layoutEditing ? 'launcher-edit-item' : ''}`}>
                         <AppIcon app={app} onClick={() => { if (!layoutEditing) openApp(app.id); }} variant="dock" size="md" />
-                        {app.id === 'chat' && totalUnread > 0 && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center border-2 border-white/20 shadow-sm font-bold pointer-events-none animate-pop-in">
-                                {totalUnread > 9 ? '9+' : totalUnread}
-                            </div>
-                        )}
+                        {unreadBadge(app.id)}
                    </div>
                ))}
            </div>
+           )}
       </div>
 
       {/* ＋小組件 */}

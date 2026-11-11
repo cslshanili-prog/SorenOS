@@ -401,3 +401,59 @@ export const cellFromPoint = (gridRect: { left: number; top: number; width: numb
     x: Math.floor(((clientX - gridRect.left) / gridRect.width) * GRID_COLS),
     y: Math.floor(((clientY - gridRect.top) / gridRect.height) * GRID_ROWS),
 });
+
+// ─── Dock：跟桌面上的 app 互換 ────────────────────────────────────────────
+// Dock 順序存在 OSTheme.launcherDockOrder（app id 陣列，最多 DOCK_MAX 個）。Dock 裡的 app 不會出現在網格上，
+// 從 Dock 拿出來放到網格、或從網格放進 Dock，兩邊一次改好（呼叫端用同一次 updateTheme 寫回去）。
+
+export const DOCK_MAX = 5;
+
+/** 沒存過照預設；存過的照存的（去重、去掉不存在的、最多 DOCK_MAX 個），不再自動補回預設那幾個（使用者可能搬走了） */
+export const normalizeDockOrder = (saved: string[] | undefined, availableIds: string[], defaults: string[]): string[] => {
+    const valid = new Set(availableIds);
+    return (saved ?? defaults).filter((id, index, all) => valid.has(id) && all.indexOf(id) === index).slice(0, DOCK_MAX);
+};
+
+export type DockMoveResult = { ok: true; layout: LauncherLayout; dock: string[]; overflowed?: number } | { ok: false };
+
+/**
+ * 桌面上的 app 放進 Dock。toIndex 指到 Dock 上某個 app：交換，那個 app 搬到這個 app 原本的格子；
+ * 沒指（放在 Dock 的空處）：接在最後，Dock 滿了就不行。
+ */
+export const moveAppToDock = (layout: LauncherLayout, dock: string[], itemId: string, toIndex?: number): DockMoveResult => {
+    const page = layout.pages.find(p => p.items.some(i => i.id === itemId));
+    const item = page?.items.find(i => i.id === itemId);
+    if (!page || !item || item.kind !== 'app') return { ok: false };
+    const target = toIndex !== undefined ? dock[toIndex] : undefined;
+    if (!target && dock.length >= DOCK_MAX) return { ok: false };
+    const items = page.items.filter(i => i.id !== itemId);
+    if (target) items.push({ id: `app_${target}`, kind: 'app', appId: target, x: item.x, y: item.y });
+    const nextDock = target ? dock.map((id, i) => (i === toIndex ? item.appId : id)) : [...dock, item.appId];
+    return { ok: true, dock: nextDock, layout: { ...layout, pages: layout.pages.map(p => (p.id === page.id ? { ...p, items } : p)) } };
+};
+
+/**
+ * Dock 的 app 放到桌面某格：空的就放；正好蓋住一個 app 就交換（那個 app 進 Dock 原本的位置）；
+ * 蓋到小組件就放下去、蓋到的往下擠（跟 moveItem 一樣）。
+ */
+export const moveDockAppToGrid = (layout: LauncherLayout, dock: string[], appId: string, pageId: string, x: number, y: number): DockMoveResult => {
+    const dockIndex = dock.indexOf(appId);
+    const pageIndex = layout.pages.findIndex(p => p.id === pageId);
+    if (dockIndex < 0 || pageIndex < 0 || !inBounds(x, y, { w: 1, h: 1 })) return { ok: false };
+    const page = layout.pages[pageIndex];
+    const placed: LauncherItem = { id: `app_${appId}`, kind: 'app', appId, x, y };
+    const blockers = itemsInArea(page, { x, y, w: 1, h: 1 });
+    if (blockers.length === 1 && blockers[0].kind === 'app') {
+        const swapped = blockers[0];
+        const pages = layout.pages.map((p, i) => (i === pageIndex ? { ...p, items: p.items.map(it => (it.id === swapped.id ? placed : it)) } : p));
+        return { ok: true, layout: { ...layout, pages }, dock: dock.map((id, i) => (i === dockIndex ? swapped.appId : id)) };
+    }
+    const nextDock = dock.filter(id => id !== appId);
+    if (!blockers.length) {
+        const pages = layout.pages.map((p, i) => (i === pageIndex ? { ...p, items: [...p.items, placed] } : p));
+        return { ok: true, layout: { ...layout, pages }, dock: nextDock };
+    }
+    const withPlaced = layout.pages.map((p, i) => (i === pageIndex ? { ...p, items: [...p.items, placed] } : p));
+    const pushed = pushDown(withPlaced, pageIndex, placed);
+    return { ok: true, layout: { ...layout, pages: pushed.pages }, dock: nextDock, overflowed: pushed.overflowed };
+};

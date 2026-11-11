@@ -147,6 +147,9 @@ export interface OSTheme {
   launcherLayout?: import('./utils/launcherLayout').LauncherLayout;
   /** 桌面自訂小組件的模板（utils/customWidget.ts）；放上桌面的每一份記在 launcherLayout 裡 */
   launcherCustomWidgets?: import('./utils/customWidget').CustomWidgetTemplate[];
+  /** 桌面 Dock 的樣式（utils/dockStyle.ts）：glass（預設 Liquid Glass，沒設也是）／none（無膠囊）／custom（自訂，配 dockCustom） */
+  dockStyle?: import('./utils/dockStyle').DockStyleKind;
+  dockCustom?: import('./utils/dockStyle').DockCustomStyle;
   /** 自定義透明圖標是否保留原始輪廓並移除系統圓角底框。默認 false。 */
   preserveCustomIconOutlines?: boolean;
   /** 默認皮膚桌面「正在播放」音樂卡片改用淺色系樣式（新安裝默認 true）。 */
