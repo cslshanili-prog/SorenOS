@@ -5,6 +5,7 @@ import { resolveRefToDataUrl } from '../../utils/blobRef';
 import { isChatPreviewMessage } from '../../utils/chatMessageVisibility';
 import { applyWidgetState, buildWidgetSrcDoc, type CustomWidgetTemplate, type WidgetCharInfo } from '../../utils/customWidget';
 import type { WidgetSize } from '../../utils/launcherLayout';
+import { nextSandboxFrameKey } from '../../utils/sandboxShims';
 
 /**
  * 桌面自訂小組件的畫面（utils/customWidget.ts）。
@@ -127,6 +128,11 @@ const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
         state: stateRef.current,
     }) : ''), [template, values, imageUrls, userName, charKey, size.w, size.h, contentColor, resetCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // 內容一變就換一個新 iframe，不改舊的 srcdoc（改了會塞一筆瀏覽器歷史，見 nextSandboxFrameKey）
+    const frameKey = useMemo(() => nextSandboxFrameKey(), [srcDoc]);
+    // 換了 iframe，舊的毛玻璃回報作廢，等新的回報
+    useEffect(() => { setBackdrop(null); }, [frameKey]);
+
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
             if (!frameRef.current || event.source !== frameRef.current.contentWindow) return;
@@ -184,6 +190,7 @@ const CustomWidgetFrame: React.FC<CustomWidgetFrameProps> = ({
         >
             {srcDoc && (
                 <iframe
+                    key={frameKey}
                     ref={frameRef}
                     title={template.name}
                     className="absolute inset-0 block h-full w-full border-0"

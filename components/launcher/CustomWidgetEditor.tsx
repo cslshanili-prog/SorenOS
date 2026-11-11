@@ -10,6 +10,7 @@ import {
 } from '../../utils/customWidget';
 import { sizeLabel, type WidgetSize } from '../../utils/launcherLayout';
 import CustomWidgetFrame from './CustomWidgetFrame';
+import { useResetHiddenScroll } from './useResetHiddenScroll';
 
 /**
  * 自訂小組件編輯器：名字、尺寸、HTML、CSS、圖片素材、可填寫欄位，上面一直有預覽。
@@ -22,6 +23,7 @@ const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
     text: '一行字', textarea: '多行字', color: '顏色', select: '選項', number: '數字', date: '日期',
 };
 
+const PREVIEW_HEIGHT = 196;
 const GAP_X = 8;   // 跟桌面網格的 columnGap / rowGap 一樣（0.5rem / 0.75rem）
 const GAP_Y = 12;
 
@@ -65,6 +67,8 @@ const CustomWidgetEditor: React.FC<{
     const uploadKey = useRef<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const previewBox = useRef<HTMLDivElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    useResetHiddenScroll(rootRef);
     const [boxWidth, setBoxWidth] = useState(320);
 
     // 打字時預覽晚一點跟上，不然每個字都重載一次 iframe
@@ -88,7 +92,7 @@ const CustomWidgetEditor: React.FC<{
         setDraft(d => ({ ...d, fields: d.fields.map((f, i) => (i === index ? { ...f, ...next } : f)) }));
 
     const real = pixelSize(draft, cell);
-    const scale = Math.min(1, (boxWidth - 8) / real.width, 220 / real.height);
+    const scale = Math.min(1, (boxWidth - 8) / real.width, (PREVIEW_HEIGHT - 8) / real.height);
 
     const save = () => {
         const cleaned: CustomWidgetTemplate = {
@@ -130,10 +134,10 @@ const CustomWidgetEditor: React.FC<{
     };
 
     const input = 'w-full rounded-lg border border-[#3f362c]/15 bg-white px-2.5 py-1.5 text-[12px] outline-none focus:border-[#4b4136]/50';
-    const code = 'block w-full min-h-[16rem] flex-1 resize-none rounded-xl border border-[#3f362c]/15 bg-white p-3 font-mono text-[11.5px] leading-relaxed outline-none focus:border-[#4b4136]/50';
+    const code = 'block w-full min-h-[20rem] resize-y rounded-xl border border-[#3f362c]/15 bg-white p-3 font-mono text-[11.5px] leading-relaxed outline-none focus:border-[#4b4136]/50';
 
     return (
-        <div className="absolute inset-0 z-[70] flex flex-col bg-[#fffdf8] text-[#3f362c]" data-launcher-control role="dialog" aria-label="編輯自訂小組件">
+        <div ref={rootRef} className="absolute inset-0 z-[70] flex flex-col bg-[#fffdf8] text-[#3f362c]" data-launcher-control role="dialog" aria-label="編輯自訂小組件">
             <div className="flex shrink-0 items-center gap-2 border-b border-[#3f362c]/10 px-3 pb-2" style={{ paddingTop: 'max(0.75rem, var(--safe-top))' }}>
                 <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[12px] font-bold text-[#3f362c]/60 active:bg-[#3f362c]/5">取消</button>
                 <input value={draft.name} onChange={e => patch({ name: e.target.value.slice(0, 60) })} placeholder="小組件名字" aria-label="小組件名字"
@@ -144,8 +148,10 @@ const CustomWidgetEditor: React.FC<{
                 <button type="button" onClick={save} className="rounded-full bg-[#4b4136] px-3.5 py-1.5 text-[12px] font-bold text-white active:scale-95">儲存</button>
             </div>
 
-            <div className="shrink-0 border-b border-[#3f362c]/10 px-4 pb-3 pt-3">
-                <div ref={previewBox} className="grid place-items-center rounded-2xl" style={{ height: 228, background: 'linear-gradient(135deg,#8a9bb0,#c3a6a0 55%,#e6d3b8)' }}>
+            {/* 頂上那條固定，下面（預覽、尺寸、分頁、內容）整塊一起捲：鍵盤彈出來時預覽會捲走，不會只剩一條細縫 */}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="border-b border-[#3f362c]/10 px-4 pb-3 pt-3">
+                <div ref={previewBox} className="grid place-items-center rounded-2xl" style={{ height: PREVIEW_HEIGHT, background: 'linear-gradient(135deg,#8a9bb0,#c3a6a0 55%,#e6d3b8)' }}>
                     {/* 虛線框是這個尺寸在桌面上佔的範圍 */}
                     <div style={{ width: real.width * scale, height: real.height * scale, outline: '1px dashed rgba(255,255,255,0.75)', outlineOffset: 2, borderRadius: 6 }}>
                         <div style={{ width: real.width, height: real.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -167,7 +173,7 @@ const CustomWidgetEditor: React.FC<{
                 </div>
             </div>
 
-            <div role="tablist" className="flex shrink-0 gap-1 px-3 pt-2">
+            <div role="tablist" className="sticky top-0 z-10 flex gap-1 bg-[#fffdf8] px-3 py-2">
                 {([['html', 'HTML'], ['css', 'CSS'], ['images', `圖片${draft.imageKeys.length ? ` ${draft.imageKeys.length}` : ''}`], ['fields', `欄位${draft.fields.length ? ` ${draft.fields.length}` : ''}`], ['help', '佔位符']] as const).map(([value, label]) => (
                     <button key={value} role="tab" aria-selected={tab === value} type="button" onClick={() => setTab(value)}
                         className={`rounded-full px-3 py-1 text-[11px] font-bold ${tab === value ? 'bg-[#4b4136] text-white' : 'text-[#3f362c]/55'}`}>
@@ -176,7 +182,7 @@ const CustomWidgetEditor: React.FC<{
                 ))}
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-6 pt-3" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.5rem)' }}>
+            <div className="px-4 pb-6 pt-1" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.5rem)' }}>
                 {tab === 'html' && (
                     <textarea value={draft.html} onChange={e => patch({ html: e.target.value })} className={code}
                         spellCheck={false} autoCapitalize="off" autoCorrect="off" aria-label="HTML" placeholder={'<div class="card">{{time}}</div>'} />
@@ -276,6 +282,7 @@ widget.size                   // { w, h } 幾格`}</pre>
                         <p className="text-[#3f362c]/45">只認「點一下」：拖曳、輸入框、捲動在小組件裡不會動，桌面照常滑頁和長按整理。</p>
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );

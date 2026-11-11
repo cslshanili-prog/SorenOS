@@ -33,7 +33,7 @@ import { safeShareFileName } from '../utils/pngShare';
 import CustomWidgetFrame from '../components/launcher/CustomWidgetFrame';
 import CustomWidgetSettings from '../components/launcher/CustomWidgetSettings';
 import CustomWidgetEditor, { pixelSize } from '../components/launcher/CustomWidgetEditor';
-import { WIDGET_STARTERS, instantiateStarter, type WidgetStarter } from '../utils/widgetStarters';
+import { STARTER_TEMPLATES, WIDGET_STARTERS, findUntouchedStarterCopies, isStarterTemplateId, starterTemplateId, type WidgetStarter } from '../utils/widgetStarters';
 
 const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'));
 
@@ -508,7 +508,8 @@ const Launcher: React.FC = () => {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const widgetFileInputRef = useRef<HTMLInputElement>(null);
   /** 自訂小組件編輯器：null 關著；initial 是要改的模板（新建是 null）；placeAfterSave 存好順手放上桌面 */
-  const [editorState, setEditorState] = useState<{ initial: CustomWidgetTemplate | null; placeAfterSave?: boolean } | null>(null);
+  // retargetItemId：從桌面上某一份範本點「編輯模板」，存好後那一份改指新複製出來的模板
+  const [editorState, setEditorState] = useState<{ initial: CustomWidgetTemplate | null; placeAfterSave?: boolean; retargetItemId?: string } | null>(null);
   const [gridCell, setGridCell] = useState({ w: 76, h: 88 });
   const layoutPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutPointer = useRef<{
@@ -616,7 +617,8 @@ const Launcher: React.FC = () => {
 
   // 自訂小組件的模板（utils/customWidget.ts）
   const customTemplates = useMemo(() => theme.launcherCustomWidgets || [], [theme.launcherCustomWidgets]);
-  const customTemplatesById = useMemo(() => new Map(customTemplates.map(t => [t.id, t])), [customTemplates]);
+  // 解析桌面上那幾份：自己的模板＋範本（`starter:<id>`，從程式現拿、不存進「我的小組件」）
+  const customTemplatesById = useMemo(() => new Map([...STARTER_TEMPLATES, ...customTemplates].map(t => [t.id, t])), [customTemplates]);
 
   const dockAppsConfig = useMemo(() => {
       return launcherDockOrder.map(id => appsById.get(id)).filter(Boolean) as typeof INSTALLED_APPS;
@@ -854,6 +856,8 @@ const Launcher: React.FC = () => {
   }, [clearLayoutPageTurn, clearLayoutPressTimer]);
 
   const handleLayoutPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      // 手指不走滑鼠拖頁那條；iOS 補發的相容滑鼠事件偶爾只有 mousedown 沒有 mouseup，留著的位移會把之後的點擊全擋掉
+      if (e.pointerType !== 'mouse') { isDragging.current = false; dragMoved.current = 0; }
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if ((e.target as HTMLElement).closest('[data-launcher-control]')) return;
       const launcherRoot = e.currentTarget;
@@ -863,6 +867,8 @@ const Launcher: React.FC = () => {
       const kind = item.dataset.launcherKind;
       if (!key || !kind) return;
       clearLayoutPressTimer();
+      // 上一次的沒收乾淨（iOS 長按圖片跳出系統選單時不一定給 pointerup／pointercancel）：先收掉殘留的影子和半透明
+      if (layoutPointer.current) finishLayoutPointer();
       layoutPointer.current = { pointerId: e.pointerId, key, kind, x: e.clientX, y: e.clientY, active: false, element: item, editMode: layoutEditing };
       if (layoutEditing) {
           // 整理中：手指按住不動一下（180ms）才抓起來，按下去馬上滑就是翻頁（按在 app 上也能滑）；
@@ -1054,11 +1060,19 @@ const Launcher: React.FC = () => {
           setGridCell({ w: (rect.width - 8 * (GRID_COLS - 1)) / GRID_COLS, h: (rect.height - 12 * (GRID_ROWS - 1)) / GRID_ROWS });
       }
   };
-  const openEditor = (initial: CustomWidgetTemplate | null, placeAfterSave = false) => {
+  const openEditor = (initial: CustomWidgetTemplate | null, placeAfterSave = false, retargetItemId?: string) => {
       measureGridCell();
       setAddSheetOpen(false);
       setSettingsItemId(null);
-      setEditorState({ initial, placeAfterSave });
+      setEditorState({ initial, placeAfterSave, retargetItemId });
+  };
+  /** 桌面上某一份的「編輯模板」：範本不能直接改，複製一份成自己的，存好那一份改指它 */
+  const editTemplateOf = (item: LauncherWidgetItem) => {
+      const template = customTemplatesById.get(item.templateId || '');
+      if (!template) return;
+      if (!isStarterTemplateId(template.id)) { openEditor(template); return; }
+      const now = Date.now();
+      openEditor({ ...template, id: makeTemplateId(), createdAt: now, updatedAt: now }, false, item.id);
   };
   const placeCustomWidget = (template: CustomWidgetTemplate, extra?: Partial<OSTheme>) => {
       const size = { w: template.w, h: template.h };
@@ -1070,20 +1084,38 @@ const Launcher: React.FC = () => {
       trackEvent('桌面新增小组件', { 类型: 'custom', 尺寸: sizeLabel(size) });
       return result.item;
   };
-  /** 用範本：複製一份成自己的模板、放上桌面；要填東西才好看的（日子、照片）順手打開這一份的設定 */
+  /**
+   * 用範本：放上桌面的那一份直接指著範本（`starter:<id>`），不複製進「我的小組件」，從桌面移除就什麼都不留。
+   * 要填東西才好看的（日子、照片）順手打開這一份的設定。
+   */
   const applyStarter = (starter: WidgetStarter) => {
-      const template = instantiateStarter(starter, makeTemplateId());
-      const item = placeCustomWidget(template, { launcherCustomWidgets: [...customTemplates, template] });
+      const template = customTemplatesById.get(starterTemplateId(starter.id));
+      if (!template) return;
+      const item = placeCustomWidget(template);
       trackEvent('使用桌面小组件范本', { 范本: starter.id });
       if (starter.needsSetup) setSettingsItemId(item.id);
   };
-  // 範本預覽用的模板（固定 id，不存）
-  const starterPreviews = useMemo(() => WIDGET_STARTERS.map(starter => ({ starter, template: instantiateStarter(starter, `starter_${starter.id}`, 0) })), []);
+  const starterPreviews = useMemo(() => WIDGET_STARTERS.map(starter => ({ starter, template: customTemplatesById.get(starterTemplateId(starter.id))! })), [customTemplatesById]);
+  // 舊版「用這個」複製進「我的小組件」、還沒改過的那些：桌面上的改指範本、複製品拿掉（只做一次，之後就沒有了）
+  useEffect(() => {
+      if (layoutEditing || !customTemplates.length) return;
+      const copies = findUntouchedStarterCopies(customTemplates);
+      if (!copies.size) return;
+      const nextLayout: LauncherLayout = {
+          ...layoutRef.current,
+          pages: layoutRef.current.pages.map(page => ({
+              ...page,
+              items: page.items.map(item => (item.kind === 'widget' && item.templateId && copies.has(item.templateId) ? { ...item, templateId: copies.get(item.templateId) } : item)),
+          })),
+      };
+      commitLayout(nextLayout, { launcherCustomWidgets: customTemplates.filter(t => !copies.has(t.id)) });
+  }, [layoutEditing, customTemplates, commitLayout]);
   const saveTemplate = (template: CustomWidgetTemplate) => {
       const exists = customTemplates.some(t => t.id === template.id);
       const next = exists ? customTemplates.map(t => (t.id === template.id ? template : t)) : [...customTemplates, template];
       if (!exists) trackEvent('新建桌面自订小组件');
-      if (editorState?.placeAfterSave && !exists) placeCustomWidget(template, { launcherCustomWidgets: next });
+      if (editorState?.retargetItemId) commitLayout(patchWidget(layoutRef.current, editorState.retargetItemId, { templateId: template.id }), { launcherCustomWidgets: next });
+      else if (editorState?.placeAfterSave && !exists) placeCustomWidget(template, { launcherCustomWidgets: next });
       else void updateTheme({ launcherCustomWidgets: next });
       setEditorState(null);
       addToast(exists ? '模板存好了，桌面上用它的都會更新' : '小組件做好了', 'success');
@@ -1254,15 +1286,24 @@ const Launcher: React.FC = () => {
     <div
       ref={launcherRootRef}
       className="h-full w-full flex flex-col relative z-10 overflow-hidden font-sans select-none"
+      style={{ WebkitTouchCallout: 'none' } as React.CSSProperties}
       onPointerDown={handleLayoutPointerDown}
       onPointerMove={handleLayoutPointerMove}
       onPointerUp={finishLayoutPointer}
       onPointerCancel={finishLayoutPointer}
+      onLostPointerCapture={() => { if (layoutPointer.current?.active) finishLayoutPointer(); }}
       onContextMenu={(e) => {
           if ((e.target as HTMLElement).closest('[data-launcher-item]')) e.preventDefault();
       }}
     >
       <style>{`
+        /* 桌面上的圖片不吃指標：iOS 長按圖片會跳「儲存到照片」那個系統選單、或被當成原生拖曳，桌面就收不到長按和拖動 */
+        [data-launcher-item] img {
+          pointer-events: none;
+          -webkit-user-drag: none;
+          -webkit-touch-callout: none;
+          user-select: none;
+        }
         .launcher-edit-item {
           touch-action: pan-x;
           cursor: grab;
@@ -1554,7 +1595,7 @@ const Launcher: React.FC = () => {
             characters={characters}
             onResize={size => handleResizeWidget(settingsItem.id, size)}
             onPatch={patch => commitLayout(patchWidget(layoutRef.current, settingsItem.id, patch))}
-            onEditTemplate={() => openEditor(customTemplatesById.get(settingsItem.templateId || '') || null)}
+            onEditTemplate={() => editTemplateOf(settingsItem)}
             onRemove={() => handleRemoveWidget(settingsItem.id)}
             onClose={() => setSettingsItemId(null)}
             notify={addToast}

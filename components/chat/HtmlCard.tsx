@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { nextSandboxFrameKey } from '../../utils/sandboxShims';
 import { CaretDown, Check, CopySimple } from '@phosphor-icons/react';
 
 /**
@@ -15,6 +16,8 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
     const [copyState, setCopyState] = useState<'idle' | 'ok' | 'error'>('idle');
     const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const srcDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;background:transparent;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#334155;}body{display:flex;justify-content:center;padding:0;}*{box-sizing:border-box;}img{max-width:100%;}body>*{box-shadow:none!important;filter:none!important;}</style></head><body>${html}</body></html>`;
+    // 內容一變就換一個新 iframe，不改舊的 srcdoc（改了會塞一筆瀏覽器歷史，見 nextSandboxFrameKey）
+    const frameKey = useMemo(() => nextSandboxFrameKey(), [srcDoc]);
 
     useEffect(() => () => {
         if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -61,6 +64,7 @@ const HtmlCard: React.FC<{ html: string }> = ({ html }) => {
     return (
         <div className="w-[280px] max-w-full rounded-[18px] overflow-hidden bg-transparent">
             <iframe
+                key={frameKey}
                 title="html-card"
                 srcDoc={srcDoc}
                 // allow-same-origin: 讓父頁面能讀 contentDocument 自動調高度

@@ -357,7 +357,7 @@ export const removeWidget = (layout: LauncherLayout, itemId: string): LauncherLa
         : page)),
 });
 
-export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame' | 'values' | 'images' | 'charId' | 'state'>>): LauncherLayout => ({
+export const patchWidget = (layout: LauncherLayout, itemId: string, patch: Partial<Pick<LauncherWidgetItem, 'image' | 'frame' | 'values' | 'images' | 'charId' | 'state' | 'templateId'>>): LauncherLayout => ({
     ...layout,
     pages: layout.pages.map(page => (page.items.some(i => i.id === itemId)
         ? { ...page, items: page.items.map(i => (i.id === itemId && i.kind === 'widget' ? { ...i, ...patch } : i)) }

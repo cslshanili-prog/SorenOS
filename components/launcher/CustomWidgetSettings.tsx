@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CharacterProfile } from '../../types';
 import TokenImg from '../os/TokenImg';
+import { useResetHiddenScroll } from './useResetHiddenScroll';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
 import { CUSTOM_WIDGET_SIZES, type CustomWidgetField, type CustomWidgetTemplate } from '../../utils/customWidget';
@@ -50,6 +51,8 @@ const CustomWidgetSettings: React.FC<{
 }> = ({ item, template, characters, onResize, onPatch, onEditTemplate, onRemove, onClose, notify }) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const uploadKey = useRef<string | null>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    useResetHiddenScroll(rootRef);
     const values = item.values || {};
     const images = item.images || {};
 
@@ -80,8 +83,8 @@ const CustomWidgetSettings: React.FC<{
     const control = 'w-full rounded-lg border border-[#3f362c]/15 bg-white px-2.5 py-1.5 text-[12px] outline-none';
 
     return (
-        <div className="absolute inset-0 z-[60] flex items-end bg-black/30" data-launcher-control onClick={onClose}>
-            <div className="w-full max-h-[80%] overflow-y-auto rounded-t-3xl bg-[#fffdf8] px-5 pt-4 text-[#3f362c]" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()}>
+        <div ref={rootRef} className="absolute inset-0 z-[60] flex items-end bg-black/30" data-launcher-control onClick={onClose}>
+            <div className="w-full max-h-[80%] overflow-y-auto overscroll-contain rounded-t-3xl bg-[#fffdf8] px-5 pt-4 text-[#3f362c]" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()}>
                 <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#3f362c]/15" />
                 <div className="flex items-center justify-between gap-2">
                     <h3 className="min-w-0 truncate text-[15px] font-bold">{template.name}</h3>

@@ -373,3 +373,32 @@ export const instantiateStarter = (starter: WidgetStarter, id: string, now = Dat
     createdAt: now,
     updatedAt: now,
 });
+
+// ─── 放上桌面的範本：直接指著範本，不複製進「我的小組件」 ─────────────────
+// 桌面上那一份的 templateId 寫 `starter:<id>`，畫面從這裡現拿；從桌面移除就什麼都不留。
+// 要改它的 HTML／CSS（設定裡的「編輯模板」）才複製一份成自己的，那一份改指著新模板。
+
+export const STARTER_TEMPLATE_PREFIX = 'starter:';
+export const starterTemplateId = (id: WidgetStarterId) => `${STARTER_TEMPLATE_PREFIX}${id}`;
+export const isStarterTemplateId = (templateId: string | undefined) => !!templateId && templateId.startsWith(STARTER_TEMPLATE_PREFIX);
+
+/** 範本 → 模板（固定 id `starter:<id>`），解析桌面上那幾份用 */
+export const STARTER_TEMPLATES: CustomWidgetTemplate[] = WIDGET_STARTERS.map(s => instantiateStarter(s, starterTemplateId(s.id), 0));
+
+const contentKey = (t: Pick<CustomWidgetTemplate, 'name' | 'html' | 'css' | 'w' | 'h' | 'imageKeys' | 'fields'>) =>
+    JSON.stringify([t.name, t.html, t.css, t.w, t.h, t.imageKeys, t.fields]);
+
+/**
+ * 舊版「用這個」會複製一份進「我的小組件」：還沒改過（內容跟範本一模一樣、也沒放自己的圖）的那些，
+ * 回傳 模板 id → 範本 id，讓呼叫端把桌面上那幾份改指範本、把複製品拿掉。改過的是用戶自己的東西，不動。
+ */
+export const findUntouchedStarterCopies = (templates: CustomWidgetTemplate[]): Map<string, string> => {
+    const byContent = new Map(STARTER_TEMPLATES.map(t => [contentKey(t), t.id]));
+    const out = new Map<string, string>();
+    for (const t of templates) {
+        if (isStarterTemplateId(t.id) || Object.values(t.images || {}).some(Boolean)) continue;
+        const starterId = byContent.get(contentKey(t));
+        if (starterId) out.set(t.id, starterId);
+    }
+    return out;
+};
