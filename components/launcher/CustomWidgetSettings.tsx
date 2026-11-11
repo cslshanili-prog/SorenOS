@@ -48,7 +48,12 @@ const CustomWidgetSettings: React.FC<{
     onRemove: () => void;
     onClose: () => void;
     notify: (message: string, type?: 'info' | 'error' | 'success') => void;
-}> = ({ item, template, characters, onResize, onPatch, onEditTemplate, onRemove, onClose, notify }) => {
+    /**
+     * 還沒放上桌面的這一份（範本「用這個」）：上面多一塊即時預覽，底下是「取消」「放上桌面」，
+     * 沒有「編輯模板」「從桌面移除」。填好、選好尺寸才放上去。
+     */
+    draft?: { preview: React.ReactNode; onConfirm: () => void };
+}> = ({ item, template, characters, onResize, onPatch, onEditTemplate, onRemove, onClose, notify, draft }) => {
     const fileRef = useRef<HTMLInputElement>(null);
     const uploadKey = useRef<string | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -88,8 +93,9 @@ const CustomWidgetSettings: React.FC<{
                 <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#3f362c]/15" />
                 <div className="flex items-center justify-between gap-2">
                     <h3 className="min-w-0 truncate text-[15px] font-bold">{template.name}</h3>
-                    <button type="button" onClick={onEditTemplate} className="shrink-0 rounded-full bg-[#3f362c]/[0.06] px-3 py-1 text-[11px] font-bold active:scale-95">編輯模板</button>
+                    {!draft && <button type="button" onClick={onEditTemplate} className="shrink-0 rounded-full bg-[#3f362c]/[0.06] px-3 py-1 text-[11px] font-bold active:scale-95">編輯模板</button>}
                 </div>
+                {draft && <div className="mt-3">{draft.preview}</div>}
 
                 <div className="mt-3">
                     <div className={label}>尺寸（寬×高）</div>
@@ -167,7 +173,7 @@ const CustomWidgetSettings: React.FC<{
                     </div>
                 )}
 
-                {item.state && Object.keys(item.state).length > 0 && (
+                {!draft && item.state && Object.keys(item.state).length > 0 && (
                     <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-[#3f362c]/[0.04] px-3 py-2.5">
                         <span className="min-w-0">
                             <span className="block text-[12px] font-bold">小組件記住的東西</span>
@@ -179,8 +185,13 @@ const CustomWidgetSettings: React.FC<{
                 )}
 
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button type="button" onClick={onRemove} className="rounded-xl bg-red-50 py-2.5 text-[13px] font-bold text-red-500 active:scale-[0.98]">從桌面移除</button>
-                    <button type="button" onClick={onClose} className="rounded-xl bg-[#4b4136] py-2.5 text-[13px] font-bold text-white active:scale-[0.98]">好了</button>
+                    {draft ? <>
+                        <button type="button" onClick={onClose} className="rounded-xl bg-[#3f362c]/[0.06] py-2.5 text-[13px] font-bold active:scale-[0.98]">取消</button>
+                        <button type="button" onClick={draft.onConfirm} className="rounded-xl bg-[#4b4136] py-2.5 text-[13px] font-bold text-white active:scale-[0.98]">放上桌面</button>
+                    </> : <>
+                        <button type="button" onClick={onRemove} className="rounded-xl bg-red-50 py-2.5 text-[13px] font-bold text-red-500 active:scale-[0.98]">從桌面移除</button>
+                        <button type="button" onClick={onClose} className="rounded-xl bg-[#4b4136] py-2.5 text-[13px] font-bold text-white active:scale-[0.98]">好了</button>
+                    </>}
                 </div>
             </div>
         </div>

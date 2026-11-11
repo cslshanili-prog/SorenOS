@@ -18,8 +18,6 @@ export interface WidgetStarter {
     name: string;
     /** 在「＋小組件」裡那一行說明 */
     description: string;
-    /** 放上去之後要先填東西才好看（日子、照片）：放好就打開這一份的設定 */
-    needsSetup?: boolean;
     template: Omit<CustomWidgetTemplate, 'id' | 'createdAt' | 'updatedAt'>;
 }
 
@@ -133,7 +131,6 @@ ${WIDE} {
         id: 'together',
         name: '在一起的天數',
         description: '跟綁定的角色在一起第幾天，點一下進聊天',
-        needsSetup: true,
         template: {
             name: '在一起的天數',
             w: 4, h: 1,
@@ -210,7 +207,7 @@ ${WIDE} {
         template: {
             name: '角色近況',
             w: 4, h: 2,
-            sizes: [size(4, 2), size(4, 1), size(2, 2)],
+            sizes: [size(4, 2), size(2, 2)],
             imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'empty', label: '還沒聊過時顯示', type: 'text', default: '今天也來聊聊吧' },
@@ -242,7 +239,7 @@ ${WIDE} {
 .avatar { width: 30vh; height: 30vh; border-radius: 50%; object-fit: cover; background: var(--surface); flex-shrink: 0; }
 .who { min-width: 0; flex: 1; }
 .name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 11vh; font-weight: 800; }
-.mood { display: inline-block; white-space: nowrap; margin-top: 1.5vh; padding: 0.8vh 3vw; border-radius: 99px; background: {{accent}}; color: #fff; font-size: 7vh; font-weight: 700; text-shadow: none; }
+.mood { display: inline-block; box-sizing: border-box; max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: top; white-space: nowrap; margin-top: 1.5vh; padding: 0.8vh 3vw; border-radius: 99px; background: {{accent}}; color: #fff; font-size: 7vh; font-weight: 700; text-shadow: none; }
 .badge { min-width: 13vh; height: 13vh; padding: 0 2vw; border-radius: 99px; background: #e5534b; color: #fff; font-size: 7.5vh; font-weight: 800; display: grid; place-items: center; text-shadow: none; }
 .msg { flex: 1; min-height: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; padding: 3.5vh 4vw; border-radius: 6vh; background: var(--surface); font-size: 8.5vh; line-height: 1.45; }
 .msg.empty { opacity: 0.55; }
@@ -273,7 +270,6 @@ ${SQUAREISH} {
         id: 'polaroid',
         name: '拍立得',
         description: '放三張照片，點一下換下一張',
-        needsSetup: true,
         template: {
             name: '拍立得',
             w: 2, h: 2,
@@ -430,8 +426,7 @@ ${LANDSCAPE} { ul { columns: 2; column-gap: 18px; } li { break-inside: avoid; } 
             css: `${CARD}
 .wt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vmin; cursor: pointer; }
 .ring { --p: 0deg; width: 58vmin; height: 58vmin; flex-shrink: 0; border-radius: 50%; background: conic-gradient({{accent}} var(--p), rgba(127, 127, 127, 0.18) 0); display: grid; place-items: center; transition: background 0.3s; }
-.inner { width: 46vmin; height: 46vmin; border-radius: 50%; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.card[data-bg="淺色毛玻璃"] .inner { background: rgba(255, 255, 255, 0.92); }
+.inner { width: 46vmin; height: 46vmin; border-radius: 50%; background: rgba(255, 255, 255, 0.92); color: #2f2a25; text-shadow: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .inner b { color: {{accent}}; font-size: 20vmin; line-height: 1; }
 .inner small { margin-top: 1vmin; font-size: 6vmin; opacity: 0.55; }
 .label { font-size: 7.5vmin; font-weight: 700; opacity: 0.75; }
@@ -465,17 +460,24 @@ ${LANDSCAPE} {
             name: '便條紙',
             w: 2, h: 2,
             sizes: [size(2, 2), size(4, 2)],
-            imageKeys: [], images: {},
+            imageKeys: [BG_IMAGE], images: {},
             fields: [
                 { key: 'note', label: '寫什麼', type: 'textarea', default: '記得對自己好一點 ♡' },
-                { key: 'paper', label: '紙的顏色', type: 'select', options: ['奶油黃', '櫻花粉', '天空藍', '薄荷綠'], default: '奶油黃' },
+                { key: 'paper', label: '紙（選「底圖」記得在下面放圖）', type: 'select', options: ['奶油黃', '櫻花粉', '天空藍', '薄荷綠', '毛玻璃', '底圖'], default: '奶油黃' },
+                { key: 'ink', label: '字的顏色（留空是深咖啡）', type: 'color' },
             ],
-            html: `<div class="stage"><div class="note" data-paper="{{paper}}"><div class="tape"></div><p>{{note}}</p></div></div>`,
+            html: `<div class="stage" data-paper="{{paper}}"><div class="note" data-paper="{{paper}}" style="--bg-img:url('{{${BG_IMAGE}}}')"><div class="tape"></div><p>{{note}}</p></div></div>`,
             css: `.stage { width: 100%; height: 100%; display: grid; place-items: center; }
 .note { position: relative; box-sizing: border-box; width: 86vmin; height: 86vmin; padding: 13vmin 8vmin 8vmin; background: #fbefb5; box-shadow: 0 2.5vmin 6vmin rgba(0, 0, 0, 0.16); transform: rotate(2deg); font-family: "Klee One", "Kaiti TC", "PingFang TC", serif; color: #4a4238; }
 .note[data-paper="櫻花粉"] { background: #f8d7dc; }
 .note[data-paper="天空藍"] { background: #d4e6f5; }
 .note[data-paper="薄荷綠"] { background: #d6eedb; }
+.note[data-paper="底圖"] { background: var(--bg-img) center / cover no-repeat #e9e2d6; }
+/* 毛玻璃：iframe 裡的模糊碰不到桌布，改成整格當一張霧面便條（最外層的毛玻璃交給外層代套），不歪、不投影 */
+.stage[data-paper="毛玻璃"] { box-sizing: border-box; border-radius: min(22px, 9vmin); background: rgba(255, 255, 255, 0.42); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.note[data-paper="毛玻璃"] { width: 100%; height: 100%; background: transparent; box-shadow: none; transform: none; }
+.note[data-paper="毛玻璃"] .tape { top: 3vmin; }
+.note p { color: {{ink}}; }
 .tape { position: absolute; left: 50%; top: -3vmin; width: 32vmin; height: 10vmin; transform: translateX(-50%) rotate(-3deg); background: rgba(255, 255, 255, 0.55); box-shadow: 0 0.5vmin 1.5vmin rgba(0, 0, 0, 0.08); }
 .note p { margin: 0; font-size: 9vmin; line-height: 1.55; white-space: pre-line; word-break: break-word; overflow: hidden; max-height: 100%; }
 /* 橫的：長條便條 */
