@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     GRID_COLS, GRID_ROWS, addPage, addWidget, buildLegacyLayout, cellFromPoint, findFreeSpot, hasWidget,
     moveItem, normalizeLayout, removePage, removeWidget, resizeWidget,
-    type LauncherLayout, type LauncherPage,
-} from './launcherLayout';
+    type LauncherLayout, type LauncherPage, DOCK_MAX, moveAppToDock, moveDockAppToGrid, normalizeDockOrder } from './launcherLayout';
 
 const apps = (n: number) => Array.from({ length: n }, (_, i) => `app${i + 1}`);
 const pos = (layout: LauncherLayout, pageIndex: number) =>
@@ -167,5 +166,49 @@ describe('桌面網格 · 小組件與頁', () => {
     it('指標換格子；找空位', () => {
         expect(cellFromPoint({ left: 0, top: 0, width: 400, height: 600 }, 399, 599)).toEqual({ x: GRID_COLS - 1, y: GRID_ROWS - 1 });
         expect(findFreeSpot({ id: 'p', items: [] }, { w: 4, h: 6 })).toEqual({ x: 0, y: 0 });
+    });
+});
+
+describe('桌面網格 · Dock 互換', () => {
+    const base = (): LauncherLayout => ({ version: 1, pages: [{ id: 'p1', items: [
+        { id: 'a', kind: 'app', appId: 'music', x: 0, y: 0 },
+        { id: 'w', kind: 'widget', widget: 'image', x: 0, y: 2, w: 2, h: 2 },
+    ] }] });
+    const dock = ['chat_hub', 'group_chat', 'moments', 'settings'];
+
+    it('Dock 順序：沒存過用預設，存過照存的、不補回、最多 5 個', () => {
+        const all = ['chat_hub', 'group_chat', 'moments', 'settings', 'music', 'a', 'b'];
+        expect(normalizeDockOrder(undefined, all, dock)).toEqual(dock);
+        expect(normalizeDockOrder(['music', 'chat_hub', 'music', 'gone'], all, dock)).toEqual(['music', 'chat_hub']);
+        expect(normalizeDockOrder([], all, dock)).toEqual([]);
+        expect(normalizeDockOrder(all, all, dock)).toHaveLength(DOCK_MAX);
+    });
+
+    it('桌面的 app 丟到 Dock 上某一個：交換，Dock 那個搬到原本的格子', () => {
+        const r = moveAppToDock(base(), dock, 'a', 1);
+        expect(r.ok).toBe(true);
+        if (!r.ok) return;
+        expect(r.dock).toEqual(['chat_hub', 'music', 'moments', 'settings']);
+        expect(r.layout.pages[0].items.find(i => i.kind === 'app')).toMatchObject({ appId: 'group_chat', x: 0, y: 0 });
+    });
+
+    it('丟到 Dock 空處：接在最後；滿了不行；小組件不行', () => {
+        const r = moveAppToDock(base(), dock, 'a');
+        expect(r.ok && r.dock).toEqual([...dock, 'music']);
+        expect(r.ok && r.layout.pages[0].items.some(i => i.kind === 'app')).toBe(false);
+        expect(moveAppToDock(base(), [...dock, 'x'], 'a').ok).toBe(false);
+        expect(moveAppToDock(base(), dock, 'w').ok).toBe(false);
+    });
+
+    it('Dock 的 app 放到桌面：空格就放、蓋到 app 交換、蓋到小組件往下擠', () => {
+        const empty = moveDockAppToGrid(base(), dock, 'settings', 'p1', 3, 5);
+        expect(empty.ok && empty.dock).toEqual(['chat_hub', 'group_chat', 'moments']);
+        expect(empty.ok && empty.layout.pages[0].items.find(i => i.kind === 'app' && i.appId === 'settings')).toMatchObject({ x: 3, y: 5 });
+        const swap = moveDockAppToGrid(base(), dock, 'settings', 'p1', 0, 0);
+        expect(swap.ok && swap.dock).toEqual(['chat_hub', 'group_chat', 'moments', 'music']);
+        expect(swap.ok && swap.layout.pages[0].items.find(i => i.kind === 'app')).toMatchObject({ appId: 'settings', x: 0, y: 0 });
+        const push = moveDockAppToGrid(base(), dock, 'settings', 'p1', 1, 2);
+        expect(push.ok && push.layout.pages[0].items.find(i => i.id === 'w')).toMatchObject({ x: 0, y: 3 });
+        expect(moveDockAppToGrid(base(), dock, 'nope', 'p1', 0, 5).ok).toBe(false);
     });
 });

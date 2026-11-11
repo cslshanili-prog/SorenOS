@@ -27,7 +27,7 @@ type LauncherItem =
 
 - 沒存過 `launcherLayout` 就由 `buildLegacyLayout` 從舊欄位（`launcherAppOrder`、`launcherPinwheelOrder`、`launcherWidgets`）排；**第一次動手整理才存**，之前每次打開都照舊欄位現排
 - `normalizeLayout` 每次讀都跟 app 清單對齊：不存在的拿掉、重複的留一個、出界或疊住的重新找位置、新 app 接在最後一頁有空的地方
-- Dock 照舊（`launcherDockOrder`），只在 Dock 裡互換
+- Dock（`launcherDockOrder`）：2026-11-11 起能跟網格互換，見下面「Dock」
 - 桌面裝飾 DIY 那層跟著舊版第 3 頁（`decorations` 標記）；新排的版面沒有標記就放第 3 頁
 - 外觀訂製的「首頁方形圖片」「桌面小組件」兩塊拿掉了，換成一張說明卡：圖片位已經照原位置變成圖片小組件
 
@@ -133,6 +133,22 @@ type LauncherItem =
 - **相容另一種匯出寫法**（Liora 給的 ScrollingText）：`size: "size_4x1"`、`widget.onReady(cb)`、`widget.getAllState()`
 - **編輯器「加一張」**：鍵名可以留空，自動取 img1、img2…，加好直接打開選圖（以前空白按下去只跳「這個鍵不能用」）
 - 範本改了內容，`findUntouchedStarterCopies` 對不上舊版複製品：舊版（#141）每個範本的內容指紋記在 `LEGACY_STARTER_FINGERPRINTS`，照樣認得出來
+
+## Dock（2026-11-11）
+
+**跟網格互換**（`launcherLayout.ts` 的 `normalizeDockOrder`／`moveAppToDock`／`moveDockAppToGrid`）
+- Dock 最多 `DOCK_MAX` = 5 個。沒存過照預設那四個（`DOCK_APPS`）；存過照存的，**搬走的不會自動補回來**（以前會從 `DOCK_APPS` 補齊）。網格上的 app＝全部扣掉 Dock 裡的
+- 網格的 app 拖到 Dock 上某一個：交換，那一個搬到這個 app 原本的格子；拖到 Dock 的空處：接在最後（滿了不行）。小組件放不進 Dock
+- Dock 的 app 拖到網格：空格就放；正好蓋住一個 app 就交換（那個 app 進 Dock 原本的位置）；蓋到小組件就放下去、往下擠
+- Dock 和版面一次寫回去（`commitLayout(layout, { launcherDockOrder })`，分兩次寫後一次會蓋掉前一次）。拖 Dock 的 app 到左右邊緣也會翻頁
+- Dock 空了平常不畫，整理中留一塊「把 app 拖到這裡」
+- 順手修：訊息未讀紅點以前只認舊的 `chat` 代號，Dock 換成 Message（`chat_hub`）後就沒出現過；現在 Message 在 Dock 或網格上都掛
+
+**樣式**（外觀 → Dock，`utils/dockStyle.ts`，存 `OSTheme.dockStyle`／`dockCustom`）
+- Liquid Glass（預設，沒設也是）：原本那條；紙感桌布、動森皮膚照舊用各自的版本
+- 無膠囊：只有圖示
+- 自訂：底色＋不透明度、背景模糊、圓角、邊框顏色和粗細、陰影、底圖（blobref 令牌，有圖時底色疊在圖上）。外觀頁的滑桿停 0.35 秒才寫回主題
+- 桌面和外觀頁預覽都用 `dockContainerLook` 畫，看到的一樣
 
 ### 還沒做的
 

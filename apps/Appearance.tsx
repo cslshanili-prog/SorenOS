@@ -21,6 +21,7 @@ import { Check, ImageSquare, Sparkle, Trash, UploadSimple } from '@phosphor-icon
 import ChatDecorationAnnouncement from '../components/chat/ChatDecorationAnnouncement';
 import AppIconEditor from '../components/appearance/AppIconEditor';
 import BootAnimationSettings from '../components/appearance/BootAnimationSettings';
+import DockStyleSettings from '../components/appearance/DockStyleSettings';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 
@@ -1372,10 +1373,18 @@ const Appearance: React.FC = () => {
                     <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">桌面小組件</h2>
                     <p className="text-[12px] text-slate-500 leading-relaxed">
                         搬到桌面上了：在桌面<b>長按</b>進入整理，按上方的<b>「＋小組件」</b>加圖片、時鐘、角色卡、日程、月曆這些，
-                        點一下小組件可以換尺寸、換圖片、開關外框。app 和小組件都能拖到任何空格，也能新增、刪除頁面。
+                        點一下小組件可以換尺寸、換圖片、開關外框。app 和小組件都能拖到任何空格（也能跟 Dock 互換），也能新增、刪除頁面。
                     </p>
                     <p className="mt-2 text-[10px] text-slate-400 leading-relaxed">以前在這裡放的方圖、左右兩張和橫幅，已經照原位置變成桌面上的圖片小組件。</p>
                 </section>
+
+                {/* Dock 樣式（utils/dockStyle.ts）；Dock 裡放哪些 app 在桌面整理時拖 */}
+                <DockStyleSettings
+                    theme={theme}
+                    updateTheme={updateTheme}
+                    notify={addToast}
+                    wallpaperCss={theme.wallpaper ? `url(${theme.wallpaper}) center/cover` : `linear-gradient(135deg, hsl(${theme.hue}, ${theme.saturation}%, ${theme.lightness}%), hsl(${theme.hue + 30}, ${theme.saturation}%, ${Math.max(theme.lightness - 15, 10)}%))`}
+                />
 
                 {/* Desktop Decoration DIY Section */}
                 <section className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
