@@ -43,7 +43,7 @@ import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 // 群聊輸入區/表情面板已改用共享 ChatInputArea（其表情網格自帶 useIncrementalReveal 增量渲染），
 // master 上給舊內聯表情抽屜加的增量渲染隨舊抽屜一併退役。
-import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, Question, MaskHappy, Crown, SpeakerSlash } from '@phosphor-icons/react';
+import { UsersThree, Money, GearSix, Image as ImageIcon, ArrowsClockwise, PaintBrush, BellSimpleRinging, Code, CaretLeft, MaskHappy, Crown, SpeakerSlash } from '@phosphor-icons/react';
 import ChatHeaderShell from '../components/chat/ChatHeaderShell';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
@@ -579,7 +579,7 @@ const GroupChat: React.FC = () => {
     // UI State — 面板狀態對齊私聊 ChatInputArea 的 showPanel 約定
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [activeEmojiCategory, setActiveEmojiCategory] = useState('default');
-    const [modalType, setModalType] = useState<'none' | 'create' | 'settings' | 'transfer' | 'member_select' | 'message-options' | 'edit-message' | 'packet-detail' | 'chrome-css' | 'chrome-sound' | 'html-prompt' | 'help'>('none');
+    const [modalType, setModalType] = useState<'none' | 'create' | 'settings' | 'transfer' | 'member_select' | 'message-options' | 'edit-message' | 'packet-detail' | 'chrome-css' | 'chrome-sound' | 'html-prompt'>('none');
     const [tempHtmlPrompt, setTempHtmlPrompt] = useState('');
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
@@ -2235,9 +2235,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 tokenBreakdown={tokenBreakdown}
                 statusText={`${activeGroup?.members.length ?? 0} 成員${activeGroup?.npcMemberIds?.length ? ` · ${activeGroup.npcMemberIds.length} NPC` : ''}${activeGroup?.userLurkMode ? ' · 旁觀中' : ''}`}
                 extraAction={{
-                    label: '群聊記憶規則',
-                    icon: <Question className="w-5 h-5" weight="bold" />,
-                    onClick: () => setModalType('help'),
+                    label: '群組設置',
+                    icon: <GearSix className="w-5 h-5" weight="bold" />,
+                    onClick: openGroupSettings,
                 }}
                 triggerIcon={isTyping ? 'stop' : 'lightning'}
                 hideTrigger={inputPreferences.sendButtonGenerates && !isTyping}
@@ -2452,13 +2452,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             <span className="text-xs font-bold">紅包</span>
                         </button>
 
-                        <button onClick={openGroupSettings} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
-                            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-violet-50 text-violet-500 border-violet-100">
-                                <GearSix className="w-6 h-6" weight="bold" />
-                            </div>
-                            <span className="text-xs font-bold">群設置</span>
-                        </button>
-
                         <button onClick={() => { setShowNpcGuestModal(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
                                 <MaskHappy className="w-6 h-6" weight="bold" />
@@ -2518,7 +2511,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             {/* --- Modals --- */}
 
             {/* Group Settings Modal */}
-            <Modal isOpen={modalType === 'settings'} title="群組設置" onClose={() => setModalType('none')} footer={<button onClick={handleUpdateGroupInfo} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-violet-200">保存修改</button>}>
+            {modalType === 'settings' && (
+            <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" onClick={e => e.stopPropagation()}>
+                {/* 頁首：返回（不存這頁的文字欄位；成員、禁言這些本來就即時生效）／保存 */}
+                <div className="shrink-0 bg-white/85 backdrop-blur-md border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <div className="relative flex items-center justify-between px-3 py-3">
+                        <button onClick={() => setModalType('none')} className="p-1.5 rounded-full hover:bg-black/5 active:scale-90 transition-transform" aria-label="返回，不儲存">
+                            <CaretLeft size={22} className="text-slate-700" />
+                        </button>
+                        <h1 className="absolute left-1/2 -translate-x-1/2 text-base font-bold text-slate-800">群組設置</h1>
+                        <button onClick={handleUpdateGroupInfo} className="px-3 py-1.5 text-[15px] font-bold text-violet-500 active:opacity-60">保存</button>
+                    </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'calc(2rem + var(--safe-bottom))' }}>
+                <div className="mx-auto w-full max-w-xl px-4 pt-5">
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
                 <div className="space-y-6">
                     {/* Header Info */}
                     <div className="flex justify-center">
@@ -2831,6 +2838,39 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">下限固定 1 條（"少即是多"，冷場時角色允許只回 1-2 條），這裡調的是上限，默認 5。只影響導演模式；各自發言模式每位成員本來就只會發言或跳過一次。</p>
                     </div>
 
+                    {/* 群聊記憶規則（原本在右上角「?」）：放在記憶相關的設定旁邊，點開才展開 */}
+                    <details className="group rounded-2xl border border-violet-100 bg-violet-50/40 px-4 py-3">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                            <span className="min-w-0">
+                                <span className="block text-xs font-bold text-violet-700">群聊記憶規則</span>
+                                <span className="block text-[10px] text-violet-500/80 leading-snug">角色在私聊裡為什麼會提起群裡的事</span>
+                            </span>
+                            <span className="shrink-0 text-xs text-violet-400 transition-transform group-open:rotate-180" aria-hidden="true">▾</span>
+                        </summary>
+                        <div className="mt-3 [&_.text-sm]:text-[12px] [&_.text-xs]:text-[11px]">
+        <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
+                            <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 text-violet-800">
+                                群聊內容不是排隊延遲發送。角色在私聊中“隔天提起”，通常是最近群聊、話題盒或個人群聊記憶被當作本輪話題選中了。
+                            </div>
+                            <div>
+                                <div className="font-bold text-slate-800 mb-1">最近群聊</div>
+                                <p>角色生成私聊回覆時，會看到自己參與群聊中的最近一段消息。記錄同時帶具體日期和“約 N 天前”，避免把舊消息誤認成剛剛發生。</p>
+                            </div>
+                            <div>
+                                <div className="font-bold text-slate-800 mb-1">公共話題盒</div>
+                                <p>群聊積累到一定數量後，較舊內容會被壓縮成群成員共享的話題盒，並進入各成員的私聊背景。因此舊話題可能在之後再次被提起。</p>
+                            </div>
+                            <div>
+                                <div className="font-bold text-slate-800 mb-1">個人群聊記憶</div>
+                                <p>啟用群聊記憶宮殿後，較舊群聊會以第三人稱分別整理進參與角色的記憶宮殿。它不會要求角色立刻回覆，只提供後續回憶依據。</p>
+                            </div>
+                            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-xs text-slate-500">
+                                模型看到一段記錄，不代表必須馬上回應；是否主動提起仍會受當前話題和角色性格影響。
+                            </div>
+                        </div>
+                        </div>
+                    </details>
+
                     {/* 公共話題盒：一次總結，全群共享，並在成盒時送達所有成員私聊。 */}
                     <div className="pt-2 border-t border-slate-100 space-y-3">
                         <div className="flex items-center justify-between">
@@ -2939,7 +2979,12 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </div>
                     </div>
                 </div>
-            </Modal>
+                </div>
+                <button onClick={handleUpdateGroupInfo} className="mt-4 w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-violet-200 active:scale-[0.99]">保存修改</button>
+                </div>
+                </div>
+            </div>
+            )}
 
             {/* Message Options Modal */}
             <Modal isOpen={modalType === 'message-options'} title="消息操作" onClose={() => { setModalType('none'); setSelectedMessage(null); }}>
@@ -3208,29 +3253,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 );
             })()}
 
-            {/* 群聊記憶規則 */}
-            <Modal isOpen={modalType === 'help'} title="群聊記憶規則" onClose={() => setModalType('none')}>
-                <div className="space-y-4 text-sm text-slate-600 leading-relaxed">
-                    <div className="rounded-2xl bg-violet-50 border border-violet-100 p-4 text-violet-800">
-                        群聊內容不是排隊延遲發送。角色在私聊中“隔天提起”，通常是最近群聊、話題盒或個人群聊記憶被當作本輪話題選中了。
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 mb-1">最近群聊</div>
-                        <p>角色生成私聊回覆時，會看到自己參與群聊中的最近一段消息。記錄同時帶具體日期和“約 N 天前”，避免把舊消息誤認成剛剛發生。</p>
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 mb-1">公共話題盒</div>
-                        <p>群聊積累到一定數量後，較舊內容會被壓縮成群成員共享的話題盒，並進入各成員的私聊背景。因此舊話題可能在之後再次被提起。</p>
-                    </div>
-                    <div>
-                        <div className="font-bold text-slate-800 mb-1">個人群聊記憶</div>
-                        <p>啟用群聊記憶宮殿後，較舊群聊會以第三人稱分別整理進參與角色的記憶宮殿。它不會要求角色立刻回覆，只提供後續回憶依據。</p>
-                    </div>
-                    <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-xs text-slate-500">
-                        模型看到一段記錄，不代表必須馬上回應；是否主動提起仍會受當前話題和角色性格影響。
-                    </div>
-                </div>
-            </Modal>
 
             {/* HTML 模式自定義提示詞 Modal（瓦片右鍵/長按進入） */}
             <Modal
