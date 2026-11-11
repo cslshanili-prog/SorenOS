@@ -7,6 +7,7 @@ import { shouldShowAnniversaryGift, markAnniversaryGiftSeen } from '../utils/ann
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { IMPORT_IN_PROGRESS_KEY, useOS } from '../context/OSContext';
+import SuspendedSessionBars from './os/SuspendedSessionBars';
 import StatusBar from './os/StatusBar';
 import { SARModuleMonitor } from './sar/SARModuleMonitor';
 import IncomingCallOverlay from './IncomingCallOverlay';
@@ -455,7 +456,7 @@ const AppLoadingFallback: React.FC<{ onReturn?: () => void; animationEnabled?: b
 };
 
 const PhoneShell: React.FC = () => {
-  const { theme, isLocked, unlock, activeApp, closeApp, openApp, virtualTime, isDataLoaded, toasts, unreadMessages, characters, handleBack, suspendedCall, resumeCall, activeCharacterId, errorDialog, dismissError } = useOS();
+  const { theme, isLocked, unlock, activeApp, closeApp, openApp, virtualTime, isDataLoaded, toasts, unreadMessages, characters, handleBack, activeCharacterId, errorDialog, dismissError } = useOS();
   const useIOSStandaloneLayout = isIOSStandaloneWebApp();
 
   // 三檔頂部狀態欄：安全顯示 / 緊湊顯示 / 隱藏。舊存檔仍由 hideStatusBar 兼容解析。
@@ -1036,17 +1037,8 @@ const PhoneShell: React.FC = () => {
               錯誤指示器、系統調試終端與開關無關、始終在。 */}
           <StatusBar />
           
-          {/* Overlays: Suspended Call Bar */}
-          {suspendedCall && activeApp !== AppID.Call && (
-            <button
-              onClick={resumeCall}
-              className="absolute top-7 left-0 w-full z-[55] flex items-center justify-center gap-2 bg-emerald-500 text-white text-xs font-bold py-1.5 animate-pulse cursor-pointer active:bg-emerald-600 transition-colors"
-            >
-              <span className="w-2 h-2 rounded-full bg-white animate-ping" />
-              <span>通話中 · {suspendedCall.charName}</span>
-              <span className="opacity-70">點擊返回</span>
-            </button>
-          )}
+          {/* Overlays: 通話中／見面中（點一下回去） */}
+          <SuspendedSessionBars />
 
           {/* Overlays: Global Mini Player (when music is playing in background) */}
           <GlobalMiniPlayer />

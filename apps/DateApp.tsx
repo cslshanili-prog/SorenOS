@@ -49,6 +49,8 @@ import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
 import { resolveUserProfileForChar } from '../utils/userPersona';
+import { dateSuspend, dateInflight, type DateQuickLeaveTarget } from '../utils/dateSuspend';
+import { chatReturnTarget } from '../utils/chatReturnTarget';
 import {
     advanceSARModuleAfterReply,
     createSARModuleEventMeta,
@@ -83,6 +85,15 @@ const DateApp: React.FC = () => {
     const [cameFromChat, setCameFromChat] = useState(false);
     const [meetSurface, setMeetSurface] = useState<'companion' | 'story'>(() => dateLaunch.peek()?.surface ?? 'companion');
 
+    // 見面中途走開（docs/date-quick-leave.md）：掛著的那場在這次打開時直接接回去，不經過選角色和「繼續上次」。
+    // 有別的直達意圖（劇場、更新彈窗）就不接，那條「見面中」照樣留著。
+    const [resuming, setResuming] = useState(() => !!dateSuspend.get() && !dateLaunch.peek());
+    // 走開時還在生成的那一輪：回來後畫面接著等它落定
+    const [resumeTyping, setResumeTyping] = useState(false);
+    const mountedRef = useRef(true);
+    // 卸載時判斷要不要掛起：會話階段、不是主動退出的才掛
+    const leavingOnPurposeRef = useRef(false);
+
     // 記憶宮殿（與聊天側共用同一套上下文：同 charId、同高水位線）
     // 見面流也需要在 AI 回覆後跑一次緩衝區檢查 + 自動歸檔，否則只有"讀"沒有"寫"。
     const [memoryPalaceStatus, setMemoryPalaceStatus] = useState<string>('');
@@ -99,6 +110,8 @@ const DateApp: React.FC = () => {
     const [mode, setMode] = useState<'select' | 'peek' | 'session' | 'settings' | 'history'>('select');
     // Track previous mode for Settings back navigation
     const [previousMode, setPreviousMode] = useState<'select' | 'peek'>('select');
+    const modeRef = useRef(mode);
+    modeRef.current = mode;
 
     // 全局更新彈窗等入口可直接落到「劇情」。peek 讓首次渲染就顯示目標頁，
     // subscribe 則覆蓋 DateApp 已經打開的情況；應用後立即消費，絕不汙染下次普通打開。
@@ -191,6 +204,23 @@ const DateApp: React.FC = () => {
     const [editContent, setEditContent] = useState('');
 
     const char = characters.find(c => c.id === activeCharacterId);
+    const sessionCharRef = useRef<{ id: string; name: string } | null>(null);
+    if (mode === 'session' && char) sessionCharRef.current = { id: char.id, name: char.name };
+    const cameFromChatRef = useRef(cameFromChat);
+    cameFromChatRef.current = cameFromChat;
+
+    // 會話中被卸載（回桌面、去私聊、來電、點通知跳走……），又不是點「保存並退出」或完結：掛起
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            if (leavingOnPurposeRef.current) return;
+            const current = sessionCharRef.current;
+            if (modeRef.current === 'session' && current) {
+                dateSuspend.suspend({ charId: current.id, charName: current.name, cameFromChat: cameFromChatRef.current });
+            }
+        };
+    }, []);
 
     // 這個角色選的自訂預設（見面設定 → 預設）。預設在別處被改過會發事件，這裡重讀。
     const [activePreset, setActivePreset] = useState<MeetingPresetRecord | null>(null);
@@ -429,12 +459,20 @@ const DateApp: React.FC = () => {
         consumeDateAutoStart();
         setCameFromChat(true);
         setMeetSurface('companion');
+        // 掛著的就是這個角色、又不是拿邀請卡赴約：回到那場。換了別人就把掛著的那場放掉（進度照樣在存檔裡）
+        const suspended = dateSuspend.get();
+        if (suspended && target && suspended.charId === target.id && !meetup) {
+            void resumeSuspended(target, true);
+            return;
+        }
+        if (suspended) { dateSuspend.clear(); setResuming(false); }
         if (target) handleCharClick(target, meetup);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dateAutoStartCharId]);
 
     // 退出見面流程：來自聊天則回聊天，否則回見面選擇頁/桌面（由調用方決定）
     const returnToChat = () => {
+        leavingOnPurposeRef.current = true;
         setCameFromChat(false);
         openApp(AppID.Chat);
     };
@@ -462,10 +500,74 @@ const DateApp: React.FC = () => {
         setActiveCharacterId(pendingSessionChar.id);
         suppressSessionSaveRef.current = false;
         setMode('session');
+        dateSuspend.clear(pendingSessionChar.id);
+        watchInflightReply(pendingSessionChar.id);
         setPendingSessionChar(null);
         addToast('已恢復上次進度', 'success');
         trackEvent('选择见面存档处理方式', { choice: 'resume' });
         trackEvent('恢复上次见面进度');
+    };
+
+    /** 走開時那一輪還沒生成完：畫面顯示「正在輸入」、不讓再送，落定後重讀一次記錄 */
+    const watchInflightReply = (charId: string) => {
+        const pending = dateInflight.get(charId);
+        if (!pending) return;
+        setResumeTyping(true);
+        pending.catch(() => {}).finally(async () => {
+            if (!mountedRef.current) return;
+            setResumeTyping(false);
+            setDateMessages(await loadRecentDateMessages(charId).catch(() => [] as Message[]));
+        });
+    };
+
+    /** 接回掛著的那場：跟「繼續上次」同一套，只是不問、不彈提示 */
+    const resumeStartedRef = useRef(false);
+    const resumeSuspended = async (target: CharacterProfile, fromChat: boolean) => {
+        if (resumeStartedRef.current) return;
+        resumeStartedRef.current = true;
+        try {
+            const story = await ensureStoryFor(target);
+            if (!mountedRef.current) return;
+            setActiveStory(story);
+            void maybeAutoSummarize(target);
+            armDateResumeAttempt(target.id);
+            setActiveCharacterId(target.id);
+            suppressSessionSaveRef.current = false;
+            setCameFromChat(fromChat);
+            setMeetSurface('companion');
+            setMode('session');
+            dateSuspend.clear(target.id);
+            trackEvent('回到挂起的见面');
+            watchInflightReply(target.id);
+        } finally {
+            if (mountedRef.current) setResuming(false);
+        }
+    };
+
+    // 從桌面、頂端那條、或任何入口打開見面：有掛著的就直接接回去（從私聊「見面」進來的由上面那段處理）
+    useEffect(() => {
+        if (!resuming || dateAutoStartCharId) return;
+        const suspended = dateSuspend.get();
+        const target = suspended && characters.find(c => c.id === suspended.charId);
+        if (!suspended || !target) { dateSuspend.clear(); setResuming(false); return; }
+        void resumeSuspended(target, suspended.cameFromChat);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    /** 見面選單「回桌面」「去私聊」：先掛起，再走 */
+    const handleQuickLeave = (target: DateQuickLeaveTarget) => {
+        if (!char) return;
+        dateSuspend.suspend({ charId: char.id, charName: char.name, cameFromChat });
+        leavingOnPurposeRef.current = true;
+        trackEvent('见面快速离开', { 去向: target.kind === 'home' ? '桌面' : target.kind === 'chat' ? '私聊' : '所有消息' });
+        if (target.kind === 'home') { closeApp(); return; }
+        if (target.kind === 'chat') {
+            setActiveCharacterId(target.charId);
+            chatReturnTarget.set(AppID.ChatHub);
+            openApp(AppID.Chat);
+            return;
+        }
+        openApp(AppID.ChatHub);
     };
 
     const palaceToast = (outcome: DatePalaceOutcome) => {
@@ -521,6 +623,7 @@ const DateApp: React.FC = () => {
             nextChar = { ...nextChar, savedDateState: undefined };
         }
         setActiveStory(null);
+        dateSuspend.clear(pendingSessionChar.id);
         trackEvent('选择见面存档处理方式', { choice: 'new' });
         trackEvent('见面存档选重新开始');
         startPeek(nextChar, peekMeetup ? 'approach' : loadRememberedOpening(), peekMeetup, !peekMeetup);
@@ -1091,6 +1194,7 @@ const DateApp: React.FC = () => {
         if (!(await finishStory(char, story, withSummary, '见面菜单'))) { suppressSessionSaveRef.current = false; return; }
         setShowFinishModal(false);
         clearDateResumeAttempt();
+        dateSuspend.clear(char.id);
         if (cameFromChat) { returnToChat(); return; }
         setMode('select');
         setPeekStatus('');
@@ -1100,6 +1204,7 @@ const DateApp: React.FC = () => {
     const onExitSession = (finalState: DateState) => {
         // 用戶主動保存並退出 = 乾淨退出，撤銷恢復哨兵。
         clearDateResumeAttempt();
+        if (char) dateSuspend.clear(char.id);
         if (char) {
             updateCharacter(char.id, { savedDateState: finalState });
             addToast('進度已保存', 'success');
@@ -1247,6 +1352,9 @@ const DateApp: React.FC = () => {
     };
 
     // --- Render ---
+
+    // 正在接回掛著的那場：先黑一下，不閃選角色頁
+    if (resuming) return <div className="h-full w-full bg-black" />;
 
     if (meetSurface === 'story' && mode === 'select' && !cameFromChat) {
         return <StoryTheater onSwitchCompanion={() => setMeetSurface('companion')} onClose={closeApp} />;
@@ -1688,9 +1796,11 @@ const DateApp: React.FC = () => {
                     peekStatus={peekStatus}
                     initialState={char.savedDateState}
                     presetRegex={activePreset?.doc.regexScripts}
-                    onSendMessage={handleSendMessage}
-                    onReroll={handleReroll}
+                    onSendMessage={(text, kind) => dateInflight.track(char.id, handleSendMessage(text, kind))}
+                    onReroll={note => dateInflight.track(char.id, handleReroll(note))}
                     onExit={onExitSession}
+                    onQuickLeave={handleQuickLeave}
+                    externalTyping={resumeTyping}
                     onEditMessage={(msg) => { setEditTargetMsg(msg); setEditContent(typeof msg.metadata?.dateRaw === 'string' ? msg.metadata.dateRaw : msg.content); setIsEditModalOpen(true); }}
                     liveReply={liveReply}
                     presetName={activePreset?.doc.name}
