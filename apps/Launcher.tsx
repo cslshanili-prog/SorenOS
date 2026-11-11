@@ -5,7 +5,7 @@ import { isDevDebugAvailable, subscribeDevDebugAvailability } from '../utils/dev
 import AppIcon from '../components/os/AppIcon';
 import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl } from '../utils/blobRef';
-import { dockContainerLook } from '../utils/dockStyle';
+import { DOCK_FIXED_WIDTH, dockContainerLook, dockJustify } from '../utils/dockStyle';
 import { DB } from '../utils/db';
 import { isChatPreviewMessage } from '../utils/chatMessageVisibility';
 import { CharacterProfile, Anniversary, AppID, DailySchedule, type OSTheme } from '../types';
@@ -1632,8 +1632,8 @@ const Launcher: React.FC = () => {
            {(dockAppsConfig.length > 0 || layoutEditing) && (
            <div
              data-launcher-dock
-             className={`rounded-[1.75rem] px-4 py-3 flex ${dockAppsConfig.length >= DOCK_MAX ? 'gap-2' : 'gap-3 sm:gap-6'} items-center mx-auto max-w-full justify-between overflow-x-auto no-scrollbar transform-gpu ${dockLook.className}`}
-             style={{ ...dockLook.style, ...(dockAppsConfig.length === 0 ? { minWidth: '12rem', minHeight: '4.75rem', justifyContent: 'center' } : {}) }}
+             className={`rounded-[1.75rem] px-4 py-3 flex gap-2 items-center mx-auto overflow-x-auto no-scrollbar transform-gpu ${dockLook.className}`}
+             style={{ ...dockLook.style, width: DOCK_FIXED_WIDTH, justifyContent: dockJustify(dockAppsConfig.length), ...(dockAppsConfig.length === 0 ? { minHeight: '4.75rem' } : {}) }}
            >
                {dockAppsConfig.length === 0 && <span className="text-[10px] font-semibold opacity-60" style={{ color: contentColor }}>把 app 拖到這裡</span>}
                {dockAppsConfig.map(app => (

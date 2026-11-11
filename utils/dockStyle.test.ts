@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_DOCK_CUSTOM, dockContainerLook, hexToRgba, normalizeDockCustom } from './dockStyle';
+import { DEFAULT_DOCK_CUSTOM, dockContainerLook, dockJustify, hexToRgba, normalizeDockCustom } from './dockStyle';
 
 describe('Dock 樣式', () => {
     it('沒設、glass：照原本各皮膚的樣子', () => {
@@ -30,5 +30,15 @@ describe('Dock 樣式', () => {
         });
         expect(normalizeDockCustom(undefined)).toEqual(DEFAULT_DOCK_CUSTOM);
         expect(hexToRgba('#336699', 0.3)).toBe('rgba(51, 102, 153, 0.3)');
+    });
+});
+
+describe('dockJustify', () => {
+    it('4、5 顆貼齊兩邊，3 顆以下平均分，空的置中', () => {
+        expect(dockJustify(5)).toBe('space-between');
+        expect(dockJustify(4)).toBe('space-between');
+        expect(dockJustify(3)).toBe('space-evenly');
+        expect(dockJustify(1)).toBe('space-evenly');
+        expect(dockJustify(0)).toBe('center');
     });
 });

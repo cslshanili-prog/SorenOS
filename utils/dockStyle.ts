@@ -98,3 +98,12 @@ export const dockContainerLook = (
     }
     return { className: GLASS_CLASS, style: undefined };
 };
+
+/**
+ * Dock 的寬度固定成放滿 5 顆的寬（5 × 3.5rem 圖示 + 4 × 0.5rem 間距 + 左右 1rem 內距 = 21.5rem），
+ * 放幾顆都一樣寬，少了就把間距拉開：4、5 顆貼齊兩邊（space-between），3 顆以下平均分（space-evenly），
+ * 空的置中放提示。螢幕比這還窄時跟著縮（min 100%）。桌面和外觀預覽共用。
+ */
+export const DOCK_FIXED_WIDTH = 'min(21.5rem, 100%)';
+export const dockJustify = (count: number): React.CSSProperties['justifyContent'] =>
+    count >= 4 ? 'space-between' : count === 0 ? 'center' : 'space-evenly';
