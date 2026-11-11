@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { WIDGET_STARTERS, instantiateStarter } from './widgetStarters';
+import { STARTER_TEMPLATES, WIDGET_STARTERS, findUntouchedStarterCopies, instantiateStarter, isStarterTemplateId, starterTemplateId } from './widgetStarters';
 import { applyWidgetState, buildPlaceholderValues, buildWidgetSrcDoc, fillHtml, isCustomWidgetSize, isReservedKey, isValidKey, parseWidgetFile, buildWidgetFile, WIDGET_STATE_LIMITS } from './customWidget';
 
 describe('內建範本', () => {
@@ -68,5 +68,25 @@ describe('widget.setState', () => {
         expect(applyWidgetState(many, 'one-more', '1')).toBeNull();
         const heavy = { a: 'x'.repeat(4900), b: 'x'.repeat(4900), c: 'x'.repeat(4900), d: 'x'.repeat(4900) };
         expect(applyWidgetState(heavy, 'e', 'x'.repeat(1000))).toBeNull();
+    });
+});
+
+describe('範本直接指著用，不複製進「我的小組件」', () => {
+    it('範本模板的 id 是 starter:<id>，每個範本都有', () => {
+        expect(STARTER_TEMPLATES.map(t => t.id)).toEqual(WIDGET_STARTERS.map(s => starterTemplateId(s.id)));
+        expect(isStarterTemplateId('starter:todo')).toBe(true);
+        expect(isStarterTemplateId('cw_abc')).toBe(false);
+        expect(isStarterTemplateId(undefined)).toBe(false);
+    });
+
+    it('舊版複製出來、沒改過的認得出來；改過的、放了自己圖的不動', () => {
+        const todo = WIDGET_STARTERS.find(s => s.id === 'todo')!;
+        const polaroid = WIDGET_STARTERS.find(s => s.id === 'polaroid')!;
+        const untouched = instantiateStarter(todo, 'cw_old1', 5);
+        const edited = { ...instantiateStarter(todo, 'cw_old2', 5), css: '.x{}' };
+        const withImage = { ...instantiateStarter(polaroid, 'cw_old3', 5), images: { photo1: 'blobref:abc' } };
+        const renamed = { ...instantiateStarter(todo, 'cw_old4', 5), name: '我的待辦' };
+        const copies = findUntouchedStarterCopies([untouched, edited, withImage, renamed]);
+        expect([...copies.entries()]).toEqual([['cw_old1', 'starter:todo']]);
     });
 });

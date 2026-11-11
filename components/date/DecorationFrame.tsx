@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { STORAGE_SHIM } from '../../utils/sandboxShims';
+import { STORAGE_SHIM, nextSandboxFrameKey } from '../../utils/sandboxShims';
 
 // 預設美化正則產出的 HTML（文字標題、摘要卡片…）放進沙盒 iframe 顯示。
 // sandbox 只給 allow-scripts、不給 allow-same-origin：裡面的腳本是匯入的第三方程式碼，
@@ -31,6 +31,8 @@ const DecorationFrame: React.FC<{ html: string; light: boolean }> = ({ html, lig
     const ref = useRef<HTMLIFrameElement>(null);
     const [height, setHeight] = useState(120);
     const srcDoc = useMemo(() => buildSrcDoc(html, light), [html, light]);
+    // 內容一變就換一個新 iframe，不改舊的 srcdoc（改了會塞一筆瀏覽器歷史，見 nextSandboxFrameKey）
+    const frameKey = useMemo(() => nextSandboxFrameKey(), [srcDoc]);
 
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
@@ -44,6 +46,7 @@ const DecorationFrame: React.FC<{ html: string; light: boolean }> = ({ html, lig
 
     return (
         <iframe
+            key={frameKey}
             ref={ref}
             title="預設裝飾"
             className="date-decoration block w-full border-0 my-3"
