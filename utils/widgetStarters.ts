@@ -38,7 +38,8 @@ const CARD = `.card {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: min(22px, 9vmin);
+  /* 跟桌面內建小組件（正在播放、日程、月曆…）一樣的 1.75rem，放在一起才整齊；不隨尺寸縮放 */
+  border-radius: 28px;
   --ink: #2f2a25;
   --surface: rgba(255, 255, 255, 0.7);
   background: rgba(255, 255, 255, 0.62);
@@ -474,7 +475,7 @@ ${LANDSCAPE} {
 .note[data-paper="薄荷綠"] { background: #d6eedb; }
 .note[data-paper="底圖"] { background: var(--bg-img) center / cover no-repeat #e9e2d6; }
 /* 毛玻璃：iframe 裡的模糊碰不到桌布，改成整格當一張霧面便條（最外層的毛玻璃交給外層代套），不歪、不投影 */
-.stage[data-paper="毛玻璃"] { box-sizing: border-box; border-radius: min(22px, 9vmin); background: rgba(255, 255, 255, 0.42); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.stage[data-paper="毛玻璃"] { box-sizing: border-box; border-radius: 28px; background: rgba(255, 255, 255, 0.42); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 .note[data-paper="毛玻璃"] { width: 100%; height: 100%; background: transparent; box-shadow: none; transform: none; }
 .note[data-paper="毛玻璃"] .tape { top: 3vmin; }
 .note p { color: {{ink}}; }

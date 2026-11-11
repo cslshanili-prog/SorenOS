@@ -211,7 +211,7 @@ const CharacterWidget = React.memo(({
     return (
         <div className={`${fill ? 'h-full' : 'mb-3'} group animate-fade-in`}>
              <div
-                className={`relative ${fill ? 'h-full' : 'h-24'} w-full overflow-hidden rounded-3xl cursor-pointer transition-transform duration-300 active:scale-[0.98]`}
+                className={`relative ${fill ? 'h-full' : 'h-24'} w-full overflow-hidden rounded-[1.75rem] cursor-pointer transition-transform duration-300 active:scale-[0.98]`}
                 onClick={onClick}
                 style={paper ? {
                     background: 'rgba(224,221,215,0.40)',
@@ -361,7 +361,7 @@ const ImageWidget = React.memo(({ image, frame = false, contentColor, acnh = fal
             border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
         };
         return (
-            <div className={`w-full h-full animate-fade-in ${frame ? 'rounded-2xl overflow-hidden' : ''}`} style={frameStyle}>
+            <div className={`w-full h-full animate-fade-in ${frame ? 'rounded-[1.75rem] overflow-hidden' : ''}`} style={frameStyle}>
                 <TokenImg value={image} alt="" className={`w-full h-full ${frame ? 'object-cover' : 'object-contain'}`} loading="lazy" />
             </div>
         );
@@ -422,7 +422,8 @@ const CalendarWidget = React.memo(({ contentColor, openApp, anniversaries, acnh 
         .sort((x, y) => x.next.localeCompare(y.next))[0], [anniversaries, todayStr]);
     const daysUntil = (dateStr: string) => Math.round((new Date(`${dateStr}T00:00:00`).getTime() - new Date(`${todayStr}T00:00:00`).getTime()) / 86400000);
     const todayEvents = (anniversaries as Anniversary[]).filter(a => calendarHasEvent([a], todayStr));
-    const shell = `h-full w-full rounded-3xl ${cardClass(acnh, paper)}`;
+    // 桌面小組件的圓角一律 1.75rem（28px），跟正在播放、日程、範本一樣
+    const shell = `h-full w-full rounded-[1.75rem] ${cardClass(acnh, paper)}`;
 
     // 2×2：今天
     if (w <= 2) {
@@ -527,7 +528,7 @@ const EventsWidget = React.memo(({ contentColor, anniversaries, characters, rows
     }, [eventPageCount, eventPage]);
     const pagedEvents = upcomingEvents.slice(eventPage * perPage, eventPage * perPage + perPage);
     return (
-        <div className={`w-full h-full rounded-3xl p-4 flex flex-col overflow-hidden ${cardClass(acnh, paper)}`} style={cardStyle(acnh, paper)}>
+        <div className={`w-full h-full rounded-[1.75rem] p-4 flex flex-col overflow-hidden ${cardClass(acnh, paper)}`} style={cardStyle(acnh, paper)}>
             <div className="flex items-center justify-between mb-3 shrink-0">
                 <h3 className="text-xs font-bold opacity-60 uppercase tracking-widest flex items-center gap-2" style={{ color: contentColor }}>
                     <span className="w-2 h-2 rounded-full" style={{ background: acDot || (paper ? '#a66f52' : '#c084fc') }}></span> Upcoming Events
@@ -1389,7 +1390,7 @@ const Launcher: React.FC = () => {
               const template = item.templateId ? customTemplatesById.get(item.templateId) : undefined;
               if (!template) {
                   return (
-                      <div className="grid h-full w-full place-items-center rounded-2xl border border-dashed text-center text-[10px] opacity-60" style={{ color: contentColor, borderColor: contentColor }}>
+                      <div className="grid h-full w-full place-items-center rounded-[1.75rem] border border-dashed text-center text-[10px] opacity-60" style={{ color: contentColor, borderColor: contentColor }}>
                           模板不見了
                       </div>
                   );
