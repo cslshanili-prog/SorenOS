@@ -18,6 +18,7 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_11 = 'changelog-soren-2026-11-11';
 export const CHANGELOG_SOREN_2026_11_10 = 'changelog-soren-2026-11-10';
 export const CHANGELOG_SOREN_2026_11_09 = 'changelog-soren-2026-11-09';
 export const CHANGELOG_SOREN_2026_10_22 = 'changelog-soren-2026-10-22';
@@ -25,6 +26,14 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_11,
+        title: '2026 年 11 月 11 日 · 桌面',
+        subtitle: '自由排版（4×6 格、拖到哪放哪、往下擠）· Dock 能跟桌面互換、三種樣式 · 內建小組件換尺寸 · 八個範本 · 自己做小組件、匯入匯出 .widget.json',
+        date: '2026-11-11',
+        src: 'changelogs/2026-11-11.html',
+        accent: 'from-amber-50 to-rose-50 border-amber-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_10,
         title: '2026 年 11 月 10 日 · 資料庫',
