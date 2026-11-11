@@ -40,8 +40,8 @@ const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'))
 // --- Isolated Components to prevent full re-renders ---
 
 // 1. Clock Component (Consumes virtualTime)
-/** compact：4×1 只留一排星期、日期和時間，不把 4×2 那套等比縮小 */
-const DesktopClock = React.memo(({ compact = false }: { compact?: boolean }) => {
+/** compact：只留一排星期、日期和時間，不把 4×2 那套等比縮小。wide 是 4×1（置中），narrow 是 2×1（靠左、星期縮寫） */
+const DesktopClock = React.memo(({ compact }: { compact?: 'wide' | 'narrow' }) => {
     const { virtualTime, theme } = useOS();
     const contentColor = theme.contentColor || '#ffffff';
     const paper = theme.skin !== 'animalcrossing' && theme.skin !== 'mobilegame' && theme.skin !== 'tamagotchi' && isPaperWallpaper(theme.wallpaper);
@@ -65,10 +65,14 @@ const DesktopClock = React.memo(({ compact = false }: { compact?: boolean }) => 
 
     if (compact) {
         const acnhSkin = theme.skin === 'animalcrossing';
+        const narrow = compact === 'narrow';
+        const timeSize = narrow
+            ? (acnhSkin ? 'text-[2.3rem] font-extrabold tracking-[1px]' : paper ? 'text-[2.5rem] font-semibold tracking-[-0.04em]' : 'text-[2.6rem] font-black tracking-tighter drop-shadow-xl')
+            : (acnhSkin ? 'text-[2.9rem] font-extrabold tracking-[2px]' : paper ? 'text-[3.2rem] font-semibold tracking-[-0.04em]' : 'text-[3.4rem] font-black tracking-tighter drop-shadow-xl');
         return (
-            <div className="flex h-full w-full flex-col justify-center px-1 select-none" style={{ color: acnhSkin ? '#8b7355' : contentColor }}>
-                <div className="text-[10px] font-bold tracking-[0.22em] opacity-75">{dayName}, {Number(dateNum)} {monthName}</div>
-                <div className={`mt-1 leading-[0.9] ${acnhSkin ? 'text-[2.9rem] font-extrabold tracking-[2px]' : paper ? 'text-[3.2rem] font-semibold tracking-[-0.04em]' : 'text-[3.4rem] font-black tracking-tighter drop-shadow-xl'}`}
+            <div className={`flex h-full w-full flex-col justify-center px-1 select-none ${narrow ? 'items-start' : 'items-center text-center'}`} style={{ color: acnhSkin ? '#8b7355' : contentColor }}>
+                <div className={`${narrow ? 'text-[9px] tracking-[0.16em]' : 'text-[10px] tracking-[0.22em]'} whitespace-nowrap font-bold opacity-75`}>{narrow ? dayName.slice(0, 3) : dayName}, {Number(dateNum)} {monthName}</div>
+                <div className={`mt-1 whitespace-nowrap leading-[0.9] ${timeSize}`}
                     style={{ fontFamily: acnhSkin ? undefined : paper ? `'Iowan Old Style', 'Baskerville', 'Times New Roman', serif` : `'Space Grotesk', 'SF Pro Display', sans-serif`, fontFeatureSettings: '"tnum"' }}>
                     {hh}<span className="mx-0.5 font-thin opacity-35 animate-pulse">:</span>{mm}
                 </div>
@@ -1295,7 +1299,7 @@ const Launcher: React.FC = () => {
   const renderWidget = (item: LauncherWidgetItem) => {
       switch (item.widget) {
           case 'clock':
-              return item.h <= 1 ? <DesktopClock compact /> : <FitBox><DesktopClock /></FitBox>;
+              return item.h <= 1 ? <DesktopClock compact={item.w <= 2 ? 'narrow' : 'wide'} /> : <FitBox><DesktopClock /></FitBox>;
           case 'character':
               return <CharacterWidget char={widgetChar} unreadCount={widgetUnread} lastMessage={lastMessage} onClick={openWidgetChat} contentColor={contentColor} paper={paper} fill />;
           case 'schedule':
