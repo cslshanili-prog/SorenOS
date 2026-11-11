@@ -597,6 +597,8 @@ const Launcher: React.FC = () => {
   // retargetItemId：從桌面上某一份範本點「編輯模板」，存好後那一份改指新複製出來的模板
   const [editorState, setEditorState] = useState<{ initial: CustomWidgetTemplate | null; placeAfterSave?: boolean; retargetItemId?: string } | null>(null);
   const [gridCell, setGridCell] = useState({ w: 76, h: 88 });
+  /** 範本「用這個」：先在這裡填好、選好尺寸，按「放上桌面」才真的放（item 還沒進版面） */
+  const [starterDraft, setStarterDraft] = useState<{ starterId: WidgetStarter['id']; item: LauncherWidgetItem } | null>(null);
   const layoutPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutPointer = useRef<{
       pointerId: number;
@@ -1210,15 +1212,27 @@ const Launcher: React.FC = () => {
       return result.item;
   };
   /**
-   * 用範本：放上桌面的那一份直接指著範本（`starter:<id>`），不複製進「我的小組件」，從桌面移除就什麼都不留。
-   * 要填東西才好看的（日子、照片）順手打開這一份的設定。
+   * 用範本：先打開這一份的設定（上面有預覽），選好尺寸、填好欄位、放好圖，按「放上桌面」才放。
+   * 放上桌面的那一份直接指著範本（`starter:<id>`），不複製進「我的小組件」，從桌面移除就什麼都不留。
    */
   const applyStarter = (starter: WidgetStarter) => {
       const template = customTemplatesById.get(starterTemplateId(starter.id));
       if (!template) return;
-      const item = placeCustomWidget(template);
-      trackEvent('使用桌面小组件范本', { 范本: starter.id });
-      if (starter.needsSetup) setSettingsItemId(item.id);
+      measureGridCell();
+      setAddSheetOpen(false);
+      setStarterDraft({ starterId: starter.id, item: { id: 'w_custom_draft', kind: 'widget', widget: 'custom', templateId: template.id, x: 0, y: 0, w: template.w, h: template.h } });
+  };
+  const placeStarterDraft = () => {
+      if (!starterDraft) return;
+      const { item, starterId } = starterDraft;
+      const size = { w: item.w, h: item.h };
+      const added = addCustomWidget(layoutRef.current, activePageIndexRef.current, item.templateId!, size);
+      commitLayout(patchWidget(added.layout, added.item.id, { values: item.values, images: item.images, charId: item.charId }));
+      setStarterDraft(null);
+      const pageIndex = added.layout.pages.findIndex(p => p.id === added.pageId);
+      if (pageIndex >= 0 && pageIndex !== activePageIndexRef.current) scrollToPage(pageIndex);
+      trackEvent('桌面新增小组件', { 类型: 'custom', 尺寸: sizeLabel(size) });
+      trackEvent('使用桌面小组件范本', { 范本: starterId });
   };
   const starterPreviews = useMemo(() => WIDGET_STARTERS.map(starter => ({ starter, template: customTemplatesById.get(starterTemplateId(starter.id))! })), [customTemplatesById]);
   // 舊版「用這個」複製進「我的小組件」、還沒改過的那些：桌面上的改指範本、複製品拿掉（只做一次，之後就沒有了）
@@ -1719,6 +1733,41 @@ const Launcher: React.FC = () => {
               </div>
           </div>
       )}
+
+      {/* 範本「用這個」：先填好再放上桌面 */}
+      {starterDraft && customTemplatesById.get(starterDraft.item.templateId || '') && (() => {
+          const template = customTemplatesById.get(starterDraft.item.templateId || '')!;
+          const draftItem = starterDraft.item;
+          const char = (draftItem.charId && characters.find(c => c.id === draftItem.charId)) || widgetChar;
+          const real = pixelSize(draftItem, gridCell);
+          const scale = Math.min(1, 300 / real.width, 190 / real.height);
+          return (
+              <CustomWidgetSettings
+                item={draftItem}
+                template={template}
+                characters={characters}
+                onResize={size => setStarterDraft(d => d && { ...d, item: { ...d.item, ...size } })}
+                onPatch={patch => setStarterDraft(d => d && { ...d, item: { ...d.item, ...patch } })}
+                onEditTemplate={() => {}}
+                onRemove={() => {}}
+                onClose={() => setStarterDraft(null)}
+                notify={addToast}
+                draft={{
+                    onConfirm: placeStarterDraft,
+                    preview: (
+                        <div className="grid h-[204px] place-items-center rounded-2xl" style={{ background: 'linear-gradient(135deg,#8a9bb0,#c3a6a0 55%,#e6d3b8)' }}>
+                            <div style={{ width: real.width * scale, height: real.height * scale }}>
+                                <div style={{ width: real.width, height: real.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+                                    <CustomWidgetFrame template={template} size={draftItem} values={draftItem.values} images={draftItem.images} char={char}
+                                      unread={char ? unreadMessages[char.id] || 0 : 0} lastMsgTimestamp={lastMsgTimestamp} userName={userProfile?.name} contentColor={contentColor} interactive={false} />
+                                </div>
+                            </div>
+                        </div>
+                    ),
+                }}
+              />
+          );
+      })()}
 
       {/* 自訂小組件這一份的設定 */}
       {settingsItem && settingsItem.widget === 'custom' && customTemplatesById.get(settingsItem.templateId || '') && (
