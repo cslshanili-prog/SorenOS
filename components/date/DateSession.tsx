@@ -28,6 +28,8 @@ import DecorationFrame from './DecorationFrame';
 import { DateLiveReply, DateReplyTags, DateRerollSheet } from './DateReplyTrace';
 import EmotionStatusPanel from '../chat/EmotionStatusPanel';
 import { liveBuffs } from '../../utils/emotionDecay';
+import { dateDrafts, type DateQuickLeaveTarget } from '../../utils/dateSuspend';
+import DateQuickChatSheet from './DateQuickChatSheet';
 import { describeMomentLock } from '../../utils/dateMoment';
 import { buildDateAppearanceCss, resolveDateBackdrop, scopeDateCss } from '../../utils/dateAppearance';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../../utils/meetingPreset/regex';
@@ -82,6 +84,10 @@ interface DateSessionProps {
     /** 拍下這一刻（utils/dateMoment.ts） */
     onCaptureMoment?: () => void;
     capturingMoment?: boolean;
+    /** 選單裡「回桌面」「去私聊」：見面掛著，頂端那條點一下回來（見 docs/date-quick-leave.md） */
+    onQuickLeave?: (target: DateQuickLeaveTarget) => void;
+    /** 走開時還在生成的那一輪還沒落定：照樣顯示「正在輸入」、不讓再送一次 */
+    externalTyping?: boolean;
 }
 
 // Long replies can expand into many DOM lines. Keeping a smaller reading window
@@ -158,6 +164,8 @@ const DateSession: React.FC<DateSessionProps> = ({
     suppressAutoSaveRef,
     onCaptureMoment,
     capturingMoment,
+    onQuickLeave,
+    externalTyping,
 }) => {
     const { addToast, registerBackHandler, apiConfig, updateCharacter, apiPresets } = useOS();
 
@@ -177,7 +185,9 @@ const DateSession: React.FC<DateSessionProps> = ({
     const emotionNow = liveBuffs(emotionChar.activeBuffs);
 
     // Interaction State
-    const [input, setInput] = useState('');
+    // 沒送出的字按角色記在記憶體裡：中途去私聊再回來，打到一半的還在
+    const [input, setInputState] = useState(() => dateDrafts.get(char.id));
+    const setInput = (text: string) => { setInputState(text); dateDrafts.set(char.id, text); };
     // 輸入框跟著字數長高：先歸零量 scrollHeight，再設回去；上限交給 max-h-36，超過就在框裡捲
     const inputRef = useRef<HTMLTextAreaElement>(null);
     useEffect(() => {
@@ -186,8 +196,10 @@ const DateSession: React.FC<DateSessionProps> = ({
         el.style.height = 'auto';
         el.style.height = `${el.scrollHeight}px`;
     }, [input]);
-    const [showInputBox, setShowInputBox] = useState(false);
-    const [isTyping, setIsTyping] = useState(false); // Waiting for API
+    const [showInputBox, setShowInputBox] = useState(() => !!dateDrafts.get(char.id));
+    const [localTyping, setIsTyping] = useState(false); // Waiting for API
+    const isTyping = localTyping || !!externalTyping;
+    const [showQuickChat, setShowQuickChat] = useState(false);
     const [showExitModal, setShowExitModal] = useState(false);
     // API 失敗時本地記住本輪輸入，不依賴父組件的 DB 刷新是否已經完成；用戶可直接點重試。
     const [pendingRetryText, setPendingRetryText] = useState('');
@@ -372,6 +384,10 @@ const DateSession: React.FC<DateSessionProps> = ({
                 setShowApiPanel(false);
                 return true;
             }
+            if (showQuickChat) {
+                setShowQuickChat(false);
+                return true;
+            }
             if (showMenu) {
                 setShowMenu(false);
                 setShowVoiceLangPicker(false);
@@ -385,7 +401,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             return true;
         });
         return unregister;
-    }, [voiceFavoriteTarget, voiceFavoriteBusy, showSettings, showApiPanel, showMenu, showExitModal, registerBackHandler]);
+    }, [voiceFavoriteTarget, voiceFavoriteBusy, showSettings, showApiPanel, showQuickChat, showMenu, showExitModal, registerBackHandler]);
 
     // Show only the current session: from the LAST message with `isOpening: true` onwards.
     const sessionMessages = React.useMemo(() => {
@@ -741,6 +757,19 @@ const DateSession: React.FC<DateSessionProps> = ({
                             </button>
                         )}
 
+                        {onQuickLeave && (
+                            <>
+                                <button onClick={() => { closeMenu(); setShowQuickChat(true); }} className={menuButton}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" /></svg>
+                                    去私聊
+                                </button>
+                                <button onClick={() => { closeMenu(); onQuickLeave({ kind: 'home' }); }} className={menuButton}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+                                    回桌面
+                                </button>
+                            </>
+                        )}
+
                         <button onClick={() => { closeMenu(); setShowExitModal(true); }} className="h-9 px-3.5 rounded-full flex items-center gap-2 text-xs font-bold border shadow-lg active:scale-95 transition-all bg-red-500/70 backdrop-blur-md border-white/20 text-white hover:bg-red-600">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" /></svg>
                             離開
@@ -1047,6 +1076,14 @@ const DateSession: React.FC<DateSessionProps> = ({
             </Modal>
 
             {/* Exit Modal */}
+            {onQuickLeave && (
+                <DateQuickChatSheet
+                    isOpen={showQuickChat}
+                    onClose={() => setShowQuickChat(false)}
+                    onPickChat={charId => { setShowQuickChat(false); onQuickLeave({ kind: 'chat', charId }); }}
+                    onAllMessages={() => { setShowQuickChat(false); onQuickLeave({ kind: 'messages' }); }}
+                />
+            )}
             <Modal isOpen={showExitModal} title="暫時離開?" onClose={() => setShowExitModal(false)} footer={<div className="flex gap-3 w-full"><button onClick={() => setShowExitModal(false)} className="flex-1 py-3 bg-slate-100 rounded-2xl text-slate-600 font-bold">留在這裡</button><button onClick={handleExitClick} className="flex-1 py-3 bg-slate-800 text-white rounded-2xl font-bold">保存並退出</button></div>}>
                 <div className="text-center text-slate-500 text-sm py-2 leading-relaxed">選擇“保存並退出”將保留當前對話進度。<br/>下次見面時，你可以選擇繼續話題。</div>
             </Modal>
