@@ -402,5 +402,5 @@ export const starterTemplate = (): Omit<CustomWidgetTemplate, 'id' | 'createdAt'
     images: {},
     fields: [{ key: 'note', label: '一句話', type: 'text', default: '今天也要好好的' }],
     html: '<div class="card">\n  <div class="time">{{time}}</div>\n  <div class="sub">{{weekday}} · {{date}}</div>\n  <div class="note">{{note}}</div>\n</div>',
-    css: '.card {\n  height: 100%;\n  box-sizing: border-box;\n  padding: 14px 18px;\n  border-radius: 22px;\n  background: rgba(255, 255, 255, 0.25);\n  backdrop-filter: blur(16px);\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n}\n.time { font-size: 34px; font-weight: 800; line-height: 1; }\n.sub { margin-top: 6px; font-size: 11px; opacity: 0.7; }\n.note { margin-top: 8px; font-size: 12px; }',
+    css: '.card {\n  height: 100%;\n  box-sizing: border-box;\n  padding: 14px 18px;\n  border-radius: 28px;\n  background: rgba(255, 255, 255, 0.25);\n  backdrop-filter: blur(16px);\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n}\n.time { font-size: 34px; font-weight: 800; line-height: 1; }\n.sub { margin-top: 6px; font-size: 11px; opacity: 0.7; }\n.note { margin-top: 8px; font-size: 12px; }',
 });
