@@ -4196,11 +4196,22 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const deleteUserPersona = async (id: string) => {
+      // 連到這張卡的身份連結一起刪，角色那邊對這幾條連結的認知也清掉（plans/persona-line-batch4.md）
+      const goneLinks = new Set((userProfileBase.personaLinks || []).filter(l => l.a === id || l.b === id).map(l => l.id));
       await updateUserProfile(prev => ({
           personas: (prev.personas || []).filter(p => p.id !== id),
           // 刪掉的正好是目前生效的身份卡時，回落到真實身份，別讓 activePersonaId 懸空指向不存在的卡。
           activePersonaId: prev.activePersonaId === id ? undefined : prev.activePersonaId,
+          ...(goneLinks.size ? { personaLinks: (prev.personaLinks || []).filter(l => !goneLinks.has(l.id)) } : {}),
       }));
+      if (goneLinks.size) {
+          for (const c of charactersRef.current) {
+              if (!Object.keys(c.altKnowledge || {}).some(k => goneLinks.has(k))) continue;
+              updateCharacter(c.id, prev => ({
+                  altKnowledge: Object.fromEntries(Object.entries(prev.altKnowledge || {}).filter(([k]) => !goneLinks.has(k))),
+              }));
+          }
+      }
   };
 
   const setActivePersonaId = async (id: string | undefined) => {

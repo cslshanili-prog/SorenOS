@@ -63,6 +63,7 @@ const lineHint = (photo: GalleryImage, charId: string, labels?: MemoryLineLabels
     if (!labels || photo.charId !== charId) return '';
     const own = photo.personaKey || labels.primaryKey;
     if (own === labels.currentKey) return '';
+    if (labels.sameAs?.includes(own)) return `TA用「${labels.names[own] || '另一個身份'}」的身份給你的`;
     return `在你跟「${labels.names[own] || '另一個人'}」那邊拿到的，「${labels.names[labels.currentKey] || '對方'}」不一定看過`;
 };
 

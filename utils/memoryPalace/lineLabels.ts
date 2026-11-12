@@ -7,7 +7,8 @@
  */
 import { DB } from '../db';
 import { lineViewPersonaKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../userPersona';
-import type { UserProfile } from '../../types';
+import type { CharacterProfile, UserProfile } from '../../types';
+import { sameIdentityKeys } from '../personaLinks';
 
 export interface MemoryLineLabels {
     /** 現在這條線的身份鍵 */
@@ -16,6 +17,8 @@ export interface MemoryLineLabels {
     primaryKey: string;
     /** 身份鍵 → 名字 */
     names: Record<string, string>;
+    /** 角色知道跟現在這張是同一個人的那幾張卡（小號，plans/persona-line-batch4.md） */
+    sameAs?: string[];
 }
 
 /** 這條記憶要不要標、標什麼；同一條線回空字串。 */
@@ -24,13 +27,14 @@ export function memoryLineLabel(node: { personaKey?: string }, labels?: MemoryLi
     const nodeKey = node.personaKey || labels.primaryKey;
     if (nodeKey === labels.currentKey) return '';
     const other = labels.names[nodeKey] || '另一個人';
+    if (labels.sameAs?.includes(nodeKey)) return `〔這是TA用「${other}」的身份跟你經歷的事〕`;
     const current = labels.names[labels.currentKey] || '現在跟你說話的人';
     return `〔這是你跟「${other}」之間的事，「${current}」不一定知道〕`;
 }
 
 /** 純函式版：給定角色（可能是線視圖）和用戶檔案，算出標籤設定；只有一條線的角色回 undefined。 */
 export function memoryLineLabelsFor(
-    char: { knownPersonaKeys?: string[]; primaryPersonaKey?: string },
+    char: { knownPersonaKeys?: string[]; primaryPersonaKey?: string; altKnowledge?: CharacterProfile['altKnowledge'] },
     profileBase: UserProfile | null | undefined,
 ): MemoryLineLabels | undefined {
     const known = char.knownPersonaKeys || [];
@@ -39,12 +43,13 @@ export function memoryLineLabelsFor(
     const currentKey = lineViewPersonaKey(char) || primaryKey;
     const names: Record<string, string> = {};
     for (const key of new Set([...known, primaryKey, currentKey])) names[key] = personaNameForKey(profileBase, key);
-    return { currentKey, primaryKey, names };
+    const sameAs = sameIdentityKeys(char, profileBase, currentKey);
+    return { currentKey, primaryKey, names, ...(sameAs.length ? { sameAs } : {}) };
 }
 
 /** 從資料庫讀用戶檔案再算；讀不到就不標（等於只有一條線）。 */
 export async function buildMemoryLineLabels(
-    char: { knownPersonaKeys?: string[]; primaryPersonaKey?: string },
+    char: { knownPersonaKeys?: string[]; primaryPersonaKey?: string; altKnowledge?: CharacterProfile['altKnowledge'] },
 ): Promise<MemoryLineLabels | undefined> {
     if ((char.knownPersonaKeys || []).length <= 1) return undefined;
     const profile = await DB.getUserProfile().catch(() => null);
