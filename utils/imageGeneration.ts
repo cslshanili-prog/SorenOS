@@ -2,7 +2,8 @@
  * 生圖：調用 OpenAI 兼容的 /images/generations（純文字）或 /images/edits（帶參考圖）接口，
  * 產出一張圖的 data URL。用於「系統設置 → 生圖API」的測試生圖，以及角色/用戶手動觸發的生圖。
  */
-import { CharacterProfile, ImageGenApiConfig } from '../types';
+import { CharacterProfile, ImageApiPreset, ImageGenApiConfig } from '../types';
+import { apiForStyle, applyStyleToPrompt, pickStyle } from './imageStyle';
 import { safeResponseJson } from './safeApi';
 import { getBlobForRef } from './blobRef';
 
@@ -14,6 +15,17 @@ export interface GeneratedImage {
   referenceCount?: number;
   /** 帶了參考圖但 /images/edits 失敗、退回純文字時的原因（HTTP 狀態＋前 200 字） */
   referenceError?: string;
+  /** 畫風偏好的那組 API 失敗、改用全域那組時：偏好那組的名字（調用方提示一聲） */
+  apiFallbackFrom?: string;
+  /** 這次套的畫風名字（沒套就沒有） */
+  styleName?: string;
+}
+
+export interface GenerateImageOptions {
+  /** 畫風：不給＝全域；'none'＝不套；其他＝那一套（utils/imageStyle.ts 的 pickStyle） */
+  styleId?: string | null;
+  /** 畫面裡有沒有人（決定加不加畫風的人像段）；不給就看提示詞 */
+  hasPerson?: boolean;
 }
 
 /**
@@ -230,18 +242,49 @@ async function parseImageResponse(response: Response): Promise<GeneratedImage> {
  * /images/generations 重試一次，不讓「引擎不支持參考圖」變成整次生成直接失敗。
  */
 export async function generateImage(
-  config: Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality' | 'extraPrompt'>,
+  config: ImageGenApiConfig,
   prompt: string,
   /** 一張，或多張（見面「拍下這一刻」同時鎖兩個人：第一張是角色、第二張是用戶） */
   referenceImageBlob?: Blob | Blob[],
+  options?: GenerateImageOptions,
+): Promise<GeneratedImage> {
+  // 畫風庫（plans/image-style-presets.md）：套哪一套、打哪組 API；偏好那組失敗就退回全域那組重試一次
+  const style = pickStyle(config, options?.styleId);
+  const { preferred, global } = apiForStyle(config, style);
+  const hasPerson = options?.hasPerson ?? looksLikeSelfieDescription(prompt);
+  const run = (api: ImageApiTarget) => {
+    const styled = applyStyleToPrompt(prompt, style, { hasPerson, negativeAsField: !!api.negativePromptField });
+    // 還沒搬進畫風庫的舊設定：照舊拼補充提示詞
+    const legacy = config.extraPrompt?.trim();
+    return generateImageWith(api, legacy ? `${styled.prompt}\n${legacy}` : styled.prompt, referenceImageBlob, styled.negativePrompt);
+  };
+  const withStyle = (r: GeneratedImage): GeneratedImage => (style ? { ...r, styleName: style.name } : r);
+  const fallbackApi = global || config;
+  if (preferred) {
+    try {
+      return withStyle(await run(preferred));
+    } catch (e) {
+      console.warn(`[ImageGeneration] 畫風偏好的「${preferred.name}」失敗，改用全域那組:`, e);
+      return { ...withStyle(await run(fallbackApi)), apiFallbackFrom: preferred.name };
+    }
+  }
+  return withStyle(await run(fallbackApi));
+}
+
+type ImageApiTarget = Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality'> & Pick<Partial<ImageApiPreset>, 'negativePromptField'>;
+
+async function generateImageWith(
+  config: ImageApiTarget,
+  fullPrompt: string,
+  referenceImageBlob: Blob | Blob[] | undefined,
+  negativePrompt: string | undefined,
 ): Promise<GeneratedImage> {
   const baseUrl = (config.baseUrl || '').replace(/\/+$/, '');
   if (!baseUrl || !config.model) throw new Error('生圖 API 未配置完整（URL / Model 缺失）');
 
-  const fullPrompt = config.extraPrompt?.trim() ? `${prompt}\n${config.extraPrompt.trim()}` : prompt;
-
   const generateTextOnly = async (): Promise<GeneratedImage> => {
     const body: Record<string, any> = { model: config.model, prompt: fullPrompt, n: 1 };
+    if (negativePrompt) body.negative_prompt = negativePrompt;
     if (config.size) body.size = config.size;
     if (config.quality) body.quality = config.quality;
     const response = await fetch(`${baseUrl}/images/generations`, {
@@ -265,6 +308,7 @@ export async function generateImage(
     form.append('model', model);
     form.append('prompt', prompt);
     form.append('n', '1');
+    if (negativePrompt) form.append('negative_prompt', negativePrompt);
     if (config.size) form.append('size', config.size);
     // 多張照 OpenAI 的寫法用 image[]；只有一張時保持原本的 image（老的中轉站只認這個）
     if (blobs.length === 1) form.append('image', blobs[0], 'reference.png');
