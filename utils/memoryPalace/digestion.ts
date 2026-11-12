@@ -175,7 +175,9 @@ async function gatherDigestMaterial(charId: string): Promise<{
     /** 回看窗口：上次消化以來的客廳+臥室經歷——消化的對象，不只是背景板 */
     recentEpisodes: MemoryNode[];
 }> {
-    const allNodes = await MemoryNodeDB.getByCharId(charId);
+    // 關係線（plans/persona-line-batch1-2.md 第 6 節）：認知消化的產出會進「關於你」「我們之間」這些門牌，
+    // 門牌目前只講主線那張卡，所以別條線的記憶先不進消化（召回照樣找得到、會標清楚是跟誰的）。
+    const allNodes = (await MemoryNodeDB.getByCharId(charId)).filter(n => !n.personaKey);
 
     // 已經被消化過一次的源節點不再進入候選池，否則同一源會被反覆
     // synthesize/insight 出近似條目。兩代標記並用：

@@ -667,6 +667,10 @@ export interface MemoryFragment {
   mood?: string;
   /** Only new automatic archives carry a palace link; summary remains an offline/legacy fallback. */
   palaceMemoryId?: string;
+  /** 關係線：這段記憶來自哪條線（沒有＝主線）；提示詞裡別條線的會標清楚是跟誰的（utils/context.ts） */
+  personaKey?: string;
+  /** 那條線上的你叫什麼（存檔當下的名字快照，標籤用） */
+  personaName?: string;
 }
 
 export interface SpriteConfig {
