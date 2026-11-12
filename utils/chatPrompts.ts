@@ -41,6 +41,7 @@ import { isBlobRef } from './blobRef';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
 import { buildAcquaintanceLine, buildRelationshipPrompt } from './chatRelationship';
 import { buildDateInvitePrompt, formatDateInviteRecord } from './dateInvite';
+import { buildSuspectPrompt, formatPersonaRevealRecord } from './personaReveal';
 import { buildCharCallCooldownNote, buildCharCallPrompt, formatCharCallRecord } from './charCall';
 import { buildBlockUserPrompt, charBlockPeriods, isRejectedByBlock, REJECTED_HISTORY_PREFIX } from './chatBlock';
 import { isTempChatMessage, TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
@@ -388,6 +389,8 @@ export const ChatPrompts = {
         if (char.charCall) baseSystemPrompt += buildCharCallPrompt(userProfile.name);
         // 聊天設定 · 允許角色拉黑你（見 utils/chatBlock.ts）
         if (char.allowCharBlockUser) baseSystemPrompt += buildBlockUserPrompt(userProfile.name);
+        // 關係線 · 小號：認識兩張以上的卡就教 SUSPECT（不透露哪兩張有連結，見 utils/personaReveal.ts）
+        baseSystemPrompt += buildSuspectPrompt(char, userProfile);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，
@@ -1429,6 +1432,10 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                 else if (m.type === 'date_invite') {
                     // 角色發的見面邀請卡：記錄形態帶上用戶回應了沒（見 utils/dateInvite.ts）
                     content = `${timeStr} ${formatDateInviteRecord(m.metadata?.dateInvite)}`;
+                }
+                else if (m.type === 'persona_card') {
+                    // 小號的懷疑卡／發現卡：帶上對方承認了沒（見 utils/personaReveal.ts）
+                    content = `${timeStr} ${formatPersonaRevealRecord(m.metadata?.personaReveal)}`;
                 }
                 else if (m.type === 'mall_order') {
                     // 購物中心卡片的記錄形態，跟轉帳同一個路數（見 utils/mallOrderFormat.ts 頭注）；

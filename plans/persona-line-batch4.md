@@ -78,7 +78,10 @@ type AltKnowledge =
   - 純邏輯在 `utils/personaLinks.ts`；提示詞那塊在 `ContextBuilder` 用戶資料段後面（`formatPersonaLinksBlock`），記憶片段、記憶宮殿、資料庫照片的標籤都認得「知道是同一個人」。
   - 編輯頁那一區是 `components/user/PersonaLinksSection.tsx`（改了就存）；角色那邊在聊天設定「認識的你」底下多一區「小號」。刪身份卡時連結和角色的認知一起清。
   - 順手修：從已套用身份卡的檔案查「真實身份叫什麼」，以前會讀到套上去那張卡的名字；現在套用時把真實身份的名字和頭像記在一個不會存出去的 Symbol 上（`utils/userPersona.ts`）。
-- **4b**：發現——「讓他發現」、SUSPECT 標記、承認／否認卡片、否認紀錄。
+- **4b — 已做**：發現——「讓他發現」、SUSPECT 標記、承認／否認卡片、否認紀錄。
+  - 純邏輯在 `utils/personaReveal.ts`，寫資料庫的在 `utils/personaRevealActions.ts`。卡片是 `type: 'persona_card'`：懷疑卡 role assistant（卡上承認／否認），發現卡 role system（兩條線各一張）；歷史裡懷疑卡寫成 `[[記錄:SUSPECT|…]]`。
+  - 雲端生成也認得 SUSPECT：Soren Worker 的直通名單加了它，順手補上本來就被剝掉的 `BLOCK_USER`（角色在雲端拉黑你以前不生效）。`AMSG_BUNDLE_VERSION` 升到 2026-11-12，用戶要更新一次 Worker 才吃得到；沒更新的照舊被剝掉、不落卡。
+  - 主動消息 1.0（本機背景路徑）沒接 SUSPECT：那條路的 sanitize 會把標籤剝乾淨，不會漏出來，只是不落卡。
 - **4c**：加好友。
 
 ## 5. 已定案（Liora 2026-11-12：「按照你的建議」）

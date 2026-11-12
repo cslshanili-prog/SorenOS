@@ -4,6 +4,7 @@ import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
 import { personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
 import { altKnowledgeOf } from '../../utils/personaLinks';
+import { revealAltToChar } from '../../utils/personaRevealActions';
 import type { AltKnowledge, CharacterProfile, PersonaLink } from '../../types';
 
 /**
@@ -91,6 +92,13 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
                                         <span className="block text-[14px] text-slate-700">「{personaNameForKey(userProfileBase, link.b)}」是「{personaNameForKey(userProfileBase, link.a)}」的小號</span>
                                         <span className="block text-[11px] text-slate-400">{statusText(k)}</span>
                                     </span>
+                                    {!knows && (
+                                        <button type="button"
+                                            onClick={() => void revealAltToChar({ raw, link, profileBase: userProfileBase, how: 'revealed', updateCharacter })}
+                                            className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold text-white bg-indigo-500 active:scale-95 transition">
+                                            讓他發現
+                                        </button>
+                                    )}
                                     <button type="button" onClick={() => setKnows(link, !knows)} aria-pressed={knows}
                                         className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${knows ? 'bg-primary text-white border-primary' : 'bg-white text-slate-500 border-slate-200'}`}>
                                         {knows ? '知道' : '不知道'}
@@ -100,7 +108,7 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
                         })}
                     </div>
                     <p className="px-2 pt-2 text-[11px] leading-relaxed text-slate-400">
-                        這裡切的是設定：切成「知道」就當他一直都知道，不會有反應。
+                        「知道／不知道」是設定：切成知道就當他一直都知道，不會有反應。「讓他發現」是劇情：兩條聊天各多一張卡，他下一輪會有反應。
                     </p>
                 </div>
             )}

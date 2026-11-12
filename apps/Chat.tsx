@@ -123,6 +123,7 @@ import { buildDateInviteResponseNote } from '../utils/dateInvite';
 import { retryPendingPhotoNow } from '../utils/pendingPhoto';
 import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
 import { cancelDelayedReplyEverywhere, handoffDelayedReplyToCloud } from '../utils/delayedReplyCloud';
+import { resolveSuspicionCard } from '../utils/personaRevealActions';
 import {
     CONTEXT_RANGE_POLICY_VERSION,
     computeContextRangeSnapshot,
@@ -1840,6 +1841,15 @@ const Chat: React.FC = () => {
         }
         await reloadMessages(visibleCountRef.current);
     }, [char, chatUserProfile, groups, realtimeConfig, openDateWithChar, reloadMessages]);
+
+    // 小號：角色起疑的卡上按「承認／否認」（plans/persona-line-batch4.md 第 2 節）
+    const handleResolvePersonaReveal = useCallback(async (msg: Message, action: 'admitted' | 'denied') => {
+        if (!char) return;
+        const raw = characters.find(c => c.id === char.id);
+        if (!raw) return;
+        await resolveSuspicionCard({ msg, raw, profileBase: userProfileBase, action, updateCharacter: updateCharacterRaw });
+        await reloadMessages(visibleCountRef.current);
+    }, [char, characters, userProfileBase, updateCharacterRaw, reloadMessages]);
 
     // 未接／拒接的來電卡上按「回撥」：照一般流程打回去（這次是用戶打的，角色照平常接）。
     const handleCallBack = useCallback((msg: Message) => {
@@ -4559,6 +4569,7 @@ const Chat: React.FC = () => {
                             onResolveTransfer={handleResolveTransfer}
                             onResolveLifeRecord={handleResolveLifeRecord}
                             onResolveDateInvite={handleResolveDateInvite}
+                            onResolvePersonaReveal={handleResolvePersonaReveal}
                             onCallBack={handleCallBack}
                             onRetryPhoto={handleRetryPhoto}
                             onOpenCollaborationFile={handleOpenCollaborationFile}
