@@ -3,6 +3,15 @@ import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMomentsSettings, canAutoPost } from './momentsSettings';
 import { isOnStage } from './castRole';
+import { ALT_RECOGNITION_RULE } from './charAlt';
+
+/** 同一個人的本人和小號（互相不去對方的貼文底下互動） */
+const sameOwner = (c: CharacterProfile, otherId: string | undefined, all: CharacterProfile[]): boolean => {
+    if (!otherId || c.id === otherId) return false;
+    const other = all.find(x => x.id === otherId);
+    const root = (x: CharacterProfile | undefined) => x?.altOf || x?.id;
+    return !!other && root(c) === root(other);
+};
 import { actorDisplayName, actorFor, buildFriendGraph, canViewMoment, type FriendGraph } from './momentsPool';
 import { buildPersonaKnowledge } from './momentsPersona';
 import { resolveUserProfileForChar } from './userPersona';
@@ -50,8 +59,8 @@ export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeCo
         post, graph, settings, now: Date.now(),
         candidates: [
             // 下戲的配角不自己按讚留言（utils/castRole.ts）
-            // 小號的朋友圈互動在 7b 接上之前先不跑
-            ...ctx.characters.filter(c => isOnStage(c) && !c.altOf).map(c => ({ id: c.id, kind: 'character' as const })),
+            // 本人不去自己小號的貼文底下互動，小號也不去本人的（除非你冒充；關係線第 7 批）
+            ...ctx.characters.filter(c => isOnStage(c) && !sameOwner(c, post.author.id, ctx.characters)).map(c => ({ id: c.id, kind: 'character' as const })),
             ...ctx.npcs.map(n => ({ id: n.id, kind: 'npc' as const })),
         ],
     });
@@ -83,7 +92,7 @@ async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
     if (!settings.autoPostEnabled) return;
     // 私聊拉黑中的角色不自動發：用戶看不到，白花 API
-    const posterIds = [...ctx.characters.filter(c => !c.chatBlock && isOnStage(c) && !c.altOf).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
+    const posterIds = [...ctx.characters.filter(c => !c.chatBlock && isOnStage(c)).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
     const now = Date.now();
     const { schedule, due } = reconcilePostSchedule(readPostSchedule(), posterIds, now, settings);
     if (due.length === 0) { writePostSchedule(schedule); return; }
@@ -128,7 +137,10 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
             const char = ctx.characters.find(c => c.id === id);
             const npc = ctx.npcs.find(n => n.id === id);
             // 挑講個性、說話方式的句子，不再只截開頭（見 utils/momentsVoice.ts）
-            const brief = char ? characterVoice(char) : npc ? npcVoice(npc) : '';
+            // 小號（關係線第 7 批）：口吻照本人，但會刻意換個樣子；這句只給寫留言的模型看，其他人不知道
+            const owner = char?.altOf ? ctx.characters.find(c => c.id === char.altOf) : undefined;
+            const brief = owner ? `${characterVoice(owner)}（其實是「${owner.name}」開的小號，別人不知道；用小號時口吻會刻意跟平常不同，不會露餡）`
+                : char ? characterVoice(char) : npc ? npcVoice(npc) : '';
             // 你用別的身份發的：對它來說是群裡見過的人或陌生人，不套它跟主身份的關係
             const personaRel = post.author.kind === 'user' && graph.personaRelation ? graph.personaRelation(id, post.author.personaKey) : 'main';
             const relation = personaRel === 'seen' ? '在群裡見過，不熟'
@@ -140,7 +152,8 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         const thread = post.comments.map(c => `${actorDisplayName(c.actor, ctx.characters, ctx.npcs, userName, graph)}: ${c.content}`).join('\n');
         // 你發的貼文：提示詞裡的「用戶」就是發文的那個身份
         const promptUserName = post.author.kind === 'user' ? authorName : userName;
-        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName });
+        const altInvolved = [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!ctx.characters.find(c => c.id === id)?.altOf);
+        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName, strangerRule: altInvolved ? ALT_RECOGNITION_RULE : undefined });
         // 一批人一起留言只打一次：用全局 API（通常比角色專屬的主對話模型便宜）
         const response = await fetch(`${ctx.apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',

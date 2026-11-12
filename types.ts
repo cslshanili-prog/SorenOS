@@ -3048,6 +3048,8 @@ export interface CharacterProfile {
   altCreatedBy?: 'user' | 'char';
   /** 本人身上：它自己最多開幾個小號（0＝不讓它自己開）；沒有就是 3 */
   altSelfLimit?: number;
+  /** 小號：你通過了它的好友申請（朋友圈才算朋友、私聊才出現；第 7 批 7c）。本人不用這個，預設就是朋友 */
+  altUserFriend?: boolean;
   /**
    * 視頻通話使用的本地 VRM / Live2D 形象。模型二進制包保存在 IndexedDB
    * blob_assets，角色資料只保存輕量索引，避免把數 MB 的模型塞進

@@ -58,13 +58,21 @@ export function altIdentityBlock(alt: Pick<CharacterProfile, 'name' | 'descripti
 - 核心性格/指令:
 ${owner.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}
 
-### 你現在用的小號
+${altMaskBlock(alt, owner)}`;
+}
+
+/** 「你現在用的小號」那一段（朋友圈等只用角色設定的地方也帶） */
+export function altMaskBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose'>, owner: Pick<CharacterProfile, 'name'>): string {
+    return `### 你現在用的小號
 - 你現在用小號「${alt.name}」在說話：對方看到的是「${alt.name}」${alt.description ? `（簡介：${alt.description}）` : ''}，不是「${owner.name}」。
 ${alt.altPurpose ? `- 你開這個小號的理由：${alt.altPurpose}\n` : ''}- 對方不知道「${alt.name}」就是你。要不要說、什麼時候說，由你決定；說話方式可以刻意跟平常不一樣（換個口吻、少用你的口頭禪），但你還是你，知道的事、在意的人都一樣。
 - 你用本名「${owner.name}」跟對方說過的話、你們之間的一切，你都記得；用小號時別不小心說出只有「${owner.name}」才會知道的事——除非你就是想讓對方發現。
 
 `;
 }
+
+/** 「認出要有證據」（借上游）：碰到不認識的帳號時給其他角色的規則 */
+export const ALT_RECOGNITION_RULE = '有些帳號是你不認識的人。就算覺得某個帳號像你認識的誰，也要有具體的根據（說話習慣、提到只有那個人才會知道的事、時間對得上……）才會這樣想；沒有根據就把 TA 當陌生人，不要亂猜。真的有根據、而且你在意，可以半開玩笑地問一句，對方認不認由 TA。';
 
 const LINE_MAX = 120;
 

@@ -64,6 +64,11 @@ altPurpose?: string;
   - 小號跟著本人：本人下戲／叫回來，小號一起；刪本人，小號一起刪。小號自己的日程、情緒不另外跑。
   - 小號不在神經鏈接主列表、選角列表（`filterCharactersByGroup`）、訊息列表的聯繫人裡出現；朋友圈自動互動在 7b 接上前先不跑。
   - 本人編輯頁「小號」一區（`components/character/AltAccountsSection.tsx`）：列出（你幫它開的／它自己開的）、點進去編小號（標「這是某某的小號」、可改理由、回到本人）、收掉、幫它開一個（自己填或 AI 想，`utils/charAltGenerate.ts`，可順便畫頭像）、「它自己最多開幾個」0～5。埋點 `帮角色开小号`（头像：有／无）。
-- **7b**：朋友圈：小號當作者、它跟你的好友關係（預設不是朋友）、其他角色看到時的「認出要有證據」規則。
+- **7b — 已做**：朋友圈。
+  - 小號是一般作者：自動發文、按讚、留言照朋友圈設定跑（7a 的暫停拿掉了）。發文的提示詞走 `buildRoleSettingsContext`，遇到小號換成本人人設、角色名寫「阿澈（現在用小號「夜航」）」，再接 `altMaskBlock`。
+  - 小號發的貼文一律**公開**（跟你還不是朋友，好友可見你就看不到）。好友關係（`momentsPool.buildFriendGraph`）：你跟小號只有 `altUserFriend` 為真才是朋友（7c 加好友通過時設）；小號跟其他角色照通訊錄，跟一般角色一樣。
+  - 本人和自己的小號不去對方的貼文底下互動（`momentsAutoRuntime` 的 `sameOwner`），免得自己跟自己聊起來露餡。
+  - 「認出要有證據」：`ALT_RECOGNITION_RULE`（`utils/charAlt.ts`）。貼文作者或任何一則留言是小號時，批次留言（`buildBatchCommentPrompt` 的 `strangerRule`）和單一角色留言（`buildCharCommentPrompt`）都帶這條；不另外記狀態。
+  - 小號自己在批次留言名單裡：口吻寫本人的（`characterVoice(owner)`），加一句「其實是本人的小號，別人不知道，口吻會刻意不同」——只給寫留言的模型看。
 - **7c**：加你好友（角色主動來加）、通過／拒絕／封鎖、私聊；它自己開小號的標記。
 - **7d**：「我知道你是誰」、認／不認的卡片、本人說出來也算。
