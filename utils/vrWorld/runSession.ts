@@ -276,6 +276,8 @@ async function runVRSessionUnlocked(deps: VRSessionDeps): Promise<VRSessionResul
     const { char, characters, apiConfig, groups, realtimeConfig, memoryPalaceConfig, updateUserProfile, forcedRoom, forcedSARActivity, forcedLetterId, manual } = deps;
     if (!char.vrState?.enabled) return { ok: false, reason: 'not-enabled' };
     if (!manual && !allowsAutomaticVR(char.vrState)) return { ok: false, reason: 'manual-only' };
+    // 配角下戲中：彼方不替它自己跑（你手動叫它進房間照常）
+    if (!manual && char.benchedAt) return { ok: false, reason: 'manual-only' };
     const updateCharacter = (id: string, patch: Partial<CharacterProfile>) =>
         deps.updateCharacter(id, current => withLatestVRParticipation(current, patch));
 

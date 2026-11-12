@@ -1,5 +1,6 @@
 import React from 'react';
 import { CharacterProfile, CharacterGroup } from '../../types';
+import { sortByCast } from '../../utils/castRole';
 
 /**
  * 角色分組的公共工具 + 選角入口的分組篩選膠囊條。
@@ -19,18 +20,21 @@ export const GROUP_FILTER_UNGROUPED = '__ungrouped__';
 export const sortCharacterGroups = (groups: CharacterGroup[]): CharacterGroup[] =>
     [...groups].sort((a, b) => (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0));
 
-/** 按分組篩選角色。groupId 傳 GROUP_FILTER_ALL / GROUP_FILTER_UNGROUPED / 具體分組 id */
+/**
+ * 按分組篩選角色。groupId 傳 GROUP_FILTER_ALL / GROUP_FILTER_UNGROUPED / 具體分組 id。
+ * 選角的地方都走這裡，順手排好戲份：主角在前、配角在後、下戲的最後（utils/castRole.ts；沒有配角時順序不變）。
+ */
 export const filterCharactersByGroup = (
     characters: CharacterProfile[],
     groups: CharacterGroup[],
     groupId: string,
 ): CharacterProfile[] => {
-    if (groupId === GROUP_FILTER_ALL) return characters;
+    if (groupId === GROUP_FILTER_ALL) return sortByCast(characters);
     if (groupId === GROUP_FILTER_UNGROUPED) {
         const known = new Set(groups.map(g => g.id));
-        return characters.filter(c => !c.groupId || !known.has(c.groupId));
+        return sortByCast(characters.filter(c => !c.groupId || !known.has(c.groupId)));
     }
-    return characters.filter(c => c.groupId === groupId);
+    return sortByCast(characters.filter(c => c.groupId === groupId));
 };
 
 interface FilterBarProps {

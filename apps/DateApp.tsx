@@ -21,7 +21,7 @@ import { canCaptureDateMoment, captureDateMoment, describeMomentLock } from '../
 import { migrateDataUrlToRef } from '../utils/blobRef';
 import { getLocalDateKey } from '../utils/localDate';
 import { resolveCharTimeZone } from '../utils/timezone';
-import { isDateOfflinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
+import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import type { DateStory, UserProfile } from '../types';
@@ -425,7 +425,8 @@ const DateApp: React.FC = () => {
     const offlineRetriedRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         for (const c of characters) {
-            const shouldPause = isDateOfflinePaused(c);
+            // 下戲也算停著（共用同一份留底），不然這裡會在下戲中把任務排回去
+            const shouldPause = isOnlinePaused(c);
             const pause = c.dateOfflinePause;
             const needsPause = shouldPause && (!pause || pause.resuming);
             const needsResume = !shouldPause && !!pause;

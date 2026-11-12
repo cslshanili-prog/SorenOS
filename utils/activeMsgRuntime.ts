@@ -1754,7 +1754,8 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger): Promise<string[]> =>
       // Soren Worker 看 fire_pack.chatBlocked 已經在雲端跳過；這裡兜住舊 Worker、以及拉黑前就生成好的那幾條。
       if (message.source === 'scheduled') {
         const blockedChar = findCloudChar(await DB.getAllCharacters(), message.charId);
-        if (blockedChar?.chatBlock) {
+        // 配角下戲中（utils/castRole.ts）也一樣不收：下戲時主線的任務會先停下，非主線還排著的、或停之前生成好的，在這裡兜住
+        if (blockedChar?.chatBlock || blockedChar?.benchedAt) {
           activeMsgTrace('runtime-chat-blocked-swallow', {
             messageId: message.messageId,
             charId: message.charId,

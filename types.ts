@@ -3029,6 +3029,15 @@ export interface CharacterProfile {
   name: string;
   avatar: string;
   /**
+   * 主角或配角（關係線第 6 批，plans/persona-line-batch6.md）；沒有就是主角。
+   * 配角跟主角同一套資料和能力，差別只在神經鏈接有自己的分頁、可以下戲、主動消息預設關。
+   */
+  castRole?: 'lead' | 'supporting';
+  /** 下戲的時間：有值 ＝ 下戲中，主動的東西都停（見 utils/castRole.ts 的 isOnStage），記憶和紀錄都留著 */
+  benchedAt?: number;
+  /** 跟別人的關係（從 NPC 的關係清單搬來；主角配角都能用）。targetId 是角色 id，或 'user' */
+  relationships?: NPCRelationship[];
+  /**
    * 視頻通話使用的本地 VRM / Live2D 形象。模型二進制包保存在 IndexedDB
    * blob_assets，角色資料只保存輕量索引，避免把數 MB 的模型塞進
    * localStorage / React state。

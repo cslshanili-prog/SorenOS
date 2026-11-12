@@ -4,12 +4,15 @@ import type { CharacterProfile } from '../types';
  * 日程 / 情緒 buff 總開關判定。
  * - 顯式為 true / false 時直接使用。
  * - undefined 時走向後兼容：老用戶若已選了 scheduleStyle，視為開啟；否則默認關閉。
+ * - 配角下戲中一律關。
  * 任何副 API 調用、情緒評估、日程注入之前都應先過此閘門。
  */
 export function isScheduleFeatureOn(
-    char: Pick<CharacterProfile, 'scheduleFeatureEnabled' | 'scheduleStyle'> | null | undefined,
+    char: (Pick<CharacterProfile, 'scheduleFeatureEnabled' | 'scheduleStyle'> & Partial<Pick<CharacterProfile, 'benchedAt'>>) | null | undefined,
 ): boolean {
     if (!char) return false;
+    // 配角下戲中：日程與情緒都停（關係線第 6 批，utils/castRole.ts）；叫回來照原本的開關
+    if (char.benchedAt) return false;
     if (char.scheduleFeatureEnabled === true) return true;
     if (char.scheduleFeatureEnabled === false) return false;
     return !!char.scheduleStyle;

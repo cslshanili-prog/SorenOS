@@ -1,5 +1,5 @@
 
-import { isDateOfflinePaused } from '../utils/dateOffline';
+import { isOnlinePaused } from '../utils/dateOffline';
 import { lineArgOf, lineMsgFields, lineOf, lineScheduleId } from '../utils/chatLine';
 import { cloudCharId } from '../utils/amsgCloudLine';
 import { buffsForEvaluation } from '../utils/emotionDecay';
@@ -1085,7 +1085,7 @@ export const useChatAI = ({
             // 拼進 tools，但參數取捨必須現在就定）。角色級開關關掉的不注入——否則被用戶顯式
             // 關掉的功能會被角色一次工具調用重新打開。
             // 線下故事進行中關了線上功能也不給（utils/dateOffline.ts）
-            const amsg2ToolsInjected = isAmsg2EnabledForChar(char) && !isDateOfflinePaused(char) && await isAmsg2GlobalReady();
+            const amsg2ToolsInjected = isAmsg2EnabledForChar(char) && !isOnlinePaused(char) && await isAmsg2GlobalReady();
             if (shouldSendThinkingParams({
                 thinkingActive: !!payload.flags.thinkingActive,
                 legacyToolModeActive: !!toolModeActive,
