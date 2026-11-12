@@ -1,5 +1,8 @@
 
-import { isDateOfflinePaused } from '../utils/dateOffline';
+import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
+import { isBenched } from '../utils/castRole';
+import { pendingNpcs } from '../utils/npcMigration';
+import { runNpcMigration } from '../utils/npcMigrationRun';
 import { isPrimaryLine, knowsPersona, lineArgOf, lineFor, lineKey, lineMsgFields, lineOf, linePatchForChar, lineScheduleId, lineView, parseLineScheduleId, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -374,6 +377,13 @@ interface OSContextType {
    * 「仍然刪除」= 傳 { force: true } 放行）。沒有任務的角色維持本地直刪的快路徑。
    */
   deleteCharacter: (id: string, options?: { force?: boolean }) => Promise<DeleteCharacterResult>;
+  /**
+   * 配角下戲／叫回來（關係線第 6 批，utils/castRole.ts）：下戲時把主線排著的主動消息先停下留底，
+   * 叫回來（而且沒在線下故事裡）照原樣排回去。主角也能下戲，同一套。
+   */
+  setCharBenched: (id: string, benched: boolean) => Promise<void>;
+  /** 一次加好幾個已經組好的角色（AI 生成配角用）：不切換正在聊的角色 */
+  addCharacters: (chars: CharacterProfile[]) => Promise<void>;
 
   /** NPC 檔案（神經鏈接「NPC」分頁）。獨立於 characters，不參與日程/情緒/主動消息/記憶宮殿。 */
   npcs: NPCProfile[];
@@ -1728,7 +1738,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[]),
             settle(DB.getAllNPCs(), 'npcs', [] as NPCProfile[])
         ]);
-        setNpcs(dbNpcs);
+        // 搬成配角的 NPC（關係線第 6 批）只留在表裡當備份，不再列出來
+        setNpcs(pendingNpcs(dbNpcs));
 
         let finalChars = dbChars;
 
@@ -1952,8 +1963,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       || suspendedCallRef.current?.charId === char.id) continue;
                   const dueMessages = await DB.getDueScheduledMessages(char.id);
                   if (cancelled) return;
-                  // 線下故事進行中關了線上功能（utils/dateOffline.ts）：到點的定時消息直接丟，不留到完結才一口氣冒出來
-                  if (dueMessages.length > 0 && isDateOfflinePaused(char)) {
+                  // 線下故事進行中關了線上功能、或配角下戲（utils/dateOffline.ts）：到點的定時消息直接丟，不留到完結才一口氣冒出來
+                  if (dueMessages.length > 0 && isOnlinePaused(char)) {
                       for (const msg of dueMessages) await DB.deleteScheduledMessage(msg.id);
                       continue;
                   }
@@ -2419,6 +2430,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (!isPrimaryLine(runLine) && (!knowsPersona(rawChar, runLine.personaKey!) || (!isReply && !char.proactiveLineEnabled))) {
               drainQueuedProactive();
               console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 這條線沒開主動消息或已經不認識這張卡`);
+              return;
+          }
+
+          // 配角下戲中（utils/castRole.ts）：不主動找人；你傳的訊息延遲回覆照回
+          if (!isReply && isBenched(rawChar)) {
+              drainQueuedProactive();
+              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 下戲中`);
               return;
           }
 
@@ -3742,6 +3760,37 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const [personaLinesEnabled, setPersonaLinesEnabled] = useState(() => isPersonaLinesEnabled());
+
+  // NPC 搬成配角（關係線第 6 批 6b，utils/npcMigration.ts）：預覽開著、資料載入完、還有沒搬的就搬一次。
+  // 舊表留著當備份；搬完 npcs 清單是空的，NPC 那些專用路徑自然沒事做，配角走角色那套。
+  const npcMigratingRef = useRef(false);
+  useEffect(() => {
+      if (!personaLinesEnabled || !isDataLoaded || !npcs.length || npcMigratingRef.current) return;
+      npcMigratingRef.current = true;
+      (async () => {
+          try {
+              const r = await runNpcMigration({ npcs, characters: charactersRef.current, profileBase: userProfileBaseRef.current, groups: groupsRef.current });
+              const byId = new Map([...r.added, ...r.updatedChars].map(c => [c.id, c]));
+              setCharacters(prev => {
+                  const merged = prev.map(c => byId.get(c.id) || c);
+                  const fresh = [...byId.values()].filter(c => !prev.some(p => p.id === c.id));
+                  return [...merged, ...fresh];
+              });
+              if (r.groups.length) {
+                  const g = new Map(r.groups.map(x => [x.id, x]));
+                  setGroups(prev => prev.map(x => g.get(x.id) || x));
+              }
+              const moved = new Set(r.movedIds);
+              setNpcs(prev => prev.filter(n => !moved.has(n.id)));
+              if (r.movedIds.length) addToast(`${r.movedIds.length} 個 NPC 搬成配角了，在神經鏈接的「配角」分頁`, 'success');
+          } catch (e) {
+              console.error('[NPC 搬家] 失敗，下次打開再試', e);
+          } finally {
+              npcMigratingRef.current = false;
+          }
+      })();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaLinesEnabled, isDataLoaded, npcs.length]);
   useEffect(() => {
     const sync = () => setPersonaLinesEnabled(isPersonaLinesEnabled());
     const offFlags = subscribeDevDebugFlags(sync);
@@ -3771,6 +3820,41 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // updateCharacter，發事件過來由這裡寫回（見 utils/chatRelationship.ts）。走 ref 拿最新的
   // updateCharacter，免得打髒雲端快照時用到第一次渲染時的舊 userProfile。
   const updateCharacterRef = useRef(updateCharacter);
+
+  const addCharacters = async (chars: CharacterProfile[]) => {
+      if (!chars.length) return;
+      for (const c of chars) await DB.saveCharacter(c);
+      setCharacters(prev => [...prev, ...chars.filter(c => !prev.some(p => p.id === c.id))]);
+  };
+
+  const setCharBenched = async (id: string, benched: boolean) => {
+      const char = charactersRef.current.find(c => c.id === id);
+      if (!char || !!char.benchedAt === benched) return;
+      const now = Date.now();
+      if (benched) {
+          updateCharacter(id, { benchedAt: now });
+          // 共用線下故事那份留底（dateOfflinePause）；本來就在停的不再停一次
+          if (!isOnlinePaused(char)) {
+              try {
+                  const r = await pauseAmsgForStory(char, updateCharacter, now);
+                  if (r.failed) addToast(`有 ${r.failed} 條主動消息沒停成，到點會被擋下來`, 'error');
+              } catch (e) { console.error('[Bench] 停主動消息失敗', e); }
+          }
+          return;
+      }
+      updateCharacter(id, { benchedAt: undefined });
+      const back = { ...char, benchedAt: undefined };
+      if (!isOnlinePaused(back) && back.dateOfflinePause) {
+          try {
+              const r = await resumeAmsgAfterStory(back, updateCharacter, {
+                  userProfile: resolveUserProfileForChar(userProfileBaseRef.current, back),
+                  groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current, apiConfig: apiConfigRef.current,
+              }, now);
+              if (r.restored) addToast(`${char.name}的 ${r.restored} 條主動消息排回去了`, 'success');
+              if (r.failed) addToast(`有 ${r.failed} 條主動消息還沒排回去，下次打開見面再試`, 'error');
+          } catch (e) { console.error('[Bench] 排回主動消息失敗', e); }
+      }
+  };
   updateCharacterRef.current = updateCharacter;
   const updateLineRef = useRef(updateLine);
   updateLineRef.current = updateLine;
@@ -6121,6 +6205,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     personaLinesEnabled,
     updateLine,
     deleteCharacter,
+    setCharBenched,
+    addCharacters,
     setActiveCharacterId,
     npcs,
     addNPC,

@@ -2,6 +2,7 @@ import type { APIConfig, CharacterProfile, GroupProfile, MomentPost, NPCProfile,
 import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMomentsSettings, canAutoPost } from './momentsSettings';
+import { isOnStage } from './castRole';
 import { actorDisplayName, actorFor, buildFriendGraph, canViewMoment, type FriendGraph } from './momentsPool';
 import { buildPersonaKnowledge } from './momentsPersona';
 import { resolveUserProfileForChar } from './userPersona';
@@ -48,7 +49,8 @@ export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeCo
     const jobs = planReactions({
         post, graph, settings, now: Date.now(),
         candidates: [
-            ...ctx.characters.map(c => ({ id: c.id, kind: 'character' as const })),
+            // 下戲的配角不自己按讚留言（utils/castRole.ts）
+            ...ctx.characters.filter(isOnStage).map(c => ({ id: c.id, kind: 'character' as const })),
             ...ctx.npcs.map(n => ({ id: n.id, kind: 'npc' as const })),
         ],
     });
@@ -80,7 +82,7 @@ async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
     if (!settings.autoPostEnabled) return;
     // 私聊拉黑中的角色不自動發：用戶看不到，白花 API
-    const posterIds = [...ctx.characters.filter(c => !c.chatBlock).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
+    const posterIds = [...ctx.characters.filter(c => !c.chatBlock && isOnStage(c)).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
     const now = Date.now();
     const { schedule, due } = reconcilePostSchedule(readPostSchedule(), posterIds, now, settings);
     if (due.length === 0) { writePostSchedule(schedule); return; }
@@ -107,7 +109,9 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
     if (!post) return;
     const graph = graphFor(ctx);
     const userName = ctx.userProfile.name || '用戶';
-    const canAct = (id: string) => canViewMoment(id, post, graph) && !!actorFor(id, ctx.characters, ctx.npcs, userName);
+    // 排進待辦之後才下戲的也不做了
+    const canAct = (id: string) => canViewMoment(id, post, graph) && !!actorFor(id, ctx.characters, ctx.npcs, userName)
+        && isOnStage(ctx.characters.find(c => c.id === id) || { castRole: 'supporting' });
 
     if (job.type === 'like') {
         if (!canAct(job.actorId) || post.likes.some(l => l.actor.id === job.actorId)) return;

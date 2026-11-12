@@ -11,14 +11,22 @@
 
 import type { ActiveMsg2TaskRecord, APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
 import { applyScheduledTask, currentOccurrenceMs, getPendingTasks, isAmsg2EnabledForChar } from './amsg2Tasks';
+import { isBenched } from './castRole';
 
 /** 這個角色現在要不要停線上功能 */
 export const isDateOfflinePaused = (char: Pick<CharacterProfile, 'dateOfflineMode' | 'activeDateStoryId'> | null | undefined): boolean =>
     !!char?.dateOfflineMode && !!char.activeDateStoryId;
 
-/** 角色現在能不能自己排主動消息（面板開關開著、又沒在線下故事裡暫停） */
+/**
+ * 線上功能（主動消息、定時消息）現在停著沒：線下故事暫停，或配角下戲（關係線第 6 批，utils/castRole.ts）。
+ * 兩種共用同一份留底（dateOfflinePause）：下戲時把排著的任務先停下來，叫回來（而且沒在線下故事裡）才排回去。
+ */
+export const isOnlinePaused = (char: (Pick<CharacterProfile, 'dateOfflineMode' | 'activeDateStoryId'> & Partial<Pick<CharacterProfile, 'benchedAt'>>) | null | undefined): boolean =>
+    isDateOfflinePaused(char) || isBenched(char);
+
+/** 角色現在能不能自己排主動消息（面板開關開著、又沒在線下故事裡暫停或下戲） */
 export const canCharSelfScheduleAmsg = (char: CharacterProfile): boolean =>
-    isAmsg2EnabledForChar(char) && !isDateOfflinePaused(char);
+    isAmsg2EnabledForChar(char) && !isOnlinePaused(char);
 
 const PERIOD_MS: Record<string, number> = { daily: 86_400_000, weekly: 7 * 86_400_000 };
 /** 恢復時離現在太近的就往後推一輪（重複的）或丟掉（單次的），免得一恢復就馬上響 */

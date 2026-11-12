@@ -1,4 +1,4 @@
-import { isDateOfflinePaused } from './dateOffline';
+import { isOnlinePaused } from './dateOffline';
 import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
 import { sarPublicContext } from './vrWorld/kanataPublicContext';
 import { kanataTitleContext } from './vrWorld/kanataTitle';
@@ -830,7 +830,7 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
         // 線下故事進行中關了線上功能：也不教（utils/dateOffline.ts）
         const scheduleMessageTagEnabled = !forFirePack
             && !(timelyByWorker && isAmsg2EnabledForChar(char))
-            && !isDateOfflinePaused(char);
+            && !isOnlinePaused(char);
         const imageGenCfg = promptOptions?.imageGenConfig;
         const photoSendEnabled = !!(
             imageGenCfg?.charImageGenEnabled && imageGenCfg?.charImageSendEnabled

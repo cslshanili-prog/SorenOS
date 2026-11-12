@@ -13,6 +13,8 @@ import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessage
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
 import NPCManagerView from '../components/character/NPCManagerView';
+import { isSupporting, sortByCast } from '../utils/castRole';
+import CastGeneratorPage from '../components/character/CastGeneratorPage';
 import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
@@ -88,6 +90,7 @@ const CharacterCard: React.FC<{
             <div className="flex-1 min-w-0 pr-6">
                 <h3 className="text-lg font-bold truncate text-slate-800">
                     {char.name}
+                    {char.benchedAt ? <span className="ml-1.5 align-middle text-[10px] font-bold text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5">下戲中</span> : null}
                 </h3>
                 <p className="text-xs truncate mt-0.5 text-violet-400/80">
                     {char.description || '暫無描述'}
@@ -106,11 +109,16 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
-  const [topTab, setTopTab] = useState<'characters' | 'npcs'>(() => launchIntent?.tab || 'characters');
+  const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
+  // 關係線預覽開著：主角／配角分開列（配角是同一張表的角色，plans/persona-line-batch6.md）；關著照舊全列
+  const [showCastGenerator, setShowCastGenerator] = useState(false);
+  const listChars = personaLinesEnabled
+      ? sortByCast(characters.filter(c => (topTab === 'supporting') === isSupporting(c)))
+      : characters;
   const [view, setView] = useState<'list' | 'detail'>(() => launchIntent?.charId ? 'detail' : 'list');
   const [charPage, setCharPage] = useState(0); // 角色列表分頁（每頁 6 個，僅未建分組時）
   // 分組展開狀態：存"已展開"的分組 id（未記錄 = 收起）。跨會話記住，key 見下
@@ -373,7 +381,9 @@ const Character: React.FC = () => {
         // This prevents overwriting Character B with Character A's data if a delayed async call updates formData.
         if (formData.id === editingId) {
             // 關係線：lines 不從編輯頁整份寫回（非主線的改動已經由 handleLineChange 直接寫進去了）
-            const { lines: _lines, ...rest } = formData;
+            // 下戲、主動消息的留底和任務清單是別處（下戲按鈕、見面、主動消息）在寫的，編輯頁不碰；
+            // 整份寫回會拿舊的蓋掉剛停下來的任務
+            const { lines: _lines, benchedAt: _benched, dateOfflinePause: _pause, activeMsg2Config: _amsg, ...rest } = formData;
             updateCharacter(editingId, rest);
         } else {
             console.warn(`Race condition prevented: Tried to save data for ${formData.id} into slot ${editingId}`);
@@ -403,7 +413,12 @@ const Character: React.FC = () => {
   // 那樣反直覺——用戶點新建就是想馬上填人設）。editingId 一設，下方 sync effect
   // 會從 characters 裡找到這張新卡填進 formData。
   const handleAddCharacter = async () => {
-      const created = await addCharacter();
+      let created = await addCharacter();
+      // 在配角分頁新建的就是配角（主動消息本來就預設關）
+      if (personaLinesEnabled && topTab === 'supporting') {
+          created = { ...created, castRole: 'supporting' };
+          updateCharacter(created.id, { castRole: 'supporting' });
+      }
       setEditingId(created.id);
       setFormData(created); // 直接填好，避免跳轉瞬間 characters 還沒同步導致詳情頁閃白
       setDetailTab('identity');
@@ -1272,6 +1287,9 @@ ${isInitialGeneration ? `
                        <span className="absolute -top-1 left-9 text-violet-200 text-[10px] select-none">✦</span>
                        <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神經鏈接</h1>
                        <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.length}</span> 個角色連接</p>
+                       {personaLinesEnabled && topTab === 'supporting' && (
+                           <p className="text-[10px] text-violet-400/80 mt-1 max-w-[14rem] leading-relaxed">配角跟主角能做的事一樣，主動消息預設關；不用的時候可以下戲。</p>
+                       )}
                    </div>
                    <div className="flex gap-3 pt-1">
                         <ToolButton label="分組" title="角色分組管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
@@ -1293,17 +1311,39 @@ ${isInitialGeneration ? `
                <div className="px-6 pb-3 shrink-0 flex gap-2">
                    <button
                        onClick={() => setTopTab('characters')}
-                       className="px-4 py-1.5 rounded-full text-xs font-bold bg-violet-600 text-white shadow-sm"
+                       className={`px-4 py-1.5 rounded-full text-xs font-bold ${topTab === 'characters' ? 'bg-violet-600 text-white shadow-sm' : 'bg-white/60 text-violet-500 border border-violet-200'}`}
                    >
                        主角
                    </button>
-                   <button
+                   {personaLinesEnabled && (
+                       <button
+                           onClick={() => setTopTab('supporting')}
+                           className={`px-4 py-1.5 rounded-full text-xs font-bold ${topTab === 'supporting' ? 'bg-violet-600 text-white shadow-sm' : 'bg-white/60 text-violet-500 border border-violet-200'}`}
+                       >
+                           配角{characters.some(isSupporting) ? ` (${characters.filter(isSupporting).length})` : ''}
+                       </button>
+                   )}
+                   {(!personaLinesEnabled || npcs.length > 0) && <button
                        onClick={() => setTopTab('npcs')}
                        className="px-4 py-1.5 rounded-full text-xs font-bold bg-white/60 text-violet-500 border border-violet-200"
                    >
                        NPC{npcs.length > 0 ? ` (${npcs.length})` : ''}
-                   </button>
+                   </button>}
                </div>
+               {personaLinesEnabled && topTab === 'supporting' && (
+                   <div className="px-5 pb-3 shrink-0">
+                       <button onClick={() => setShowCastGenerator(true)}
+                           className="w-full py-3 rounded-2xl bg-white/80 border border-violet-200 text-violet-600 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-transform shadow-sm">
+                           ✦ AI 生成配角
+                       </button>
+                   </div>
+               )}
+               {showCastGenerator && (
+                   <CastGeneratorPage
+                       onClose={() => setShowCastGenerator(false)}
+                       onCreated={n => { setShowCastGenerator(false); addToast(`建好 ${n} 個配角了`, 'success'); }}
+                   />
+               )}
                <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
                    {(() => {
                        // 建過分組 → 按組摺疊展開（不再分頁，分組本身就把列表變短了）；
@@ -1314,13 +1354,13 @@ ${isInitialGeneration ? `
                                ...sortCharacterGroups(characterGroups).map(g => ({
                                    id: g.id,
                                    name: g.name,
-                                   chars: characters.filter(c => c.groupId === g.id),
+                                   chars: listChars.filter(c => c.groupId === g.id),
                                })),
                                {
                                    id: GROUP_FILTER_UNGROUPED,
                                    name: '未分組',
                                    // groupId 指向已刪分組的角色也歸到未分組，不會憑空消失
-                                   chars: characters.filter(c => !c.groupId || !knownGroupIds.has(c.groupId)),
+                                   chars: listChars.filter(c => !c.groupId || !knownGroupIds.has(c.groupId)),
                                },
                            ].filter(s => s.id !== GROUP_FILTER_UNGROUPED || s.chars.length > 0);
                            return (
@@ -1362,15 +1402,15 @@ ${isInitialGeneration ? `
                                        );
                                    })}
                                    <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
-                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建鏈接
+                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{personaLinesEnabled && topTab === 'supporting' ? '新建配角' : '新建鏈接'}
                                    </button>
                                </>
                            );
                        }
                        const PAGE_SIZE = 6;
-                       const totalPages = Math.max(1, Math.ceil(characters.length / PAGE_SIZE));
+                       const totalPages = Math.max(1, Math.ceil(listChars.length / PAGE_SIZE));
                        const page = Math.min(charPage, totalPages - 1);
-                       const pageChars = characters.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+                       const pageChars = listChars.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
                        return (
                            <>
                                {pageChars.map(char => (
@@ -1386,7 +1426,7 @@ ${isInitialGeneration ? `
                                    />
                                ))}
                                <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
-                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>新建鏈接
+                                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{personaLinesEnabled && topTab === 'supporting' ? '新建配角' : '新建鏈接'}
                                </button>
                                {totalPages > 1 && (
                                    <div className="flex items-center justify-center gap-3 pt-2 shrink-0">
@@ -1521,6 +1561,42 @@ ${isInitialGeneration ? `
                                    )}
                                </div>
                            </div>
+
+                           {personaLinesEnabled && (
+                               <div>
+                                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">戲份</label>
+                                   <div className="flex gap-2 items-center flex-wrap">
+                                       <span className={`px-3 py-2 rounded-2xl text-xs font-bold ${formData.castRole === 'supporting' ? 'bg-violet-100 text-violet-600' : 'bg-violet-500 text-white'}`}>
+                                           {formData.castRole === 'supporting' ? '配角' : '主角'}
+                                       </span>
+                                       {/* 配角升主角（劇情需要時）、主角退成配角：只換戲份，記憶、聊天、設定都不動 */}
+                                       <button
+                                           onClick={() => {
+                                               const promote = formData.castRole === 'supporting';
+                                               handleChange('castRole', promote ? undefined : 'supporting');
+                                               addToast(promote ? `${formData.name} 升為主角了，在「主角」那頁` : `${formData.name} 改成配角了，在「配角」那頁`, 'success');
+                                           }}
+                                           className="px-4 py-2 rounded-2xl text-xs font-bold shadow-sm bg-white text-violet-600 active:scale-95 transition-transform">
+                                           {formData.castRole === 'supporting' ? '提升為主角' : '改成配角'}
+                                       </button>
+                                       <button
+                                           onClick={async () => {
+                                               const latest = characters.find(c => c.id === formData.id);
+                                               const next = !latest?.benchedAt;
+                                               await setCharBenched(formData.id, next);
+                                               addToast(next ? `${formData.name} 先下戲了，記憶和紀錄都留著` : `${formData.name} 回來了`, 'success');
+                                           }}
+                                           className={`ml-auto px-4 py-2 rounded-2xl text-xs font-bold shadow-sm ${characters.find(c => c.id === formData.id)?.benchedAt ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-500'}`}>
+                                           {characters.find(c => c.id === formData.id)?.benchedAt ? '叫回來' : '下戲'}
+                                       </button>
+                                   </div>
+                                   <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                                       {characters.find(c => c.id === formData.id)?.benchedAt
+                                           ? '下戲中：主動消息、日程、情緒、自動發朋友圈都停著，你找它照常能聊。叫回來就恢復。'
+                                           : '配角在神經鏈接裡另外一頁，主動消息預設關。提升為主角或改成配角只換戲份，記憶、聊天、設定都不動。下戲會停掉它自己跑的東西（主動消息、日程、情緒、自動發朋友圈），記憶和紀錄都留著。'}
+                                   </p>
+                               </div>
+                           )}
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
