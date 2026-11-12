@@ -837,7 +837,7 @@ export const ChatParser = {
                 );
                 continue;
             }
-            await DB.saveScheduledMessage({ id: `sched-${Date.now()}-${Math.random()}`, charId, content: msgContent, dueAt: dueTime, createdAt: Date.now() });
+            await DB.saveScheduledMessage({ id: `sched-${Date.now()}-${Math.random()}`, charId, ...(line.personaKey ? { personaKey: line.personaKey } : {}), content: msgContent, dueAt: dueTime, createdAt: Date.now() });
             try {
                 const hasPerm = await LocalNotifications.checkPermissions();
                 if (hasPerm.display === 'granted') {

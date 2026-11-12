@@ -1,4 +1,5 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
+import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -312,7 +313,14 @@ const renderNotebookContent = (text: string) => {
 };
 
 const RoomApp: React.FC = () => {
-    const { closeApp, openApp, characters, characterGroups, activeCharacterId, setActiveCharacterId, updateCharacter, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase } = useOS();
+    const { closeApp, openApp, characters: rawCharacters, characterGroups, activeCharacterId, setActiveCharacterId, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase } = useOS();
+    // 關係線（plans/persona-line-batch3.md）：房間是角色自己的，但「你來訪」寫進私聊的紀錄要落在現在的我那條線，
+    // 所以這裡的角色卡一律是那條線的視圖；改角色卡走 updateLine（房間這些角色自己的欄位照舊寫角色卡）。
+    const characters = useMemo(() => rawCharacters.map(c => lineView(c, activeLineFor(c))), [rawCharacters, activeLineFor]);
+    const updateCharacter = (id: string, updates: Parameters<typeof updateCharacterRaw>[1]) => {
+        const view = characters.find(c => c.id === id);
+        return view ? updateLine(view, updates) : updateCharacterRaw(id, updates);
+    };
 
     // 桌面主題的「進小屋意圖」：惰性讀取（不清空，consume 在下方 effect），首幀就落到
     // 目標視圖，避免閃一下 select 頁。真正的應用（進房間/開夢境/切角色）在 effect 裡做。
@@ -857,7 +865,7 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
                     setTodaysTodo(newTodo);
                     
                     await DB.saveMessage({
-                        charId: c.id,
+                        ...lineMsgFields(c),
                         role: 'system',
                         type: 'text',
                         content: `[系統: ${c.name} 制定了今日計劃: ${result.todoList.join(', ')}]`
@@ -870,7 +878,7 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
                     const msgContent = `[系統: ${c.name} 在記事本上寫道: \n"${result.notebookEntry.content}"]`;
                     
                     const msgId = await DB.saveMessage({
-                        charId: c.id,
+                        ...lineMsgFields(c),
                         role: 'system',
                         type: 'text',
                         content: msgContent
@@ -919,12 +927,12 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
             setAiBubble({ text: cached.reaction, visible: true });
             
             const contentToCheck = `[${userProfile.name}]在[${char.name}]的${item.name}上看到了：${cached.description}。[${char.name}]表示：${cached.reaction}`;
-            const recentMsgs = await DB.getMessagesByCharId(char.id);
+            const recentMsgs = await DB.getMessagesByCharId(lineArgOf(char));
             const isDuplicate = recentMsgs.slice(-50).some(m => m.role === 'system' && m.content === contentToCheck);
 
             if (!isDuplicate) {
                 try { 
-                    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: contentToCheck }); 
+                    await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: contentToCheck }); 
                 } catch (err) {}
             }
         } else {

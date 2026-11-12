@@ -3195,6 +3195,11 @@ export interface CharacterProfile {
    * 沒有這兩個欄位的舊角色，讀取時用 personaKeyForChar 補（utils/chatLine.ts 的 withLineFields）。
    */
   knownPersonaKeys?: string[];
+  /**
+   * 主動消息 1.0 在**非主線**上開沒開（存在 lines[personaKey]）。新線預設關；其餘設定（頻率、睡覺不發…）
+   * 照 proactiveConfig。主線的開關仍是 proactiveConfig.enabled。見 plans/persona-line-batch3.md。
+   */
+  proactiveLineEnabled?: boolean;
   /** 主線：角色升級前那條線的身份鍵。沒標身份的舊資料（訊息、記憶）都算這條。 */
   primaryPersonaKey?: string;
   /** 主線以外各條線的關係欄位（身份鍵 → 那條線的值）；主線用頂層欄位。欄位清單在 utils/chatLine.ts。 */
@@ -4306,6 +4311,11 @@ export interface GalleryImage {
     description?: string;
     /** 誰能用；沒寫＝原本那個角色（charId），舊相簿的圖都是這樣 */
     access?: LibraryAccess;
+    /**
+     * 關係線：從私聊、見面存進來的，記下是角色跟哪張身份卡那條線上拿到的（沒有＝主線）。
+     * 照片還是角色的（記憶只有一份），只是在別條線上列給角色看時會標清楚是在哪邊拿到的。
+     */
+    personaKey?: string;
     review?: string;
     reviewTimestamp?: number;
     savedDate?: string; // YYYY-MM-DD format
@@ -4953,7 +4963,7 @@ export type LineStateField =
     | 'acquaintanceStartDate' | 'savedDateState' | 'activeDateStoryId' | 'dateNextStoryTime' | 'dateScenario'
     | 'dateOfflinePause' | 'chatBlock' | 'chatBlockLog' | 'charBlockCooldown' | 'specialMomentRecords'
     | 'affinities' | 'contextUserStartMessageId' | 'hideBeforeMessageId' | 'refinedMemories' | 'activeMemoryMonths'
-    | 'memoryPalaceInjection' | 'roomPlatesInjection';
+    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled';
 /** 聊天設定：這條線沒設就照主線。 */
 export type LineSettingField =
     | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'chatFineTune'

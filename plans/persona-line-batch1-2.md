@@ -101,6 +101,8 @@
 
 ## 5. 第 1 批先不碰的（照主線走）
 
+> 第 3 批在補這些，見 [`persona-line-batch3.md`](./persona-line-batch3.md)。
+
 因為「沒標身份＝主線」，下面這些照舊寫進主線，不會壞，只是還不認得其他線。第 3 批起逐一補：
 
 - 主動消息、雲端 Worker（`fire_pack`、`chat_outbox`）、定時消息

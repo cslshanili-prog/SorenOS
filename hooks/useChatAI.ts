@@ -1,6 +1,6 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
-import { lineArgOf, lineMsgFields, lineViewPersonaKey } from '../utils/chatLine';
+import { lineArgOf, lineMsgFields, lineOf, lineScheduleId, lineViewPersonaKey } from '../utils/chatLine';
 import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
@@ -635,7 +635,7 @@ export const useChatAI = ({
             return;
         }
         // 這一輪就是在回覆了：排著的延遲自動回覆（如果有，連同交給雲端的那條）作廢，免得到點又多回一次
-        cancelDelayedReplyEverywhere(char.id);
+        cancelDelayedReplyEverywhere(lineScheduleId(lineOf(char)));
         // 聊天設定 ·「已讀不回」：命中不回訊時段、或日程忙碌／睡覺（且沒交給角色決定）時，
         // 這一輪不發主回覆請求，只落自動回覆＋旁白（見 utils/readNoReplyRuntime.ts）。
         // 放在 API 檢查之前：強制不回本來就用不到主回覆的 API。
@@ -2165,15 +2165,16 @@ export const useChatAI = ({
 
     const startProactiveChat = (intervalMinutes: number, maxIntervalMinutes?: number) => {
         if (!char) return;
-        ProactiveChat.start(char.id, intervalMinutes, maxIntervalMinutes);
+        // 關係線：每條線各自一個排程（非主線用 lineScheduleId），到點由 OSContext 拆回是哪條線
+        ProactiveChat.start(lineScheduleId(lineOf(char)), intervalMinutes, maxIntervalMinutes);
     };
 
     const stopProactiveChat = () => {
         if (!char) return;
-        ProactiveChat.stop(char.id);
+        ProactiveChat.stop(lineScheduleId(lineOf(char)));
     };
 
-    const isProactiveActive = char ? ProactiveChat.isActiveFor(char.id) : false;
+    const isProactiveActive = char ? ProactiveChat.isActiveFor(lineScheduleId(lineOf(char))) : false;
 
     return {
         isTyping,

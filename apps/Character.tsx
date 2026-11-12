@@ -2,7 +2,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
-import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment } from '../types';
+import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment, type LineField } from '../types';
 import { SlidersHorizontal, SpeakerHigh, Books, BookOpen } from '@phosphor-icons/react';
 import Modal from '../components/os/Modal';
 import { processImage } from '../utils/file';
@@ -49,6 +49,7 @@ import {
     getExternalMemoryOverLimitMessage,
 } from '../utils/memoryPalace/externalMemory';
 import { resolveUserProfileForChar } from '../utils/userPersona';
+import { isPrimaryLine, lineArgOf, linePatchForChar, lineView } from '../utils/chatLine';
 
 // ── 神經鏈接 · 列表頁視覺件（淡紫留白風）────────────────────
 // 之前的「星點 + 玻璃飾帶 + 華麗頭像框」看久了眼花、低端機也重繪卡。
@@ -104,7 +105,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -136,7 +137,13 @@ const Character: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(() => launchIntent?.charId || null);
   const [formData, setFormData] = useState<CharacterProfile | null>(null);
   // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
-  const userProfile = useMemo(() => (formData ? resolveUserProfileForChar(userProfileBase, formData) : globalUserProfile), [formData, userProfileBase, globalUserProfile]);
+  // 關係線（plans/persona-line-batch3.md）：神經鏈接的印象、月度總結、激活月份、手動整理傳統記憶都照「現在的我」那條線。
+  // formData 一直是原角色卡（編輯頁會整張自動存回去）；這幾個欄位改讀 editView、改寫走 handleLineChange。
+  const editLine = useMemo(() => (formData ? activeLineFor(formData) : null),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [formData?.id, formData?.knownPersonaKeys, formData?.primaryPersonaKey, activeLineFor]);
+  const editView = useMemo(() => (formData && editLine ? lineView(formData, editLine) : formData), [formData, editLine]);
+  const userProfile = useMemo(() => (editView ? resolveUserProfileForChar(userProfileBase, editView) : globalUserProfile), [editView, userProfileBase, globalUserProfile]);
   const memoryCharacter = characters.find(character => character.id === formData?.id) || formData;
   const linkedMemoryEnabled = !!memoryCharacter?.memoryPalaceEnabled;
   const archiveMemories = useLinkedArchives(formData?.id, formData?.memories, linkedMemoryEnabled);
@@ -364,7 +371,9 @@ const Character: React.FC = () => {
         // SAFETY GUARD: Only save if the formData ID matches the currently active editing ID.
         // This prevents overwriting Character B with Character A's data if a delayed async call updates formData.
         if (formData.id === editingId) {
-            updateCharacter(editingId, formData);
+            // 關係線：lines 不從編輯頁整份寫回（非主線的改動已經由 handleLineChange 直接寫進去了）
+            const { lines: _lines, ...rest } = formData;
+            updateCharacter(editingId, rest);
         } else {
             console.warn(`Race condition prevented: Tried to save data for ${formData.id} into slot ${editingId}`);
         }
@@ -406,6 +415,17 @@ const Character: React.FC = () => {
           if (!prev) return null;
           return { ...prev, [field]: value };
       });
+  };
+
+  /**
+   * 跟著線走的欄位（印象、月度總結、激活月份）：主線照舊改 formData；非主線直接寫進那條線（updateLine），
+   * 同時更新本地的 lines 給畫面看。自動存檔不寫 lines（見下面），免得舊的 lines 蓋掉別處剛寫的。
+   */
+  const handleLineChange = (field: LineField, value: any) => {
+      if (!formData || !editLine || isPrimaryLine(editLine)) { handleChange(field, value); return; }
+      const view = lineView(formData, editLine);
+      updateLine(view, { [field]: value });
+      setFormData(prev => (prev ? { ...prev, ...linePatchForChar(prev, editLine, { [field]: value }) } : prev));
   };
 
   // Worldbook Logic
@@ -495,9 +515,9 @@ const Character: React.FC = () => {
   const handleToggleActiveMonth = (year: string, month: string) => {
       if (!formData) return;
       const key = `${year}-${month}`;
-      const current = formData.activeMemoryMonths || [];
+      const current = editView?.activeMemoryMonths || [];
       const next = current.includes(key) ? current.filter(k => k !== key) : [...current, key];
-      handleChange('activeMemoryMonths', next);
+      handleLineChange('activeMemoryMonths', next);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -531,6 +551,7 @@ const Character: React.FC = () => {
       if (!refineApi.apiKey) { addToast('請先配置 API Key', 'error'); return; }
 
       const targetId = formData.id; // LOCK ID
+      const refineLine = editLine; // 關係線：開始時是哪條線，背景寫回也寫那條
       trackEvent('提炼当月核心记忆');
 
       // Build lightweight character identity context (no memories - we're generating those)
@@ -590,12 +611,15 @@ const Character: React.FC = () => {
           // CHECK IF USER SWITCHED
           if (editingIdRef.current === targetId) {
               // Still on same page
-              handleChange('refinedMemories', { ...(formData.refinedMemories || {}), [key]: summary });
+              handleLineChange('refinedMemories', { ...(editView?.refinedMemories || {}), [key]: summary });
               addToast(`${year}年${month}月記憶精煉完成`, 'success');
           } else {
-              // Switched page - Save to DB directly
-              const currentRefined = characters.find(c => c.id === targetId)?.refinedMemories || {};
-              updateCharacter(targetId, { refinedMemories: { ...currentRefined, [key]: summary } });
+              // Switched page - Save to DB directly（關係線：寫回開始精煉時那條線）
+              const raw = characters.find(c => c.id === targetId);
+              const view = raw && refineLine ? lineView(raw, refineLine) : raw;
+              const currentRefined = view?.refinedMemories || {};
+              if (view && refineLine) updateLine(view, { refinedMemories: { ...currentRefined, [key]: summary } });
+              else updateCharacter(targetId, { refinedMemories: { ...currentRefined, [key]: summary } });
               addToast('後台任務完成：記憶已保存到原角色', 'success');
           }
       } catch (e: any) { addToast(`精煉失敗: ${e.message}`, 'error'); }
@@ -636,7 +660,7 @@ const Character: React.FC = () => {
       if (!apiConfig.apiKey || !formData) { addToast('請先配置 API Key', 'error'); return; }
       const targetId = formData.id;
       try {
-          const allMsgs = await DB.getMessagesByCharId(targetId, true);
+          const allMsgs = await DB.getMessagesByCharId(editView ? lineArgOf(editView) : targetId, true);
           // 忽略 hideBeforeMessageId —— 這是強制重總結的關鍵
           const dayMsgs = allMsgs.filter(m => {
               const d = new Date(m.timestamp);
@@ -671,13 +695,18 @@ const Character: React.FC = () => {
           if (!summary) throw new Error('空響應');
 
           // upsert：同日期的 mood='archive' 替換；'palace' 自動歸檔不碰
+          // 關係線：同一天的手動整理只換掉同一條線的那份
+          const fragLine = editLine?.personaKey;
+          const sameLine = (m: MemoryFragment) => (m.personaKey || undefined) === fragLine;
           const existing = formData.memories || [];
-          const kept = existing.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood)));
+          const kept = existing.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood) && sameLine(m)));
           const newFrag: MemoryFragment = {
               id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               date: dateStr,
               summary,
               mood: 'archive',
+              ...(fragLine ? { personaKey: fragLine } : {}),
+              personaName: userProfile.name,
           };
 
           if (editingIdRef.current === targetId) {
@@ -685,7 +714,7 @@ const Character: React.FC = () => {
           } else {
               // 用戶切角色了 —— 直接寫回目標角色
               const currentMems = characters.find(c => c.id === targetId)?.memories || [];
-              const curKept = currentMems.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood)));
+              const curKept = currentMems.filter(m => !(m.date === dateStr && (m.mood === 'archive' || !m.mood) && sameLine(m)));
               updateCharacter(targetId, { memories: [...curKept, newFrag] });
           }
           addToast(`${dateStr} 已強制重新總結`, 'success');
@@ -698,16 +727,16 @@ const Character: React.FC = () => {
   const handleUpdateRefinedMemory = (year: string, month: string, newContent: string) => {
       if (!formData) return;
       const key = `${year}-${month}`;
-      handleChange('refinedMemories', { ...(formData.refinedMemories || {}), [key]: newContent });
+      handleLineChange('refinedMemories', { ...(editView?.refinedMemories || {}), [key]: newContent });
       addToast('核心記憶已更新', 'success');
   };
 
   const handleDeleteRefinedMemory = (year: string, month: string) => {
-      if (!formData || !formData.refinedMemories) return;
+      if (!formData || !editView?.refinedMemories) return;
       const key = `${year}-${month}`;
-      const newRefined = { ...formData.refinedMemories };
+      const newRefined = { ...editView.refinedMemories };
       delete newRefined[key];
-      handleChange('refinedMemories', newRefined);
+      handleLineChange('refinedMemories', newRefined);
       addToast('核心記憶已刪除', 'success');
   };
 
@@ -775,6 +804,8 @@ const Character: React.FC = () => {
                   // content 是保真清洗後的完整事件，不再二次概括成短 summary。
                   summary: memory.content,
                   mood: memory.mood || '記錄',
+                  ...(editLine?.personaKey ? { personaKey: editLine.personaKey } : {}),
+                  personaName: userProfile.name,
               };
           });
           if (editingIdRef.current === targetId) {
@@ -800,7 +831,7 @@ const Character: React.FC = () => {
         trackEvent('执行批量记忆总结');
         
         try {
-            const msgs = await DB.getMessagesByCharId(targetId, true);
+            const msgs = await DB.getMessagesByCharId(editView ? lineArgOf(editView) : targetId, true);
             const validMsgs = msgs.filter(m => !formData.hideBeforeMessageId || m.id >= formData.hideBeforeMessageId);
             const msgsByDate: Record<string, any[]> = {};
             
@@ -869,7 +900,9 @@ const Character: React.FC = () => {
                             id: `mem-${Date.now()}-${Math.random()}`,
                             date: date,
                             summary: summary,
-                            mood: 'auto'
+                            mood: 'auto',
+                            ...(editLine?.personaKey ? { personaKey: editLine.personaKey } : {}),
+                            personaName: userProfile.name,
                         });
                     }
                 }
@@ -920,6 +953,7 @@ const Character: React.FC = () => {
       }
       
       const targetId = formData.id; // LOCK ID
+      const impressionLine = editLine; // 關係線：開始時是哪條線，背景寫回也寫那條
       setIsGeneratingImpression(true);
       trackEvent('生成角色印象', { type });
       try {
@@ -928,7 +962,8 @@ const Character: React.FC = () => {
 
           // 構建完整角色上下文（包含人設、世界觀、用戶檔案、精煉記憶等宏觀信息）
           await injectMemoryPalace(formData);
-          const fullContext = ContextBuilder.buildCoreContext(formData, userProfile);
+          // 關係線：印象是這條線的，上下文也用這條線看到的角色卡（月度總結、激活月份是那條線的）
+          const fullContext = ContextBuilder.buildCoreContext(editView || formData, userProfile);
 
           let messagesToAnalyze = "";
 
@@ -948,7 +983,7 @@ const Character: React.FC = () => {
           const sarMemoryBoundary = buildSARMemoryBoundaryInstruction(messagesToAnalyze);
 
           // 重置時不傳舊印象，避免模型錨定在舊內容上
-          const normalizedCurrentImpression = normalizeUserImpression(formData.impression);
+          const normalizedCurrentImpression = normalizeUserImpression(editView?.impression);
           const currentProfileJSON = (type === 'initial') ? "null" : (normalizedCurrentImpression ? JSON.stringify(normalizedCurrentImpression, null, 2) : "null");
           const isInitialGeneration = type === 'initial' || !normalizedCurrentImpression;
           
@@ -1048,10 +1083,13 @@ ${isInitialGeneration ? `
           const parsed = parseGeneratedImpression(data);
 
           if (editingIdRef.current === targetId) {
-              handleChange('impression', parsed);
+              handleLineChange('impression', parsed);
               addToast(isInitialGeneration ? '印象檔案已生成' : '印象檔案已更新', 'success');
           } else {
-              updateCharacter(targetId, { impression: parsed });
+              // 用戶切走了：寫回原角色那條線
+              const raw = characters.find(c => c.id === targetId);
+              if (raw && impressionLine) updateLine(lineView(raw, impressionLine), { impression: parsed });
+              else updateCharacter(targetId, { impression: parsed });
               addToast('後台任務完成：印象已更新到原角色', 'success');
           }
 
@@ -1880,10 +1918,11 @@ ${isInitialGeneration ? `
                                <button onClick={handleExportPreview} className="px-4 py-2 bg-white rounded-full text-xs font-semibold text-slate-500 shadow-sm border border-slate-100">備份</button>
                            </div>
                            <MemoryArchivist
-                               memories={archiveMemories}
+                               // 關係線：只列現在這條線的記憶片段（別條線的切到那張卡就看得到）
+                               memories={(archiveMemories || []).filter(m => (m.personaKey || undefined) === editLine?.personaKey)}
                                linkedMemoryEnabled={linkedMemoryEnabled}
-                               refinedMemories={formData.refinedMemories || {}}
-                               activeMemoryMonths={formData.activeMemoryMonths || []}
+                               refinedMemories={editView?.refinedMemories || {}}
+                               activeMemoryMonths={editView?.activeMemoryMonths || []}
                                charName={formData.name || ''}
                                userName={userProfile.name}
                                onRefine={handleRefineMonth}
@@ -1901,11 +1940,11 @@ ${isInitialGeneration ? `
 
                    {detailTab === 'impression' && (
                        <ImpressionPanel
-                           impression={formData.impression}
+                           impression={editView?.impression}
                            isGenerating={isGeneratingImpression}
                            onGenerate={handleGenerateImpression}
-                           onUpdateImpression={(newImp) => handleChange('impression', newImp)}
-                           onDelete={() => handleChange('impression', undefined)}
+                           onUpdateImpression={(newImp) => handleLineChange('impression', newImp)}
+                           onDelete={() => handleLineChange('impression', undefined)}
                        />
                    )}
 

@@ -21,6 +21,8 @@ export interface PendingDiary {
     id: string;
     kind: 'notion' | 'feishu';
     charId: string;
+    /** 關係線：在哪條線上寫的，「寫了一篇日記」那則系統訊息就落在哪條線（沒有＝主線） */
+    personaKey?: string;
     charName: string;
     title: string;
     content: string;
@@ -90,7 +92,7 @@ export async function drainPendingDiaries(
                     { title: entry.title, content: entry.content, mood: entry.mood || undefined, characterName: entry.charName },
                 );
                 if (r.success) {
-                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📔 ${entry.charName}寫了一篇日記「${entry.title}」` } as any);
+                    await DB.saveMessage({ charId: entry.charId, ...(entry.personaKey ? { personaKey: entry.personaKey } : {}), role: 'system', type: 'text', content: `📔 ${entry.charName}寫了一篇日記「${entry.title}」` } as any);
                     removePendingDiary(entry.id);
                     onSaved?.(entry.charId);
                 } else {
@@ -109,7 +111,7 @@ export async function drainPendingDiaries(
                     { title: entry.title, content: entry.content, mood: entry.mood || undefined, characterName: entry.charName },
                 );
                 if (r.success) {
-                    await DB.saveMessage({ charId: entry.charId, role: 'system', type: 'text', content: `📒 ${entry.charName}寫了一篇日記「${entry.title}」(飛書)` } as any);
+                    await DB.saveMessage({ charId: entry.charId, ...(entry.personaKey ? { personaKey: entry.personaKey } : {}), role: 'system', type: 'text', content: `📒 ${entry.charName}寫了一篇日記「${entry.title}」(飛書)` } as any);
                     removePendingDiary(entry.id);
                     onSaved?.(entry.charId);
                 } else {

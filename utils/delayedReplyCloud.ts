@@ -1,4 +1,5 @@
 import type { APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
+import { lineViewPersonaKey } from './userPersona';
 import { ActiveMsgClient } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
@@ -52,6 +53,8 @@ export async function handoffDelayedReplyToCloud(params: {
     apiConfig: APIConfig;
 }): Promise<void> {
     const { char, entry, userProfile, groups, realtimeConfig, apiConfig } = params;
+    // 關係線：雲端還不認得主線以外的線（plans/persona-line-batch3.md 3b），非主線的待回只在本地回
+    if (lineViewPersonaKey(char)) return;
     if (entry.cloud || handingOff.has(char.id)) {
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
         return;

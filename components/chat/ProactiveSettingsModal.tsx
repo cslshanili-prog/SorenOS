@@ -18,6 +18,8 @@ interface ProactiveSettingsModalProps {
     onSave: (config: NonNullable<CharacterProfile['proactiveConfig']>) => void;
     onStop: () => void;
     apiPresets: ApiPreset[];
+    /** 關係線：這條線的排程 id（主線就是 charId），查下一次觸發時間用 */
+    lineScheduleId?: string;
 }
 
 const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = ({ on, onToggle, label }) => (
@@ -32,7 +34,7 @@ const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = (
 );
 
 const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
-    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets
+    isOpen, onClose, char, isProactiveActive, onSave, onStop, apiPresets, lineScheduleId
 }) => {
     const saved = char.proactiveConfig;
     const [enabled, setEnabled] = useState(saved?.enabled ?? false);
@@ -92,7 +94,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
         onClose();
     };
 
-    const nextDueAt = isOpen && isProactiveActive ? ProactiveChat.getNextDueAt(char.id) : null;
+    const nextDueAt = isOpen && isProactiveActive ? ProactiveChat.getNextDueAt(lineScheduleId || char.id) : null;
     const nextDueLabel = nextDueAt
         ? new Date(nextDueAt).toLocaleString('zh-TW', {
             ...(new Date(nextDueAt).toDateString() !== new Date().toDateString() ? { month: 'numeric', day: 'numeric' } : {}),

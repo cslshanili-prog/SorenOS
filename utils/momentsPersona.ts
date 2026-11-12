@@ -10,12 +10,17 @@ import { personaKeyForChar, personaKeyForGroup, personaKeyForNpc, personaNameFor
  */
 export function buildPersonaKnowledge(
     profileBase: UserProfile,
-    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'>>,
+    characters: Array<Pick<CharacterProfile, 'id' | 'groupId'> & { knownPersonaKeys?: string[]; primaryPersonaKey?: string }>,
     groups: Array<Pick<GroupProfile, 'id' | 'members'>>,
     npcs: NpcPersonaRef[] = [],
 ): PersonaKnowledge {
     const main = new Map<string, string>();
-    for (const c of characters) main.set(c.id, personaKeyForChar(profileBase, c));
+    // 關係線：角色認識的每張卡都是「認識的人」（plans/persona-line-batch3.md）
+    const known = new Map<string, Set<string>>();
+    for (const c of characters) {
+        main.set(c.id, personaKeyForChar(profileBase, c));
+        if (c.knownPersonaKeys && c.knownPersonaKeys.length > 1) known.set(c.id, new Set(c.knownPersonaKeys));
+    }
     for (const n of npcs) if (!main.has(n.id)) main.set(n.id, personaKeyForNpc(profileBase, n, characters));
 
     const seen = new Map<string, Set<string>>();
@@ -32,6 +37,7 @@ export function buildPersonaKnowledge(
     return {
         mainKeyOf: id => main.get(id),
         seenKeysOf: id => seen.get(id) || empty,
+        knownKeysOf: id => known.get(id) || empty,
         nameOf: key => personaNameForKey(profileBase, key),
     };
 }
@@ -45,5 +51,6 @@ export function interactionPersonaOptions(
     if (post.author.kind === 'user') return [post.author.personaKey || globalKey];
     if (!post.author.id) return [globalKey];
     const main = knowledge.mainKeyOf(post.author.id) ?? globalKey;
-    return [main, ...[...knowledge.seenKeysOf(post.author.id)].filter(k => k !== main)];
+    const known = [...(knowledge.knownKeysOf?.(post.author.id) || [])].filter(k => k !== main);
+    return [main, ...known, ...[...knowledge.seenKeysOf(post.author.id)].filter(k => k !== main && !known.includes(k))];
 }

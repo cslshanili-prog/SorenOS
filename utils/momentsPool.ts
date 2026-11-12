@@ -36,6 +36,8 @@ export interface PersonaKnowledge {
     mainKeyOf(viewerId: string): string | undefined;
     /** 在共同的群裡見過的身份鍵（不含主身份）。 */
     seenKeysOf(viewerId: string): ReadonlySet<string>;
+    /** 關係線：角色認識的身份鍵（每張一條線）；認識的都算「主身份」那一級。沒給就只看 mainKeyOf。 */
+    knownKeysOf?(viewerId: string): ReadonlySet<string>;
     nameOf(personaKey: string): string;
 }
 
@@ -89,6 +91,7 @@ export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[], pe
         if (!personas || !personaKey || viewerId === USER_ID) return 'main';
         const main = personas.mainKeyOf(viewerId);
         if (main === undefined || main === personaKey) return 'main';
+        if (personas.knownKeysOf?.(viewerId).has(personaKey)) return 'main';
         return personas.seenKeysOf(viewerId).has(personaKey) ? 'seen' : 'stranger';
     };
     const personaName = (personaKey: string | undefined): string | undefined =>

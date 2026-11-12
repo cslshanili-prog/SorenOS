@@ -2603,20 +2603,35 @@ export async function processMessageRange(
         console.log(`🏰 [Pipeline] 手動區間總結開始：${toProcess.length} 條消息（id ${toProcess[0].id} ~ ${toProcess[toProcess.length - 1].id}），不碰水位線`);
         onProgress?.(`正在整理 ${toProcess.length} 條對話...`);
 
-        // 提取 + 向量化（去重開啟）
-        const core = await extractAndStoreMemories(
-            toProcess, charId, charName, embeddingConfig, llmConfig, userName, onProgress, false,
+        // 提取 + 向量化（去重開啟）。關係線：區間裡可能混著好幾條線，按線分開提取、各用那條線的名字
+        const rangeGroups = groupMessagesByLine(toProcess);
+        const rangeProfile = rangeGroups.some(group => group.personaKey) ? await DB.getUserProfile().catch(() => null) : null;
+        const rangeUserNameFor = (personaKey?: string) => (
+            personaKey && rangeProfile ? (profileForPersonaKey(rangeProfile, personaKey).name || userName) : userName
         );
+        const rangeCores: { personaKey?: string; core: ExtractCoreResult }[] = [];
+        for (const group of rangeGroups) {
+            rangeCores.push({
+                personaKey: group.personaKey,
+                core: await extractAndStoreMemories(
+                    group.messages, charId, charName, embeddingConfig, llmConfig, userName, onProgress, false, false, group.personaKey,
+                ),
+            });
+        }
+        const core = mergeExtractCores(rangeCores.map(item => item.core));
 
         if (core.memories.length === 0) {
             return { stored: 0, skipped: 0, processedMessages: toProcess.length, memories: [], batches: core.batches, error: 'no_memories' };
         }
 
-        // 關鍵：不更新水位線、不做自動歸檔。只跑入庫後的副作用。
-        await applyMemorySideEffects(
-            charId, charName, core.memories, core.crossTimeLinks, core.eventBoxHints, core.corrections,
-            embeddingConfig, llmConfig, userName,
-        );
+        // 關鍵：不更新水位線、不做自動歸檔。只跑入庫後的副作用（按線各跑一次）。
+        for (const { personaKey, core: lineCore } of rangeCores) {
+            if (lineCore.memories.length === 0) continue;
+            await applyMemorySideEffects(
+                charId, charName, lineCore.memories, lineCore.crossTimeLinks, lineCore.eventBoxHints, lineCore.corrections,
+                embeddingConfig, llmConfig, rangeUserNameFor(personaKey),
+            );
+        }
 
         console.log(`✅ [Pipeline] 手動區間總結完成：新增 ${core.stored} 條，去重跳過 ${core.skipped} 條（水位線未改動）`);
         onProgress?.(`完成！新增 ${core.stored} 條記憶${core.skipped > 0 ? `，${core.skipped} 條因重複跳過` : ''}`);

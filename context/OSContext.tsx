@@ -1,6 +1,6 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
-import { isPrimaryLine, lineFor, lineOf, linePatchForChar, lineView, primaryLine, withLineFields } from '../utils/chatLine';
+import { isPrimaryLine, knowsPersona, lineArgOf, lineFor, lineKey, lineMsgFields, lineOf, linePatchForChar, lineScheduleId, lineView, parseLineScheduleId, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
@@ -1954,24 +1954,33 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       continue;
                   }
                   if (dueMessages.length > 0) {
+                      // 關係線：在哪條線上排的就送回哪條線（沒標＝主線）；未讀按線記
+                      const dueByLine = new Map<string, number>();
                       for (const msg of dueMessages) {
                           await DB.saveMessage({
                                charId: msg.charId,
+                               ...(msg.personaKey ? { personaKey: msg.personaKey } : {}),
                                role: 'assistant',
                                type: 'text',
                                content: msg.content
                           });
                           await DB.deleteScheduledMessage(msg.id);
+                          const key = lineKey(lineFor(char, msg.personaKey));
+                          dueByLine.set(key, (dueByLine.get(key) || 0) + 1);
                       }
                       if (cancelled) return;
                       hasNewMessage = true;
                       // Use refs for latest state (avoids stale closure & unnecessary deps)
-                      const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id;
+                      const openLineKey = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id
+                          ? lineKey(activeLineForRef.current(char))
+                          : null;
+                      const unseen = [...dueByLine.entries()].filter(([key]) => key !== openLineKey);
+                      const isChattingWithThisChar = unseen.length === 0;
 
-                      // If not chatting specifically with this char right now, mark as unread
+                      // If not chatting specifically with this char (on that line) right now, mark as unread
                       if (!isChattingWithThisChar) {
                           addToast(`${char.name} 發來了一條消息`, 'success');
-                          unreadUpdates[char.id] = dueMessages.length;
+                          for (const [key, count] of unseen) unreadUpdates[key] = count;
 
                           // Web Notification
                           if (!Capacitor.isNativePlatform() && window.Notification && Notification.permission === 'granted') {
@@ -2088,10 +2097,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let awayActiveMsgCount = 0;
 
       const handler = (e: Event) => {
-          const { charId, charName, body } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string };
+          const { charId, charName, body, personaKey } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string; personaKey?: string };
           setLastMsgTimestamp(Date.now());
 
-          const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId;
+          // 關係線：未讀記在那條線上（主線的鍵就是 charId）；正看著同一個角色、但在別條線上，也算沒看到
+          const target = charactersRef.current.find(c => c.id === charId);
+          const unreadKey = target ? lineKey(lineFor(target, personaKey)) : charId;
+          const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId
+              && (!target || lineKey(activeLineForRef.current(target)) === unreadKey);
           if (!isChattingWithThisChar) {
               const isVisible = document.visibilityState === 'visible';
               if (isVisible) {
@@ -2099,7 +2112,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               } else {
                   awayActiveMsgCount += 1;
               }
-              setUnreadMessages(prev => ({ ...prev, [charId]: (prev[charId] || 0) + 1 }));
+              setUnreadMessages(prev => ({ ...prev, [unreadKey]: (prev[unreadKey] || 0) + 1 }));
               const preview = (body || `${charName} sent an active message`).replace(/\s+/g, ' ').trim() || `${charName} sent an active message`;
               void sendProactiveNativeNotification(charId, charName, preview);
               // SW push handler 已經 fire 過系統通知（不在前台時露出真實內容、在前台時
@@ -2353,15 +2366,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
 
-      const runProactive = async (charId: string, mode: 'proactive' | 'reply' = 'proactive') => {
+      // scheduleId：主線就是 charId；非主線是 lineScheduleId（utils/chatLine.ts），到這裡再拆回是哪條線。
+      const runProactive = async (scheduleId: string, mode: 'proactive' | 'reply' = 'proactive') => {
           const isReply = mode === 'reply';
           if (proactiveRunningRef.current) {
-              const queuedIndex = proactiveQueueRef.current.findIndex(item => item.charId === charId && (item.mode ?? 'proactive') === mode);
+              const queuedIndex = proactiveQueueRef.current.findIndex(item => item.charId === scheduleId && (item.mode ?? 'proactive') === mode);
               if (queuedIndex < 0) {
-                  proactiveQueueRef.current.push({ charId, mode });
+                  proactiveQueueRef.current.push({ charId: scheduleId, mode });
               }
               return;
           }
+          const runLine = parseLineScheduleId(scheduleId);
+          const charId = runLine.charId;
 
           // Read from refs to always get latest values
           const currentCharacters = charactersRef.current;
@@ -2370,9 +2386,18 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const currentGroups = groupsRef.current;
           const currentRealtimeConfig = realtimeConfigRef.current;
 
-          const char = currentCharacters.find(c => c.id === charId);
-          if (!char) {
+          const rawChar = currentCharacters.find(c => c.id === charId);
+          if (!rawChar) {
               drainQueuedProactive();
+              return;
+          }
+          // 關係線：這一輪是哪條線的就用那條線的視圖（歷史、關係欄位、提示詞裡的你都是那條線的）
+          const char = lineView(rawChar, isPrimaryLine(runLine) ? runLine : lineFor(rawChar, runLine.personaKey));
+          const lineReadArg = lineArgOf(char);
+          const lineFields = lineMsgFields(char);
+          if (!isPrimaryLine(runLine) && (!knowsPersona(rawChar, runLine.personaKey!) || (!isReply && !char.proactiveLineEnabled))) {
+              drainQueuedProactive();
+              console.log(`🔕 [Proactive/Global] Skipped for ${char.name}: 這條線沒開主動消息或已經不認識這張卡`);
               return;
           }
 
@@ -2412,17 +2437,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 這兩種情況改成延後：
           // - 從最後一次聊天起算（預設開）：你們剛聊過，不到最短間隔就先不發，從最後一則訊息起再抽；
           // - TA 睡覺時不發（預設關）：當天日程這格是睡覺，半小時後再看一次，醒來才發。
-          const proactiveSchedule = isReply ? null : ProactiveChat.getSchedule(charId);
+          const proactiveSchedule = isReply ? null : ProactiveChat.getSchedule(scheduleId);
           if (proactiveSchedule && char.proactiveConfig) {
               const timing = char.proactiveConfig;
               if (timing.followChat !== false) {
-                  const recentForGap = await DB.getRecentMessagesByCharId(charId, 30, true).catch(() => [] as Message[]);
+                  const recentForGap = await DB.getRecentMessagesByCharId(lineReadArg, 30, true).catch(() => [] as Message[]);
                   const lastReal = [...recentForGap].reverse().find(m =>
                       (m.role === 'user' || m.role === 'assistant') && !m.metadata?.proactiveHint && !m.metadata?.hidden);
                   const deferTo = followChatDeferral(
                       lastReal?.timestamp, Date.now(), proactiveSchedule.intervalMs, proactiveSchedule.maxIntervalMs);
                   if (deferTo) {
-                      ProactiveChat.deferUntil(charId, deferTo);
+                      ProactiveChat.deferUntil(scheduleId, deferTo);
                       drainQueuedProactive();
                       console.log(`🔕 [Proactive/Global] Deferred for ${char.name}: 剛聊過，延到 ${new Date(deferTo).toLocaleTimeString()}`);
                       return;
@@ -2432,7 +2457,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const wall = getScheduleWallClock(char);
                   const daySchedule = await getDailyScheduleForChar(char).catch(() => null);
                   if (classifyScheduleSlot(getCurrentSlot(daySchedule, wall)) === 'sleep') {
-                      ProactiveChat.deferUntil(charId, Date.now() + PROACTIVE_ASLEEP_RECHECK_MS);
+                      ProactiveChat.deferUntil(scheduleId, Date.now() + PROACTIVE_ASLEEP_RECHECK_MS);
                       drainQueuedProactive();
                       console.log(`🔕 [Proactive/Global] Deferred for ${char.name}: 睡覺中`);
                       return;
@@ -2447,13 +2472,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 延遲自動回覆到點時，角色可能正好在忙／在睡（已讀不回強制）：只落自動回覆，不生成。
           // 跟聊天頁一樣放在 API 檢查之前——強制不回用不到主回覆的 API。
           if (isReply && char.readNoReply?.enabled) {
-              const recent = await DB.getRecentMessagesByCharId(charId, 50).catch(() => []);
+              const recent = await DB.getRecentMessagesByCharId(lineReadArg, 50).catch(() => []);
               const outcome = await applyForcedReadNoReply(char, resolveCharacterMeterApi(char, currentApiConfig), recent)
                   .catch(() => null);
               if (outcome) {
                   if (outcome === 'sent') {
                       window.dispatchEvent(new CustomEvent('proactive-message-sent', {
-                          detail: { charId, charName: char.name, body: '[自動回覆]' },
+                          detail: { ...lineFields, charName: char.name, body: '[自動回覆]' },
                       }));
                   }
                   drainQueuedProactive();
@@ -2476,7 +2501,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
           try {
               // 1. Calculate time gap
-              const recentMsgs = await DB.getRecentMessagesByCharId(charId, 200);
+              const recentMsgs = await DB.getRecentMessagesByCharId(lineReadArg, 200);
 
               const lastRealUserMsg = [...recentMsgs].reverse().find(
                   m => m.role === 'user' && !m.metadata?.proactiveHint
@@ -2499,7 +2524,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 見面（DateApp）感知：見面消息可能已被記憶宮殿高水位歸檔，上面 hwm 過濾後的
               // recentMsgs 會漏判，所以單獨用 includeProcessed=true 讀最後一條真實消息。
               // 剛見完面還發"你好久沒找我了"會顯得對見面毫不知情，換成見面後的語境。
-              const lastRealMsgRaw = (await DB.getRecentMessagesByCharId(charId, 10, true))
+              const lastRealMsgRaw = (await DB.getRecentMessagesByCharId(lineReadArg, 10, true))
                   .filter(m => !m.metadata?.proactiveHint)
                   .pop();
               const DATE_AFTERGLOW_MS = 3 * 60 * 60 * 1000;
@@ -2513,7 +2538,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       : `[系統提示（非${userName}發言）: 現在是 ${timeStr}。${timeSinceUser ? `${userName}已經 ${timeSinceUser} 沒有找你說話了。` : ''}這是系統給你的一次主動發消息機會——${userName}並沒有在跟你說話，是你想主動找${userName}。像真人一樣隨意地發條消息吧，比如：隨手拍了張照片想分享、剛看到個有趣的事想說、突然想到個冷知識、吐槽今天的天氣/食物/見聞、或者就是單純想找${userName}聊幾句。不要刻意，不要像在"彙報近況"，就像你真的拿起手機隨手發了條消息。一兩句話就好。${timeSinceUser && parseInt(timeSinceUser) > 2 ? `（${userName}挺久沒找你了，你也可以表達想念、好奇${userName}在幹嘛、或者小小地抱怨一下。）` : ''}]`;
 
               await DB.saveMessage({
-                  charId,
+                  ...lineFields,
                   role: 'user',
                   type: 'text',
                   content: hintContent,
@@ -2524,7 +2549,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               //    保證三家拿到的"材料"完全一致；區別只在前面追加的"現在主動找用戶"那條 hint。
               const proactiveRange = await loadCharacterContextRange(char);
               if (proactiveRange.userBreakpointExpired) {
-                  updateCharacter(charId, { contextUserStartMessageId: undefined });
+                  updateLineRef.current(char, { contextUserStartMessageId: undefined });
               }
               const allMsgs = proactiveRange.messages;
               // 1.0 本地主動消息不會經過 Chat.tsx 的 aiVisibleEmojis。
@@ -2634,8 +2659,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               aiContent = relChange.cleanedText;
               if (relChange.relationship && char.allowCharChangeRelationship
                   && relChange.relationship !== (char.charViewRelationship?.trim() || '')) {
-                  await DB.saveMessage({ charId, role: 'system', type: 'text', content: `[系統: ${char.name} 把你們的關係改成了「${relChange.relationship}」]` });
-                  updateCharacter(charId, { charViewRelationship: relChange.relationship });
+                  await DB.saveMessage({ ...lineFields, role: 'system', type: 'text', content: `[系統: ${char.name} 把你們的關係改成了「${relChange.relationship}」]` });
+                  updateLineRef.current(char, { charViewRelationship: relChange.relationship });
               }
               // 聊天設定 · 自動線下邀請：標籤一律剝掉，開著才在這一輪的話後面補一張邀請卡
               const inviteTag = extractDateInvite(aiContent);
@@ -2663,21 +2688,21 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       updateUserProfile: (updates) => { void updateUserProfileRef.current(updates); },
                   },
               });
-              aiContent = await ChatParser.settleTransferCommands(aiContent, charId, ledger);
-              aiContent = await ChatParser.settleMallCommands(aiContent, charId, {
+              aiContent = await ChatParser.settleTransferCommands(aiContent, lineReadArg, ledger);
+              aiContent = await ChatParser.settleMallCommands(aiContent, lineReadArg, {
                   charName: char.name,
                   onCharDaifuAccept: ledger.onCharDaifuAccept,
                   onCharGiftSend: ledger.onCharGiftSend,
               });
               // 資料庫的現成照片（SEND_SAVED_PHOTO）：同理，不單獨處理就被 sanitize 剝掉
-              aiContent = await ChatParser.settleSavedPhotoCommands(aiContent, charId);
+              aiContent = await ChatParser.settleSavedPhotoCommands(aiContent, lineReadArg);
               const noReply = extractNoReplyDirective(aiContent);
               if (noReply.noReply) {
                   aiContent = noReply.cleanedText;
                   if (!aiContent && isReply && char.readNoReply?.enabled) {
                       const text = await persistCharChoseNoReply(char, noReply.autoReply);
                       window.dispatchEvent(new CustomEvent('proactive-message-sent', {
-                          detail: { charId, charName: char.name, body: text },
+                          detail: { ...lineFields, charName: char.name, body: text },
                       }));
                       return;
                   }
@@ -2702,7 +2727,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       try {
                           const meta = consumeThinkingMeta();
                           await DB.saveMessage({
-                              charId,
+                              ...lineFields,
                               role: 'assistant',
                               type: 'html_card',
                               content: blk.textPreview ? `[HTML卡片] ${blk.textPreview}` : '[HTML卡片]',
@@ -2738,7 +2763,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           if (!foundEmoji?.url) return;
                           const meta = consumeThinkingMeta();
                           await DB.saveMessage({
-                              charId,
+                              ...lineFields,
                               role: 'assistant',
                               type: 'emoji',
                               content: foundEmoji.url,
@@ -2760,7 +2785,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                   if (!chunk) continue;
                                   const meta = consumeThinkingMeta();
                                   await DB.saveMessage({
-                                      charId,
+                                      ...lineFields,
                                       role: 'assistant',
                                       type: 'text',
                                       content: chunk,
@@ -2792,7 +2817,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                   : (originalText || translatedText);
                               const meta = consumeThinkingMeta();
                               await DB.saveMessage({
-                                  charId,
+                                  ...lineFields,
                                   role: 'assistant',
                                   type: 'text',
                                   content: biContent,
@@ -2818,7 +2843,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                               if (foundEmoji?.url) {
                                   const meta = consumeThinkingMeta();
                                   await DB.saveMessage({
-                                      charId,
+                                      ...lineFields,
                                       role: 'assistant',
                                       type: 'emoji',
                                       content: foundEmoji.url,
@@ -2829,7 +2854,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                   const fallbackText = `發送了表情包：${part.content}`;
                                   const meta = consumeThinkingMeta();
                                   await DB.saveMessage({
-                                      charId,
+                                      ...lineFields,
                                       role: 'assistant',
                                       type: 'text',
                                       content: fallbackText,
@@ -2849,7 +2874,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           for (const chunk of textChunks) {
                               const meta = consumeThinkingMeta();
                               await DB.saveMessage({
-                                  charId,
+                                  ...lineFields,
                                   role: 'assistant',
                                   type: 'text',
                                   content: chunk,
@@ -2866,7 +2891,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               if (dateInvite) {
                   const inviteText = describeDateInvite(dateInvite);
                   await DB.saveMessage({
-                      charId, role: 'assistant', type: 'date_invite', content: inviteText,
+                      ...lineFields, role: 'assistant', type: 'date_invite', content: inviteText,
                       timestamp: baseTimestamp + offset, metadata: { dateInvite },
                   });
                   savedPreviewChunks.push(inviteText);
@@ -2880,7 +2905,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const call: CharCallMeta = { ...charCallReq, status: ring ? 'ringing' : 'missed', at: now };
                   const callText = describeCharCall(call);
                   const messageId = await DB.saveMessage({
-                      charId, role: 'assistant', type: 'char_call', content: callText,
+                      ...lineFields, role: 'assistant', type: 'char_call', content: callText,
                       timestamp: baseTimestamp + offset, metadata: { charCall: call },
                   });
                   savedPreviewChunks.push(callText);
@@ -2894,13 +2919,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
               if (blockUserReq) {
                   await DB.saveMessage({
-                      charId, role: 'system', type: 'text',
+                      ...lineFields, role: 'system', type: 'text',
                       content: blockNotes.charBlocked(char.name, userForChar(char).name || '你'),
                       timestamp: baseTimestamp + offset,
                   });
                   offset += 1;
                   window.dispatchEvent(new CustomEvent<ChatBlockChangeDetail>(CHAT_BLOCK_CHANGE_EVENT, {
-                      detail: { charId, action: 'charBlock', reason: blockUserReq.reason },
+                      detail: { ...lineFields, action: 'charBlock', reason: blockUserReq.reason },
                   }));
               }
 
@@ -2908,7 +2933,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 延遲自動回覆在背景回了用戶：跟聊天頁裡回的一樣算一輪，心聲/好感度的輪數照走。
                   // 主動找人（proactive）不是回覆用戶，不算。
                   if (isReply) {
-                      tickCustomMeterTurnsForChar(char, userForChar(char), resolveCharacterMeterApi(char, currentApiConfig), (id, patch) => updateCharacterRef.current(id, patch));
+                      tickCustomMeterTurnsForChar(char, userForChar(char), resolveCharacterMeterApi(char, currentApiConfig), (_id, patch) => updateLineRef.current(char, patch));
                   }
                   const previewSource = savedPreviewChunks.join(' ').trim();
                   const preview = previewSource.replace(/\s+/g, ' ').trim().slice(0, 120)
@@ -2916,7 +2941,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
                   // 6. Notify OS for unread badge + toast
                   window.dispatchEvent(new CustomEvent('proactive-message-sent', {
-                      detail: { charId, charName: char.name, body: preview }
+                      detail: { ...lineFields, charName: char.name, body: preview }
                   }));
               }
           } catch (err) {
@@ -2943,13 +2968,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 否則用上面這條背景路徑的回覆模式。App 被關掉期間過了點的，重新打開時第一次檢查就補回。
       // 交給了主動消息 2.0 雲端的那些（utils/delayedReplyCloud.ts）：頁面看得見時本地照樣到點先回、
       // 取消雲端那條；頁面在背景就留給雲端推播。雲端過點好一陣子還沒回，問過雲端再決定要不要本地補。
-      const replyLocally = (charId: string) => {
-          const target = charactersRef.current.find(c => c.id === charId);
-          if (!target?.delayedReply?.enabled) return;
-          if (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId) {
-              window.dispatchEvent(new CustomEvent(DELAYED_REPLY_DUE_EVENT, { detail: { charId } }));
+      // replyId：待回清單的鍵，主線就是 charId；非主線是 lineScheduleId
+      const replyLocally = (replyId: string) => {
+          const replyLine = parseLineScheduleId(replyId);
+          const raw = charactersRef.current.find(c => c.id === replyLine.charId);
+          const target = raw ? lineView(raw, lineFor(raw, replyLine.personaKey)) : undefined;
+          if (!raw || !target?.delayedReply?.enabled) return;
+          if (activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === replyLine.charId
+              && lineScheduleId(activeLineForRef.current(raw)) === replyId) {
+              window.dispatchEvent(new CustomEvent(DELAYED_REPLY_DUE_EVENT, { detail: { charId: replyId } }));
           } else {
-              void runProactive(charId, 'reply');
+              void runProactive(replyId, 'reply');
           }
       };
       const runDueDelayedReplies = () => {
@@ -3688,6 +3717,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return char.knownPersonaKeys?.includes(key) ? lineFor(char, key) : primaryLine(char.id);
   }, [userProfileBase, personaLinesEnabled]);
 
+  const activeLineForRef = useRef(activeLineFor);
+  activeLineForRef.current = activeLineFor;
+
   const updateLine = (charView: Pick<CharacterProfile, 'id'>, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
     const line = lineOf(charView);
     if (isPrimaryLine(line)) { updateCharacter(charView.id, updates); return; }
@@ -3729,7 +3761,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const target = lineView(raw, lineFor(raw, detail.personaKey));
           const patch = startChatBlock(target, 'char', Date.now(), { reason: detail.reason });
           if (!patch) return;
-          cancelDelayedReplyEverywhere(target.id);
+          cancelDelayedReplyEverywhere(lineScheduleId(lineOf(target)));
           trackEvent('角色拉黑用户');
           void updateLineRef.current(target, patch);
       };
