@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { lineArgOf } from '../../utils/chatLine';
 import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
+import KnownPersonasSection from './KnownPersonasSection';
 import { Row, Toggle } from './ChatSettingsControls';
 import ReadNoReplySettingsPanel from './ReadNoReplySettings';
 import DelayedReplySettingsPanel from './DelayedReplySettings';
@@ -218,6 +219,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                 </div>
 
                 <div className="px-4 space-y-4">
+                    {/* 認識的你：關係線預覽開著才出現 */}
+                    <KnownPersonasSection char={char} />
+
                     {/* Relationship */}
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">關係 (RELATIONSHIP)</h2>

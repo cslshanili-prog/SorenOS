@@ -446,6 +446,13 @@ const DevDebugPanel: React.FC = () => {
                             onChange={(checked) => updateFlag('amsg2Panel', checked)}
                         />
                         <div className="h-px bg-white/10" />
+                        <ToggleRow
+                            title="關係線預覽（多身份）"
+                            detail="角色可以認識好幾張身份卡，訊息列表照目前身份分。記憶還沒跟著線走，只給開發測試用。"
+                            checked={flags.personaLines}
+                            onChange={(checked) => updateFlag('personaLines', checked)}
+                        />
+                        <div className="h-px bg-white/10" />
 
                         {/* 記錄日誌：總開關；打開後才露出 類型 / 記錄完整 / 複製 / 下載 一整套 —— 關掉時整段收起。
                             true→false 時清空日誌這一步在 writeDevDebugFlags 數據層做，這裡走通用 updateFlag。 */}

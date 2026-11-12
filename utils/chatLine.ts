@@ -72,9 +72,18 @@ export function linePersonaKey(char: Pick<CharacterProfile, 'primaryPersonaKey'>
  * 舊角色沒有 knownPersonaKeys / primaryPersonaKey：用它現在認識的那張卡（personaKeyForChar）補上。
  * 已經有就原樣回傳（同一個物件），呼叫端可以拿 === 判斷要不要存回去。
  */
-export function withLineFields(profileBase: UserProfile, char: CharacterProfile): CharacterProfile {
+export function withLineFields(profileBase: UserProfile, char: CharacterProfile, opts: { resync?: boolean } = {}): CharacterProfile {
+    // resync：關係線預覽關著時，主線照舊跟著指定優先級走；只有一條線的角色把 primaryPersonaKey
+    // 對齊成現在算出來的那張，之後打開預覽時，主線才是你一直在用的那個身份。
+    if (opts.resync && (!char.knownPersonaKeys || char.knownPersonaKeys.length <= 1) && !Object.keys(char.lines || {}).length) {
+        const dynamic = personaKeyForChar(profileBase, { id: char.id, groupId: char.groupId });
+        if (char.primaryPersonaKey !== dynamic || char.knownPersonaKeys?.[0] !== dynamic) {
+            return { ...char, primaryPersonaKey: dynamic, knownPersonaKeys: [dynamic] };
+        }
+        return char;
+    }
     if (char.primaryPersonaKey && char.knownPersonaKeys?.includes(char.primaryPersonaKey)) return char;
-    const primary = char.primaryPersonaKey || personaKeyForChar(profileBase, char);
+    const primary = char.primaryPersonaKey || personaKeyForChar(profileBase, { id: char.id, groupId: char.groupId });
     const known = char.knownPersonaKeys?.length ? char.knownPersonaKeys : [primary];
     return {
         ...char,
@@ -153,4 +162,10 @@ export function lineOf(char: Pick<CharacterProfile, 'id'>): ChatLine {
 export function lineMsgFields(char: Pick<CharacterProfile, 'id'>): { charId: string; personaKey?: string } {
     const personaKey = lineViewPersonaKey(char);
     return personaKey ? { charId: char.id, personaKey } : { charId: char.id };
+}
+
+/** 角色認不認識這張卡（有沒有這條線）。還沒補欄位的舊角色只認識主線。 */
+export function knowsPersona(char: Pick<CharacterProfile, 'knownPersonaKeys' | 'primaryPersonaKey'>, personaKey: string): boolean {
+    const known = char.knownPersonaKeys?.length ? char.knownPersonaKeys : (char.primaryPersonaKey ? [char.primaryPersonaKey] : []);
+    return known.includes(personaKey);
 }

@@ -75,6 +75,11 @@ export interface DevDebugFlags {
      * 純觀察不改行為，所以不計進浮球的「生效開關數」紅點——它自己就有個可見的角標。
      */
     amsg2Panel: boolean;
+    /**
+     * 關係線預覽（plans/persona-line-batch1-2.md）：一個角色可以認識好幾張身份卡、聊天列表照「現在的我」分空間。
+     * 第 2 批（記憶跟著線走）做完前藏在這裡；關著時跟改版前一模一樣。
+     */
+    personaLines: boolean;
 }
 
 export interface DevDebugLogEntry {
@@ -110,6 +115,7 @@ export const DEFAULT_DEV_DEBUG_FLAGS: DevDebugFlags = {
     captureLogs: [],
     exposeLogDetail: false,
     amsg2Panel: false,
+    personaLines: false,
 };
 
 const MAX_LOG_ENTRIES = 100;
@@ -165,6 +171,7 @@ function normalizeFlags(value: unknown): DevDebugFlags {
         captureLogs,
         exposeLogDetail: source.exposeLogDetail === true,
         amsg2Panel: source.amsg2Panel === true,
+        personaLines: source.personaLines === true,
     };
 }
 
@@ -276,6 +283,11 @@ export function subscribeDevDebugFlags(listener: (flags: DevDebugFlags) => void)
 
 export function isPromptBuildSkipped(): boolean {
     return readDevDebugFlags().skipPromptBuild;
+}
+
+/** 關係線預覽開著沒（面板看得見才算，正式版用戶永遠是關的）。 */
+export function isPersonaLinesEnabled(): boolean {
+    return isDevDebugAvailable() && readDevDebugFlags().personaLines;
 }
 
 export function isEmotionEvalSkipped(): boolean {

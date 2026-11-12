@@ -1,7 +1,7 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
+import { knowsPersona, lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
 import { Microphone, SpeakerHigh, SpeakerSlash, PhoneDisconnect, Translate, Gear, Clock, CaretLeft, CaretRight, Phone, VideoCamera, VideoCameraSlash, Cube, FolderOpen, FileZip, Moon, Sun, Check, ArrowsOutSimple, ArrowsInSimple } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { extractContent, safeFetchJson } from '../utils/safeApi';
@@ -125,7 +125,7 @@ import { addCompanionModelOutfit, addUploadedCompanionOutfit } from '../utils/co
 import VoiceFavoriteActionSheet from '../components/voice/VoiceFavoriteActionSheet';
 import { getVoiceFavorite, removeVoiceFavorite, saveVoiceFavorite } from '../utils/voiceFavorites';
 import { buildTriggeredLinesPrompt } from '../utils/fixedLines';
-import { resolveUserProfileForChar } from '../utils/userPersona';
+import { globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
 type CallState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
 type CallMode = 'voice' | 'video';
 type VideoCallLayout = 'stage' | 'story' | 'mini';
@@ -517,7 +517,7 @@ ${currentVoiceActingGuide()}
   return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
-  const { closeApp, openApp, characters: rawCharacters, activeLineFor, updateLine, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter: updateCharacterRaw, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
+  const { closeApp, openApp, characters: rawCharacters, activeLineFor, updateLine, personaLinesEnabled, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter: updateCharacterRaw, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
   // 關係線（plans/persona-line-batch1-2.md）：通話裡的角色一律是「現在的我」那條線的視圖，
   // 通話訊息讀寫用 lineArgOf / lineMsgFields，改角色卡走下面的 updateCharacter（寫到那條線上）。
   const characters = useMemo(() => rawCharacters.map(c => lineView(c, activeLineFor(c))), [rawCharacters, activeLineFor]);
@@ -3053,7 +3053,9 @@ ${sentencePlan}`;
     />
   ) : null;
   if (viewMode === 'role-select') {
-    const groupChars = filterCharactersByGroup(characters, characterGroups, roleGroupId);
+    // 關係線預覽：選角色頁只列認識現在這張卡的角色
+    const pickable = personaLinesEnabled ? characters.filter(c => knowsPersona(c, globalPersonaKey(userProfileBase))) : characters;
+    const groupChars = filterCharactersByGroup(pickable, characterGroups, roleGroupId);
     const totalPages = Math.max(1, Math.ceil(groupChars.length / ROLES_PER_PAGE));
     const page = Math.min(rolePage, totalPages - 1);
     const pagedChars = groupChars.slice(page * ROLES_PER_PAGE, page * ROLES_PER_PAGE + ROLES_PER_PAGE);

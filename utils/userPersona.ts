@@ -1,4 +1,5 @@
 import type { CharacterProfile, UserProfile } from '../types';
+import { isPersonaLinesEnabled } from './devDebug';
 
 /**
  * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
@@ -267,9 +268,14 @@ export function lineViewPersonaKey(char: unknown): string | undefined {
 }
 
 function effectivePersonaOverride(profileBase: UserProfile, char: CharRef): string | undefined {
-    // 關係線視圖：那條線是哪張卡就是哪張卡（主線照舊走下面的指定優先級）
+    // 關係線視圖：那條線是哪張卡就是哪張卡
     const lineKey = lineViewPersonaKey(char);
     if (lineKey) return lineKey;
+    // 關係線預覽開著時，主線固定是角色的 primaryPersonaKey，不再跟著全域身份變
+    // （關著時照舊走下面的指定優先級；讀取時會把 primaryPersonaKey 對齊成這個結果，見 chatLine.withLineFields）
+    if (typeof char !== 'string' && (char as { primaryPersonaKey?: string }).primaryPersonaKey && isPersonaLinesEnabled()) {
+        return (char as { primaryPersonaKey?: string }).primaryPersonaKey;
+    }
     const charId = typeof char === 'string' ? char : char.id;
     const own = profileBase.perCharPersonaIds?.[charId];
     if (own) return own;
