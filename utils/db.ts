@@ -818,6 +818,26 @@ export const DB = {
    * 記憶只有一份，整理時要看到每條線，再按線分開提取（utils/memoryPalace/pipeline.ts）。
    * 聊天畫面、提示詞的歷史不要用這個，要用照線讀的 getMessagesByCharId。
    */
+  /**
+   * 所有角色私聊線的 id（關係線第 6 批，utils/pairLine.ts）：charId 索引上 `pair~` 開頭的那些，不重複。
+   * 線上的訊息用 getMessagesByCharId(線 id, true) 讀、clearMessages(線 id) 清。
+   */
+  getPairLineIds: async (): Promise<string[]> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const ids: string[] = [];
+      const index = db.transaction(STORE_MESSAGES, 'readonly').objectStore(STORE_MESSAGES).index('charId');
+      const request = index.openKeyCursor(IDBKeyRange.bound('pair~', 'pair~\uffff'), 'nextunique');
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) { resolve(ids); return; }
+        ids.push(String(cursor.key));
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+  },
+
   getPrivateMessagesAllLines: async (charId: string): Promise<Message[]> => {
     const db = await openDB();
     return new Promise((resolve, reject) => {

@@ -11,10 +11,11 @@ import { useBlobRefUrl } from '../utils/blobRef';
 import { safeResponseJson, extractContent, extractJson } from '../utils/safeApi';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
 import {
-    runRealConversation, runNpcConversation, upsertContact, matchRealChar,
+    runNpcConversation, upsertContact, matchRealChar,
     clampAffinity, normName, flipTranscript, parseTranscript, serializeTurns, appendLearned,
     topicText, summarizeConversation, applyRealConversationToPhoneState, cleanTranscriptLeaks,
 } from '../utils/relationshipChat';
+import { archivePairIfNeeded, PAIR_ARCHIVE_EVERY, runPairRound } from '../utils/pairChatRun';
 import PersonaSim, { LifeLog, generatePersonaScript } from './PersonaSim';
 import { usePersonaSim, personaSimStore } from '../utils/personaSimStore';
 import { getLastInnerState } from '../utils/emotionApply';
@@ -1911,46 +1912,7 @@ ${olderText}
         }));
     };
 
-    // 聊滿 100 條觸發總結：把待歸檔的每 100 條原文，A/B 各自第一人稱濃縮成一條話題盒記憶，推進水位線。
-    // 原文仍留在 record.detail（用戶能看），只是不再進上下文。
-    const ARCHIVE_EVERY = 100;
-    const maybeArchiveConversation = async (aContact: PhoneContact, b: CharacterProfile, aFull: string) => {
-        if (!targetChar) return;
-        const aLines = parseTranscript(aFull);
-        const startMark = aContact.archivedThru ?? 0;
-        let mark = startMark;
-        const aTopics: ConvTopic[] = [];
-        const bTopics: ConvTopic[] = [];
-        while (aLines.length - mark >= ARCHIVE_EVERY) {
-            const aChunk = serializeTurns(aLines.slice(mark, mark + ARCHIVE_EVERY));
-            const bChunk = flipTranscript(aChunk);
-            const [aSum, bSum] = await Promise.all([
-                summarizeConversation({ api: effectiveApiConfig as any, speakerName: targetChar.name, otherName: b.name, transcript: aChunk }),
-                summarizeConversation({ api: effectiveApiConfig as any, speakerName: b.name, otherName: targetChar.name, transcript: bChunk }),
-            ]);
-            const ts = Date.now();
-            const mk = () => `tp-${ts}-${Math.random().toString(36).slice(2, 7)}`;
-            if (aSum) aTopics.push({ id: mk(), text: aSum, createdAt: ts, span: ARCHIVE_EVERY });
-            if (bSum) bTopics.push({ id: mk(), text: bSum, createdAt: ts, span: ARCHIVE_EVERY });
-            mark += ARCHIVE_EVERY;
-        }
-        if (mark === startMark) return; // 沒滿 100，不歸檔
-        updateCharacter(targetChar.id, (cur) => ({
-            phoneState: {
-                ...cur.phoneState, records: cur.phoneState?.records || [],
-                contacts: (cur.phoneState?.contacts || []).map(c => c.id === aContact.id
-                    ? { ...c, topicBox: [...(c.topicBox || []), ...aTopics], archivedThru: mark } : c),
-            },
-        }));
-        updateCharacter(b.id, (cur) => ({
-            phoneState: {
-                ...cur.phoneState, records: cur.phoneState?.records || [],
-                contacts: (cur.phoneState?.contacts || []).map(c => (c.linkedCharId === targetChar.id || normName(c.name) === normName(targetChar.name))
-                    ? { ...c, topicBox: [...(c.topicBox || []), ...bTopics], archivedThru: mark } : c),
-            },
-        }));
-        addToast(`已把更早的 ${mark} 條聊天歸檔成話題記憶`, 'info');
-    };
+    // 聊滿 100 條觸發總結：A/B 各自第一人稱濃縮進話題盒（utils/pairChatRun.ts 的 archivePairIfNeeded，角色私聊頁共用）
 
     // P1：真角色雙向對話（A 發 B 回，雙 LLM，鏡像到 B）
     // replyAsContact：用戶冒充 B 說的話（「以對方身份回 TA」）——記成 B 說的、同步到 B 那邊，只讓 A 回
@@ -1961,38 +1923,31 @@ ${olderText}
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'real' });
         try {
-            const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
             const bToA = (b.phoneState?.contacts || []).find(c => c.linkedCharId === targetChar.id || normName(c.name) === normName(targetChar.name));
-            // 上下文壓縮：歸檔過的原文(0~archivedThru)不再進上下文，只喂「話題盒總結 + 近段原文」。
-            const aAllLines = parseTranscript(existing?.detail || '');
-            const aArchived = Math.min(contact.archivedThru ?? 0, aAllLines.length);
-            const archivedALines = aAllLines.slice(0, aArchived);            // 留著給用戶看的原文
-            const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
-            const result = await runRealConversation({
+            // 角色私聊線（關係線第 6 批 6c，utils/pairChatRun.ts）：讀寫的是兩人之間那一條線（只存一份），
+            // 跟訊息列表「角色私聊」看到的是同一份；這裡的紀錄、卡片照舊從那條線算出來。
+            const bView = phoneLineView(b);
+            const round = await runPairRound({
                 // B 那邊也照「現在的我」：認識這張卡就是那條線（讀的私聊、名字都是那條線的）
-                a: targetChar, b: phoneLineView(b), user: checkPhoneUserProfile, api: effectiveApiConfig as any,
+                a: targetChar, b: bView, api: effectiveApiConfig as any,
+                userA: checkPhoneUserProfile,
                 // B 私下認識的可能是另一張身份卡：各用各的名字，並提醒那是不同的人
-                userB: resolveUserProfileForChar(userProfileBase, phoneLineView(b)),
-                samePersona: personaKeyForChar(userProfileBase, targetChar) === personaKeyForChar(userProfileBase, phoneLineView(b)),
-                affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
-                existingDetail: recentDetail,
-                // bNote = A 對 B 的備註（餵給 A）；aNote = B 對 A 的備註（餵給 B）。別接反。
-                aNote: bToA?.note, bNote: contact.note,
-                bLearned: contact.learned, aLearned: bToA?.learned,
-                aSummary: topicText(contact.topicBox), bSummary: topicText(bToA?.topicBox),
-                aReplyTo: replyAsContact,
+                userB: resolveUserProfileForChar(userProfileBase, bView),
+                samePersona: personaKeyForChar(userProfileBase, targetChar) === personaKeyForChar(userProfileBase, bView),
+                asB: replyAsContact,
             });
-            if (!result.aDetail.trim()) { addToast('對方沒有回應…', 'error'); return; }
-            const aReplied = parseTranscript(result.aDetail).slice(-1)[0]?.isMe === true;
-            // 把歸檔段拼回去，存「完整原文」給用戶看（上下文用的是壓縮版，互不影響）
-            const aFull = serializeTurns([...archivedALines, ...parseTranscript(result.aDetail)]);
-            const bFull = flipTranscript(aFull);
+            const result = round.result;
+            if (!round.added) { addToast('對方沒有回應…', 'error'); return; }
+            const aReplied = round.aReplied;
+            const aFull = round.aFull;
+            const bFull = round.bFull;
             // A 學到的寫進 A 對 B 的瞭解；B 學到的寫進 B 對 A 的瞭解。
             // 若對方通訊錄裡還沒有自己，commitConversationSide 會先建好聯繫人（帶名字+起始備註名）再掛消息。
             await commitConversationSide(targetChar, contact.name, b.id, aFull, result.aDelta, contact.note, result.aLearnedNew, contact.identity);
             await commitConversationSide(b, targetChar.name, targetChar.id, bFull, result.bDelta, bToA?.note, result.bLearnedNew, contact.identity);
             // 聊滿 100 條 → 各自第一人稱總結歸檔進話題盒
-            await maybeArchiveConversation(contact, b, aFull);
+            const mark = await archivePairIfNeeded({ a: targetChar, b, aFull, api: effectiveApiConfig as any, updateCharacter });
+            if (mark) addToast(`已把更早的 ${mark} 條聊天歸檔成話題記憶`, 'info');
             addToast(replyAsContact
                 ? (aReplied ? `${targetChar.name} 回你了` : `${targetChar.name} 沒回，再試一次`)
                 : `${targetChar.name} 和 ${b.name} 聊了一會兒`, aReplied || !replyAsContact ? 'success' : 'error');
@@ -3551,7 +3506,7 @@ ${olderText}
                                             </div>
                                         ))}
                                     </div>
-                                    <p className="text-[9.5px] text-white/25 mt-2">※ 每聊滿 {ARCHIVE_EVERY} 條自動濃縮成一條第一人稱記憶讓 TA 記住；原文仍在聊天裡可看</p>
+                                    <p className="text-[9.5px] text-white/25 mt-2">※ 每聊滿 {PAIR_ARCHIVE_EVERY} 條自動濃縮成一條第一人稱記憶讓 TA 記住；原文仍在聊天裡可看</p>
                                 </div>
                             )}
 
