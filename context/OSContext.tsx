@@ -1,6 +1,8 @@
 
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { isBenched } from '../utils/castRole';
+import { pendingNpcs } from '../utils/npcMigration';
+import { runNpcMigration } from '../utils/npcMigrationRun';
 import { isPrimaryLine, knowsPersona, lineArgOf, lineFor, lineKey, lineMsgFields, lineOf, linePatchForChar, lineScheduleId, lineView, parseLineScheduleId, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -1734,7 +1736,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             settle(DB.getCharacterGroups(), 'characterGroups', [] as CharacterGroup[]),
             settle(DB.getAllNPCs(), 'npcs', [] as NPCProfile[])
         ]);
-        setNpcs(dbNpcs);
+        // 搬成配角的 NPC（關係線第 6 批）只留在表裡當備份，不再列出來
+        setNpcs(pendingNpcs(dbNpcs));
 
         let finalChars = dbChars;
 
@@ -3755,6 +3758,37 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   const [personaLinesEnabled, setPersonaLinesEnabled] = useState(() => isPersonaLinesEnabled());
+
+  // NPC 搬成配角（關係線第 6 批 6b，utils/npcMigration.ts）：預覽開著、資料載入完、還有沒搬的就搬一次。
+  // 舊表留著當備份；搬完 npcs 清單是空的，NPC 那些專用路徑自然沒事做，配角走角色那套。
+  const npcMigratingRef = useRef(false);
+  useEffect(() => {
+      if (!personaLinesEnabled || !isDataLoaded || !npcs.length || npcMigratingRef.current) return;
+      npcMigratingRef.current = true;
+      (async () => {
+          try {
+              const r = await runNpcMigration({ npcs, characters: charactersRef.current, profileBase: userProfileBaseRef.current, groups: groupsRef.current });
+              const byId = new Map([...r.added, ...r.updatedChars].map(c => [c.id, c]));
+              setCharacters(prev => {
+                  const merged = prev.map(c => byId.get(c.id) || c);
+                  const fresh = [...byId.values()].filter(c => !prev.some(p => p.id === c.id));
+                  return [...merged, ...fresh];
+              });
+              if (r.groups.length) {
+                  const g = new Map(r.groups.map(x => [x.id, x]));
+                  setGroups(prev => prev.map(x => g.get(x.id) || x));
+              }
+              const moved = new Set(r.movedIds);
+              setNpcs(prev => prev.filter(n => !moved.has(n.id)));
+              if (r.movedIds.length) addToast(`${r.movedIds.length} 個 NPC 搬成配角了，在神經鏈接的「配角」分頁`, 'success');
+          } catch (e) {
+              console.error('[NPC 搬家] 失敗，下次打開再試', e);
+          } finally {
+              npcMigratingRef.current = false;
+          }
+      })();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaLinesEnabled, isDataLoaded, npcs.length]);
   useEffect(() => {
     const sync = () => setPersonaLinesEnabled(isPersonaLinesEnabled());
     const offFlags = subscribeDevDebugFlags(sync);

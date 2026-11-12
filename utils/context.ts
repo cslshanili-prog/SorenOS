@@ -4,6 +4,8 @@ import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '
 import { normalizeUserImpression } from './impression';
 import { lineViewPersonaKey } from './userPersona';
 import { formatPersonaLinksBlock, sameIdentityKeys } from './personaLinks';
+import { formatCastRelationsBlock } from './castRelations';
+import { getCharNameById, getCharRelations } from './charNameRegistry';
 
 /**
  * 關係線（plans/persona-line-batch1-2.md 第 6 節）：記憶片段不是這條線的，標清楚是跟誰的。
@@ -70,6 +72,8 @@ export interface CoreContextSections {
     worldbookAfterExamples: string;
     userProfile: string;
     impression: string;
+    /** 你身邊的人（關係清單，雙向；utils/castRelations.ts） */
+    relations: string;
     roomPlates: string;
     memoryBank: string;
     memoryPalace: string;
@@ -84,7 +88,7 @@ export interface CoreContextSections {
 export const CORE_SECTION_ORDER: Array<keyof CoreContextSections> = [
     'worldbookBeforeCharacter', 'header', 'identity', 'timeAwareness', 'selfInsights', 'worldview',
     'worldbookAfterCharacter', 'worldbookBeforeExamples', 'dialogueExamples', 'signatureLines', 'worldbookAfterExamples',
-    'userProfile', 'impression', 'roomPlates', 'memoryBank', 'memoryPalace', 'emotionBuff',
+    'userProfile', 'impression', 'relations', 'roomPlates', 'memoryBank', 'memoryPalace', 'emotionBuff',
     'worldbookAuthorsNoteTop', 'worldbookAuthorsNoteBottom', 'antiFiller', 'triggeredLines',
 ];
 
@@ -311,6 +315,9 @@ export const ContextBuilder = {
             impression += `- 最近觀察到的變化: ${imp.observed_changes ? imp.observed_changes.map(c => typeof c === 'string' ? c : (c as any)?.description ? `[${(c as any).period}] ${(c as any).description}` : JSON.stringify(c)).join('; ') : '無'}\n\n`;
             sections.impression = impression;
         }
+
+        // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）
+        sections.relations = formatCastRelationsBlock({ char, others: getCharRelations(), nameOf: getCharNameById, userName: user.name });
 
         // 4b. 底色認知（記憶宮殿門牌）— 常駐語義層
         // 與召回記憶不同：這是每輪都在的"你早已知道的背景"，不走相似度抽取。

@@ -3758,6 +3758,11 @@ export interface NPCProfile {
      * 「跟你的關係」（targetId 'user'）說的就是這個身份。解析走 utils/userPersona.ts 的 personaKeyForNpc。
      */
     knownPersonaId?: string;
+    /**
+     * 搬成配角的時間（關係線第 6 批，utils/npcMigration.ts）：有值就是已經搬到角色表（id 照舊），
+     * 這筆只留著當備份，不再列進 NPC 清單、不再搬第二次。
+     */
+    migratedToCharAt?: number;
     createdAt: number;
     updatedAt: number;
 }

@@ -95,7 +95,7 @@ export const buildMeetingPresetPayload = async (input: {
         // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
         length: lengthGlobals.mapped ? '' : buildLengthLine(char),
         voice: char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : '',
-        soren: join(sections.impression, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines),
+        soren: join(sections.impression, sections.relations, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines),
     };
 
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話
