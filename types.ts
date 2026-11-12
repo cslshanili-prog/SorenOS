@@ -3201,6 +3201,11 @@ export interface CharacterProfile {
    */
   altKnowledge?: Record<string, AltKnowledge>;
   /**
+   * 身份卡來加他好友的紀錄（personaKey → 每次送的招呼和結果）。角色本人的，不跟線走：
+   * 他看得到你之前被拒過幾次、上次說了什麼（plans/persona-line-batch4.md 第 3 節、utils/friendRequest.ts）。
+   */
+  friendRequests?: Record<string, FriendRequestRecord[]>;
+  /**
    * 主動消息 1.0 在**非主線**上開沒開（存在 lines[personaKey]）。新線預設關；其餘設定（頻率、睡覺不發…）
    * 照 proactiveConfig。主線的開關仍是 proactiveConfig.enabled。見 plans/persona-line-batch3.md。
    */
@@ -4239,6 +4244,14 @@ export interface PersonaLink {
     aToB?: string;
     bToA?: string;
     createdAt: number;
+}
+
+/** 一次加好友：送的招呼、他通過沒有、回的那句話。 */
+export interface FriendRequestRecord {
+    at: number;
+    greeting: string;
+    accepted: boolean;
+    reply?: string;
 }
 
 /** 角色對一條小號連結的認知。沒有這筆＝不知道。 */

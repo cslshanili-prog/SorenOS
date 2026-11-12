@@ -1,6 +1,6 @@
 # 關係線 · 第 4 批：身份連結、小號與發現、加好友
 
-> 狀態：**定案、實作中**（2026-11-12，第 5 節三點照建議）。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 5 節，前幾批見 [`persona-line-batch1-2.md`](./persona-line-batch1-2.md)、[`persona-line-batch3.md`](./persona-line-batch3.md)。
+> 狀態：**4a、4b、4c 已做**（2026-11-12，第 5 節三點照建議）。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 5 節，前幾批見 [`persona-line-batch1-2.md`](./persona-line-batch1-2.md)、[`persona-line-batch3.md`](./persona-line-batch3.md)。
 > 已定案（2026-11-12）：發現有三種方式（一直知道／讓他發現／他察覺、你承認）；一張卡可以有好幾條連結；新卡認識角色改成「加好友、他決定通不通過」，放進這批。角色自己開小號另開一批，排在第 6 批之後；不搬上游的哔哔，之後角色小號就在 Soren 自己的朋友圈和私聊玩。
 
 ## 1. 身份連結
@@ -82,7 +82,10 @@ type AltKnowledge =
   - 純邏輯在 `utils/personaReveal.ts`，寫資料庫的在 `utils/personaRevealActions.ts`。卡片是 `type: 'persona_card'`：懷疑卡 role assistant（卡上承認／否認），發現卡 role system（兩條線各一張）；歷史裡懷疑卡寫成 `[[記錄:SUSPECT|…]]`。
   - 雲端生成也認得 SUSPECT：Soren Worker 的直通名單加了它，順手補上本來就被剝掉的 `BLOCK_USER`（角色在雲端拉黑你以前不生效）。`AMSG_BUNDLE_VERSION` 升到 2026-11-12，用戶要更新一次 Worker 才吃得到；沒更新的照舊被剝掉、不落卡。
   - 主動消息 1.0（本機背景路徑）沒接 SUSPECT：那條路的 sanitize 會把標籤剝乾淨，不會漏出來，只是不落卡。
-- **4c**：加好友。
+- **4c — 已做**：加好友。
+  - 純邏輯在 `utils/friendRequest.ts`，頁面是 `components/chat/AddFriendPage.tsx`；紀錄存在角色卡 `friendRequests[personaKey]`（角色本人的）。
+  - 入口：訊息「＋ → 加好友」先挑人；聯繫人分頁裡「還不認識你」的角色點進去就是加好友頁（不再默默掉進別張卡的那條線）。
+  - 通過：這張卡加進他認識的卡，新的那條線落「你的招呼 → 你們已經是好友了 → 他的第一句話」，接著打開聊天。被拒：記一筆，可以再送。
 
 ## 5. 已定案（Liora 2026-11-12：「按照你的建議」）
 

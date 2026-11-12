@@ -77,7 +77,7 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
                 })}
             </div>
             <p className="px-2 pt-2 text-[11px] leading-relaxed text-slate-400">
-                勾一張就多一條線：切到那張卡時，跟 {char.name} 聊的是另一段，記錄和關係各自分開。拿掉只是藏起來，加回來都還在。
+                勾一張就多一條線：切到那張卡時，跟 {char.name} 聊的是另一段，記錄和關係各自分開。拿掉只是藏起來，加回來都還在。在這裡勾是直接讓他認識、不經過加好友；想讓他自己決定，就用那張卡去訊息的「＋ → 加好友」。
             </p>
             {altLinks.length > 0 && (
                 <div className="mt-4">
