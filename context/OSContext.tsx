@@ -3,6 +3,8 @@ import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../util
 import { isBenched } from '../utils/castRole';
 import { pendingNpcs } from '../utils/npcMigration';
 import { runNpcMigration } from '../utils/npcMigrationRun';
+import { parsePairLineId } from '../utils/pairLine';
+import { migratePhoneChatsToPairLines } from '../utils/pairLineMigration';
 import { isPrimaryLine, knowsPersona, lineArgOf, lineFor, lineKey, lineMsgFields, lineOf, linePatchForChar, lineScheduleId, lineView, parseLineScheduleId, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -3791,6 +3793,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       })();
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personaLinesEnabled, isDataLoaded, npcs.length]);
+
+  // 查手機裡已有的真角色對話搬進角色私聊線（6c）：預覽開著、資料載入完、NPC 搬完之後跑一次（每對只搬一次，搬過的線不碰）
+  const pairMigratedRef = useRef(false);
+  useEffect(() => {
+      if (!personaLinesEnabled || !isDataLoaded || npcs.length || pairMigratedRef.current) return;
+      pairMigratedRef.current = true;
+      void migratePhoneChatsToPairLines(charactersRef.current)
+          .then(n => { if (n) console.log(`[角色私聊] 把 ${n} 段查手機裡的對話搬進角色私聊了`); })
+          .catch(e => { pairMigratedRef.current = false; console.warn('[角色私聊] 舊對話搬家失敗，下次再試', e); });
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaLinesEnabled, isDataLoaded, npcs.length]);
   useEffect(() => {
     const sync = () => setPersonaLinesEnabled(isPersonaLinesEnabled());
     const offFlags = subscribeDevDebugFlags(sync);
@@ -3997,6 +4010,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     setCharacters(prev => { const remaining = prev.filter(c => c.id !== id); if (remaining.length > 0 && activeCharacterId === id) { setActiveCharacterId(remaining[0].id); } return remaining; });
     await DB.deleteCharacter(id);
+    // 跟 ta 有關的角色私聊線一起刪（關係線第 6 批）；另一個角色已經整理進記憶的照留
+    try {
+        for (const pairId of await DB.getPairLineIds()) {
+            if (parsePairLineId(pairId)?.includes(id)) await DB.clearMessages(pairId);
+        }
+    } catch (e) { console.warn('[deleteCharacter] 角色私聊線清理失敗', e); }
     // 表情分類不隨角色級聯刪除會留下「幽靈專屬包」：單聊面板被可見性過濾掉（刪不掉），
     // 群聊面板/提示詞卻還能看到。刪完角色順手按剩餘角色清一次殘留（詳見 DB.cleanupEmojiResidue）。
     try {

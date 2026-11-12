@@ -13,6 +13,8 @@ import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
 import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
 import AddFriendPage from '../components/chat/AddFriendPage';
+import PairChatPage from '../components/chat/PairChatPage';
+import { pairSpeakerOf, parsePairLineId } from '../utils/pairLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import {
     ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass,
@@ -21,7 +23,9 @@ import {
 type HubTab = 'messages' | 'contacts' | 'moments' | 'profile';
 
 interface ChatRow {
-    kind: 'private' | 'group';
+    kind: 'private' | 'group' | 'pair';
+    /** 角色私聊（kind 'pair'）：另一個角色的頭像，疊在右下角 */
+    avatar2?: string;
     id: string;
     /** 關係線：私聊是哪條線（主線不帶 personaKey）；列表鍵與打開時切身份用 */
     line?: ChatLine;
@@ -99,13 +103,16 @@ const ChatHub: React.FC = () => {
 
     // --- 消息 tab ---
     const [rows, setRows] = useState<ChatRow[] | null>(null);
-    const [msgFilter, setMsgFilter] = useState<'all' | 'private' | 'group'>('all');
+    const [msgFilter, setMsgFilter] = useState<'all' | 'private' | 'group' | 'pair'>('all');
+    // 角色私聊（關係線第 6 批 6c）：'new' = 先挑兩個人；線 id = 打開那條線
+    const [pairOpen, setPairOpen] = useState<string | null>(null);
+    const [rowsVersion, setRowsVersion] = useState(0);
     const [msgQuery, setMsgQuery] = useState('');
 
     useEffect(() => {
         let cancelled = false;
         (async () => {
-            const [privateRows, groupRows] = await Promise.all([
+            const [privateRows, pairRows, groupRows] = await Promise.all([
                 Promise.all(characters.flatMap(c => {
                     // 關掉預覽：一個角色一行（主線）。開著：現在這張卡的那條線，或「全部身份」時每條線一行。
                     const keys = !personaLinesEnabled ? [undefined]
@@ -124,6 +131,20 @@ const ChatHub: React.FC = () => {
                         };
                     });
                 })),
+                // 角色私聊：只在預覽開著時列（「角色私聊」那個篩選才看得到）
+                personaLinesEnabled ? DB.getPairLineIds().then(ids => Promise.all(ids.map(async (pairId): Promise<ChatRow | null> => {
+                    const pair = parsePairLineId(pairId);
+                    const a = pair && characters.find(c => c.id === pair[0]);
+                    const b = pair && characters.find(c => c.id === pair[1]);
+                    if (!a || !b) return null;
+                    const [msg] = await DB.getRecentMessagesByCharId(pairId, 1, true);
+                    if (!msg) return null;
+                    const speaker = characters.find(c => c.id === pairSpeakerOf(msg));
+                    return {
+                        kind: 'pair', id: pairId, name: `${a.name} × ${b.name}`, avatar: a.avatar, avatar2: b.avatar,
+                        preview: `${speaker ? `${speaker.name}：` : ''}${messageLogText(msg)}`, timestamp: msg.timestamp, unread: 0,
+                    };
+                }))).catch(() => [] as Array<ChatRow | null>) : Promise.resolve([] as Array<ChatRow | null>),
                 Promise.all(groups.map(async (g): Promise<ChatRow | null> => {
                     const { messages } = await DB.getRecentGroupMessagesWithCount(g.id, 1);
                     const msg = messages[0];
@@ -138,24 +159,28 @@ const ChatHub: React.FC = () => {
                 })),
             ]);
             if (cancelled) return;
-            const merged = [...privateRows, ...groupRows].filter((r): r is ChatRow => !!r);
+            const merged = [...privateRows, ...pairRows, ...groupRows].filter((r): r is ChatRow => !!r);
             merged.sort((a, b) => b.timestamp - a.timestamp);
             setRows(merged);
         })();
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [characters, groups, personaLinesEnabled, showAllLines, activePersonaKey]);
+    }, [characters, groups, personaLinesEnabled, showAllLines, activePersonaKey, rowsVersion]);
 
     const filteredRows = useMemo(() => {
         let list = rows || [];
         if (msgFilter === 'private') list = list.filter(r => r.kind === 'private');
         if (msgFilter === 'group') list = list.filter(r => r.kind === 'group');
+        // 角色私聊是你在旁邊看的，不混進「全部」
+        if (msgFilter === 'pair') list = list.filter(r => r.kind === 'pair');
+        else list = list.filter(r => r.kind !== 'pair');
         const q = msgQuery.trim().toLowerCase();
         if (q) list = list.filter(r => r.name.toLowerCase().includes(q));
         return list;
     }, [rows, msgFilter, msgQuery]);
 
     const openRow = async (row: ChatRow) => {
+        if (row.kind === 'pair') { setPairOpen(row.id); trackEvent('Chat 主页打开对话', { kind: 'pair' }); return; }
         if (row.kind === 'private') {
             // 點到別張卡的線：先切成那張卡（你在任何時候都是某一個人）
             if (personaLinesEnabled && row.personaKey && row.personaKey !== activePersonaKey) {
@@ -228,6 +253,12 @@ const ChatHub: React.FC = () => {
                     }}
                 />
             )}
+            {pairOpen && (
+                <PairChatPage
+                    pairId={pairOpen === 'new' ? undefined : pairOpen}
+                    onClose={() => { setPairOpen(null); setRowsVersion(v => v + 1); }}
+                />
+            )}
             {/* Header */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 shrink-0 sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center justify-between px-4 py-3">
@@ -253,6 +284,9 @@ const ChatHub: React.FC = () => {
                                     <button onClick={() => { setShowAddMenu(false); openApp(AppID.GroupChat); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">新建群聊</button>
                                     {personaLinesEnabled && (
                                         <button onClick={() => { setShowAddMenu(false); setAddFriendFor('list'); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">加好友</button>
+                                    )}
+                                    {personaLinesEnabled && (
+                                        <button onClick={() => { setShowAddMenu(false); setPairOpen('new'); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">讓兩個角色聊聊</button>
                                     )}
                                 </div>
                             </>
@@ -281,7 +315,7 @@ const ChatHub: React.FC = () => {
                             />
                         </div>
                         <div className="flex gap-2 mb-4">
-                            {([['all', '全部'], ['private', '私聊'], ['group', '群聊']] as const).map(([key, label]) => (
+                            {([['all', '全部'], ['private', '私聊'], ['group', '群聊'], ...(personaLinesEnabled ? [['pair', '角色私聊']] as const : [])] as const).map(([key, label]) => (
                                 <button
                                     key={key}
                                     onClick={() => setMsgFilter(key)}
@@ -312,6 +346,9 @@ const ChatHub: React.FC = () => {
                                                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
                                                     {row.unread > 99 ? '99+' : row.unread}
                                                 </span>
+                                            )}
+                                            {row.kind === 'pair' && row.avatar2 && (
+                                                <TokenImg value={row.avatar2} className="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl object-cover bg-slate-200 border-2 border-white" alt="" />
                                             )}
                                             {showAllLines && row.kind === 'private' && row.personaKey && (
                                                 <TokenImg
