@@ -12,6 +12,7 @@
 > - **2c 查手機對聊與 NPC 已完成**：角色對聊兩邊各用自己認識的名字（`runRealConversation` 的 `userB`/`samePersona`，提醒走 `crossPersonaNote`）；NPC 的 `knownPersonaId` 與自動推測走 `personaKeyForNpc`，用在朋友圈、群聊檔案塊與客串、查手機的 NPC 對聊。剩 2d 多角色同場的畫面。
 > - **2d 第一批已完成**（盤點與分法定案 2026-09-28，見第 6 節）：家園修成照角色走；彼方、遊戲、人生模擬有場景身份（`personaKeyForScene`）。社群、手帳照朋友圈的做法，下一小批。
 > - **2d 第二批已完成**：手帳照角色走；社群的網名帳號綁一張身份卡（見第 6 節）。多身份隔離第 2 步全部完成。
+> - **2026-11-12**：Spark（社群）、都市人生（人生模擬）、手帳已下架，下面講到它們的部分只剩參考價值。身份系統之後的改版見 [`persona-bond-redesign.md`](./persona-bond-redesign.md)。
 
 ## 現況：共享空間裡「你」只有一個
 
