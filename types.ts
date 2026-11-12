@@ -3931,6 +3931,12 @@ export interface UserProfile {
      */
     perGroupPersonaIds?: Record<string, string>;
     /**
+     * 群裡在場的身份（關係線第 5 批，plans/persona-line-batch5.md）：groupId → 身份鍵陣列。
+     * [] = 旁觀（群裡沒有你）；沒有這個群的鍵 = 照舊自動一張（perGroupPersonaIds > 成員多數 > 全域），
+     * 群上還開著舊的 userLurkMode 就是旁觀。解析走 utils/groupChat/presence.ts 的 presentPersonaKeys。
+     */
+    groupPresence?: Record<string, string[]>;
+    /**
      * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
      * 'vrworld'（彼方，你的分身只有一個）；遊戲的身份存在那一局上。舊資料可能還有 'spark'（Spark 已刪），讀不到就是了。
      * 不設 = 自動：在場角色最多人認識的那個你。解析走 utils/userPersona.ts 的 personaKeyForScene。

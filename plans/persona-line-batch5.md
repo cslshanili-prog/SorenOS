@@ -1,6 +1,6 @@
 # 關係線 · 第 5 批：群聊裡好幾個身份同場
 
-> 狀態：**設計稿**（2026-11-12），第 6 節有三點待 Liora 決定。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 6 節，前一批見 [`persona-line-batch4.md`](./persona-line-batch4.md)。
+> 狀態：**5a、5b、5c 已做**（2026-11-12，第 6 節三點照建議）。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 6 節，前一批見 [`persona-line-batch4.md`](./persona-line-batch4.md)。
 > 已定案（上層第 6、9 節）：「群身份」換成「在場的身份」，可以選一張、多張或一張都不選；一張都不選就是旁觀，旁觀不再是另一個開關。成員照自己認不認識看每個身份；有同一世界連結的告訴它；成員認識幾張在場的卡，就合併幾條私聊線。
 
 ## 0. 現在的樣子
@@ -31,7 +31,7 @@ groupPresence?: Record<string, string[]>;
 
 ## 2. 發訊息
 
-- 在場兩張以上時，輸入框左邊多一個小頭像，點了切換「這則用哪張卡說」。預設用你上一則用的那張（還在場的話），否則第一張。記在記憶體裡，換群就重算。
+- 在場兩張以上時，輸入框上面多一排「用誰說」的頭像，點了切換這則用哪張卡說。預設用你上一則用的那張（還在場的話），否則第一張。點過的記在記憶體裡，換群就重算。
 - 訊息照舊記 `metadata.personaKey`，氣泡頭像跟著那張卡（現在已經會）。
 - 旁觀時沒選代打，你打的字只留在你的螢幕上，跟現在一樣；另外記 `metadata.offstage: true`，之後你回到群裡，這些話也**不會**突然被角色看到（現在會）。
 - 紅包、引用回覆、退回紅包這些「你」做的動作，都用當下選的那張卡。
@@ -84,7 +84,7 @@ groupPresence?: Record<string, string[]>;
 | 群主「我」 | `ownerId: 'user'` 照舊是「你」；在場好幾張時寫進提示詞的是第一張的名字。要細分到哪張卡當群主，等有人要再說。 |
 | NPC 成員 | 它認識一張（`personaKeyForNpc`），在場就是那個人，其他是群友，跟角色同一套規則。 |
 
-## 6. 待 Liora 決定
+## 6. 已定案（Liora 2026-11-12：「按照你的建議」）
 
 1. **旁觀時，你以前在群裡說過的話要不要也藏起來？**
    - 建議**照現在**：旁觀＝這個群裡沒有你，角色看不到你所有的群訊息，以為群裡只有它們。你回到群裡，這些話又看得到（旁觀時打的不會）。
@@ -98,6 +98,18 @@ groupPresence?: Record<string, string[]>;
 
 ## 7. 實作拆法
 
-- **5a**：`groupPresence` 與解析、刪卡清理、群設定「在場的身份」（多選＋旁觀）、輸入框切換卡、`offstage`、成員認識的判斷改成照它認識的卡（修掉非主線被當陌生人）。
-- **5b**：生成這頭：成員檔案塊（認識一張／好幾張／都不認識）、群歷史的名字、共享場景、規則文字、身份連結、PRIVATE 指定。
-- **5c**：其他讀群訊息的地方（第 5 節那張表）、紅包。
+- **5a — 已做**：`groupPresence` 與解析、刪卡清理、群設定「在場的身份」（多選＋旁觀）、輸入框上的「用誰說」、`offstage`。
+  - 純邏輯在 `utils/groupChat/presence.ts`（`presentPersonaKeys`、`memberVisibleGroupMessages`、`memberPresence`、`focalKnownKey`、`defaultSpeakingKey`），解析帶 `multi` 參數：預覽關著時不看 `groupPresence`，介面也照舊（單選身份＋隱身圍觀開關）。
+  - 群設定改「在場的身份」時順手把群上的 `userLurkMode` 關掉。埋點 `设定群聊在场身份`（在场：自动／旁观／一张／多张）。
+- **5b — 已做**：生成這頭。
+  - 成員檔案塊用它主看那條線的視圖（`lineView`）建，私聊時間線、空窗期、記憶宮殿都跟那條線；修掉「認識群裡那張、但不是主線就被當陌生人」。
+  - 認識好幾張：其他的各補一段「你也認識在場的『B』」（那條線的印象、長期記憶、空窗期），時間線併進那條線的私聊、標 `[私聊·B]`（`buildMemberTimeline` 的 `privateName`／`extraPrivate`）。
+  - 在場兩張以上：群歷史一律寫卡名，共享場景每張一份對外資料（`buildGroupSharedScene` 的 `presence`），規則多一段「群裡有好幾位真人群友」（`buildMultiPresenceNote`）。旁觀時共享場景寫「這一輪群裡沒有用戶在場」。
+  - 在場卡之間的連結：`utils/personaLinks.ts` 的 `presentLinkLines`。
+  - PRIVATE：`[[PRIVATE|名字: 內容]]`，`dispatch.ts` 的 `privateTarget` 決定落哪條線（旁觀、或它一張都不認識就丟掉）。
+- **5c — 已做**：
+  - 私聊裡的群聊背景（`chatPrompts`）：在場解析、藏旁觀的話、「你也認識的『B』」另一句提醒，知道是同一個人的小號不提醒。
+  - 話題盒：卡片落在成員認識、而且在那段裡說過話的每條線（沒有就主線）；編輯、刪除、解散群時掃成員所有線（`DB.getPrivateMessagesAllLines`）。總結裡你那一行照卡寫名字，旁觀時打的不進總結。
+  - NPC 群記憶（`refreshNpcMemoryFromGroups` 多收 `profileBase`）、朋友圈「見過的身份」都照在場的卡算；旁觀的群不算見過。
+  - 紅包：你的領取者 id 是 `user:身份鍵`（`redpacket.ts` 的 `userClaimantId`），舊資料的 `'user'` 算群裡第一張（`normalizeLegacyUserPacket`）；用「用誰說」那張搶，角色發專屬紅包按名字對到在場的卡（`dispatch.ts` 的 `userTargets`）。
+  - 群記憶宮殿那支舊流程（`processGroupNewMessages`）已經沒有呼叫端，沒動。

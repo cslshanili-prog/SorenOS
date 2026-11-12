@@ -41,6 +41,11 @@ export interface DispatchContext {
     resolveQuote?: (snippet: string) => { id: number; content: string; name: string } | undefined;
     /** 用戶顯示名——紅包目標解析（direct:用戶名）與回執命名用 */
     userName: string;
+    /**
+     * 在場的身份卡（關係線第 5 批）：紅包目標按名字對到哪張卡（id 是 'user:身份鍵'）。
+     * 不給就照舊整個你一個 'user'。第一張是「用戶」這個泛稱對到的那張。
+     */
+    userTargets?: Array<{ id: string; name: string }>;
     /** 群 HTML 模塊模式開啟時解析 [html] 塊為 html_card 消息 */
     htmlMode?: boolean;
     /**
@@ -49,6 +54,11 @@ export interface DispatchContext {
      * 正文裡剝掉，不會發生任何退群副作用（雙重保險，不靠 AI 老實）。
      */
     onMemberLeave?: (charId: string, charName: string) => Promise<void>;
+    /**
+     * [[PRIVATE:]]／[[PRIVATE|名字:]] 落在哪條私聊線（關係線第 5 批）：回 null 就丟掉。
+     * 不傳照舊落成員的主線。label 是吐司上「悄悄對誰說」的名字（在場好幾張時才有）。
+     */
+    privateTarget?: (charId: string, name?: string) => { charId: string; personaKey?: string; label?: string } | null;
 }
 
 /**
@@ -85,7 +95,8 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         // 0. Check for Private Message Command (Regex updated for robustness)
         const privateMatches: RegExpExecArray[] = [];
         // Handle multiple private messages in one block or mixed content
-        const privateRegex = /\[\[PRIVATE\s*[:：]\s*([\s\S]*?)\]\]/g;
+        // [[PRIVATE: 內容]]，在場好幾張卡時可以寫 [[PRIVATE|名字: 內容]] 指定給誰
+        const privateRegex = /\[\[PRIVATE\s*(?:[|｜]\s*([^:：\]\n]*?)\s*)?[:：]\s*([\s\S]*?)\]\]/g;
         let match;
         while ((match = privateRegex.exec(publicContent)) !== null) {
             privateMatches.push(match);
@@ -94,16 +105,20 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         if (privateMatches.length > 0) {
             const isNpc = !!ctx.npcIds?.has(targetId);
             for (const m of privateMatches) {
-                const privateContent = m[1].trim();
-                if (privateContent && !isNpc) {
+                const privateContent = (m[2] || '').trim();
+                const line = privateContent && !isNpc
+                    ? (ctx.privateTarget ? ctx.privateTarget(targetId, m[1]?.trim() || undefined) : { charId: targetId })
+                    : null;
+                if (line) {
                     // Save to private chat (no groupId)
                     await DB.saveMessage({
-                        charId: targetId,
+                        charId: line.charId,
+                        ...(line.personaKey ? { personaKey: line.personaKey } : {}),
                         role: 'assistant',
                         type: 'text',
                         content: privateContent
                     });
-                    addToast(`${charName} 悄悄對你說: ${privateContent.substring(0, 15)}...`, 'info');
+                    addToast(`${charName} 悄悄對${line.label ? `「${line.label}」` : '你'}說: ${privateContent.substring(0, 15)}...`, 'info');
                 }
                 // Strip the private command from the public content
                 publicContent = publicContent.replace(m[0], '');
@@ -227,13 +242,17 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
 function resolvePacketTarget(name: string, ctx: DispatchContext): string | undefined {
     const n = name.trim();
     if (!n) return undefined;
-    if (n === ctx.userName || equalsAnyScript(n, '用戶')) return 'user';
+    const targets = ctx.userTargets?.length ? ctx.userTargets : [{ id: 'user', name: ctx.userName }];
+    const exactUser = targets.find(t => t.name === n);
+    if (exactUser) return exactUser.id;
+    if (n === ctx.userName || equalsAnyScript(n, '用戶')) return targets[0].id;
     const members = ctx.characters.filter(c => ctx.memberIds.includes(c.id));
     const exact = members.find(c => c.name === n);
     if (exact) return exact.id;
     const fuzzy = members.find(c => c.name.includes(n) || n.includes(c.name));
     if (fuzzy) return fuzzy.id;
-    if (ctx.userName && (ctx.userName.includes(n) || n.includes(ctx.userName))) return 'user';
+    const fuzzyUser = targets.find(t => t.name && (t.name.includes(n) || n.includes(t.name)));
+    if (fuzzyUser) return fuzzyUser.id;
     return undefined;
 }
 
@@ -251,7 +270,9 @@ async function executePacketCommand(
     ctx: DispatchContext,
 ): Promise<void> {
     const { groupId, characters, userName, refresh } = ctx;
-    const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成員');
+    const nameOf = (id: string) => (id === 'user' ? userName
+        : id.startsWith('user:') ? (ctx.userTargets?.find(t => t.id === id)?.name || userName)
+        : characters.find(c => c.id === id)?.name || '成員');
 
     if (cmd.kind === 'send') {
         if (!cmd.send) return;
@@ -305,7 +326,10 @@ async function executePacketCommand(
     }).catch(() => { /* 消息被刪等——靜默 */ });
     if (!outcome.ok) return;
 
-    const senderName = targetMsg.role === 'user' ? userName : nameOf(targetMsg.charId);
+    const senderKey = targetMsg.metadata?.personaKey;
+    const senderName = targetMsg.role === 'user'
+        ? (typeof senderKey === 'string' ? nameOf(`user:${senderKey}`) : userName)
+        : nameOf(targetMsg.charId);
     const receipt: PacketReceiptMeta = {
         packetReceipt: outcome.action,
         ref: targetMsg.id,

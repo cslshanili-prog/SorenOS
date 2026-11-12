@@ -962,6 +962,7 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 群聊移除NPC成员
 - 群聊旁观代打发言
 - 群聊旁观给剧情方向
+- 设定群聊在场身份 —— 在场（自动 / 旁观 / 一张 / 多张）：关系线预览里改这个群在场的身份卡（plans/persona-line-batch5.md）
 
 **桌面**
 

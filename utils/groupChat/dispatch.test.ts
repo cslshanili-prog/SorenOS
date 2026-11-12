@@ -131,3 +131,35 @@ describe('NPC 成員', () => {
         expect(addToast).not.toHaveBeenCalled();
     });
 });
+
+describe('PRIVATE 落在哪條線（關係線第 5 批）', () => {
+    beforeEach(() => saveMessage.mockClear());
+    const calls = () => saveMessage.mock.calls as unknown as any[][];
+
+    it('有 privateTarget：照它回的線寫，指定的名字傳進去', async () => {
+        const privateTarget = vi.fn((charId: string, name?: string) => ({ charId, personaKey: name === '妹妹' ? 'pB' : undefined, label: name }));
+        await dispatchMemberActions(
+            [{ charId: 'c1', content: '[[PRIVATE|妹妹: 晚點打給你]]\n大家好' }],
+            baseCtx({ privateTarget }),
+        );
+        expect(privateTarget).toHaveBeenCalledWith('c1', '妹妹');
+        const priv = calls().find(c => !c[0].groupId)![0];
+        expect(priv).toMatchObject({ charId: 'c1', personaKey: 'pB', content: '晚點打給你' });
+        expect(calls().some(c => c[0].groupId && c[0].content === '大家好')).toBe(true);
+    });
+
+    it('privateTarget 回 null：丟掉，公開的話照常', async () => {
+        await dispatchMemberActions(
+            [{ charId: 'c1', content: '[[PRIVATE: 偷偷說]]\n嗨' }],
+            baseCtx({ privateTarget: () => null }),
+        );
+        expect(calls().every(c => c[0].groupId)).toBe(true);
+        expect(calls()[0][0].content).toBe('嗨');
+    });
+
+    it('沒傳 privateTarget：照舊落主線', async () => {
+        await dispatchMemberActions([{ charId: 'c1', content: '[[PRIVATE: 偷偷說]]' }], baseCtx());
+        expect(calls()[0][0]).toMatchObject({ charId: 'c1', content: '偷偷說' });
+        expect(calls()[0][0].personaKey).toBeUndefined();
+    });
+});

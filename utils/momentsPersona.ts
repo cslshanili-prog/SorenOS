@@ -1,6 +1,7 @@
 import type { CharacterProfile, GroupProfile, MomentPost, UserProfile } from '../types';
 import type { PersonaKnowledge } from './momentsPool';
-import { personaKeyForChar, personaKeyForGroup, personaKeyForNpc, personaNameForKey, type NpcPersonaRef } from './userPersona';
+import { personaKeyForChar, personaKeyForNpc, personaNameForKey, type NpcPersonaRef } from './userPersona';
+import { presentPersonaKeys } from './groupChat/presence';
 
 /**
  * 朋友圈的身份資料（多身份隔離 2a，見 plans/multi-persona-isolation-design.md）：
@@ -25,12 +26,14 @@ export function buildPersonaKnowledge(
 
     const seen = new Map<string, Set<string>>();
     for (const g of groups) {
-        const key = personaKeyForGroup(profileBase, g, characters);
-        for (const member of g.members || []) {
-            if (main.get(member) === key) continue;
-            const set = seen.get(member) || new Set<string>();
-            set.add(key);
-            seen.set(member, set);
+        // 在場的每張卡都算見過（關係線第 5 批）；旁觀的群沒有你，不算見過
+        for (const key of presentPersonaKeys(profileBase, g, characters)) {
+            for (const member of g.members || []) {
+                if (main.get(member) === key) continue;
+                const set = seen.get(member) || new Set<string>();
+                set.add(key);
+                seen.set(member, set);
+            }
         }
     }
     const empty: ReadonlySet<string> = new Set();

@@ -33,6 +33,13 @@ export interface MemberTimelineOptions {
     stickerName?: (url: string) => string;
     /** 群裡用戶那一行怎麼稱呼（多身份：別的身份用卡名）；不給就是「用戶」。私聊行一律「用戶」 */
     userSpeaker?: (m: Message) => string;
+    /**
+     * 在場好幾張它認識的卡（關係線第 5 批）：主私聊（privateMsgs）是哪張卡的線。給了就標
+     * `[私聊·名字]`、用戶那行寫名字，不給照舊 `[私聊]`／「用戶」。
+     */
+    privateName?: string;
+    /** 它也認識、也在場的其他卡，各自那條線的私聊（標 `[私聊·名字]`）。 */
+    extraPrivate?: Array<{ msgs: Message[]; name: string }>;
 }
 
 /**
@@ -46,10 +53,11 @@ export interface MemberTimelineOptions {
  *   [群聊][07-11 09:02] 小夏: 早啊！
  */
 export function buildMemberTimeline(opts: MemberTimelineOptions): string {
-    const { privateMsgs, groupMsgs, cap, resolveSpeaker, stickerName, userSpeaker } = opts;
+    const { privateMsgs, groupMsgs, cap, resolveSpeaker, stickerName, userSpeaker, privateName, extraPrivate } = opts;
 
-    const tagged = [
-        ...privateMsgs.slice(-cap).map(m => ({ m, isGroup: false })),
+    const tagged: Array<{ m: Message; isGroup: boolean; lineName?: string }> = [
+        ...privateMsgs.slice(-cap).map(m => ({ m, isGroup: false, lineName: privateName })),
+        ...(extraPrivate || []).flatMap(src => src.msgs.slice(-cap).map(m => ({ m, isGroup: false, lineName: src.name }))),
         // 以前漏進群裡、被拆成一則一則氣泡的思考過程整串拿掉（見 reasoningLeak.ts）
         ...(() => { const leaked = leakedBubbleIds(groupMsgs as any); return groupMsgs.filter(m => !leaked.has(m.id)); })()
             .slice(-cap).map(m => ({ m, isGroup: true })),
@@ -58,11 +66,11 @@ export function buildMemberTimeline(opts: MemberTimelineOptions): string {
 
     return tagged
         .slice(-cap)
-        .map(({ m, isGroup }) => {
-            const tag = isGroup ? '[群聊]' : '[私聊]';
+        .map(({ m, isGroup, lineName }) => {
+            const tag = isGroup ? '[群聊]' : lineName ? `[私聊·${lineName}]` : '[私聊]';
             // 私聊行的"我"= 該成員本人；群聊行用真名，成員才能分清誰說的
             const speaker = m.role === 'user'
-                ? (isGroup && userSpeaker ? userSpeaker(m) : '用戶')
+                ? (isGroup && userSpeaker ? userSpeaker(m) : (!isGroup && lineName) || '用戶')
                 : (isGroup ? resolveSpeaker(m) : '我');
             // 群裡以前漏出來的思考過程（見 reasoningLeak.ts）不再當範例給這位成員看
             const logText = isGroup && m.role === 'assistant' ? stripLeakedReasoning(messageLogText(m, stickerName)).content : messageLogText(m, stickerName);

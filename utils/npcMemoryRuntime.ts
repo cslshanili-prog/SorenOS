@@ -1,5 +1,7 @@
-import type { GroupProfile, NPCProfile } from '../types';
+import type { CharacterProfile, GroupProfile, Message, NPCProfile, UserProfile } from '../types';
 import { DB } from './db';
+import { memberVisibleGroupMessages, presentPersonaKeys, userMessageKey } from './groupChat/presence';
+import { personaNameForKey } from './userPersona';
 import {
     buildNpcMemoryUpdatePrompt, formatGroupTranscriptForNpc, pendingGroupMemorySlice, summarizeNpcMemory,
 } from './npcMemory';
@@ -17,11 +19,17 @@ export async function refreshNpcMemoryFromGroups(params: {
     groups: GroupProfile[];
     nameOf: (id: string) => string;
     userName: string;
+    /**
+     * 有給就照在場的身份判斷旁觀、你那一行照訊息上的卡寫名字（關係線第 5 批）；
+     * 不給照舊看群的隱身圍觀開關、一律 userName。
+     */
+    profileBase?: UserProfile;
+    characters?: Array<Pick<CharacterProfile, 'id' | 'groupId'>>;
     api: { baseUrl: string; apiKey: string; model: string };
     force?: boolean;
     save: (patch: Pick<NPCProfile, 'memory' | 'memoryUpdatedAt' | 'memoryGroupMarks'>) => void;
 }): Promise<number> {
-    const { npc, groups, nameOf, userName, api, force, save } = params;
+    const { npc, groups, nameOf, userName, api, force, save, profileBase, characters } = params;
     if (!api.apiKey) return 0;
     let memory = npc.memory;
     let marks = { ...(npc.memoryGroupMarks || {}) };
@@ -29,11 +37,18 @@ export async function refreshNpcMemoryFromGroups(params: {
     for (const group of groups) {
         if (!(group.npcMemberIds || []).includes(npc.id)) continue;
         const all = await DB.getGroupMessages(group.id);
-        const visible = group.userLurkMode ? all.filter(m => m.role !== 'user') : all;
+        // 旁觀的群裡你說的話 AI 本來就看不到；旁觀時打的（offstage）在場時也看不到
+        const present = profileBase ? presentPersonaKeys(profileBase, group, characters || []) : undefined;
+        const visible = present
+            ? memberVisibleGroupMessages(all, present.length === 0)
+            : (group.userLurkMode ? all.filter(m => m.role !== 'user') : all);
         const slice = pendingGroupMemorySlice(visible, marks[group.id], { force });
         if (!slice) continue;
         try {
-            const transcript = formatGroupTranscriptForNpc(slice.messages, npc.id, nameOf, userName);
+            const speakerName = profileBase && present?.length
+                ? (m: Message) => personaNameForKey(profileBase, userMessageKey(m, present[0]))
+                : userName;
+            const transcript = formatGroupTranscriptForNpc(slice.messages, npc.id, nameOf, speakerName);
             memory = await summarizeNpcMemory(api, buildNpcMemoryUpdatePrompt({
                 npc: { ...npc, memory }, sourceLabel: `群聊「${group.name}」`, transcript, userName,
             }));

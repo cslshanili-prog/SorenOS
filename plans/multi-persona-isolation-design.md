@@ -8,7 +8,7 @@
 > - 第 1 步已完成（#52）：世界預設身份、單角色畫面與背景生成全部照角色綁定走。
 > - 文末五個待定照建議定案（2026-09-28）；「一個角色碰到兩個身份」的規則見「主身份與見過的身份」一節。
 > - **2a 朋友圈已完成**，連同第 3 節「近期群聊背景標錯名字」一起修掉。落地在：身份鍵 `personaKeyForChar`／`personaKeyForGroup`（`utils/userPersona.ts`）、主身份與見過的身份 `buildPersonaKnowledge`（`utils/momentsPersona.ts`）、好友圖的 `personaRelation`（`utils/momentsPool.ts`）、「那是不同的人」提醒 `distinctPersonaNote`（`utils/personaSpeaker.ts`）。
-> - **2b 群聊已完成**：群沒單獨指定身份時改用「成員多數私下認識的身份」（定案 2026-09-28，見第 2 節）；訊息記身份、成員時間線與檔案塊、群設定與建群標示都落地在 `utils/groupChat/memberPersona.ts` 與 `apps/GroupChat.tsx`。
+> - **2b 群聊已完成**：群沒單獨指定身份時改用「成員多數私下認識的身份」（定案 2026-09-28，見第 2 節）；訊息記身份、成員時間線與檔案塊、群設定與建群標示都落地在 `utils/groupChat/memberPersona.ts` 與 `apps/GroupChat.tsx`。關係線第 5 批起「群身份」換成「在場的身份」（可以好幾張、一張都不選＝旁觀），見 [`persona-line-batch5.md`](./persona-line-batch5.md)。
 > - **2c 查手機對聊與 NPC 已完成**：角色對聊兩邊各用自己認識的名字（`runRealConversation` 的 `userB`/`samePersona`，提醒走 `crossPersonaNote`）；NPC 的 `knownPersonaId` 與自動推測走 `personaKeyForNpc`，用在朋友圈、群聊檔案塊與客串、查手機的 NPC 對聊。剩 2d 多角色同場的畫面。
 > - **2d 第一批已完成**（盤點與分法定案 2026-09-28，見第 6 節）：家園修成照角色走；彼方、遊戲、人生模擬有場景身份（`personaKeyForScene`）。社群、手帳照朋友圈的做法，下一小批。
 > - **2d 第二批已完成**：手帳照角色走；社群的網名帳號綁一張身份卡（見第 6 節）。多身份隔離第 2 步全部完成。
