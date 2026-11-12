@@ -50,7 +50,8 @@ export function scheduleReactionsForPost(post: MomentPost, ctx: MomentsRuntimeCo
         post, graph, settings, now: Date.now(),
         candidates: [
             // 下戲的配角不自己按讚留言（utils/castRole.ts）
-            ...ctx.characters.filter(isOnStage).map(c => ({ id: c.id, kind: 'character' as const })),
+            // 小號的朋友圈互動在 7b 接上之前先不跑
+            ...ctx.characters.filter(c => isOnStage(c) && !c.altOf).map(c => ({ id: c.id, kind: 'character' as const })),
             ...ctx.npcs.map(n => ({ id: n.id, kind: 'npc' as const })),
         ],
     });
@@ -82,7 +83,7 @@ async function maybeAutoPost(ctx: MomentsRuntimeContext): Promise<void> {
     const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);
     if (!settings.autoPostEnabled) return;
     // 私聊拉黑中的角色不自動發：用戶看不到，白花 API
-    const posterIds = [...ctx.characters.filter(c => !c.chatBlock && isOnStage(c)).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
+    const posterIds = [...ctx.characters.filter(c => !c.chatBlock && isOnStage(c) && !c.altOf).map(c => c.id), ...ctx.npcs.map(n => n.id)].filter(id => canAutoPost(settings, id));
     const now = Date.now();
     const { schedule, due } = reconcilePostSchedule(readPostSchedule(), posterIds, now, settings);
     if (due.length === 0) { writePostSchedule(schedule); return; }

@@ -8,11 +8,12 @@ import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProf
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
-import { personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './userPersona';
+import { lineViewPersonaKey, personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './userPersona';
 import { memberVisibleGroupMessages, presentPersonaKeys } from './groupChat/presence';
 import { knowsPersona } from './chatLine';
 import { sameIdentityKeys } from './personaLinks';
 import { formatPairContext, loadPairContextSources } from './pairContext';
+import { loadAltBridgeText } from './charAlt';
 import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -557,6 +558,12 @@ ${groupLogStr}\n`;
             }
         })();
 
+        // 3c. 小號互通（關係線第 7 批，utils/charAlt.ts）：小號知道本人跟你聊的、本人知道小號跟你聊的
+        const altBridgePromise: Promise<string> = loadAltBridgeText({
+            char, personaKey: lineViewPersonaKey(char) || char.primaryPersonaKey, userName: userProfile.name,
+            formatDate: ts => ChatPrompts.formatDate(ts, charTz),
+        }).catch(e => { console.error('Failed to load alt bridge', e); return ''; });
+
         // 4. Notion 日記標題
         const notionDiaryPromise: Promise<string> = (async () => {
             try {
@@ -646,7 +653,7 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText, pairContextText] =
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText, pairContextText, altBridgeText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -659,6 +666,7 @@ ${groupLogStr}\n`;
                 timed('moments', momentsPromise),
                 timed('mallPicks', mallPromise),
                 timed('pairCtx', pairContextPromise),
+                timed('altBridge', altBridgePromise),
             ]);
 
         // ── 拼接：易變的進 volatileState，穩定的進 baseSystemPrompt ──
@@ -751,6 +759,7 @@ ${groupLogStr}\n`;
         // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
         volatileState += pairContextText;
+        volatileState += altBridgeText;
         volatileState += momentsText;
         // 你的錢包（utils/realBalancePrompt.ts）：餘額會隨轉帳變，放易變段；從沒建過錢包的角色是空字串
         volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);

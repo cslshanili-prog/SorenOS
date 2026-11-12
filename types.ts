@@ -3038,6 +3038,17 @@ export interface CharacterProfile {
   /** 跟別人的關係（從 NPC 的關係清單搬來；主角配角都能用）。targetId 是角色 id，或 'user' */
   relationships?: NPCRelationship[];
   /**
+   * 這是誰的小號（關係線第 7 批，plans/persona-line-batch7.md）：本人的角色 id。有值就是小號：
+   * 人設、記憶照本人的（utils/charAlt.ts），只有對外的名字、頭像、簡介是小號自己的；神經鏈接不單獨列。
+   */
+  altOf?: string;
+  /** 開這個小號的理由（給本人和提示詞看） */
+  altPurpose?: string;
+  /** 小號是誰開的：你幫它開的（user）或它自己開的（char）；它自己開的才算進上限 */
+  altCreatedBy?: 'user' | 'char';
+  /** 本人身上：它自己最多開幾個小號（0＝不讓它自己開）；沒有就是 3 */
+  altSelfLimit?: number;
+  /**
    * 視頻通話使用的本地 VRM / Live2D 形象。模型二進制包保存在 IndexedDB
    * blob_assets，角色資料只保存輕量索引，避免把數 MB 的模型塞進
    * localStorage / React state。

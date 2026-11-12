@@ -3843,6 +3843,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const setCharBenched = async (id: string, benched: boolean) => {
       const char = charactersRef.current.find(c => c.id === id);
       if (!char || !!char.benchedAt === benched) return;
+      // 小號跟著本人（關係線第 7 批）：本人下戲／叫回來，小號一起
+      for (const alt of charactersRef.current.filter(c => c.altOf === id)) void setCharBenched(alt.id, benched);
       const now = Date.now();
       if (benched) {
           updateCharacter(id, { benchedAt: now });
@@ -4010,6 +4012,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     setCharacters(prev => { const remaining = prev.filter(c => c.id !== id); if (remaining.length > 0 && activeCharacterId === id) { setActiveCharacterId(remaining[0].id); } return remaining; });
     await DB.deleteCharacter(id);
+    // 刪本人，小號一起刪（關係線第 7 批）
+    for (const alt of charactersRef.current.filter(c => c.altOf === id)) {
+        try { await deleteCharacter(alt.id, { force: true }); } catch (e) { console.warn('[deleteCharacter] 小號刪除失敗', e); }
+    }
     // 跟 ta 有關的角色私聊線一起刪（關係線第 6 批）；另一個角色已經整理進記憶的照留
     try {
         for (const pairId of await DB.getPairLineIds()) {

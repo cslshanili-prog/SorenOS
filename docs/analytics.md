@@ -1267,6 +1267,7 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 游戏场景身份指定 —— choice（auto / real / persona）：开一局游戏时指定你是哪张身份卡
 - 人生模拟场景身份指定 —— choice（auto / real / persona）：指定你在人生模拟城市里是哪张身份卡（都市人生 2026-11 下架，不会再出现）
 - 社群账号身份指定 —— choice（auto / real / persona）：指定你的 Spark 账号属于哪张身份卡（Spark 2026-11 下架，不会再出现）
+- 帮角色开小号 —— 头像（有 / 无）：关系线预览里神经链接角色编辑页「小号」那一区按「开这个小号」（plans/persona-line-batch7.md）
 - 让他们聊一轮 —— 方式（聊一轮 / 冒充）：关系线预览里「角色私聊」对话页按「让他们聊一轮」，或以其中一个人的身份说一句（plans/persona-line-batch6.md 第 2 节）
 - AI 生成配角 —— 数量（1 / 2-3 / 4-5）、头像（有 / 无）：关系线预览里神经链接「配角」页按「AI 生成配角」，建立时发一次（plans/persona-line-batch6.md 第 6 节）
 - 送出好友申请 —— 结果（通过 / 被拒）：关系线预览里用一张角色还不认识的身份卡去加他，他决定通不通过（plans/persona-line-batch4.md）

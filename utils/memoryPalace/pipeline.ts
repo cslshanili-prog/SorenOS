@@ -1184,6 +1184,19 @@ export async function injectMemoryPalace(
     userName?: string,
     traceContext?: { entryPoint?: RecallEntryPoint; formatterMaxOutputItems?: number },
 ): Promise<RecallTrace> {
+    // 小號（關係線第 7 批）：用本人的記憶宮殿召回（記憶只有一份），結果寫回小號身上
+    const altOf = (char as { altOf?: string }).altOf;
+    if (altOf) {
+        const { getRegisteredCharacter } = await import('../charNameRegistry');
+        const owner = getRegisteredCharacter<any>(altOf);
+        if (owner) {
+            const proxy = { ...owner, memoryPalaceInjection: '', roomPlatesInjection: '' };
+            const trace = await injectMemoryPalace(proxy, recentMessages, queryHint, userName, traceContext);
+            char.memoryPalaceInjection = proxy.memoryPalaceInjection;
+            char.roomPlatesInjection = proxy.roomPlatesInjection;
+            return trace;
+        }
+    }
     const hadPreviousMemory = Boolean(char.memoryPalaceInjection);
     const hadPreviousRoomPlates = Boolean(char.roomPlatesInjection);
     const trace = createRecallTrace({

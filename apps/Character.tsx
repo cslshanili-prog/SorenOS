@@ -15,6 +15,7 @@ import ImpressionPanel from '../components/character/ImpressionPanel';
 import NPCManagerView from '../components/character/NPCManagerView';
 import { isSupporting, sortByCast } from '../utils/castRole';
 import CastGeneratorPage from '../components/character/CastGeneratorPage';
+import AltAccountsSection from '../components/character/AltAccountsSection';
 import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
@@ -116,9 +117,10 @@ const Character: React.FC = () => {
   const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
   // 關係線預覽開著：主角／配角分開列（配角是同一張表的角色，plans/persona-line-batch6.md）；關著照舊全列
   const [showCastGenerator, setShowCastGenerator] = useState(false);
+  // 小號不單獨列，在本人編輯頁的「小號」那一區（關係線第 7 批）
   const listChars = personaLinesEnabled
-      ? sortByCast(characters.filter(c => (topTab === 'supporting') === isSupporting(c)))
-      : characters;
+      ? sortByCast(characters.filter(c => !c.altOf && (topTab === 'supporting') === isSupporting(c)))
+      : characters.filter(c => !c.altOf);
   const [view, setView] = useState<'list' | 'detail'>(() => launchIntent?.charId ? 'detail' : 'list');
   const [charPage, setCharPage] = useState(0); // 角色列表分頁（每頁 6 個，僅未建分組時）
   // 分組展開狀態：存"已展開"的分組 id（未記錄 = 收起）。跨會話記住，key 見下
@@ -1286,7 +1288,7 @@ ${isInitialGeneration ? `
                        <span className="absolute -top-3 -left-2 text-violet-300 text-xs select-none">✦</span>
                        <span className="absolute -top-1 left-9 text-violet-200 text-[10px] select-none">✦</span>
                        <h1 className="text-[30px] font-serif font-bold tracking-wide leading-tight text-slate-800">神經鏈接</h1>
-                       <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.length}</span> 個角色連接</p>
+                       <p className="text-xs text-violet-400/90 mt-2">已建立 <span className="font-bold text-violet-500">{characters.filter(c => !c.altOf).length}</span> 個角色連接</p>
                        {personaLinesEnabled && topTab === 'supporting' && (
                            <p className="text-[10px] text-violet-400/80 mt-1 max-w-[14rem] leading-relaxed">配角跟主角能做的事一樣，主動消息預設關；不用的時候可以下戲。</p>
                        )}
@@ -1562,7 +1564,29 @@ ${isInitialGeneration ? `
                                </div>
                            </div>
 
-                           {personaLinesEnabled && (
+                           {personaLinesEnabled && formData.altOf && (() => {
+                               const owner = characters.find(c => c.id === formData.altOf);
+                               return (
+                                   <div className="rounded-2xl bg-violet-50 border border-violet-100 px-4 py-3 space-y-2">
+                                       <div className="text-xs font-bold text-violet-600">這是「{owner?.name || '已刪除的角色'}」的小號</div>
+                                       <p className="text-[10px] text-violet-500/80 leading-relaxed">人設、記憶都是{owner?.name || '本人'}的，下面的核心指令不用填；這裡只管對外的名字、頭像、簡介。戲份跟著本人。</p>
+                                       <textarea value={formData.altPurpose || ''} onChange={e => handleChange('altPurpose', e.target.value.slice(0, 200))} rows={2}
+                                           placeholder="開這個小號的真實理由（只有 TA 自己知道）"
+                                           className="w-full bg-white rounded-xl px-3 py-2 text-xs text-slate-700 outline-none resize-none" />
+                                       {owner && <button onClick={() => { setEditingId(owner.id); setFormData(owner); }} className="text-[11px] font-bold text-violet-600">← 回到 {owner.name}</button>}
+                                   </div>
+                               );
+                           })()}
+
+                           {personaLinesEnabled && !formData.altOf && (
+                               <AltAccountsSection
+                                   owner={formData}
+                                   onOpenAlt={a => { setEditingId(a.id); setFormData(a); }}
+                                   onChangeLimit={n => handleChange('altSelfLimit', n)}
+                               />
+                           )}
+
+                           {personaLinesEnabled && !formData.altOf && (
                                <div>
                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">戲份</label>
                                    <div className="flex gap-2 items-center flex-wrap">

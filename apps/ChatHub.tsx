@@ -203,7 +203,8 @@ const ChatHub: React.FC = () => {
     const contactSections = useMemo(() => {
         const q = contactQuery.trim().toLowerCase();
         const items: ContactRow[] = [
-            ...characters.map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: c.description || '' })),
+            // 小號（關係線第 7 批）加了你好友才會出現在私聊裡，聯繫人不列
+            ...characters.filter(c => !c.altOf).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: c.description || '' })),
             ...npcs.map(n => ({ id: n.id, name: n.name, avatar: n.avatar, kind: 'npc' as const, sub: n.description || '' })),
         ].filter(it => !q || it.name.toLowerCase().includes(q));
         items.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));

@@ -58,7 +58,12 @@ altPurpose?: string;
 
 ## 7. 實作拆法
 
-- **7a**：`altOf`／`altPurpose`、小號的提示詞（人設記憶照本人、對外換小號、互通段）、刪除與戲份跟本人、本人編輯頁「小號」一區（你幫它開、AI 生成）。
+- **7a — 已做**：`altOf`／`altPurpose`／`altCreatedBy`／`altSelfLimit`、小號的提示詞（人設記憶照本人、對外換小號、互通段）、刪除與戲份跟本人、本人編輯頁「小號」一區（你幫它開、AI 生成）。
+  - 純邏輯在 `utils/charAlt.ts`：`altPersonaView`（本人的人設、世界、世界書、記憶、印象，小號的 id／名字／頭像／簡介）、`altIdentityBlock`（「你是本人，現在用小號在說話，對方不知道」）、`formatAltBridge`／`loadAltBridgeText`（互通：小號看本人同一張卡那條線、本人看每個小號那條線，最近 12 則，接在私聊提示詞「私下跟別人聊的」後面）。
+  - `ContextBuilder.buildCoreSections` 遇到小號就換成本人人設再組（所以私聊、見面、通話、其他走核心上下文的地方都對）；名字表（`charNameRegistry`）多登記完整角色卡（`getRegisteredCharacter`）。`injectMemoryPalace` 遇到小號用本人的記憶宮殿召回、結果寫回小號。
+  - 小號跟著本人：本人下戲／叫回來，小號一起；刪本人，小號一起刪。小號自己的日程、情緒不另外跑。
+  - 小號不在神經鏈接主列表、選角列表（`filterCharactersByGroup`）、訊息列表的聯繫人裡出現；朋友圈自動互動在 7b 接上前先不跑。
+  - 本人編輯頁「小號」一區（`components/character/AltAccountsSection.tsx`）：列出（你幫它開的／它自己開的）、點進去編小號（標「這是某某的小號」、可改理由、回到本人）、收掉、幫它開一個（自己填或 AI 想，`utils/charAltGenerate.ts`，可順便畫頭像）、「它自己最多開幾個」0～5。埋點 `帮角色开小号`（头像：有／无）。
 - **7b**：朋友圈：小號當作者、它跟你的好友關係（預設不是朋友）、其他角色看到時的「認出要有證據」規則。
 - **7c**：加你好友（角色主動來加）、通過／拒絕／封鎖、私聊；它自己開小號的標記。
 - **7d**：「我知道你是誰」、認／不認的卡片、本人說出來也算。
