@@ -385,7 +385,8 @@ const Character: React.FC = () => {
             // 關係線：lines 不從編輯頁整份寫回（非主線的改動已經由 handleLineChange 直接寫進去了）
             // 下戲、主動消息的留底和任務清單是別處（下戲按鈕、見面、主動消息）在寫的，編輯頁不碰；
             // 整份寫回會拿舊的蓋掉剛停下來的任務
-            const { lines: _lines, benchedAt: _benched, dateOfflinePause: _pause, activeMsg2Config: _amsg, ...rest } = formData;
+            // 小號的好友申請與好友狀態（關係線第 7 批 7c）也是別處在寫（訊息列表、本人那一區）
+            const { lines: _lines, benchedAt: _benched, dateOfflinePause: _pause, activeMsg2Config: _amsg, altFriendRequest: _req, altUserFriend: _friend, ...rest } = formData;
             updateCharacter(editingId, rest);
         } else {
             console.warn(`Race condition prevented: Tried to save data for ${formData.id} into slot ${editingId}`);

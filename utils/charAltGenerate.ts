@@ -14,6 +14,16 @@ export interface AltDraft {
     purpose: string;
     /** 外觀，畫頭像用 */
     appearance: string;
+    /** 用這個小號加你好友時的招呼（空＝先不來加你；7c） */
+    greeting?: string;
+}
+
+/** 沒畫頭像時的預設頭像（色塊加第一個字） */
+export function altDefaultAvatar(seed: string): string {
+    const colors = ['FF9AA2', 'FFB7B2', 'FFDAC1', 'E2F0CB', 'B5EAD7', 'C7CEEA', 'e2e8f0', 'fcd34d', 'fca5a5'];
+    const color = colors[(seed.charCodeAt(0) || 0) % colors.length];
+    const letter = seed.charAt(0).toUpperCase();
+    return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23${color}"/><text x="50" y="55" font-family="sans-serif" font-weight="bold" font-size="50" text-anchor="middle" dy=".3em" fill="white" opacity="0.9">${letter}</text></svg>`;
 }
 
 const clip = (s: unknown, max: number): string => (typeof s === 'string' ? s.trim() : '').slice(0, max);
@@ -38,9 +48,10 @@ ${args.hint?.trim() || '照 TA 的性格和處境，想一個 TA 開小號最可
 - 小號的名字是網名，要像這個人會取的，但不能一看就知道是 TA；不要用這些名字：${[owner.name, ...args.existingNames].map(n => `「${n}」`).join('、')}。
 - 簡介是別人點進這個帳號會看到的一句話。
 - 理由寫 TA 自己心裡的真實想法（一兩句）。
+- 招呼是 TA 用這個小號加用戶好友時會附的那句話，要像這個小號的口吻，不能露餡；TA 不會想用這個小號加用戶的話就留空字串。
 
 ## 輸出
-只輸出一個 JSON 物件：{"name":"網名","brief":"帳號簡介","purpose":"開這個小號的真實理由","appearance":"小號頭像要畫什麼（不一定是本人的臉，可以是風景、動物、動漫圖……），一句話"}`;
+只輸出一個 JSON 物件：{"name":"網名","brief":"帳號簡介","purpose":"開這個小號的真實理由","appearance":"小號頭像要畫什麼（不一定是本人的臉，可以是風景、動物、動漫圖……），一句話","greeting":"加用戶好友時的招呼，或空字串"}`;
 }
 
 export function parseAltDraft(raw: string): AltDraft | null {
@@ -48,7 +59,7 @@ export function parseAltDraft(raw: string): AltDraft | null {
     const o = Array.isArray(obj) ? obj[0] : obj;
     const name = clip(o?.name, 20);
     if (!name) return null;
-    return { name, brief: clip(o?.brief, 80), purpose: clip(o?.purpose, 200), appearance: clip(o?.appearance, 200) };
+    return { name, brief: clip(o?.brief, 80), purpose: clip(o?.purpose, 200), appearance: clip(o?.appearance, 200), greeting: clip(o?.greeting, 120) };
 }
 
 /** 填好的小號 → 角色卡：所在世界、戲份、主線都跟本人；人設、記憶在組提示詞時讀本人的（utils/charAlt.ts）。 */

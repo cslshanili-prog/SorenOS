@@ -70,5 +70,13 @@ altPurpose?: string;
   - 本人和自己的小號不去對方的貼文底下互動（`momentsAutoRuntime` 的 `sameOwner`），免得自己跟自己聊起來露餡。
   - 「認出要有證據」：`ALT_RECOGNITION_RULE`（`utils/charAlt.ts`）。貼文作者或任何一則留言是小號時，批次留言（`buildBatchCommentPrompt` 的 `strangerRule`）和單一角色留言（`buildCharCommentPrompt`）都帶這條；不另外記狀態。
   - 小號自己在批次留言名單裡：口吻寫本人的（`characterVoice(owner)`），加一句「其實是本人的小號，別人不知道，口吻會刻意不同」——只給寫留言的模型看。
-- **7c**：加你好友（角色主動來加）、通過／拒絕／封鎖、私聊；它自己開小號的標記。
+- **7c — 已做**：加你好友、它自己開小號。純邏輯在 `utils/altFriend.ts`，你回覆那一步（寫 DB）在 `utils/altFriendActions.ts`。
+  - 申請存在小號身上 `altFriendRequest`（加的是哪張卡、招呼、什麼時候到、狀態、你拒絕過幾次和上次的招呼）。到了 `at` 才出現在訊息列表頂端「新的朋友」（`components/chat/AltRequestsBlock.tsx`，「群聊」「角色私聊」篩選不顯示），App 開著時順便提一聲（同一份申請只提一次）。
+  - 第一次 10～40 分鐘後到、被拒之後再來 5～20 分鐘後到。**通過**：`altUserFriend` 設成真，加的那張卡變成小號的主線（`primaryPersonaKey`／`knownPersonaKeys`），落「它的招呼 → 你通過了」兩則，接著打開它的私聊；加的是別張卡就先切成那張卡。聯繫人分頁也開始列它。**拒絕**：記一筆，要不要再來由本人決定。**封鎖**：不會再來；本人編輯頁「小號」那一區可以解除封鎖（變回「拒絕過」）。
+  - 本人私聊的提示詞多一段「你的小號（只有你自己知道）」（`buildOwnerAltPrompt`，開關開著、不是小號才帶）：列每個小號跟你的好友狀態，教 `[[ACTION:ALT_ADD|小號名|招呼]]`；還有名額就教 `[[ACTION:OPEN_ALT|網名|帳號簡介|為什麼開|加你的招呼]]`（招呼留空＝先不加你）。
+  - 後處理（`applyAssistantPostProcessing`，私聊和主動消息 2.0 收件都走這條）把兩個標籤一律剝掉，本人寫的才發 `ALT_ACTION_EVENT`；OSContext 照名額（`canOpenAlt`）、好友狀態（`resolveAltAdd`）決定做不做。它自己開的用預設頭像，生圖配好了就在背景畫一張。開了不跳通知（上帝視角）。
+  - 雲端：Worker 直通名單加了 OPEN_ALT／ALT_ADD，`AMSG_BUNDLE_VERSION` 升到 2026-11-12.2，要更新一次 Worker 才吃得到；沒更新的照舊被剝掉、不生效。主動消息 1.0（本機背景路徑）沒接，標籤會被 sanitize 剝乾淨。
+  - 你幫它開的小號：草稿多一格「加你好友時的招呼」（AI 也會想），有寫就排一次申請；小號那一區每個小號下面寫上帝視角的狀態（約幾分鐘後來加你／等你回覆／你拒絕過幾次／被你封鎖了／已經是好友），還沒到的有「現在就來」。
+  - 小號不在「＋ → 加好友」的名單裡（是它來加你）；編輯頁自動存檔不寫回 `altFriendRequest`／`altUserFriend`。
+  - 埋點：`角色自己开小号`（招呼）、`小号来加你好友`（第几次）、`回复小号好友申请`（结果）。
 - **7d**：「我知道你是誰」、認／不認的卡片、本人說出來也算。

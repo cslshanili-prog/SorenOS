@@ -27,7 +27,8 @@ const AddFriendPage: React.FC<{
     const personaKey = globalPersonaKey(userProfileBase);
     const face = faceForPersona(userProfileBase, personaKey, REAL_IDENTITY_PERSONA_ID);
     const char = characters.find(c => c.id === pickedId) || null;
-    const strangers = characters.filter(c => !knowsPersona(c, personaKey));
+    // 小號（關係線第 7 批）是它來加你，不在這裡列
+    const strangers = characters.filter(c => !c.altOf && !knowsPersona(c, personaKey));
     const history: FriendRequestRecord[] = (char?.friendRequests?.[personaKey]) || [];
 
     const send = async () => {

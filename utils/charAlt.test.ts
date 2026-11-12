@@ -67,7 +67,7 @@ describe('開小號', () => {
         expect(p).toContain('「夜航」');
     });
     it('解析：要有名字', () => {
-        expect(parseAltDraft('{"name":"雨夜","brief":"b","purpose":"p","appearance":"貓"}')).toEqual({ name: '雨夜', brief: 'b', purpose: 'p', appearance: '貓' });
+        expect(parseAltDraft('{"name":"雨夜","brief":"b","purpose":"p","appearance":"貓"}')).toEqual({ name: '雨夜', brief: 'b', purpose: 'p', appearance: '貓', greeting: '' });
         expect(parseAltDraft('{"brief":"沒名字"}')).toBeNull();
     });
     it('組角色卡：跟本人同世界、同主線、指回本人、日程情緒不另外跑', () => {

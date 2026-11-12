@@ -57,6 +57,8 @@ import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRel
 import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, extractBlockUser, type ChatBlockChangeDetail } from './chatBlock';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
 import { extractSuspicion, resolveSuspicion, type PersonaRevealMeta } from './personaReveal';
+import { ALT_ACTION_EVENT, extractAltTags, type AltActionDetail } from './altFriend';
+import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type CharCallMode, type IncomingCharCallDetail } from './charCall';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
 import { getReadNoReplyDecision } from './readNoReplyRuntime';
@@ -881,6 +883,17 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    /**
+     * 角色的小號（關係線第 7 批 7c）：[[ACTION:OPEN_ALT|…]] 自己開一個、[[ACTION:ALT_ADD|…]] 用小號加你。
+     * 標籤一律剝掉；本人說的才記下，這一輪話都落完再發事件（OSContext 照名額、好友狀態決定做不做）。
+     */
+    let pendingAltTags: Omit<AltActionDetail, 'ownerId' | 'personaKey'> | null = null;
+    const consumeAltTags = (content: string): string => {
+        const { cleanedText, openAlt, altAdd } = extractAltTags(content);
+        if ((openAlt || altAdd) && !char.altOf && !pendingAltTags) pendingAltTags = { openAlt, altAdd };
+        return cleanedText;
+    };
+
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
         const { cleanedText, block } = extractBlockUser(content);
@@ -899,6 +912,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeCharCall(aiContent);
     aiContent = consumeBlockUser(aiContent);
     aiContent = consumeSuspicion(aiContent);
+    aiContent = consumeAltTags(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2394,6 +2408,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeCharCall(aiContent);
     aiContent = consumeBlockUser(aiContent);
     aiContent = consumeSuspicion(aiContent);
+    aiContent = consumeAltTags(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2508,6 +2523,12 @@ export async function applyAssistantPostProcessing(
                 detail: { ...lineMsgFields(char), action: 'charBlock', reason: block.reason },
             }));
         }
+    }
+
+    if (pendingAltTags && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent<AltActionDetail>(ALT_ACTION_EVENT, {
+            detail: { ownerId: char.id, personaKey: lineViewPersonaKey(char) || char.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID, ...(pendingAltTags as Omit<AltActionDetail, 'ownerId' | 'personaKey'>) },
+        }));
     }
 
     // 小號的懷疑卡也排在這一輪的話後面

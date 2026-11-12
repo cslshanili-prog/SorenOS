@@ -3050,6 +3050,8 @@ export interface CharacterProfile {
   altSelfLimit?: number;
   /** 小號：你通過了它的好友申請（朋友圈才算朋友、私聊才出現；第 7 批 7c）。本人不用這個，預設就是朋友 */
   altUserFriend?: boolean;
+  /** 小號：加你好友的申請（第 7 批 7c，utils/altFriend.ts）。到了 at 才出現在訊息列表「新的朋友」 */
+  altFriendRequest?: AltFriendRequest;
   /**
    * 視頻通話使用的本地 VRM / Live2D 形象。模型二進制包保存在 IndexedDB
    * blob_assets，角色資料只保存輕量索引，避免把數 MB 的模型塞進
@@ -4285,6 +4287,21 @@ export interface FriendRequestRecord {
     greeting: string;
     accepted: boolean;
     reply?: string;
+}
+
+/** 角色的小號來加你好友（關係線第 7 批 7c）。 */
+export interface AltFriendRequest {
+    /** 加的是哪張卡（本人當時那條線的你） */
+    personaKey: string;
+    greeting: string;
+    /** 什麼時候到；之前你看不到 */
+    at: number;
+    status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+    /** 你拒絕過幾次（不冷卻，要不要再來照它的性格） */
+    rejectCount?: number;
+    /** 上一次被拒時的招呼 */
+    lastRejectedGreeting?: string;
+    decidedAt?: number;
 }
 
 /** 角色對一條小號連結的認知。沒有這筆＝不知道。 */
