@@ -104,6 +104,13 @@ describe('批次留言', () => {
         expect(prompt).toContain('只輸出 JSON 陣列');
     });
 
+    it('有小號：加「認出要有證據」', async () => {
+        const { ALT_RECOGNITION_RULE } = await import('./charAlt');
+        const base = { authorName: '夜航', userName: '我', post: { content: '睡不著', images: [] }, thread: '', commenters: [{ id: 'a', name: '小雨', brief: '' }] };
+        expect(buildBatchCommentPrompt(base)).not.toContain('具體的根據');
+        expect(buildBatchCommentPrompt({ ...base, strangerRule: ALT_RECOGNITION_RULE })).toContain('具體的根據');
+    });
+
     it('解析：只收名單裡的 id、同一人只收一則、去引號', () => {
         const parsed = parseBatchComments([
             { id: 'a', content: '「好看」' }, { id: 'a', content: '重複' }, { id: 'x', content: '不在名單' }, { id: 'b', content: '' },

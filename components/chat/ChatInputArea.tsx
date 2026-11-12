@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, GearSix, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive, MagnifyingGlass } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -77,6 +77,8 @@ interface ChatInputAreaProps {
     acnh?: boolean;
     /** 「AI 幫我回覆」：開了才在「+」面板出現按鈕（onPanelAction('reply-drafts')），草稿條由調用方管狀態。 */
     replyDraftsEnabled?: boolean;
+    /** 跟角色小號的私聊（關係線第 7 批 7d）：多一格「我知道你是誰」 */
+    altGuessEnabled?: boolean;
     replyDrafts?: ReplyDraftState | null;
     onReplyDraftPicked?: (text: string) => void;
     onCloseReplyDrafts?: () => void;
@@ -106,7 +108,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     sendButtonStyle = 'circle',
     chromeStyle = 'soft',
     acnh = false,
-    replyDraftsEnabled = false, replyDrafts = null, onReplyDraftPicked, onCloseReplyDrafts,
+    replyDraftsEnabled = false, altGuessEnabled = false, replyDrafts = null, onReplyDraftPicked, onCloseReplyDrafts,
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -679,7 +681,15 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                 <Sparkle className="w-6 h-6" weight="fill" />
             </div>
             <span className="text-xs font-bold">見面</span>
-        </button>
+        </button>,
+        ...(altGuessEnabled ? [
+            <button key="alt-guess" onClick={() => onPanelAction('alt-guess')} className={`flex flex-col items-center gap-2 active:scale-95 transition-transform ${acnh ? 'text-[#725d42]' : isDiscordStyle ? 'text-slate-200' : 'text-slate-600'}`}>
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border ${isDiscordStyle ? 'bg-slate-800 text-rose-300 border-rose-400/20' : 'bg-rose-50 text-rose-400 border-rose-100'}`}>
+                    <MagnifyingGlass className="w-6 h-6" weight="bold" />
+                </div>
+                <span className="text-xs font-bold">我知道你是誰</span>
+            </button>,
+        ] : []),
     ];
     const actionPageCount = Math.max(1, Math.ceil(actionTiles.length / ACTION_PAGE_SIZE));
     useEffect(() => setActionsPage(page => Math.min(page, actionPageCount - 1)), [actionPageCount]);

@@ -14,6 +14,7 @@ import { trackEvent } from '../utils/analytics';
 import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
 import AddFriendPage from '../components/chat/AddFriendPage';
 import PairChatPage from '../components/chat/PairChatPage';
+import AltRequestsBlock from '../components/chat/AltRequestsBlock';
 import { pairSpeakerOf, parsePairLineId } from '../utils/pairLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import {
@@ -203,7 +204,8 @@ const ChatHub: React.FC = () => {
     const contactSections = useMemo(() => {
         const q = contactQuery.trim().toLowerCase();
         const items: ContactRow[] = [
-            ...characters.map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: c.description || '' })),
+            // 小號（關係線第 7 批）你通過了它的好友申請才列
+            ...characters.filter(c => !c.altOf || c.altUserFriend).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: c.description || '' })),
             ...npcs.map(n => ({ id: n.id, name: n.name, avatar: n.avatar, kind: 'npc' as const, sub: n.description || '' })),
         ].filter(it => !q || it.name.toLowerCase().includes(q));
         items.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
@@ -326,6 +328,22 @@ const ChatHub: React.FC = () => {
                             ))}
                         </div>
 
+                        {msgFilter !== 'group' && msgFilter !== 'pair' && (
+                            <AltRequestsBlock
+                                activePersonaKey={activePersonaKey}
+                                onAccepted={async (alt, personaKey) => {
+                                    // 加的是別張卡：先切成那張卡，再打開它的私聊
+                                    if (personaKey !== activePersonaKey) {
+                                        await setActivePersonaId(personaKey === REAL_IDENTITY_PERSONA_ID ? undefined : personaKey);
+                                        addToast(`已切換成 ${personaNameForKey(userProfileBase, personaKey)}`, 'info');
+                                    }
+                                    setRowsVersion(v => v + 1);
+                                    setActiveCharacterId(alt.id);
+                                    chatReturnTarget.set(AppID.ChatHub);
+                                    openApp(AppID.Chat);
+                                }}
+                            />
+                        )}
                         {rows === null ? (
                             <div className="py-16 text-center text-xs text-slate-300">加載中…</div>
                         ) : filteredRows.length === 0 ? (

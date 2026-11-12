@@ -3038,6 +3038,25 @@ export interface CharacterProfile {
   /** 跟別人的關係（從 NPC 的關係清單搬來；主角配角都能用）。targetId 是角色 id，或 'user' */
   relationships?: NPCRelationship[];
   /**
+   * 這是誰的小號（關係線第 7 批，plans/persona-line-batch7.md）：本人的角色 id。有值就是小號：
+   * 人設、記憶照本人的（utils/charAlt.ts），只有對外的名字、頭像、簡介是小號自己的；神經鏈接不單獨列。
+   */
+  altOf?: string;
+  /** 開這個小號的理由（給本人和提示詞看） */
+  altPurpose?: string;
+  /** 小號是誰開的：你幫它開的（user）或它自己開的（char）；它自己開的才算進上限 */
+  altCreatedBy?: 'user' | 'char';
+  /** 本人身上：它自己最多開幾個小號（0＝不讓它自己開）；沒有就是 3 */
+  altSelfLimit?: number;
+  /** 小號：你通過了它的好友申請（朋友圈才算朋友、私聊才出現；第 7 批 7c）。本人不用這個，預設就是朋友 */
+  altUserFriend?: boolean;
+  /** 小號：加你好友的申請（第 7 批 7c，utils/altFriend.ts）。到了 at 才出現在訊息列表「新的朋友」 */
+  altFriendRequest?: AltFriendRequest;
+  /** 小號被認出來了（第 7 批 7d，utils/altReveal.ts）：你猜中它認了（admitted），或它自己說出來（told） */
+  altRevealed?: { at: number; how: 'admitted' | 'told' };
+  /** 你懷疑過這個小號就是本人、它沒認 */
+  altDenied?: { times: number; lastAt: number };
+  /**
    * 視頻通話使用的本地 VRM / Live2D 形象。模型二進制包保存在 IndexedDB
    * blob_assets，角色資料只保存輕量索引，避免把數 MB 的模型塞進
    * localStorage / React state。
@@ -4272,6 +4291,21 @@ export interface FriendRequestRecord {
     greeting: string;
     accepted: boolean;
     reply?: string;
+}
+
+/** 角色的小號來加你好友（關係線第 7 批 7c）。 */
+export interface AltFriendRequest {
+    /** 加的是哪張卡（本人當時那條線的你） */
+    personaKey: string;
+    greeting: string;
+    /** 什麼時候到；之前你看不到 */
+    at: number;
+    status: 'pending' | 'accepted' | 'rejected' | 'blocked';
+    /** 你拒絕過幾次（不冷卻，要不要再來照它的性格） */
+    rejectCount?: number;
+    /** 上一次被拒時的招呼 */
+    lastRejectedGreeting?: string;
+    decidedAt?: number;
 }
 
 /** 角色對一條小號連結的認知。沒有這筆＝不知道。 */

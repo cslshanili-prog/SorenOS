@@ -51,6 +51,16 @@ describe('朋友關係', () => {
     });
 });
 
+describe('小號跟你', () => {
+    it('小號預設不是你的朋友，你加了才是；小號跟同世界角色照通訊錄', () => {
+        const g = buildFriendGraph([char('a'), { ...char('x'), altOf: 'a' }, { ...char('y'), altOf: 'a', altUserFriend: true }], []);
+        expect(g.areFriends('user', 'x')).toBe(false);
+        expect(g.areFriends('user', 'y')).toBe(true);
+        expect(g.areFriends('user', 'a')).toBe(true);
+        expect(canViewMoment('user', post('x', { visibility: { mode: 'public' } }), g)).toBe(true);
+    });
+});
+
 describe('誰看得到貼文', () => {
     const graph = buildFriendGraph([char('a', [contact({ linkedCharId: 'b' })]), char('b'), char('c')], [npc('n1', ['a'])]);
 

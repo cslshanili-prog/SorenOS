@@ -11,6 +11,8 @@
 let __charNames: Record<string, string> = {};
 let __charRefs: Array<{ id: string; groupId?: string; vrState?: { enabled?: boolean } }> = [];
 /** 每個角色的關係清單（關係線第 6 批）：提示詞「你身邊的人」要知道別人把你記成什麼 */
+/** 完整的角色卡（小號要讀本人的人設與記憶，關係線第 7 批） */
+let __charsById = new Map<string, any>();
 let __charRelations: Array<{ id: string; name: string; relationships: Array<{ targetId: string; description: string }> }> = [];
 
 export const setCharNameRegistry = (chars: Array<{ id: string; name: string; groupId?: string; vrState?: { enabled?: boolean }; relationships?: Array<{ targetId: string; description: string }> }>): void => {
@@ -20,6 +22,7 @@ export const setCharNameRegistry = (chars: Array<{ id: string; name: string; gro
     }
     __charNames = next;
     __charRefs = chars.filter(c => c?.id).map(c => ({ id: c.id, groupId: c.groupId, vrState: c.vrState ? { enabled: c.vrState.enabled } : undefined }));
+    __charsById = new Map(chars.filter(c => c?.id).map(c => [c.id, c]));
     __charRelations = chars.filter(c => c?.id && c.relationships?.length).map(c => ({ id: c.id, name: c.name, relationships: c.relationships! }));
 };
 
@@ -31,3 +34,10 @@ export const getCharRefs = (): Array<{ id: string; groupId?: string; vrState?: {
 
 export const getCharNameById = (id: string | undefined | null): string | null =>
     (id && __charNames[id]) || null;
+
+/** 完整的角色卡（OSProvider 登記的那份；找不到回 undefined）。 */
+export const getRegisteredCharacter = <T = any>(id: string | undefined | null): T | undefined =>
+    (id ? __charsById.get(id) : undefined) as T | undefined;
+
+/** 所有登記的角色卡（只讀快照）。 */
+export const getRegisteredCharacters = <T = any>(): T[] => [...__charsById.values()] as T[];

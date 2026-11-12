@@ -29,12 +29,14 @@ export const filterCharactersByGroup = (
     groups: CharacterGroup[],
     groupId: string,
 ): CharacterProfile[] => {
-    if (groupId === GROUP_FILTER_ALL) return sortByCast(characters);
+    // 小號（關係線第 7 批）不在選角列表裡出現：它對外是另一個人，你在本人的編輯頁才看得到
+    const pool = characters.filter(c => !c.altOf);
+    if (groupId === GROUP_FILTER_ALL) return sortByCast(pool);
     if (groupId === GROUP_FILTER_UNGROUPED) {
         const known = new Set(groups.map(g => g.id));
-        return sortByCast(characters.filter(c => !c.groupId || !known.has(c.groupId)));
+        return sortByCast(pool.filter(c => !c.groupId || !known.has(c.groupId)));
     }
-    return sortByCast(characters.filter(c => c.groupId === groupId));
+    return sortByCast(pool.filter(c => c.groupId === groupId));
 };
 
 interface FilterBarProps {

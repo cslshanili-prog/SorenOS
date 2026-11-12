@@ -124,6 +124,7 @@ import { retryPendingPhotoNow } from '../utils/pendingPhoto';
 import { scheduleDelayedReplyFor } from '../utils/delayedReplyRuntime';
 import { cancelDelayedReplyEverywhere, handoffDelayedReplyToCloud } from '../utils/delayedReplyCloud';
 import { resolveSuspicionCard } from '../utils/personaRevealActions';
+import AltGuessSheet from '../components/chat/AltGuessSheet';
 import {
     CONTEXT_RANGE_POLICY_VERSION,
     computeContextRangeSnapshot,
@@ -197,6 +198,8 @@ const Chat: React.FC = () => {
     const [collaborationPreviewAssetId, setCollaborationPreviewAssetId] = useState<string | null>(null);
     const [memoryRepairOpen, setMemoryRepairOpen] = useState(false);
     const [favoritesOpen, setFavoritesOpen] = useState(false);
+    // 小號私聊的「我知道你是誰」（關係線第 7 批 7d）
+    const [altGuessOpen, setAltGuessOpen] = useState(false);
     
     // Emoji State
     const [emojis, setEmojis] = useState<Emoji[]>([]);
@@ -1958,6 +1961,7 @@ const Chat: React.FC = () => {
             case 'collaboration': setShowPanel('none'); setCollaborationOpen(true); break;
             case 'memory-link': setShowPanel('none'); setMemoryRepairOpen(true); break;
             case 'favorites': setShowPanel('none'); setFavoritesOpen(true); break;
+            case 'alt-guess': setShowPanel('none'); setAltGuessOpen(true); break;
             case 'transfer': setModalType('transfer'); break;
             case 'poke': handleSendText('[戳一戳]', 'interaction'); break;
             case 'reply-drafts': case 'reply-drafts-refresh': void requestReplyDrafts(); break;
@@ -4818,6 +4822,7 @@ const Chat: React.FC = () => {
                     chromeStyle={osTheme.chatChromeStyle}
                     acnh={acnh}
                     replyDraftsEnabled={!!char.replyDrafts?.enabled}
+                    altGuessEnabled={personaLinesEnabled && !!char.altOf && !char.altRevealed}
                     replyDrafts={char.replyDrafts?.enabled ? replyDrafts : null}
                     onReplyDraftPicked={() => { closeReplyDrafts(); trackEvent('使用回复草稿'); }}
                     onCloseReplyDrafts={closeReplyDrafts}
@@ -4948,6 +4953,15 @@ const Chat: React.FC = () => {
                         setMemoryRepairOpen(false);
                         setShowPanel('none');
                     }}
+                />
+            )}
+
+            {altGuessOpen && char?.altOf && (
+                <AltGuessSheet
+                    alt={characters.find(c => c.id === char.id) || char}
+                    userName={chatUserProfile.name || '你'}
+                    onClose={() => setAltGuessOpen(false)}
+                    onDone={() => { void reloadMessages(visibleCountRef.current); }}
                 />
             )}
 

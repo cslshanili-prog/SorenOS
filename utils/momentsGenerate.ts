@@ -135,6 +135,8 @@ export async function generateCharacterMoment(params: {
         images,
         imagePrompt: draft.imagePrompt,
         source,
+        // 小號（關係線第 7 批）跟誰都還不是朋友，發的貼文公開，路過的人才看得到
+        ...(char.altOf ? { visibility: { mode: 'public' as const } } : {}),
     });
 }
 

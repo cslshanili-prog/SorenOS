@@ -1,3 +1,4 @@
+import { ALT_RECOGNITION_RULE } from './charAlt';
 import type { APIConfig, CharacterProfile, MomentComment, MomentPost, NPCProfile } from '../types';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
@@ -151,8 +152,10 @@ export function buildCharCommentPrompt(params: {
     thread: string;
     /** 貼文或留言裡有你用別的身份出現：提醒那是不同的人 */
     personaNote?: string;
+    /** 貼文或留言裡有小號：「認出要有證據」 */
+    strangerRule?: string;
 }): string {
-    const { charName, authorName, post, thread, personaNote } = params;
+    const { charName, authorName, post, thread, personaNote, strangerRule } = params;
     const photos = post.images.length ? `（配了 ${post.images.length} 張照片）` : '';
     return `你（${charName}）在朋友圈滑到${authorName}發的動態${photos}：
 「${post.content || '（只有照片）'}」
@@ -160,7 +163,7 @@ export function buildCharCommentPrompt(params: {
 底下目前的留言：
 ${thread || '（還沒有人留言）'}
 
-用你平常的口吻在底下留一句言，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。${personaNote ? `\n${personaNote}` : ''}
+用你平常的口吻在底下留一句言，像真的在朋友圈留言。從你和${authorName}的關係出發，不要客套。${personaNote ? `\n${personaNote}` : ''}${strangerRule ? `\n${strangerRule}` : ''}
 ${MOMENTS_VOICE_RULE}
 只輸出留言內容本身，不要帶名字、不要加引號。`;
 }
@@ -189,7 +192,10 @@ export async function commentAsCharacter(params: {
             model: api.model,
             messages: [
                 { role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) },
-                { role: 'user', content: buildCharCommentPrompt({ charName: char.name, authorName, post, thread, personaNote: personaNote() }) },
+                { role: 'user', content: buildCharCommentPrompt({
+                    charName: char.name, authorName, post, thread, personaNote: personaNote(),
+                    strangerRule: [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!characters.find(c => c.id === id)?.altOf) ? ALT_RECOGNITION_RULE : undefined,
+                }) },
             ],
             temperature: 0.9,
         }),

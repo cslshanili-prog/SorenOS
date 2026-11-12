@@ -5,7 +5,8 @@ import { normalizeUserImpression } from './impression';
 import { lineViewPersonaKey } from './userPersona';
 import { formatPersonaLinksBlock, sameIdentityKeys } from './personaLinks';
 import { formatCastRelationsBlock } from './castRelations';
-import { getCharNameById, getCharRelations } from './charNameRegistry';
+import { getCharNameById, getCharRelations, getRegisteredCharacter } from './charNameRegistry';
+import { altIdentityBlock, altMaskBlock, altPersonaView, isAltResolved } from './charAlt';
 
 /**
  * 關係線（plans/persona-line-batch1-2.md 第 6 節）：記憶片段不是這條線的，標清楚是跟誰的。
@@ -119,6 +120,15 @@ export const ContextBuilder = {
      * @param options.skipMemories 跳過月度總結和日度記錄（開啟記憶宮殿時用向量記憶替代）
      */
     buildRoleSettingsContext: (char: CharacterProfile, options?: { skipMemories?: boolean }): string => {
+        // 小號（關係線第 7 批）：本人的設定，名字寫清楚是誰在用小號，再加「你現在用的小號」
+        if (char.altOf && !isAltResolved(char)) {
+            const owner = getRegisteredCharacter<CharacterProfile>(char.altOf);
+            if (owner) {
+                const base = ContextBuilder.buildRoleSettingsContext(altPersonaView(char, owner), options)
+                    .replace(`### 角色名\n${char.name}\n`, `### 角色名\n${owner.name}（現在用小號「${char.name}」）\n`);
+                return `${base}\n${altMaskBlock(char, owner)}`;
+            }
+        }
         let context = `[System: Character Role Settings]\n\n`;
 
         // 1. 角色名
@@ -229,6 +239,15 @@ export const ContextBuilder = {
             deferVolatile?: boolean;
         },
     ): CoreContextSections => {
+        // 小號（關係線第 7 批，utils/charAlt.ts）：人設、記憶照本人的，對外的名字頭像簡介是小號的
+        if (char.altOf && !isAltResolved(char)) {
+            const owner = getRegisteredCharacter<CharacterProfile>(char.altOf);
+            if (owner) {
+                const sections = ContextBuilder.buildCoreSections(altPersonaView(char, owner), user, includeDetailedMemories, memoryPalaceContext, groupOptions, timeOptions, layout);
+                sections.identity = altIdentityBlock(char, owner);
+                return sections;
+            }
+        }
         const skipBookIds = groupOptions?.skipWorldbookIds;
         const filteredBooks = (char.mountedWorldbooks || []).filter(wb => !skipBookIds || !skipBookIds.has(wb.id));
         const worldbookSections = splitWorldbookSections(resolveWorldbookEntries(

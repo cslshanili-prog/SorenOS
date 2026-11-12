@@ -12,7 +12,7 @@ import type {
 
 export const USER_ID = 'user';
 
-type FriendChar = Pick<CharacterProfile, 'id'> & { phoneState?: { contacts?: PhoneContact[] }; chatBlock?: CharacterProfile['chatBlock'] };
+type FriendChar = Pick<CharacterProfile, 'id'> & { phoneState?: { contacts?: PhoneContact[] }; chatBlock?: CharacterProfile['chatBlock']; altOf?: string; altUserFriend?: boolean };
 type FriendNpc = Pick<NPCProfile, 'id' | 'relationships'>;
 
 export interface FriendGraph {
@@ -78,7 +78,9 @@ export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[], pe
         if (ka === 'npc' && kb === 'npc') return false;
         if (ka === 'user' || kb === 'user') {
             const other = ka === 'user' ? b : a;
-            return kindOf(other) === 'character' ? true : npcKnows(other, USER_ID);
+            // 角色預設跟你是朋友；小號（關係線第 7 批）要你通過它的好友申請才是
+            if (kindOf(other) === 'character') return charById.get(other)?.altOf ? !!charById.get(other)?.altUserFriend : true;
+            return npcKnows(other, USER_ID);
         }
         if (ka === 'npc' || kb === 'npc') {
             const [npc, char] = ka === 'npc' ? [a, b] : [b, a];

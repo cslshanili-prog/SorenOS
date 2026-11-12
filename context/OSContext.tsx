@@ -114,6 +114,8 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { formatBytes } from '../utils/format';
 import { isEmotionEvalSkipped, isPersonaLinesEnabled, subscribeDevDebugAvailability, subscribeDevDebugFlags } from '../utils/devDebug';
+import { ALT_ACTION_EVENT, canOpenAlt, dueAltRequests, planAltRequest, resolveAltAdd, type AltActionDetail } from '../utils/altFriend';
+import { altDefaultAvatar, buildAltCharacter } from '../utils/charAltGenerate';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror } from '../utils/lsMirror';
@@ -3843,6 +3845,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const setCharBenched = async (id: string, benched: boolean) => {
       const char = charactersRef.current.find(c => c.id === id);
       if (!char || !!char.benchedAt === benched) return;
+      // 小號跟著本人（關係線第 7 批）：本人下戲／叫回來，小號一起
+      for (const alt of charactersRef.current.filter(c => c.altOf === id)) void setCharBenched(alt.id, benched);
       const now = Date.now();
       if (benched) {
           updateCharacter(id, { benchedAt: now });
@@ -3882,6 +3886,79 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
       return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
+  }, []);
+
+  // 本人寫了小號標籤（關係線第 7 批 7c，utils/altFriend.ts）：OPEN_ALT 在名額內開一個（招呼有寫就排一次加你），
+  // ALT_ADD 用現有的小號（再）加你。上帝視角：開了不跳通知，本人編輯頁「小號」那一區看得到。
+  useEffect(() => {
+      const onAltAction = (event: Event) => {
+          const detail = (event as CustomEvent<AltActionDetail>).detail;
+          if (!detail?.ownerId || !isPersonaLinesEnabled()) return;
+          const all = charactersRef.current;
+          const owner = all.find(c => c.id === detail.ownerId);
+          if (!owner || owner.altOf) return;
+          const now = Date.now();
+          const { openAlt, altAdd, reveal } = detail;
+          // 說出來了（7d）：系統提示後處理已經落了，這裡只寫回小號
+          if (reveal) {
+              const alt = all.find(c => c.id === reveal.altId && c.altOf === owner.id);
+              if (alt && !alt.altRevealed) {
+                  updateCharacterRef.current(alt.id, { altRevealed: { at: now, how: 'told' } });
+                  trackEvent('小号被认出来', { 方式: '自己说的' });
+              }
+          }
+          if (openAlt && canOpenAlt(owner, all, openAlt.name)) {
+              const req = openAlt.greeting ? planAltRequest(undefined, { personaKey: detail.personaKey, greeting: openAlt.greeting, now }) : null;
+              const alt: CharacterProfile = {
+                  ...buildAltCharacter({ owner, draft: openAlt, avatar: altDefaultAvatar(openAlt.name), createdBy: 'char', now }),
+                  ...(req ? { altFriendRequest: req } : {}),
+              };
+              void DB.saveCharacter(alt).then(() => setCharacters(prev => (prev.some(p => p.id === alt.id) ? prev : [...prev, alt])));
+              trackEvent('角色自己开小号', { 招呼: req ? '有' : '无' });
+              // 生圖配好了就在背景畫頭像，沒畫成就留預設的
+              const imageConfig = apiConfigRef.current.imageGenConfig;
+              void (async () => {
+                  try {
+                      const [{ canGenerateMomentImage }, { generateImage }, { castAvatarPrompt }] = await Promise.all([
+                          import('../utils/momentsGenerate'), import('../utils/imageGeneration'), import('../utils/castGenerate'),
+                      ]);
+                      if (!imageConfig || !canGenerateMomentImage(imageConfig)) return;
+                      const { dataUrl } = await generateImage(imageConfig, castAvatarPrompt({ name: openAlt.name, appearance: '', brief: openAlt.brief }));
+                      const avatar = await migrateDataUrlToRef(dataUrl);
+                      updateCharacterRef.current(alt.id, { avatar });
+                  } catch (e) { console.warn('[小號] 頭像沒畫成，留預設的', e); }
+              })();
+          }
+          if (altAdd) {
+              const alt = resolveAltAdd(owner.id, charactersRef.current, altAdd.name);
+              const req = alt ? planAltRequest(alt.altFriendRequest, { personaKey: detail.personaKey, greeting: altAdd.greeting, now }) : null;
+              if (alt && req) {
+                  updateCharacterRef.current(alt.id, { altFriendRequest: req });
+                  trackEvent('小号来加你好友', { 第几次: req.rejectCount ? '再来' : '第一次' });
+              }
+          }
+      };
+      window.addEventListener(ALT_ACTION_EVENT, onAltAction);
+      return () => window.removeEventListener(ALT_ACTION_EVENT, onAltAction);
+  }, []);
+
+  // 小號的好友申請到了：提一聲（訊息列表頂端「新的朋友」那裡回）。同一份申請只提一次
+  const altRequestToastedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+      const check = () => {
+          if (!isPersonaLinesEnabled()) return;
+          for (const alt of dueAltRequests(charactersRef.current, Date.now())) {
+              const key = `${alt.id}:${alt.altFriendRequest!.at}`;
+              if (altRequestToastedRef.current.has(key)) continue;
+              altRequestToastedRef.current.add(key);
+              const id = `alt-req-${key}`;
+              setToasts(prev => [...prev, { id, message: `「${alt.name}」想加你好友`, type: 'info' }]);
+              window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+          }
+      };
+      check();
+      const t = window.setInterval(check, 60_000);
+      return () => window.clearInterval(t);
   }, []);
 
   // 角色用 [[ACTION:BLOCK_USER|…]] 拉黑了用戶（後處理、背景主動消息都會發這個事件）：
@@ -4010,6 +4087,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
     setCharacters(prev => { const remaining = prev.filter(c => c.id !== id); if (remaining.length > 0 && activeCharacterId === id) { setActiveCharacterId(remaining[0].id); } return remaining; });
     await DB.deleteCharacter(id);
+    // 刪本人，小號一起刪（關係線第 7 批）
+    for (const alt of charactersRef.current.filter(c => c.altOf === id)) {
+        try { await deleteCharacter(alt.id, { force: true }); } catch (e) { console.warn('[deleteCharacter] 小號刪除失敗', e); }
+    }
     // 跟 ta 有關的角色私聊線一起刪（關係線第 6 批）；另一個角色已經整理進記憶的照留
     try {
         for (const pairId of await DB.getPairLineIds()) {
