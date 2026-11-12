@@ -58,3 +58,20 @@ describe('見面故事按線、角色卡不收線視圖', () => {
         expect(stored?.userNickname).toBe('小妹');
     });
 });
+
+// 3b：主動消息 2.0 收件時一路帶著雲端 id（c1~line~pB，見 utils/amsgCloudLine.ts）
+describe('私聊讀寫認得雲端的線 id', () => {
+    it('寫進去拆成 charId + personaKey，讀出來就是那條線的', async () => {
+        const charId = 'cloud-c1';
+        const a = await DB.saveMessage({ charId, role: 'user', type: 'text', content: '主線' });
+        const b = await DB.saveMessage({ charId: `${charId}~line~pB`, role: 'assistant', type: 'text', content: 'B 那條線' });
+        const ids = (ms: { id: number }[]) => ms.map(m => m.id);
+        expect(ids(await DB.getRecentMessagesByCharId(charId, 10, true))).toEqual([a]);
+        expect(ids(await DB.getRecentMessagesByCharId(`${charId}~line~pB`, 10, true))).toEqual([b]);
+        const saved = (await DB.getRecentMessagesByCharId({ charId, personaKey: 'pB' }, 10, true))[0];
+        expect(saved.charId).toBe(charId);
+        expect(saved.personaKey).toBe('pB');
+        const once = await DB.saveMessageOnce('d1', { charId: `${charId}~line~pB`, role: 'assistant', type: 'text', content: '只存一次' });
+        expect(ids(await DB.getRecentMessagesByCharId({ charId, personaKey: 'pB' }, 10, true))).toEqual([b, once]);
+    });
+});

@@ -5,7 +5,7 @@ import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags, ChatLine } from '../types';
-import { applyActivePersona, globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
+import { applyActivePersona, globalPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../utils/userHolidays';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
@@ -94,7 +94,8 @@ import {
 import { ActiveMsgClient } from '../utils/activeMsgClient';
 import { resolveCharTimeZone } from '../utils/timezone';
 import { ActiveMsgStore, exportAmsg2GlobalConfig } from '../utils/activeMsgStore';
-import { charMayHaveCloudState, purgeCharCloudState, purgeCloudCharById } from '../utils/amsg2CharCleanup';
+import { charMayHaveCloudState, purgeCharAllLinesCloudState, purgeCloudCharById } from '../utils/amsg2CharCleanup';
+import { allCloudIdsOf, cloudLine, cloudLineViewsOf, findCloudChar, setCloudLineRegistry } from '../utils/amsgCloudLine';
 import { parseCharCredId } from '../utils/amsgLlmCredentials';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
@@ -1851,6 +1852,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           resumePendingAmsgStateSync({
             characters: finalChars,
             userProfile: applyActivePersona(dbUser ?? defaultUserProfile),
+            userProfileBase: dbUser ?? defaultUserProfile,
             groups: dbGroups,
             realtimeConfig: savedRealtime
               ? { ...defaultRealtimeConfig, ...JSON.parse(savedRealtime) }
@@ -1917,6 +1919,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // Refs to avoid stale closures in the scheduled message interval
   const activeAppRef = useRef(activeApp);
   const activeCharIdScheduleRef = useRef(activeCharacterId);
+  // 通知點開某條關係線時要先切身份（openHandler 在 effect 裡，拿 ref 避開閉包）
+  const setActivePersonaIdRef = useRef<(id: string | undefined) => Promise<void>>(async () => {});
   activeAppRef.current = activeApp;
   activeCharIdScheduleRef.current = activeCharacterId;
 
@@ -2097,8 +2101,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let awayActiveMsgCount = 0;
 
       const handler = (e: Event) => {
-          const { charId, charName, body, personaKey } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string; personaKey?: string };
+          const { charId: rawCharId, charName, body, personaKey: detailPersonaKey } = (e as CustomEvent).detail as { charId: string; charName: string; body?: string; personaKey?: string };
           setLastMsgTimestamp(Date.now());
+          // 主動消息 2.0 帶回來的是雲端 id：非主線長 c1~line~pB（utils/amsgCloudLine.ts），拆回線
+          const fromCloud = cloudLine(rawCharId);
+          const charId = fromCloud.charId;
+          const personaKey = detailPersonaKey || fromCloud.personaKey;
 
           // 關係線：未讀記在那條線上（主線的鍵就是 charId）；正看著同一個角色、但在別條線上，也算沒看到
           const target = charactersRef.current.find(c => c.id === charId);
@@ -2121,10 +2129,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
 
       const openHandler = (e: Event) => {
-          const { charId } = (e as CustomEvent).detail as { charId?: string };
-          if (!charId) return;
+          const { charId: rawCharId } = (e as CustomEvent).detail as { charId?: string };
+          if (!rawCharId) return;
+          // 點開的是某條關係線（雲端 id 帶著那張卡）：先切到那張卡，聊天頁才會開在那條線上
+          const line = cloudLine(rawCharId);
+          if (line.personaKey) {
+              void setActivePersonaIdRef.current(line.personaKey === REAL_IDENTITY_PERSONA_ID ? undefined : line.personaKey);
+          }
           setActiveApp(AppID.Chat);
-          setActiveCharacterId(charId);
+          setActiveCharacterId(line.charId);
       };
 
       const onVisible = () => {
@@ -2203,12 +2216,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       //   - replyEnd（finally，含失敗路徑）→ 只 bump 時間戳，把 catch 裡落庫的
       //     錯誤系統消息也刷出來。
       const chatReplyArrivedHandler = (e: Event) => {
-          const { charId, charName } = ((e as CustomEvent).detail || {}) as { charId?: string; charName?: string };
+          const { charId, charName, personaKey } = ((e as CustomEvent).detail || {}) as { charId?: string; charName?: string; personaKey?: string };
           if (!charId) return;
           setLastMsgTimestamp(Date.now());
-          const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId;
+          // 關係線：未讀記在回覆的那條線上；正看著同一個角色、但在別條線上，也算沒看到
+          const target = charactersRef.current.find(c => c.id === charId);
+          const unreadKey = target ? lineKey(lineFor(target, personaKey)) : charId;
+          const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === charId
+              && (!target || lineKey(activeLineForRef.current(target)) === unreadKey);
           if (!isChattingWithThisChar) {
-              setUnreadMessages(prev => ({ ...prev, [charId]: (prev[charId] || 0) + 1 }));
+              setUnreadMessages(prev => ({ ...prev, [unreadKey]: (prev[unreadKey] || 0) + 1 }));
               if (document.visibilityState === 'visible') {
                   addToast(`${charName || '角色'} 回覆了消息`, 'success');
               }
@@ -2316,6 +2333,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setCharNameRegistry([...characters, ...npcs]);
   }, [characters, npcs]);
+  // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
+  useEffect(() => {
+    setCloudLineRegistry(characters);
+  }, [characters]);
   // 私聊 prompt 的「最近的朋友圈」要用朋友關係（utils/momentsContext.ts），同樣登記一份
   // 連同身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）
   useEffect(() => {
@@ -3276,8 +3297,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 角色自排後續任務被採納（「湯燉上了，兩小時後叫你」）：任務清單隻落在 DB，
       // React 不知情會同時斷掉 presence 門、打髒門和麵板上的待觸發清單三條線。
       const tasksAdoptedHandler = (e: Event) => {
-          const charId = ((e as CustomEvent).detail || {}).charId as string | undefined;
-          if (!charId) return;
+          const cloudId = ((e as CustomEvent).detail || {}).charId as string | undefined;
+          if (!cloudId) return;
+          // 雲端 id 可能是某條關係線的：那條線的任務清單存在 lines[pk] 裡
+          const line = cloudLine(cloudId);
+          const charId = line.charId;
           void DB.getAllCharacters().then(all => {
               const fresh = all.find(c => c.id === charId);
               if (!fresh) return;
@@ -3286,10 +3310,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 只把 activeMsg2Config 這一個字段搬回來：整對象覆蓋會讓內存裡其它更新的
                   // 字段（比如同一時刻剛落地的情緒）倒退，反過來用舊內存整對象寫 DB 又會把
                   // 剛採納的任務清單抹掉。
-                  const next = normalizeCharacterImpression({ ...c, activeMsg2Config: fresh.activeMsg2Config });
+                  const pk = line.personaKey;
+                  const next = normalizeCharacterImpression(pk
+                      ? { ...c, lines: { ...(c.lines || {}), [pk]: { ...(c.lines?.[pk] || {}), activeMsg2Config: fresh.lines?.[pk]?.activeMsg2Config } } }
+                      : { ...c, activeMsg2Config: fresh.activeMsg2Config });
+                  const view = lineView(next, line);
                   markAmsgStateDirty({
-                      char: next,
-                      userProfile: userForChar(next),
+                      char: view,
+                      userProfile: userForChar(view),
                       groups: groupsRef.current,
                       realtimeConfig: realtimeConfigRef.current,
                   });
@@ -3686,16 +3714,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         // 匯到這裡，不打的話雲端 fire_pack 停在上一輪聊天，角色到點拿舊世界說話。
         // markDirty 內部自帶「沒開 2.0 / 沒掛 AI 任務就 return」的門，普通角色零成本。
         DB.saveCharacter(target).then(() => {
-          markAmsgStateDirty({ char: target, userProfile, groups, realtimeConfig });
+          // 關係線：存過自己那份 2.0 設定的線在雲端各有一份上下文（utils/amsgCloudLine.ts），一起打髒
+          const views = cloudLineViewsOf(target);
+          for (const view of views) {
+            markAmsgStateDirty({
+              char: view,
+              userProfile: view === target ? userProfile : resolveUserProfileForChar(userProfileBaseRef.current, view),
+              groups, realtimeConfig,
+            });
+          }
           // 時區和名字是另一條路：它們凍在遠端任務行裡，fire_pack 刷新蓋不到。
           // 上游按任務行的 tzId 推進循環任務的下次觸發時刻；fixed 模式的推送標題也直接
           // 讀任務行的 contactName。只刷真的變了的那幾項，別搭別的操作的便車。
           const timeZone = resolveCharTimeZone(before) !== resolveCharTimeZone(target);
           const contactName = !!before && before.name !== target.name;
           if (timeZone || contactName) {
-            ActiveMsgClient.refreshCharPendingTaskRow(target, { timeZone, contactName }).catch((error) => {
-              console.warn('[amsg2] 角色資料變更後刷新遠端任務行失敗', target.id, error);
-            });
+            for (const view of views) {
+              ActiveMsgClient.refreshCharPendingTaskRow(view, { timeZone, contactName }).catch((error) => {
+                console.warn('[amsg2] 角色資料變更後刷新遠端任務行失敗', target.id, error);
+              });
+            }
           }
         });
       }
@@ -3777,6 +3815,23 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     // 沒排過任務的角色不發任何請求。
     const localTaskUuids = (target?.activeMsg2Config?.tasks ?? [])
       .map(t => t.taskUuid);
+    // 關係線：非主線在雲端是另一個角色 id（utils/amsgCloudLine.ts），各有各的任務，一起取消
+    const lineTaskSets = target
+      ? allCloudIdsOf(target).slice(1).map(cloudId => ({
+          cloudId,
+          uuids: (findCloudChar([target], cloudId)?.activeMsg2Config?.tasks ?? []).map(t => t.taskUuid),
+        }))
+      : [];
+    const cancelLineTasks = async () => {
+      let found = false;
+      let failedCount = 0;
+      for (const { cloudId, uuids } of lineTaskSets) {
+        const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(cloudId, uuids);
+        found = found || targets.length > 0 || uuids.length > 0;
+        failedCount += failed.size;
+      }
+      return { found, failedCount };
+    };
 
     // 雲端善後擋在本地刪除**前面**：早前丟後台跑的版本在斷網 / 秒關 App 時根本跑不完，
     // 任務殘留下來，之後「已刪角色」的推送還會彈出來。名下真有任務（本地清單有、或遠端
@@ -3797,6 +3852,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
           hadTasks = hadTasks || targets.length > 0;
           cleanupFailed = failed.size > 0;
+          const lines = await cancelLineTasks();
+          hadTasks = hadTasks || lines.found;
+          cleanupFailed = cleanupFailed || lines.failedCount > 0;
         } catch (err) {
           console.warn('[deleteCharacter] 遠端主動消息任務清理失敗', err);
           cleanupFailed = true;
@@ -3807,7 +3865,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             // 任務取消掉了，雲端還留著這個角色的 client_state —— 那裡面是完整的角色系統
             // 提示詞加最近 30 條對話原文（fire_pack）。刪除確認框寫的是「記憶將被清空」，
             // 那就得連雲端那份一起清，不然聊天記錄會一直躺在 D1 裡、每刪一個角色再堆一份。
-            const cloudCleanup = await purgeCharCloudState(target);
+            const cloudCleanup = await purgeCharAllLinesCloudState(target);
             if (cloudCleanup.status === 'failed') {
               console.warn('[deleteCharacter] 雲端狀態清理失敗', cloudCleanup.error);
               cleanupFailed = true;
@@ -3820,7 +3878,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         } else {
           // 名下沒有任務：不會再有推送，client_state 清理維持舊節奏丟後台，不擋刪除。
           void (async () => {
-            const cloudCleanup = await purgeCharCloudState(target);
+            const cloudCleanup = await purgeCharAllLinesCloudState(target);
             if (cloudCleanup.status === 'failed') {
               console.warn('[deleteCharacter] 雲端狀態清理失敗（角色照常刪除）', cloudCleanup.error);
               addToast('ta 在雲端的聊天上下文沒能清掉，可以去設置裡「清除雲端狀態」兜一下', 'error');
@@ -3832,13 +3890,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 「仍然刪除」放行後仍舊盡力清一次：能清掉多少算多少，失敗只提示、不再攔。
       void (async () => {
         try {
+          let failedCount = 0;
           if (localTaskUuids.length > 0) {
             const { failed } = await ActiveMsgClient.cancelAllTasksForChar(id, localTaskUuids);
-            if (failed.size > 0) {
-              addToast(`ta 還有 ${failed.size} 個主動消息任務留在遠端沒取消掉，可能仍會到點推送——可以去設置裡「清除雲端狀態」兜一下`, 'error');
-            }
+            failedCount += failed.size;
           }
-          const cloudCleanup = await purgeCharCloudState(target);
+          if (lineTaskSets.some(l => l.uuids.length > 0)) failedCount += (await cancelLineTasks()).failedCount;
+          if (failedCount > 0) {
+            addToast(`ta 還有 ${failedCount} 個主動消息任務留在遠端沒取消掉，可能仍會到點推送——可以去設置裡「清除雲端狀態」兜一下`, 'error');
+          }
+          const cloudCleanup = await purgeCharAllLinesCloudState(target);
           if (cloudCleanup.status === 'failed') {
             console.warn('[deleteCharacter] 雲端狀態清理失敗（角色照常刪除）', cloudCleanup.error);
             addToast('ta 在雲端的聊天上下文沒能清掉，可以去設置裡「清除雲端狀態」兜一下', 'error');
@@ -4145,6 +4206,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const setActivePersonaId = async (id: string | undefined) => {
       await updateUserProfile({ activePersonaId: id });
   };
+  setActivePersonaIdRef.current = setActivePersonaId;
   const addCustomTheme = async (theme: ChatTheme) => { setCustomThemes(prev => { const exists = prev.find(t => t.id === theme.id); if (exists) return prev.map(t => t.id === theme.id ? theme : t); return [...prev, theme]; }); await DB.saveTheme(theme); };
   const removeCustomTheme = async (id: string) => { setCustomThemes(prev => prev.filter(t => t.id !== id)); await DB.deleteTheme(id); };
   const setCustomIcon = async (appId: string, iconUrl: string | undefined) => {
@@ -5875,7 +5937,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   for (const task of remoteTasks) {
                       if (typeof task?.uuid !== 'string') continue;
                       const owner = typeof task?.charId === 'string' ? task.charId : '';
-                      if (owner && knownCharIds.has(owner)) continue;
+                      // 關係線的任務掛在線的雲端 id 上（utils/amsgCloudLine.ts），拆回角色再認
+                      if (owner && knownCharIds.has(cloudLine(owner).charId)) continue;
                       if (owner) orphanCharIds.add(owner);
                       // 「導入即放棄舊數據」：這條任務的主人在新檔裡已經不存在了（連主人是誰
                       // 都沒投影出來的同理），它正屬於該一起放棄的部分，取消就是對的。
@@ -5886,7 +5949,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   try {
                       for (const { credId } of await ActiveMsgClient.listLlmCredentials()) {
                           const parsed = parseCharCredId(credId);
-                          if (parsed && !knownCharIds.has(parsed.charId)) orphanCharIds.add(parsed.charId);
+                          if (parsed && !knownCharIds.has(cloudLine(parsed.charId).charId)) orphanCharIds.add(parsed.charId);
                       }
                   } catch (e) {
                       console.warn('[amsg2] 導入後讀雲端憑據清單失敗，孤兒角色可能漏清', e);
@@ -5903,7 +5966,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 有 AI 任務的角色才會真的上傳（門在 markAmsgStateDirty 裡）。
                   syncAmsgToolConfigAndPrompts(
                       data.realtimeConfig || realtimeConfig,
-                      { characters: importedChars, userProfile: applyActivePersona(user || userProfile), groups: groupsList },
+                      { characters: importedChars, userProfile: applyActivePersona(user || userProfile), userProfileBase: user || userProfileBase, groups: groupsList },
                   );
               }
           } catch (e) {

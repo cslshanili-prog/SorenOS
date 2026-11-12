@@ -237,7 +237,7 @@ describe('useChatAI 的分流接縫', () => {
 
   it('不在這條路上開活躍會話租約（生成不在本機跑，沒人需要它舉手）', () => {
     // 租約那句排在分支的 return 之後，走這條路根本到不了。
-    const leaseAt = chatAiSrc.indexOf('startAmsgChatPresence(char.id');
+    const leaseAt = chatAiSrc.indexOf('startAmsgChatPresence(cloudCharId(char)');
     expect(leaseAt).toBeGreaterThan(chatAiSrc.indexOf(INSTANT_CHAT_BRANCH_HEAD));
     expect(branchSrc()).not.toContain('startAmsgChatPresence');
   });

@@ -15,6 +15,7 @@
  */
 
 import { CharacterProfile } from '../types';
+import { allCloudIdsOf, cloudCharId } from './amsgCloudLine';
 import { ActiveMsgClient } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import {
@@ -105,7 +106,26 @@ export const purgeCharCloudState = async (
   plan: CharCloudPurgePlan = FULL_CHAR_PURGE,
 ): Promise<CharCloudStateCleanup> => {
   if (!charMayHaveCloudState(char)) return { status: 'skipped' };
-  return purgeCloudCharById(char!.id, plan);
+  // char 可能是關係線的視圖：那條線在雲端是另一個 id（utils/amsgCloudLine.ts），只清它自己的
+  return purgeCloudCharById(cloudCharId(char!), plan);
+};
+
+/**
+ * 刪角色用：主線加上名下每條關係線在雲端的那份一起清（每條線各有各的上下文與憑據行）。
+ * 有一條清不掉就回那條的失敗；全清掉就回合併的 keys。
+ */
+export const purgeCharAllLinesCloudState = async (
+  char: CharacterProfile | undefined,
+  plan: CharCloudPurgePlan = FULL_CHAR_PURGE,
+): Promise<CharCloudStateCleanup> => {
+  if (!charMayHaveCloudState(char)) return { status: 'skipped' };
+  const results: CharCloudStateCleanup[] = [];
+  for (const cloudId of allCloudIdsOf(char!)) results.push(await purgeCloudCharById(cloudId, plan));
+  const failed = results.find((r) => r.status === 'failed');
+  if (failed) return failed;
+  const cleared = results.filter((r): r is Extract<CharCloudStateCleanup, { status: 'cleared' }> => r.status === 'cleared');
+  if (cleared.length === 0) return { status: 'skipped' };
+  return { status: 'cleared', keys: cleared.flatMap((r) => r.keys) };
 };
 
 /**

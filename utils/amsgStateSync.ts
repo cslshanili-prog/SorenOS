@@ -45,6 +45,7 @@ import {
 import { trackEvent } from './analytics';
 import { DB } from './db';
 import { resolveUserProfileForChar } from './userPersona';
+import { cloudCharId, expandCloudLineViews, findCloudChar } from './amsgCloudLine';
 
 /** 失敗重試的退避起點，逐次翻倍（30s → 60s → 120s）。 */
 const RETRY_BASE_MS = 30_000;
@@ -65,7 +66,7 @@ export interface AmsgSyncSnapshot {
   realtimeConfig?: RealtimeConfig;
 }
 
-// charId → 最新快照。同角色多輪聊天只留最後一份，flush 永遠用最新狀態拼模板。
+// 雲端 id（主線＝charId，非主線見 utils/amsgCloudLine.ts）→ 最新快照。同角色多輪聊天只留最後一份，flush 永遠用最新狀態拼模板。
 const dirty = new Map<string, AmsgSyncSnapshot>();
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let flushing = false;
@@ -128,7 +129,7 @@ const persistDirtyMark = (charId: string) => {
  * 只清「內存裡已經不髒」的：上傳期間同角色又被打髒的話，新標記不能被這批的收尾抹掉。
  */
 const prunePersistedMarks = (batch: AmsgSyncSnapshot[]) => {
-  const settled = new Set(batch.map((s) => s.char.id).filter((id) => !dirty.has(id)));
+  const settled = new Set(batch.map((s) => cloudCharId(s.char)).filter((id) => !dirty.has(id)));
   if (settled.size === 0) return;
   writePendingCharIds(readPendingCharIds().filter((id) => !settled.has(id)));
 };
@@ -171,13 +172,14 @@ export const markAmsgStateDirty = (
   reason: AmsgDirtyReason = 'refresh',
 ) => {
   const config = snapshot.char.activeMsg2Config;
-  if (!config?.enabled || !(hasActiveAiTask(config) || hasCloudDelayedReply(snapshot.char.id))) {
-    if (reason === 'invalidate') void invalidateCharCloudState(snapshot.char.id);
+  const cloudId = cloudCharId(snapshot.char);
+  if (!config?.enabled || !(hasActiveAiTask(config) || hasCloudDelayedReply(cloudId))) {
+    if (reason === 'invalidate') void invalidateCharCloudState(cloudId);
     return;
   }
 
-  dirty.set(snapshot.char.id, snapshot);
-  persistDirtyMark(snapshot.char.id);
+  dirty.set(cloudId, snapshot);
+  persistDirtyMark(cloudId);
   bindLifecycleListener();
   queueFlush();
 };
@@ -220,7 +222,8 @@ export const markAmsgStateDirtyForAll = (scope: {
   groups: GroupProfile[];
   realtimeConfig: RealtimeConfig;
 }) => {
-  for (const char of scope.characters) {
+  // 每條線各有一份雲端上下文（非主線只算存過自己那份 2.0 設定的）
+  for (const char of expandCloudLineViews(scope.characters)) {
     markAmsgStateDirty({
       char,
       userProfile: resolveUserProfileForChar(scope.userProfileBase, char),
@@ -237,7 +240,8 @@ export const markAmsgStateDirtyForAll = (scope: {
  */
 const requeue = (batch: AmsgSyncSnapshot[]) => {
   for (const snapshot of batch) {
-    if (!dirty.has(snapshot.char.id)) dirty.set(snapshot.char.id, snapshot);
+    const cloudId = cloudCharId(snapshot.char);
+    if (!dirty.has(cloudId)) dirty.set(cloudId, snapshot);
   }
 };
 
@@ -272,7 +276,7 @@ export const flushAmsgState = async (reason: string): Promise<void> => {
     return;
   }
   flushing = true;
-  const batch = [...dirty.values()].filter((snapshot) => !deferredIds.has(snapshot.char.id));
+  const batch = [...dirty.values()].filter((snapshot) => !deferredIds.has(cloudCharId(snapshot.char)));
   try {
     const globalConfig = await ActiveMsgStore.getGlobalConfig();
     if (!globalConfig.workerUrl?.trim()) {
@@ -284,7 +288,7 @@ export const flushAmsgState = async (reason: string): Promise<void> => {
       return;
     }
 
-    for (const snapshot of batch) dirty.delete(snapshot.char.id);
+    for (const snapshot of batch) dirty.delete(cloudCharId(snapshot.char));
     await ActiveMsgClient.syncCharFirePacks(batch.map((snapshot) => ({
       char: snapshot.char,
       config: snapshot.char.activeMsg2Config!,
@@ -350,6 +354,8 @@ export const resumePendingAmsgStateSync = (scope: {
   realtimeConfig?: RealtimeConfig;
   /** 啟動時那份聊天 API 配置；缺了就補不了 LLM 憑據行的欠帳（其餘照常補）。 */
   apiConfig?: APIConfig;
+  /** 沒套用任何身份的那份用戶資料：關係線的線視圖按它解析那條線的身份（沒給就退回 userProfile）。 */
+  userProfileBase?: UserProfile;
 }) => {
   // 工具憑據的欠帳也在這兒補。底帳只記「欠著一次」，憑據本體不落 localStorage
   // （那等於把 token 又抄一份到別的地方），補傳用啟動時這份最新配置——它本來就是
@@ -363,12 +369,13 @@ export const resumePendingAmsgStateSync = (scope: {
 
   // 先整個清掉：還該傳的角色下面 markDirty 會把 id 重新寫回去，不該傳的就此了帳。
   writePendingCharIds([]);
-  for (const charId of pending) {
-    const char = scope.characters.find((c) => c.id === charId);
+  for (const cloudId of pending) {
+    const char = findCloudChar(scope.characters, cloudId);
     if (!char) continue; // 角色已刪除，靜默跳過
     markAmsgStateDirty({
       char,
-      userProfile: scope.userProfile,
+      // 非主線的線視圖要用那條線的身份；主線照舊（scope.userProfile 已是解析好的那份）
+      userProfile: char.id === cloudId ? scope.userProfile : resolveUserProfileForChar(scope.userProfileBase ?? scope.userProfile, char),
       groups: scope.groups,
       realtimeConfig: scope.realtimeConfig,
     });
@@ -407,14 +414,26 @@ const chatPresenceLeases = new Map<string, ChatPresenceLease>();
  */
 export const syncAmsgToolConfigAndPrompts = (
   realtimeConfig: RealtimeConfig,
-  scope: { characters: CharacterProfile[]; userProfile: UserProfile; groups: GroupProfile[] },
+  scope: {
+    characters: CharacterProfile[];
+    userProfile: UserProfile;
+    groups: GroupProfile[];
+    /** 沒套用任何身份的那份用戶資料：關係線的線視圖按它解析那條線的身份（沒給就退回 userProfile）。 */
+    userProfileBase?: UserProfile;
+  },
 ) => {
   // 上傳失敗不打斷保存：本地配置已經生效，雲端那份由 syncAmsgToolConfig 自己退避重傳，
   // 傳不上去也留著底帳等下次啟動補（fire_pack 那種「下一輪聊天順手帶上」的便車，
   // tool_config 是坐不了的——沖刷只傳 fire_pack）。
   syncAmsgToolConfig(realtimeConfig);
-  for (const char of scope.characters) {
-    markAmsgStateDirty({ char, userProfile: scope.userProfile, groups: scope.groups, realtimeConfig });
+  for (const char of expandCloudLineViews(scope.characters)) {
+    const isLine = cloudCharId(char) !== char.id;
+    markAmsgStateDirty({
+      char,
+      userProfile: isLine ? resolveUserProfileForChar(scope.userProfileBase ?? scope.userProfile, char) : scope.userProfile,
+      groups: scope.groups,
+      realtimeConfig,
+    });
   }
   void flushAmsgState('tool-config-change');
 };
@@ -545,13 +564,13 @@ export const buildCredentialRowsToResync = async (
   if (wanted.length === 0) return [];
 
   const all = characters ?? await DB.getAllCharacters();
-  const byId = new Map(all.map((char) => [char.id, char]));
   const rows: LlmCredentialRow[] = [];
   for (const { charId, purpose } of wanted) {
-    const char = byId.get(charId);
+    // credId 裡的是雲端 id：非主線拿那條線自己的 2.0 設定算（utils/amsgCloudLine.ts）
+    const char = findCloudChar(all, charId);
     if (!char) continue;
     const row = purpose === 'chat'
-      ? buildCharChatCredRow(char, char.activeMsg2Config, apiConfig)
+      ? buildCharChatCredRow({ id: charId }, char.activeMsg2Config, apiConfig)
       : buildCharEmotionCredRow(charId, char.emotionConfig?.api, apiConfig);
     if (row) rows.push(row);
   }

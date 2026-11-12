@@ -8,7 +8,7 @@
  *   關係狀態新線從空白開始；聊天設定這條線沒設就照主線。
  */
 import type {
-    CharacterProfile, CharLineFields, ChatLine, LineField, LineSettingField, LineStateField, UserProfile,
+    ActiveMsg2CharacterConfig, CharacterProfile, CharLineFields, ChatLine, LineField, LineSettingField, LineStateField, UserProfile,
 } from '../types';
 import { LINE_VIEW_PERSONA, lineViewPersonaKey, personaKeyForChar } from './userPersona';
 
@@ -17,7 +17,7 @@ export const LINE_STATE_FIELDS = [
     'acquaintanceStartDate', 'savedDateState', 'activeDateStoryId', 'dateNextStoryTime', 'dateScenario',
     'dateOfflinePause', 'chatBlock', 'chatBlockLog', 'charBlockCooldown', 'specialMomentRecords',
     'affinities', 'contextUserStartMessageId', 'hideBeforeMessageId', 'refinedMemories', 'activeMemoryMonths',
-    'memoryPalaceInjection', 'roomPlatesInjection', 'proactiveLineEnabled',
+    'memoryPalaceInjection', 'roomPlatesInjection', 'proactiveLineEnabled', 'activeMsg2Config',
 ] as const satisfies readonly LineStateField[];
 
 export const LINE_SETTING_FIELDS = [
@@ -110,8 +110,22 @@ export function lineView(char: CharacterProfile, line: ChatLine): CharacterProfi
     for (const f of LINE_SETTING_FIELDS) {
         if (own[f] !== undefined) view[f] = own[f];
     }
+    // 主動消息 2.0 的設定：任務清單和開關是這條線自己的，頻率、額度、單獨 API 這些
+    // 這條線還沒存過就先照主線。新線一律從「關、沒有任務」開始（Liora 2026-11-12）。
+    if (own.activeMsg2Config === undefined && char.activeMsg2Config) {
+        view.activeMsg2Config = seedLineAmsgConfig(char.activeMsg2Config);
+    }
     (view as unknown as LineView)[LINE_VIEW_PERSONA] = line.personaKey;
     return view as unknown as CharacterProfile;
+}
+
+/**
+ * 還沒存過自己那份主動消息 2.0 設定的線：沿用主線的頻率與額度，但開關關著、沒有任務、
+ * 不帶主線的同步狀態。存一次之後就是這條線自己的一份，之後主線再改也不跟。
+ */
+export function seedLineAmsgConfig(primary: ActiveMsg2CharacterConfig): ActiveMsg2CharacterConfig {
+    const { tasks: _tasks, lastSyncedAt: _synced, lastError: _err, ...settings } = primary;
+    return { ...settings, enabled: false, tasks: [] };
 }
 
 /** 把一份改動拆成「角色自己的」和「跟著線走的」。 */

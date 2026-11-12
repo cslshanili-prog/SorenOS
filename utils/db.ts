@@ -1,5 +1,6 @@
 import { toMountedWorldbook } from './worldbook';
 import { lineViewPersonaKey } from './userPersona';
+import { parseLineScheduleId } from './chatLine';
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
 import type { MeetingPresetRecord } from './meetingPreset/types';
 import type { DateStory, DateSummaryPreset } from '../types';
@@ -563,7 +564,16 @@ const normalizeWorldRelationships = (world: WorldProfile): WorldProfile => {
 // 其他線只回標了那張卡的，所以一條線永遠讀不到另一條線的聊天。
 type LineArg = ChatLine | string;
 const primaryLineOf = (charId: string): ChatLine => ({ charId });
-const asLine = (l: LineArg): ChatLine => (typeof l === 'string' ? { charId: l } : l);
+// 字串除了 charId，也認雲端那種線的 id（`c1~line~pB`，見 utils/amsgCloudLine.ts）：
+// 主動消息 2.0 收件時一路帶著雲端 id，讀到這裡自然就是那條線的。
+const asLine = (l: LineArg): ChatLine => (typeof l === 'string' ? parseLineScheduleId(l) : l);
+/** 寫私聊時 charId 若是雲端的線 id，拆回 charId + personaKey。 */
+const normalizeLineMsg = <T extends { charId: string; personaKey?: string; groupId?: string }>(msg: T): T => {
+    if (msg.groupId || !msg.charId) return msg;
+    const line = parseLineScheduleId(msg.charId);
+    if (!line.personaKey) return msg;
+    return { ...msg, charId: line.charId, personaKey: msg.personaKey || line.personaKey };
+};
 /** 這則訊息是不是這條線上的私聊。 */
 const onLine = (m: Message, line: ChatLine): boolean =>
     !m.groupId && (line.personaKey ? m.personaKey === line.personaKey : !m.personaKey);
@@ -1003,7 +1013,8 @@ export const DB = {
     });
   },
 
-  saveMessage: async (msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+  saveMessage: async (rawMsg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+    const msg = normalizeLineMsg(rawMsg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
@@ -1038,7 +1049,8 @@ export const DB = {
   },
 
   /** One persisted message per logical delivery, including retries after a tab closes. */
-  saveMessageOnce: async (deliveryId: string, msg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+  saveMessageOnce: async (deliveryId: string, rawMsg: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }): Promise<number> => {
+    const msg = normalizeLineMsg(rawMsg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');

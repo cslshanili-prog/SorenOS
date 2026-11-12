@@ -32,6 +32,7 @@ import ActiveMsg2PacingModal from './ActiveMsg2PacingModal';
 import { isInstantChatReady } from '../../utils/amsgInstantChat';
 import { syncAmsgLlmCredentials } from '../../utils/amsgStateSync';
 import { disableScheduleCharPurge, purgeCharCloudState } from '../../utils/amsg2CharCleanup';
+import { cloudCharId } from '../../utils/amsgCloudLine';
 import { buildUserCancelledNotices } from '../../utils/amsg2TaskContext';
 import { trackEvent } from '../../utils/analytics';
 import { testChatModel } from '../../utils/apiConnectionTest';
@@ -232,7 +233,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     // 在用戶看來跟「沒發出去」一模一樣；次數擺出來，用戶才知道上限是不是在起作用。
     setDailySends(null);
     void (async () => {
-      const status = await ActiveMsgClient.readPanelStatus(char.id);
+      const status = await ActiveMsgClient.readPanelStatus(cloudCharId(char));
       setLastSkip(status.lastSkip);
       setDailySends(status.dailySends);
     })();
@@ -243,7 +244,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
       try {
         // 全量投影一次拉齊：uuid 當對帳底帳，status / lastError 給任務卡片說明
         // 「上次到點為什麼沒發出去」，nextSendAt 給循環任務顯示真正會響的時刻。
-        remoteTasks = await ActiveMsgClient.listRemoteTasksForChar(char.id);
+        remoteTasks = await ActiveMsgClient.listRemoteTasksForChar(cloudCharId(char));
         remote = new Set(remoteTasks.map((t) => t.uuid));
         setRemoteTaskInfo(new Map(remoteTasks.map((t) => [
           t.uuid, { status: t.status, lastError: t.lastError },
@@ -277,7 +278,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
     // char.activeMsg2Config 只在函數體裡讀當前值當探針，不進依賴——清理落盤會改它，
     // 進了依賴就是「清理 → 重跑 → 再清理」的自激循環。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, char.id]);
+  }, [isOpen, char.id, cloudCharId(char)]);
 
   /**
    * 拼一份要落盤的 config：
@@ -464,10 +465,10 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
    * 下一輪的排程現狀塊會把它讀出來告訴角色。寫失敗不打斷取消本身：任務確實已經沒了。
    */
   const writeCancelledNotices = async (cancelled: ActiveMsg2TaskRecord[]) => {
-    const notices = buildUserCancelledNotices(char.id, cancelled, Date.now());
+    const notices = buildUserCancelledNotices(cloudCharId(char), cancelled, Date.now());
     if (!notices.length) return;
     try {
-      await ActiveMsgStore.upsertExpiredNotices(char.id, notices);
+      await ActiveMsgStore.upsertExpiredNotices(cloudCharId(char), notices);
     } catch (e) {
       console.warn('[ActiveMsg2Modal] 取消回執寫入失敗（角色可能還以為約定有效）', e);
     }
@@ -527,7 +528,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
         // 關閉 2.0 = 取消該角色全部遠端任務（遠端清單優先的口徑見 cancelAllTasksForChar，
         // 與刪角色共用一份）。取消失敗的保留在本地清單裡，下次重開面板可重試。
         const { targets, failed } = await ActiveMsgClient.cancelAllTasksForChar(
-          char.id,
+          cloudCharId(char),
           tasks.map((t) => t.taskUuid),
         );
         const attempted = new Set(targets);

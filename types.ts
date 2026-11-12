@@ -4963,7 +4963,7 @@ export type LineStateField =
     | 'acquaintanceStartDate' | 'savedDateState' | 'activeDateStoryId' | 'dateNextStoryTime' | 'dateScenario'
     | 'dateOfflinePause' | 'chatBlock' | 'chatBlockLog' | 'charBlockCooldown' | 'specialMomentRecords'
     | 'affinities' | 'contextUserStartMessageId' | 'hideBeforeMessageId' | 'refinedMemories' | 'activeMemoryMonths'
-    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled';
+    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled' | 'activeMsg2Config';
 /** 聊天設定：這條線沒設就照主線。 */
 export type LineSettingField =
     | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'chatFineTune'

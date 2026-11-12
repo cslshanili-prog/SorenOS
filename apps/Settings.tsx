@@ -494,7 +494,7 @@ const Settings: React.FC = () => {
       sysOperation, // Get progress state
       realtimeConfig, updateRealtimeConfig, // 實時感知配置
       // 改工具憑據時要連雲端提示詞一起刷（見 syncAmsgToolConfigAndPrompts）
-      characters, groups, userProfile,
+      characters, groups, userProfile, userProfileBase,
       cloudBackupConfig, updateCloudBackupConfig,
       cloudBackupToWebDAV, cloudRestoreFromWebDAV, listCloudBackups,
       systemLogs,
@@ -1816,7 +1816,7 @@ const Settings: React.FC = () => {
       RealtimeContextManager.clearCache();
       const nextRealtimeConfig = { ...realtimeConfig, ...updates };
       // 雲端憑據 + 按配置裁剪過的提示詞一起刷，否則角色到點會照著舊提示詞調已關掉的工具。
-      syncAmsgToolConfigAndPrompts(nextRealtimeConfig, { characters, userProfile, groups });
+      syncAmsgToolConfigAndPrompts(nextRealtimeConfig, { characters, userProfile, userProfileBase, groups });
       addToast('實時感知配置已保存', 'success');
       setShowRealtimeModal(false);
   };
@@ -1922,7 +1922,7 @@ const Settings: React.FC = () => {
               };
               updateRealtimeConfig(xhsUpdates);
               const nextConfig = { ...realtimeConfig, ...xhsUpdates };
-              syncAmsgToolConfigAndPrompts(nextConfig, { characters, userProfile, groups });
+              syncAmsgToolConfigAndPrompts(nextConfig, { characters, userProfile, userProfileBase, groups });
           } else {
               trackEvent('测试小红书桥接连接', { mode: rtXhsMode === 'lite' ? 'lite' : 'local', result: 'failed' });
               setRtTestStatus(`連接失敗: ${result.error}`);

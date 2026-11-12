@@ -1,3 +1,5 @@
+import type { ChatLine } from '../types';
+import { parseLineScheduleId } from './chatLine';
 /**
  * 聊天生成的全局廣播事件（對標彼方的 vr-session-start/end）。
  *
@@ -44,6 +46,8 @@ export const CHAT_GEN_EVENTS = {
 export interface ChatGenDetail {
     charId: string;
     charName: string;
+    /** 關係線：這一輪是哪張身份卡那條線上的（主線不帶）。未讀照它記。 */
+    personaKey?: string;
     /** emotionFailed 專用：失敗原因（人話，可直接展示給用戶） */
     reason?: string;
     /**
@@ -56,9 +60,15 @@ export interface ChatGenDetail {
     ttlMs?: number;
 }
 
+// 收聽方都拿本地角色 id 比；主動消息 2.0 那頭傳來的可能是關係線的雲端 id
+// （`c1~line~pB`，見 utils/amsgCloudLine.ts），在出口這裡拆開。
+const splitCloudId = (id: string): ChatLine => parseLineScheduleId(id);
+
 export function announceChatGen(event: string, detail: ChatGenDetail): void {
     try {
-        window.dispatchEvent(new CustomEvent(event, { detail }));
+        const { charId, personaKey } = splitCloudId(detail.charId);
+        const normalized = charId === detail.charId ? detail : { ...detail, charId, personaKey: detail.personaKey || personaKey };
+        window.dispatchEvent(new CustomEvent(event, { detail: normalized }));
     } catch { /* SSR / 測試環境無 window */ }
 }
 
@@ -70,7 +80,7 @@ export function announceChatGen(event: string, detail: ChatGenDetail): void {
  */
 export function announceEmotionDone(charId: string): void {
     try {
-        window.dispatchEvent(new CustomEvent(CHAT_GEN_EVENTS.emotionDone, { detail: { charId } }));
+        window.dispatchEvent(new CustomEvent(CHAT_GEN_EVENTS.emotionDone, { detail: { charId: splitCloudId(charId).charId } }));
     } catch { /* SSR / 測試環境無 window */ }
 }
 
