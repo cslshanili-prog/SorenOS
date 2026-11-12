@@ -3,7 +3,7 @@ import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
+import { knowsPersona, lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
@@ -49,7 +49,7 @@ import { dateLaunch } from '../utils/dateLaunch';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { buildInPersonContinueInstruction } from '../utils/meetingContinue';
-import { resolveUserProfileForChar } from '../utils/userPersona';
+import { globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { dateSuspend, dateInflight, type DateQuickLeaveTarget } from '../utils/dateSuspend';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import {
@@ -78,7 +78,7 @@ const loadRememberedOpening = (): DateOpeningMode => {
 };
 
 const DateApp: React.FC = () => {
-    const { closeApp, openApp, characters: rawCharacters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, dateAutoStartMeetup, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const { closeApp, openApp, characters: rawCharacters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, personaLinesEnabled, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, dateAutoStartMeetup, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
 
     // 關係線（plans/persona-line-batch1-2.md）：見面裡的角色一律是「現在的我」那條線的視圖——
     // 讀到的見面存檔、故事、設定都是那條線的；讀寫見面訊息用 lineArgOf / lineMsgFields；
@@ -1375,7 +1375,9 @@ const DateApp: React.FC = () => {
 
     if (mode === 'select' || !char) {
         // 6 個角色一頁，橫向翻頁（先按分組篩選，再切頁）
-        const selectChars = filterCharactersByGroup(characters, characterGroups, selectGroupId);
+        // 關係線預覽：選角色頁只列認識現在這張卡的角色
+        const pickable = personaLinesEnabled ? characters.filter(c => knowsPersona(c, globalPersonaKey(userProfileBase))) : characters;
+        const selectChars = filterCharactersByGroup(pickable, characterGroups, selectGroupId);
         const pages: CharacterProfile[][] = [];
         for (let i = 0; i < selectChars.length; i += SELECT_PAGE_SIZE) pages.push(selectChars.slice(i, i + SELECT_PAGE_SIZE));
         if (pages.length === 0) pages.push([]);

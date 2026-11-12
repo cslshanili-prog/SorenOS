@@ -107,7 +107,7 @@ import { setElevenLabsModel, setTtsProvider, setVoicePromptOverrides } from '../
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 import { formatBytes } from '../utils/format';
-import { isEmotionEvalSkipped } from '../utils/devDebug';
+import { isEmotionEvalSkipped, isPersonaLinesEnabled, subscribeDevDebugAvailability, subscribeDevDebugFlags } from '../utils/devDebug';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror } from '../utils/lsMirror';
@@ -360,6 +360,8 @@ interface OSContextType {
    * 否則是主線。私聊、通話、見面拿 lineView(char, activeLineFor(char)) 當角色卡用。
    */
   activeLineFor: (char: CharacterProfile) => ChatLine;
+  /** 關係線預覽開著沒（開發開關，見 docs/dev-debug.md）；關著時每個角色只有主線，介面照舊。 */
+  personaLinesEnabled: boolean;
   /**
    * 在某條線上改角色卡：傳線視圖（或原角色卡＝主線）。跟著線走的欄位寫進那條線，其他照舊寫角色卡；
    * 函式形式的 updates 拿到的 prev 也是那條線的視圖。主線時跟 updateCharacter 一模一樣。
@@ -1802,7 +1804,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const migration = migrateCharacterContextRange(normalized);
           if (migration.migrated) migratedContextCount++;
           if (migration.resetAutoContext) resetAutoContextCount++;
-          const withLines = withLineFields(lineProfileBase, migration.character);
+          const withLines = withLineFields(lineProfileBase, migration.character, { resync: !isPersonaLinesEnabled() });
           if (withLines !== migration.character) migratedContextCount++;
           return withLines;
         });
@@ -3672,10 +3674,19 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     });
   };
 
+  const [personaLinesEnabled, setPersonaLinesEnabled] = useState(() => isPersonaLinesEnabled());
+  useEffect(() => {
+    const sync = () => setPersonaLinesEnabled(isPersonaLinesEnabled());
+    const offFlags = subscribeDevDebugFlags(sync);
+    const offAvail = subscribeDevDebugAvailability(sync);
+    return () => { offFlags(); offAvail(); };
+  }, []);
+
   const activeLineFor = useCallback((char: CharacterProfile): ChatLine => {
+    if (!personaLinesEnabled) return primaryLine(char.id);
     const key = globalPersonaKey(userProfileBase);
     return char.knownPersonaKeys?.includes(key) ? lineFor(char, key) : primaryLine(char.id);
-  }, [userProfileBase]);
+  }, [userProfileBase, personaLinesEnabled]);
 
   const updateLine = (charView: Pick<CharacterProfile, 'id'>, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
     const line = lineOf(charView);
@@ -5796,7 +5807,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   const migration = migrateCharacterContextRange(normalized);
                   if (migration.migrated) importedContextMigrated = true;
                   if (migration.resetAutoContext) importedAutoContextCount++;
-                  const withLines = withLineFields(importedLineBase, migration.character);
+                  const withLines = withLineFields(importedLineBase, migration.character, { resync: !isPersonaLinesEnabled() });
                   if (withLines !== migration.character) importedContextMigrated = true;
                   return withLines;
               });
@@ -5993,6 +6004,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     addCharacter,
     updateCharacter,
     activeLineFor,
+    personaLinesEnabled,
     updateLine,
     deleteCharacter,
     setActiveCharacterId,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { AppID } from '../types';
+import { AppID, type ChatLine } from '../types';
 import TokenImg from '../components/os/TokenImg';
 import IdentitySwitcher from '../components/user/IdentitySwitcher';
 import UserProfileHome from '../components/user/UserProfileHome';
@@ -11,6 +11,8 @@ import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
+import { isPrimaryLine, lineArgOf, lineFor, lineView } from '../utils/chatLine';
+import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import {
     ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass,
 } from '@phosphor-icons/react';
@@ -20,6 +22,10 @@ type HubTab = 'messages' | 'contacts' | 'moments' | 'profile';
 interface ChatRow {
     kind: 'private' | 'group';
     id: string;
+    /** 關係線：私聊是哪條線（主線不帶 personaKey）；列表鍵與打開時切身份用 */
+    line?: ChatLine;
+    /** 這條線上的你是哪張卡（「全部身份」時在頭像角落標出來） */
+    personaKey?: string;
     name: string;
     avatar: string;
     preview: string;
@@ -34,6 +40,8 @@ interface ContactRow {
     kind: 'character' | 'npc';
     sub: string;
 }
+
+const ALL_PERSONAS_KEY = 'chathub_all_personas_v1';
 
 const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
 
@@ -52,7 +60,30 @@ const ChatHub: React.FC = () => {
     const {
         closeApp, openApp, characters, npcs, groups, unreadMessages,
         setActiveCharacterId, openGroupChat,
+        userProfileBase, personaLinesEnabled, setActivePersonaId, addToast,
     } = useOS();
+
+    // 關係線（plans/persona-line-batch1-2.md）：預覽開著時，私聊照「現在的我」分空間——只列認識這張卡的角色；
+    // 「全部身份」把每個角色的每條線都列出來，頭像角落標是哪張卡。關著時照舊一個角色一行。
+    const activePersonaKey = globalPersonaKey(userProfileBase);
+    const [allPersonas, setAllPersonasState] = useState(() => {
+        try { return localStorage.getItem(ALL_PERSONAS_KEY) === '1'; } catch { return false; }
+    });
+    const setAllPersonas = (v: boolean) => {
+        setAllPersonasState(v);
+        try { localStorage.setItem(ALL_PERSONAS_KEY, v ? '1' : '0'); } catch { /* 沒有就算了 */ }
+    };
+    const showAllLines = personaLinesEnabled && allPersonas;
+    /** 背景訊息目前只會落在主線，所以未讀都算在角色主線那張卡上 */
+    const unreadByPersona = useMemo(() => {
+        const out: Record<string, number> = {};
+        if (!personaLinesEnabled) return out;
+        for (const c of characters) {
+            const n = unreadMessages[c.id] || 0;
+            if (n > 0 && c.primaryPersonaKey) out[c.primaryPersonaKey] = (out[c.primaryPersonaKey] || 0) + n;
+        }
+        return out;
+    }, [characters, unreadMessages, personaLinesEnabled]);
 
     const [tab, setTab] = useState<HubTab>('messages');
     const [showAddMenu, setShowAddMenu] = useState(false);
@@ -66,14 +97,23 @@ const ChatHub: React.FC = () => {
         let cancelled = false;
         (async () => {
             const [privateRows, groupRows] = await Promise.all([
-                Promise.all(characters.map(async (c): Promise<ChatRow | null> => {
-                    const [msg] = await DB.getRecentMessagesByCharId(c.id, 1, true);
-                    if (!msg) return null;
-                    return {
-                        kind: 'private', id: c.id, name: c.chatNickname?.trim() || c.name, avatar: c.avatar,
-                        preview: messageLogText(msg), timestamp: msg.timestamp,
-                        unread: unreadMessages[c.id] || 0,
-                    };
+                Promise.all(characters.flatMap(c => {
+                    // 關掉預覽：一個角色一行（主線）。開著：現在這張卡的那條線，或「全部身份」時每條線一行。
+                    const keys = !personaLinesEnabled ? [undefined]
+                        : showAllLines ? (c.knownPersonaKeys?.length ? c.knownPersonaKeys : [c.primaryPersonaKey])
+                        : (c.knownPersonaKeys || [c.primaryPersonaKey]).includes(activePersonaKey) ? [activePersonaKey] : [];
+                    return keys.map(async (key): Promise<ChatRow | null> => {
+                        const line = lineFor(c, key);
+                        const view = lineView(c, line);
+                        const [msg] = await DB.getRecentMessagesByCharId(lineArgOf(view), 1, true);
+                        if (!msg) return null;
+                        return {
+                            kind: 'private', id: c.id, line, personaKey: key || c.primaryPersonaKey,
+                            name: view.chatNickname?.trim() || c.name, avatar: c.avatar,
+                            preview: messageLogText(msg), timestamp: msg.timestamp,
+                            unread: isPrimaryLine(line) ? (unreadMessages[c.id] || 0) : 0,
+                        };
+                    });
                 })),
                 Promise.all(groups.map(async (g): Promise<ChatRow | null> => {
                     const { messages } = await DB.getRecentGroupMessagesWithCount(g.id, 1);
@@ -95,7 +135,7 @@ const ChatHub: React.FC = () => {
         })();
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [characters, groups]);
+    }, [characters, groups, personaLinesEnabled, showAllLines, activePersonaKey]);
 
     const filteredRows = useMemo(() => {
         let list = rows || [];
@@ -106,8 +146,13 @@ const ChatHub: React.FC = () => {
         return list;
     }, [rows, msgFilter, msgQuery]);
 
-    const openRow = (row: ChatRow) => {
+    const openRow = async (row: ChatRow) => {
         if (row.kind === 'private') {
+            // 點到別張卡的線：先切成那張卡（你在任何時候都是某一個人）
+            if (personaLinesEnabled && row.personaKey && row.personaKey !== activePersonaKey) {
+                await setActivePersonaId(row.personaKey === REAL_IDENTITY_PERSONA_ID ? undefined : row.personaKey);
+                addToast(`已切換成 ${personaNameForKey(userProfileBase, row.personaKey)}`, 'info');
+            }
             setActiveCharacterId(row.id);
             chatReturnTarget.set(AppID.ChatHub);
             openApp(AppID.Chat);
@@ -166,7 +211,9 @@ const ChatHub: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                             </svg>
                         </button>
-                        <IdentitySwitcher />
+                        <IdentitySwitcher
+                            lineOptions={personaLinesEnabled ? { all: allPersonas, onAll: setAllPersonas, unreadByKey: unreadByPersona } : undefined}
+                        />
                     </div>
                     <div className="relative">
                         <button onClick={() => setShowAddMenu(v => !v)} className="p-1.5 rounded-full hover:bg-black/5 active:scale-90 transition-transform">
@@ -226,7 +273,7 @@ const ChatHub: React.FC = () => {
                             <div className="space-y-1">
                                 {filteredRows.map(row => (
                                     <button
-                                        key={`${row.kind}-${row.id}`}
+                                        key={`${row.kind}-${row.id}-${row.line?.personaKey || ''}`}
                                         onClick={() => openRow(row)}
                                         className="w-full flex items-center gap-3 px-2 py-2.5 rounded-2xl hover:bg-white active:bg-slate-100 transition-colors text-left"
                                     >
@@ -236,6 +283,13 @@ const ChatHub: React.FC = () => {
                                                 <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center">
                                                     {row.unread > 99 ? '99+' : row.unread}
                                                 </span>
+                                            )}
+                                            {showAllLines && row.kind === 'private' && row.personaKey && (
+                                                <TokenImg
+                                                    value={personaAvatarForKey(userProfileBase, row.personaKey)}
+                                                    className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full object-cover bg-slate-200 border-2 border-white"
+                                                    alt={personaNameForKey(userProfileBase, row.personaKey)}
+                                                />
                                             )}
                                         </div>
                                         <div className="min-w-0 flex-1">

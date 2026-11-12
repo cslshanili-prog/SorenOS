@@ -1,5 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import { lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
+import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -31,7 +31,7 @@ import { isVideoShareUrl, parseVideoShareUrl } from '../utils/videoParser';
 import { isDevDebugAvailable } from '../utils/devDebug';
 import { isImageValue, migrateDataUrlToRef, putImageBlob, useBlobRefUrl, getBlobForRef, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage, imageGenRecord } from '../utils/imageGeneration';
-import { resolveUserProfileForChar } from '../utils/userPersona';
+import { globalPersonaKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { ensureRealBalanceState, applyRealBalanceDelta, formatMoney, MONEY_SYMBOL } from '../utils/realBalance';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { resolveLifeRecordCard } from '../utils/lifeRecords';
@@ -158,7 +158,7 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
-    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, updateUserProfile, apiConfig, apiPresets, availableModels, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
+    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, personaLinesEnabled, setActivePersonaId, updateUserProfile, apiConfig, apiPresets, availableModels, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
     // 從 Chat 主頁（消息/聯繫人 tab）點進來的私聊，返回鍵回 Chat 主頁而不是無腦回桌面；
     // 別的入口（角色卡「發消息」、伴侶桌面皮膚的「對話」按鈕等）沒設這個，行為不變。
@@ -329,6 +329,19 @@ const Chat: React.FC = () => {
     const chatLineArgRef = useRef(chatLineArg);
     chatLineArgRef.current = chatLineArg;
     const chatLineId = char ? lineKey(lineOf(char)) : activeCharacterId;
+    // 關係線預覽開著時，你在任何時候都是某一個人：打開的角色不認識現在這張卡（從通知、神經鏈接進來），
+    // 就切成它主線那張卡，跳一句提示。
+    useEffect(() => {
+        if (!personaLinesEnabled || !rawChar?.primaryPersonaKey) return;
+        const current = globalPersonaKey(userProfileBase);
+        const known = rawChar.knownPersonaKeys?.length ? rawChar.knownPersonaKeys : [rawChar.primaryPersonaKey];
+        if (known.includes(current)) return;
+        const target = rawChar.primaryPersonaKey;
+        void setActivePersonaId(target === REAL_IDENTITY_PERSONA_ID ? undefined : target);
+        addToast(`已切換成 ${personaNameForKey(userProfileBase, target)}`, 'info');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [personaLinesEnabled, rawChar?.id, rawChar?.primaryPersonaKey, rawChar?.knownPersonaKeys, userProfileBase.activePersonaId]);
+
     const updateCharacter = useCallback(
         (id: string, updates: Parameters<typeof updateCharacterRaw>[1]) =>
             (char && id === char.id ? updateLine(char, updates) : updateCharacterRaw(id, updates)),
@@ -1082,7 +1095,8 @@ const Chat: React.FC = () => {
                 setSettingsContextRangeMode(resolveContextRangeMode(char));
                 setSettingsHideSysLogs(char.hideSystemLogs || false);
                 setSettingsHtmlModeCustomPrompt((char as any).htmlModeCustomPrompt || '');
-                clearUnread(char.id);
+                // 未讀目前只會落在主線（背景訊息還不認得線）；在別條線上不清主線的未讀
+                if (isPrimaryLine(lineOf(char))) clearUnread(char.id);
             }
             // Per-character translation toggle + language pair
             try {
@@ -1231,7 +1245,7 @@ const Chat: React.FC = () => {
     useEffect(() => {
         if (activeCharacterId) {
             reloadMessages(visibleCountRef.current);
-            clearUnread(activeCharacterId);
+            if (!char || isPrimaryLine(lineOf(char))) clearUnread(activeCharacterId);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clearUnread is stable (useCallback with []), omit to prevent stale-dep lint noise
     }, [lastMsgTimestamp, activeCharacterId, char?.hideSystemLogs, reloadMessages, clearUnread]);
