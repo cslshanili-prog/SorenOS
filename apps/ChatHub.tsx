@@ -11,7 +11,8 @@ import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
-import { lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
+import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
+import AddFriendPage from '../components/chat/AddFriendPage';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import {
     ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass,
@@ -90,6 +91,11 @@ const ChatHub: React.FC = () => {
 
     const [tab, setTab] = useState<HubTab>('messages');
     const [showAddMenu, setShowAddMenu] = useState(false);
+    // 加好友（plans/persona-line-batch4.md 第 3 節）：'list' = 先挑人；角色 id = 直接加他
+    const [addFriendFor, setAddFriendFor] = useState<string | null>(null);
+    const strangerIds = useMemo(() => new Set(personaLinesEnabled
+        ? characters.filter(c => !knowsPersona(c, activePersonaKey)).map(c => c.id)
+        : []), [characters, personaLinesEnabled, activePersonaKey]);
 
     // --- 消息 tab ---
     const [rows, setRows] = useState<ChatRow[] | null>(null);
@@ -190,6 +196,11 @@ const ChatHub: React.FC = () => {
     }, [characters, npcs, contactQuery]);
 
     const openContact = (item: ContactRow) => {
+        // 他還不認識現在這張卡：先加好友，不直接掉進別張卡的那條線
+        if (item.kind === 'character' && strangerIds.has(item.id)) {
+            setAddFriendFor(item.id);
+            return;
+        }
         if (item.kind === 'character') {
             setActiveCharacterId(item.id);
             chatReturnTarget.set(AppID.ChatHub);
@@ -205,6 +216,18 @@ const ChatHub: React.FC = () => {
 
     return (
         <div className="h-full w-full bg-slate-50 flex flex-col animate-fade-in">
+            {addFriendFor && (
+                <AddFriendPage
+                    char={addFriendFor === 'list' ? null : characters.find(c => c.id === addFriendFor) || null}
+                    onClose={() => setAddFriendFor(null)}
+                    onAccepted={(charId) => {
+                        setAddFriendFor(null);
+                        setActiveCharacterId(charId);
+                        chatReturnTarget.set(AppID.ChatHub);
+                        openApp(AppID.Chat);
+                    }}
+                />
+            )}
             {/* Header */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 shrink-0 sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center justify-between px-4 py-3">
@@ -228,6 +251,9 @@ const ChatHub: React.FC = () => {
                                 <div className="absolute right-0 top-10 z-20 w-36 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-fade-in">
                                     <button onClick={() => { setShowAddMenu(false); openApp(AppID.Character); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50">新增角色</button>
                                     <button onClick={() => { setShowAddMenu(false); openApp(AppID.GroupChat); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">新建群聊</button>
+                                    {personaLinesEnabled && (
+                                        <button onClick={() => { setShowAddMenu(false); setAddFriendFor('list'); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">加好友</button>
+                                    )}
                                 </div>
                             </>
                         )}
@@ -342,6 +368,9 @@ const ChatHub: React.FC = () => {
                                                             <span className="text-sm font-bold text-slate-800 truncate">{item.name}</span>
                                                             {item.kind === 'npc' && (
                                                                 <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 text-[9px] font-bold">NPC</span>
+                                                            )}
+                                                            {item.kind === 'character' && strangerIds.has(item.id) && (
+                                                                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold">還不認識你</span>
                                                             )}
                                                         </div>
                                                         {item.sub && <p className="text-[11px] text-slate-400 truncate mt-0.5">{item.sub}</p>}

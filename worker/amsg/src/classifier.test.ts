@@ -458,6 +458,20 @@ describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
     ]);
   });
 
+  it('角色拉黑你、關係線小號的懷疑也原樣送回（雲端生成時不被剝掉）', () => {
+    const r = classifyLLMOutput([
+      '我不想再看到你的訊息了',
+      '[[ACTION:BLOCK_USER|你騙了我]]',
+      '[[ACTION：SUSPECT｜小星｜說話方式一模一樣]]',
+    ].join('\n'));
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('我不想再看到你的訊息了');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[ACTION:BLOCK_USER|你騙了我]]' },
+      { type: 'soren_tag', raw: '[[ACTION：SUSPECT｜小星｜說話方式一模一樣]]' },
+    ]);
+  });
+
   it('資料庫的照片：SEND_SAVED_PHOTO 原樣送回（全形標點、# 都認），不被當成 SEND_PHOTO 拆壞', () => {
     const r = classifyLLMOutput([
       '給你看這張',

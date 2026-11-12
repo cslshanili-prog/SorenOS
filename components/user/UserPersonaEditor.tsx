@@ -7,6 +7,8 @@ import TokenImg from '../os/TokenImg';
 import { trackEvent } from '../../utils/analytics';
 import type { CharacterProfile, UserGender } from '../../types';
 import CharacterImageGenPanel from '../character/CharacterImageGenPanel';
+import PersonaLinksSection from './PersonaLinksSection';
+import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
 
 const GENDER_OPTIONS: UserGender[] = ['男', '女', '保密', '二次元', '其他'];
 
@@ -19,7 +21,7 @@ export type UserPersonaEditTarget = 'new' | 'real' | string;
  * （見 utils/userPersona.ts）。切換「目前身份」在 IdentitySwitcher 的下拉選單裡。
  */
 const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () => void }> = ({ target, onClose }) => {
-    const { userProfileBase, updateUserProfile, addUserPersona, updateUserPersona, deleteUserPersona, addToast, apiConfig } = useOS();
+    const { userProfileBase, updateUserProfile, addUserPersona, updateUserPersona, deleteUserPersona, addToast, apiConfig, personaLinesEnabled } = useOS();
     const personas = userProfileBase.personas || [];
     const editingId = target;
 
@@ -219,6 +221,11 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                         globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
                     />
                 </div>
+
+                {/* 身份連結（關係線預覽開著才有；新卡要先存起來才有 id） */}
+                {personaLinesEnabled && editingId !== 'new' && (
+                    <PersonaLinksSection personaKey={editingId === 'real' ? REAL_IDENTITY_PERSONA_ID : editingId} />
+                )}
 
                 {editingId !== 'new' && editingId !== 'real' && (
                     <button

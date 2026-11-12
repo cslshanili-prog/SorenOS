@@ -3,18 +3,24 @@ import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
 import { lineViewPersonaKey } from './userPersona';
+import { formatPersonaLinksBlock, sameIdentityKeys } from './personaLinks';
 
 /**
  * 關係線（plans/persona-line-batch1-2.md 第 6 節）：記憶片段不是這條線的，標清楚是跟誰的。
  * char 是線視圖時知道現在是哪條線；片段沒標 personaKey 的算主線。只有一條線的角色永遠回空字串。
  */
 function fragmentLineLabel(
-    char: Pick<CharacterProfile, 'primaryPersonaKey'>,
+    char: Pick<CharacterProfile, 'primaryPersonaKey' | 'knownPersonaKeys' | 'altKnowledge'>,
     fragment: { personaKey?: string; personaName?: string },
+    user?: Pick<UserProfile, 'personaLinks'>,
 ): string {
     const current = lineViewPersonaKey(char) || char.primaryPersonaKey;
     const own = fragment.personaKey || char.primaryPersonaKey;
     if (!current || !own || current === own) return '';
+    // 角色知道那張卡就是現在這個人（小號，plans/persona-line-batch4.md）
+    if (user && sameIdentityKeys(char, user, current).includes(own)) {
+        return `〔這是TA用「${fragment.personaName || '另一個身份'}」的身份跟你經歷的事〕`;
+    }
     return `〔這是你跟「${fragment.personaName || '另一個人'}」之間的事，現在跟你說話的人不一定知道〕`;
 }
 import { isScheduleFeatureOn } from './scheduleFeature';
@@ -282,6 +288,9 @@ export const ContextBuilder = {
                 ? getCachedUserHolidayReminder(user.name, timeOptions?.userHolidays)
                 : '';
             sections.userProfile = formatUserProfileBlock(user, holidayLine);
+            // 身份連結（plans/persona-line-batch4.md）：同一世界的關係、角色知道的小號、否認過的懷疑
+            const linksBlock = formatPersonaLinksBlock(char, user);
+            if (linksBlock) sections.userProfile += `\n${linksBlock}`;
         }
 
         // 4. [NEW] 印象檔案 (Private Impression)
@@ -350,7 +359,7 @@ export const ContextBuilder = {
                 if (logs.length > 0) {
                     details += `\n> 詳細回憶 [${monthKey}]:\n`;
                     logs.forEach(m => {
-                        const label = fragmentLineLabel(char, m);
+                        const label = fragmentLineLabel(char, m, user);
                         details += `  - ${m.date} (${m.mood || 'rec'})${label ? ` ${label}` : ''}: ${m.summary}\n`;
                     });
                 }

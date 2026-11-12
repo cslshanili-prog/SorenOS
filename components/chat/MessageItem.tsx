@@ -976,6 +976,53 @@ const CharCallCard: React.FC<{
 };
 
 /** 角色發的見面邀請（聊天設定 · 自動線下邀請，見 utils/dateInvite.ts）。 */
+/** 小號 · 角色起疑的卡（utils/personaReveal.ts）：猜中有連結的那張能「承認／否認」，猜錯只能「否認」 */
+const PersonaSuspectCard: React.FC<{
+    m: Message;
+    charName: string;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onResolvePersonaReveal?: (m: Message, action: 'admitted' | 'denied') => void;
+}> = ({ m, charName, commonLayout, selectionMode, onResolvePersonaReveal }) => {
+    const meta = m.metadata?.personaReveal || {};
+    const status: 'pending' | 'admitted' | 'denied' = meta.status === 'admitted' || meta.status === 'denied' ? meta.status : 'pending';
+    const canResolve = status === 'pending' && !!onResolvePersonaReveal && !selectionMode;
+    return commonLayout(
+        <div className="sully-persona-suspect w-64 rounded-2xl overflow-hidden border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-sm">
+            <div className="px-3.5 pt-3 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg shadow-sm ring-2 ring-indigo-100">🔍</div>
+                    <div className="min-w-0 flex-1">
+                        <div className="text-xs font-bold text-slate-700">{charName} 覺得你其實是「{meta.guessName || '?'}」</div>
+                        <div className="text-[10px] text-slate-400 mt-0.5">他起疑了</div>
+                    </div>
+                </div>
+                {meta.reason && (
+                    <div className="mt-2.5 rounded-xl bg-white/80 px-2.5 py-2 text-[11px] text-slate-600 leading-relaxed">{meta.reason}</div>
+                )}
+                {status === 'admitted' ? (
+                    <div className="mt-2 px-1 text-[10px] font-semibold text-indigo-500">你承認了</div>
+                ) : status === 'denied' ? (
+                    <div className="mt-2 px-1 text-[10px] font-semibold text-slate-400">你否認了</div>
+                ) : canResolve ? (
+                    <div className="mt-2.5 flex gap-2">
+                        {meta.linkId && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); onResolvePersonaReveal?.(m, 'admitted'); }}
+                                className="flex-1 py-1.5 rounded-xl bg-indigo-500 text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform">
+                                承認
+                            </button>
+                        )}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onResolvePersonaReveal?.(m, 'denied'); }}
+                            className="flex-1 py-1.5 rounded-xl bg-white/80 text-slate-500 text-[11px] font-bold shadow-sm active:scale-95 transition-transform">
+                            否認
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+};
+
 const DateInviteCard: React.FC<{
     m: Message;
     charName: string;
@@ -1554,6 +1601,8 @@ interface MessageItemProps {
     /** 用戶點「生活記錄」卡 → 確認 / 否決（角色代記的記錄） */
     onResolveLifeRecord?: (m: Message, action: 'confirmed' | 'rejected') => void;
     onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
+    /** 小號：角色起疑的卡上按「承認／否認」（utils/personaRevealActions.ts） */
+    onResolvePersonaReveal?: (m: Message, action: 'admitted' | 'denied') => void;
     onCallBack?: (m: Message) => void;
     onRetryPhoto?: (m: Message) => void;
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
@@ -1607,6 +1656,7 @@ const MessageItem = React.memo(({
     onResolveTransfer,
     onResolveLifeRecord,
     onResolveDateInvite,
+    onResolvePersonaReveal,
     onCallBack,
     onRetryPhoto,
     onOpenCollaborationFile,
@@ -1789,6 +1839,19 @@ const MessageItem = React.memo(({
     // --- SYSTEM MESSAGE RENDERING ---
     if (isSystem) {
         const isCallSummary = m.metadata?.source === 'call-end-popup';
+
+        // 小號 · 他發現了（utils/personaReveal.ts）：置中的一張小卡
+        if (m.type === 'persona_card') {
+            const meta = m.metadata?.personaReveal || {};
+            return (
+                <div className="flex justify-center w-full my-3 px-6 animate-fade-in" {...interactionProps}>
+                    <div className="sully-persona-discovered max-w-[85%] rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 px-4 py-2.5 text-center shadow-sm">
+                        <div className="text-[11px] font-bold text-indigo-500">{meta.how === 'admitted' ? '🔓 你承認了' : '🔓 他發現了'}</div>
+                        <div className="text-[11.5px] text-slate-600 mt-1 leading-relaxed">原來「{meta.otherName}」就是「{meta.hereName}」</div>
+                    </div>
+                </div>
+            );
+        }
 
         // Guidebook end card — rendered as pretty card, not ugly system pill
         if (m.type === 'score_card') {
@@ -3452,6 +3515,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'char_call') {
         return <CharCallCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} onCallBack={onCallBack} />;
+    }
+
+    if (m.type === 'persona_card') {
+        return <PersonaSuspectCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolvePersonaReveal={onResolvePersonaReveal} />;
     }
 
     if (m.type === 'date_invite') {

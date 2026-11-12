@@ -2,6 +2,20 @@ import type { CharacterProfile, UserProfile } from '../types';
 import { isPersonaLinesEnabled } from './devDebug';
 
 /**
+ * 套用身份卡之後，真實身份原本的名字和頭像記在這裡（Symbol，存進 IndexedDB／JSON 都不會跟著寫出去）。
+ * 拿已套用的檔案去查「真實身份叫什麼」時要靠它，不然會讀到套上去的那張卡的名字
+ * （身份連結的提示詞就踩過：「老婆其實就是老婆」）。
+ */
+const REAL_IDENTITY_FACE = Symbol('realIdentityFace');
+type Face = { name: string; avatar: string };
+const withRealFace = <T extends UserProfile>(applied: T, base: UserProfile): T => {
+    (applied as unknown as Record<symbol, Face>)[REAL_IDENTITY_FACE] = realFaceOf(base);
+    return applied;
+};
+const realFaceOf = (profile: UserProfile): Face =>
+    (profile as unknown as Record<symbol, Face | undefined>)[REAL_IDENTITY_FACE] || { name: profile.name, avatar: profile.avatar };
+
+/**
  * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
  * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails/imageGenConfig 這幾個"外顯裝扮"字段，其餘字段
  * （vrState/perCharAvatars/personas 本身……）不變。這是全站唯一的口徑——所有讀
@@ -13,7 +27,7 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         ? profile.personas?.find(p => p.id === profile.activePersonaId)
         : undefined;
     if (!persona) return profile;
-    return {
+    return withRealFace({
         ...profile,
         name: persona.name,
         avatar: persona.avatar,
@@ -23,7 +37,7 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         otherDetails: persona.otherDetails,
         // 長相也跟著卡走：卡沒設就是沒有，不能拿真實身份那張臉去拍另一個人
         imageGenConfig: persona.imageGenConfig,
-    };
+    }, profile);
 }
 
 /**
@@ -46,7 +60,7 @@ function applyPersonaOverride(
     if (overrideId && overrideId !== REAL_IDENTITY_PERSONA_ID) {
         const persona = profileBase.personas?.find(p => p.id === overrideId);
         if (persona) return {
-            profile: {
+            profile: withRealFace({
                 ...profileBase,
                 name: persona.name,
                 avatar: persona.avatar,
@@ -55,7 +69,7 @@ function applyPersonaOverride(
                 customSetting: persona.customSetting,
                 otherDetails: persona.otherDetails,
                 imageGenConfig: persona.imageGenConfig,
-            },
+            }, profileBase),
             matchedPersona: true,
         };
         // 指向的身份卡已被刪除：跟"沒設置"一樣回落到全域默認，不崩潰、不留死引用的痕跡。
@@ -243,7 +257,7 @@ export function personaAvatarForKey(profileBase: UserProfile, key: string): stri
         const persona = profileBase.personas?.find(p => p.id === key);
         if (persona) return persona.avatar;
     }
-    return profileBase.avatar;
+    return realFaceOf(profileBase).avatar;
 }
 
 /** 身份鍵對應的名字（找不到身份卡就是真實身份的名字）。 */
@@ -252,7 +266,7 @@ export function personaNameForKey(profileBase: UserProfile, key: string): string
         const persona = profileBase.personas?.find(p => p.id === key);
         if (persona) return persona.name;
     }
-    return profileBase.name;
+    return realFaceOf(profileBase).name;
 }
 
 /**

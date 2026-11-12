@@ -56,6 +56,7 @@ import { announceScheduleChanges, applyAssistantScheduleChanges } from './schedu
 import { CHAR_RELATIONSHIP_CHANGE_EVENT, extractRelationshipChange, type CharRelationshipChangeDetail } from './chatRelationship';
 import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, extractBlockUser, type ChatBlockChangeDetail } from './chatBlock';
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
+import { extractSuspicion, resolveSuspicion, type PersonaRevealMeta } from './personaReveal';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type CharCallMode, type IncomingCharCallDetail } from './charCall';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
 import { getReadNoReplyDecision } from './readNoReplyRuntime';
@@ -869,6 +870,17 @@ export async function applyAssistantPostProcessing(
      * 角色拉黑用戶 [[ACTION:BLOCK_USER|原因]]：標籤一律剝掉；聊天設定開了「允許角色拉黑你」、
      * 現在又沒在拉黑中才記下，等這一輪話都落完再補系統提示並發事件（OSContext 寫回角色）。
      */
+    /**
+     * 小號 · 角色起疑 [[ACTION:SUSPECT|名字|理由]]：標籤一律剝掉；名字對得上他認識的另一張卡才記下，
+     * 等這一輪話都落完再補一張懷疑卡（卡上「承認／否認」，見 utils/personaReveal.ts）。一輪只懷疑一次。
+     */
+    let pendingSuspicion: PersonaRevealMeta | null = null;
+    const consumeSuspicion = (content: string): string => {
+        const { cleanedText, suspicion } = extractSuspicion(content);
+        if (suspicion && !pendingSuspicion) pendingSuspicion = resolveSuspicion(char, userProfile, suspicion);
+        return cleanedText;
+    };
+
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
         const { cleanedText, block } = extractBlockUser(content);
@@ -886,6 +898,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeDateInvite(aiContent);
     aiContent = consumeCharCall(aiContent);
     aiContent = consumeBlockUser(aiContent);
+    aiContent = consumeSuspicion(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2380,6 +2393,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeDateInvite(aiContent);
     aiContent = consumeCharCall(aiContent);
     aiContent = consumeBlockUser(aiContent);
+    aiContent = consumeSuspicion(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2494,6 +2508,17 @@ export async function applyAssistantPostProcessing(
                 detail: { ...lineMsgFields(char), action: 'charBlock', reason: block.reason },
             }));
         }
+    }
+
+    // 小號的懷疑卡也排在這一輪的話後面
+    if (pendingSuspicion) {
+        const meta = pendingSuspicion as Extract<PersonaRevealMeta, { kind: 'suspect' }>;
+        await persistMessage({
+            ...lineMsgFields(char), role: 'assistant', type: 'persona_card',
+            content: `${char.name} 問你是不是其實就是「${meta.guessName}」${meta.reason ? `：${meta.reason}` : ''}`,
+            metadata: { ...(mcdInheritMeta || {}), personaReveal: meta },
+        } as Parameters<typeof DB.saveMessage>[0]);
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
     }
 
     // 見面邀請卡排在這一輪所有話的後面

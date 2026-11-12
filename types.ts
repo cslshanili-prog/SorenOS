@@ -3196,6 +3196,16 @@ export interface CharacterProfile {
    */
   knownPersonaKeys?: string[];
   /**
+   * 這個角色對每條小號連結知不知道（linkId → 狀態，沒有＝不知道）。角色本人的，不跟線走。
+   * 見 plans/persona-line-batch4.md 第 1、2 節、utils/personaLinks.ts。
+   */
+  altKnowledge?: Record<string, AltKnowledge>;
+  /**
+   * 身份卡來加他好友的紀錄（personaKey → 每次送的招呼和結果）。角色本人的，不跟線走：
+   * 他看得到你之前被拒過幾次、上次說了什麼（plans/persona-line-batch4.md 第 3 節、utils/friendRequest.ts）。
+   */
+  friendRequests?: Record<string, FriendRequestRecord[]>;
+  /**
    * 主動消息 1.0 在**非主線**上開沒開（存在 lines[personaKey]）。新線預設關；其餘設定（頻率、睡覺不發…）
    * 照 proactiveConfig。主線的開關仍是 proactiveConfig.enabled。見 plans/persona-line-batch3.md。
    */
@@ -3890,6 +3900,8 @@ export interface UserProfile {
     vrState?: UserVRState;
     /** 身份卡：同一個人維護的多套角色扮演身份（名字/頭像/簡介）。 */
     personas?: UserPersona[];
+    /** 身份卡之間的連結（同一世界／小號），兩兩設，見 plans/persona-line-batch4.md、utils/personaLinks.ts */
+    personaLinks?: PersonaLink[];
     /**
      * 當前生效的身份卡 id；undefined/找不到 = 用上面這份「真實身份」。
      * 只是外顯裝扮——好感度/記憶/關係不跟著身份卡分開算，角色始終認得是同一個人。
@@ -4221,6 +4233,35 @@ export interface MallOrder {
 
 /** 身份卡/真實身份的性別選項，純展示 + 會發給 AI，跟 SimGender（彼方小人）是兩套獨立的枚舉。 */
 export type UserGender = '男' | '女' | '保密' | '二次元' | '其他';
+
+/** 身份卡之間的連結（plans/persona-line-batch4.md）。kind 是 alt 時 a 是本來的身份、b 是小號。 */
+export interface PersonaLink {
+    id: string;
+    kind: 'sameWorld' | 'alt';
+    a: string;
+    b: string;
+    /** 同一世界的雙向稱呼：a 是 b 的「姊姊」（aToB）、b 是 a 的「妹妹」（bToA）。都可以不填 */
+    aToB?: string;
+    bToA?: string;
+    createdAt: number;
+}
+
+/** 一次加好友：送的招呼、他通過沒有、回的那句話。 */
+export interface FriendRequestRecord {
+    at: number;
+    greeting: string;
+    accepted: boolean;
+    reply?: string;
+}
+
+/** 角色對一條小號連結的認知。沒有這筆＝不知道。 */
+export type AltKnowledge =
+    /** 一直都知道（建連結時勾的、或在角色那邊改的設定） */
+    | { state: 'known'; since: number }
+    /** 讓他發現（revealed）／他察覺、你承認（admitted） */
+    | { state: 'discovered'; at: number; how: 'revealed' | 'admitted' }
+    /** 他懷疑過、你否認了 */
+    | { state: 'denied'; at: number; times: number };
 
 export interface UserPersona {
     id: string;
@@ -4930,7 +4971,7 @@ export interface GameSession {
     lastPlayedAt: number;
 }
 
-export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card' | 'mall_order' | 'date_invite' | 'char_call' | 'photo_pending' | 'library_file';
+export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card' | 'mall_order' | 'date_invite' | 'char_call' | 'photo_pending' | 'library_file' | 'persona_card';
 
 export interface Message {
     id: number;

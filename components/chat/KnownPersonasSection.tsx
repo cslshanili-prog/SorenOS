@@ -2,8 +2,10 @@ import React from 'react';
 import { Check } from '@phosphor-icons/react';
 import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
-import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
-import type { CharacterProfile } from '../../types';
+import { personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
+import { altKnowledgeOf } from '../../utils/personaLinks';
+import { revealAltToChar } from '../../utils/personaRevealActions';
+import type { AltKnowledge, CharacterProfile, PersonaLink } from '../../types';
 
 /**
  * 聊天設定「認識的你」（plans/persona-line-batch1-2.md 第 4 節）：這個角色認識哪幾張身份卡，每張一條線。
@@ -26,6 +28,24 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
         if (key === primary) return;
         const next = known.includes(key) ? known.filter(k => k !== key) : [...known, key];
         updateCharacter(raw.id, { knownPersonaKeys: next.includes(primary) ? next : [primary, ...next] });
+    };
+
+    // 小號（plans/persona-line-batch4.md）：兩張卡他都認識，才有「知不知道是同一個人」
+    const altLinks = (userProfileBase.personaLinks || []).filter((l): l is PersonaLink =>
+        l.kind === 'alt' && known.includes(l.a) && known.includes(l.b));
+    const fmt = (ms: number) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+    const statusText = (k: AltKnowledge | undefined) => !k ? '他不知道'
+        : k.state === 'known' ? '他一直都知道'
+        : k.state === 'discovered' ? `他在 ${fmt(k.at)} ${k.how === 'admitted' ? '起疑、你承認了' : '發現了'}`
+        : `他懷疑過，你否認了 ${k.times} 次`;
+    // 這裡改的是設定（不是劇情）：只切「知道／不知道」，不落任何卡片
+    const setKnows = (link: PersonaLink, knows: boolean) => {
+        updateCharacter(raw.id, prev => {
+            const next = { ...(prev.altKnowledge || {}) };
+            if (knows) next[link.id] = { state: 'known', since: Date.now() };
+            else delete next[link.id];
+            return { altKnowledge: next };
+        });
     };
 
     return (
@@ -57,8 +77,41 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
                 })}
             </div>
             <p className="px-2 pt-2 text-[11px] leading-relaxed text-slate-400">
-                勾一張就多一條線：切到那張卡時，跟 {char.name} 聊的是另一段，記錄和關係各自分開。拿掉只是藏起來，加回來都還在。
+                勾一張就多一條線：切到那張卡時，跟 {char.name} 聊的是另一段，記錄和關係各自分開。拿掉只是藏起來，加回來都還在。在這裡勾是直接讓他認識、不經過加好友；想讓他自己決定，就用那張卡去訊息的「＋ → 加好友」。
             </p>
+            {altLinks.length > 0 && (
+                <div className="mt-4">
+                    <h3 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">小號</h3>
+                    <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
+                        {altLinks.map(link => {
+                            const k = altKnowledgeOf(raw, link);
+                            const knows = k?.state === 'known' || k?.state === 'discovered';
+                            return (
+                                <div key={link.id} className="flex items-center gap-3 px-5 py-3">
+                                    <span className="flex-1 min-w-0">
+                                        <span className="block text-[14px] text-slate-700">「{personaNameForKey(userProfileBase, link.b)}」是「{personaNameForKey(userProfileBase, link.a)}」的小號</span>
+                                        <span className="block text-[11px] text-slate-400">{statusText(k)}</span>
+                                    </span>
+                                    {!knows && (
+                                        <button type="button"
+                                            onClick={() => void revealAltToChar({ raw, link, profileBase: userProfileBase, how: 'revealed', updateCharacter })}
+                                            className="shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold text-white bg-indigo-500 active:scale-95 transition">
+                                            讓他發現
+                                        </button>
+                                    )}
+                                    <button type="button" onClick={() => setKnows(link, !knows)} aria-pressed={knows}
+                                        className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${knows ? 'bg-primary text-white border-primary' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                        {knows ? '知道' : '不知道'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <p className="px-2 pt-2 text-[11px] leading-relaxed text-slate-400">
+                        「知道／不知道」是設定：切成知道就當他一直都知道，不會有反應。「讓他發現」是劇情：兩條聊天各多一張卡，他下一輪會有反應。
+                    </p>
+                </div>
+            )}
         </section>
     );
 };
