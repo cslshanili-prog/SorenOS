@@ -22,6 +22,8 @@ import type {
 } from '../../types';
 import { DB } from '../db';
 import { personaKeyForChar, personaNameForKey, resolveUserProfileForChar } from '../userPersona';
+import { knowsPersona, lineArgOf, lineFor, lineOf, lineView } from '../chatLine';
+import { isPersonaLinesEnabled } from '../devDebug';
 import { crossPersonaNote } from '../personaSpeaker';
 import { recoverWorldProgress } from './episodeOrder';
 import { buildChatRequestPayload } from '../chatRequestPayload';
@@ -303,12 +305,34 @@ async function buildFullDayScheduleBlock(world: WorldProfile, char: CharacterPro
  * 把某一拍作為 world_card 注入這名角色的 1v1 聊天（進上下文與記憶）。
  * 自動演繹、單拍補發都走這裡——保證格式一致，也方便 UI 做「手動發送保底」。
  */
-export async function injectWorldCard(world: WorldProfile, beat: WorldCharBeat, round: number, storyTime: string): Promise<void> {
+export async function injectWorldCard(world: WorldProfile, beat: WorldCharBeat, round: number, storyTime: string, personaKey?: string): Promise<void> {
     await DB.saveMessage({
-        charId: beat.charId, role: 'assistant', type: 'world_card',
+        // 關係線：落在這個居民在家園裡的那條線（worldLineView），主線不帶 personaKey
+        charId: beat.charId, ...(personaKey ? { personaKey } : {}), role: 'assistant', type: 'world_card',
         content: buildCardContent(world, storyTime, beat),
         metadata: buildWorldCardMeta(world, beat, round, storyTime),
     });
+}
+
+/**
+ * 關係線（plans/persona-line-batch3.md 收尾）：家園裡這個居民的「你」是哪條線。
+ * 用它所在世界（分組）的世界預設身份；它認識那張卡就是那條線，沒設、不認識就照它的主線。
+ * 演繹時讀的私聊、事後寫進私聊的世界卡片都跟著這條線走。
+ */
+export function worldLineView(personaBase: UserProfile | null, char: CharacterProfile): CharacterProfile {
+    if (!personaBase || !char.groupId || !isPersonaLinesEnabled()) return char;
+    const key = personaBase.perWorldPersonaIds?.[char.groupId];
+    if (!key || !knowsPersona(char, key)) return char;
+    return lineView(char, lineFor(char, key));
+}
+
+/** 居民認識的其他身份卡：提醒它那是另一個人，別混成一個，也別忘了那個人在。 */
+function otherKnownPersonasNote(personaBase: UserProfile, char: CharacterProfile, userName: string): string {
+    const current = personaKeyForChar(personaBase, char);
+    const others = (char.knownPersonaKeys || []).filter(pk => pk && pk !== current);
+    if (!others.length) return '';
+    const names = others.map(pk => `「${personaNameForKey(personaBase, pk)}」`).join('、');
+    return `你也認識${names}：跟「${userName}」是不同的人，演你的生活時可以想到、提起，但別把兩個人混成一個。`;
 }
 
 /**
@@ -328,6 +352,8 @@ function worldUserFor(
         .filter(m => m.id !== char.id && personaKeyForChar(personaBase, m) !== myKey)
         .map(m => crossPersonaNote(user.name, m.name, personaNameForKey(personaBase, personaKeyForChar(personaBase, m))))
         .filter(Boolean);
+    const knownNote = isPersonaLinesEnabled() ? otherKnownPersonasNote(personaBase, char, user.name) : '';
+    if (knownNote) notes.push(knownNote);
     return { user, note: notes.length ? `\n${notes.join('\n')}` : '' };
 }
 
@@ -400,11 +426,13 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
         migrateWorldDaySegs(world);
         recoverWorldProgress(world, lastEpisodes);
 
-        const members = world.memberIds
-            .map(id => characters.find(c => c.id === id))
-            .filter(Boolean) as CharacterProfile[];
-        if (members.length === 0) return { ok: false, reason: 'no-members' };
         const personaBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+        // 每個居民換成它在家園裡那條線的視圖（worldLineView）
+        const members = (world.memberIds
+            .map(id => characters.find(c => c.id === id))
+            .filter(Boolean) as CharacterProfile[])
+            .map(m => worldLineView(personaBase, m));
+        if (members.length === 0) return { ok: false, reason: 'no-members' };
 
         // API 優先級：世界私有覆蓋（舊數據）> 家園全局設置（localStorage）> 全局聊天默認
         const worldHomeApi = readWorldHomeApiOverride();
@@ -624,7 +652,8 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
         if (entersMemory) {
             for (const beat of beats) {
                 try {
-                    await injectWorldCard(world, beat, episode.round, storyTime);
+                    const member = members.find(m => m.id === beat.charId);
+                    await injectWorldCard(world, beat, episode.round, storyTime, member ? lineOf(member).personaKey : undefined);
                 } catch (e) {
                     console.error(`[WorldHome] card inject failed for ${beat.charName}:`, e);
                 }
@@ -639,7 +668,7 @@ export async function runWorldEpisode(deps: WorldEpisodeDeps): Promise<WorldEpis
                     for (const beat of beats) {
                         const char = members.find(m => m.id === beat.charId);
                         if (!char?.memoryPalaceEnabled) continue;
-                        const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
+                        const recentMsgs = await DB.getRecentMessagesByCharId(lineArgOf(char), 50);
                         void processNewMessagesWithAutoArchive(recentMsgs, char.id, char.name, mpEmb as any, mpLLM as any, worldUserFor(personaBase, char, members, userProfile).user.name || '', false).catch(() => {});
                     }
                 }
@@ -673,7 +702,9 @@ export async function rerollWorldCharBeat(
         const storedWorld = await DB.getWorld(worldId);
         if (!storedWorld) return { ok: false, reason: 'no-world' };
         const world = structuredClone(storedWorld);
-        const members = world.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean) as CharacterProfile[];
+        const lineBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+        const members = (world.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean) as CharacterProfile[])
+            .map(m => worldLineView(lineBase, m));
         const char = members.find(m => m.id === charId);
         if (!char) return { ok: false, reason: 'no-char' };
         const memberNames = members.map(m => m.name);
@@ -786,6 +817,7 @@ export async function rerollWorldCharBeat(
         collectSeeds(world, beat, episode.round, episode.storyTime);
         applyRelationshipDeltas(world, [beat], members);
         await DB.replaceWorldBeat(world, updatedEp, charId, {
+            personaKey: lineOf(char).personaKey,
             content: buildCardContent(world, episode.storyTime, beat),
             metadata: buildWorldCardMeta(world, beat, episode.round, episode.storyTime),
             insertIfMissing: world.timeMode !== 'sim' && world.injectToChat !== false,
@@ -819,7 +851,9 @@ export async function rerollWorldEpisodeAll(
         const storedWorld = await DB.getWorld(worldId);
         if (!storedWorld) return { ok: false, reason: 'no-world' };
         const world = structuredClone(storedWorld);
-        const members = world.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean) as CharacterProfile[];
+        const lineBase = await Promise.resolve().then(() => DB.getUserProfile()).catch(() => null);
+        const members = (world.memberIds.map(id => characters.find(c => c.id === id)).filter(Boolean) as CharacterProfile[])
+            .map(m => worldLineView(lineBase, m));
         if (members.length === 0) return { ok: false, reason: 'no-members' };
         const memberNames = members.map(m => m.name);
         const worldHomeApi = readWorldHomeApiOverride();
@@ -940,6 +974,7 @@ export async function rerollWorldEpisodeAll(
         };
         await DB.replaceWorldEpisode(world, updatedEp, members.map(m => m.id), beats.map(beat => ({
             charId: beat.charId,
+            personaKey: (() => { const m = members.find(x => x.id === beat.charId); return m ? lineOf(m).personaKey : undefined; })(),
             content: buildCardContent(world, storyTime, beat),
             metadata: buildWorldCardMeta(world, beat, round, storyTime),
         })), world.timeMode !== 'sim' && world.injectToChat !== false, storedWorld, episode);

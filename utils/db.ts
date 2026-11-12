@@ -3210,7 +3210,7 @@ export const DB = {
   /** 重演的正文與副作用同事務提交；請求期間的世界編輯不被舊快照覆蓋（上游 2026-09-20 起，Soren 2026-10-17 搬入）。 */
   replaceWorldBeat: async (
       world: WorldProfile, episode: WorldEpisode, charId: string,
-      card: { content: string; metadata: Message['metadata']; insertIfMissing: boolean },
+      card: { content: string; metadata: Message['metadata']; insertIfMissing: boolean; personaKey?: string },
       expectedWorld: WorldProfile, expectedEpisode: WorldEpisode,
   ): Promise<void> => {
       const db = await openDB();
@@ -3247,7 +3247,8 @@ export const DB = {
                   }
                   cursor.continue();
               } else if (!found && card.insertIfMissing) {
-                  messages.add({ charId, role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
+                  // 關係線：家園照世界預設那條線補卡（主線不寫 personaKey）
+                  messages.add({ charId, ...(card.personaKey ? { personaKey: card.personaKey } : {}), role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
               }
           };
           tx.oncomplete = () => resolve();
@@ -3263,7 +3264,7 @@ export const DB = {
    */
   replaceWorldEpisode: async (
       world: WorldProfile, episode: WorldEpisode, memberIds: string[],
-      cards: { charId: string; content: string; metadata: Message['metadata'] }[],
+      cards: { charId: string; personaKey?: string; content: string; metadata: Message['metadata'] }[],
       insertIfMissing: boolean,
       expectedWorld: WorldProfile, expectedEpisode: WorldEpisode,
   ): Promise<void> => {
@@ -3305,7 +3306,7 @@ export const DB = {
                       }
                       cursor.continue();
                   } else if (!found && card && insertIfMissing) {
-                      messages.add({ charId, role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
+                      messages.add({ charId, ...(card.personaKey ? { personaKey: card.personaKey } : {}), role: 'assistant', type: 'world_card', content: card.content, metadata: card.metadata, timestamp: Date.now() });
                   }
               };
           }

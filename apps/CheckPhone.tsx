@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { testChatModel } from '../utils/apiConnectionTest';
-import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile } from '../types';
+import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile, Message } from '../types';
 import { ContextBuilder } from '../utils/context';
 import Modal from '../components/os/Modal';
 import TokenImg from '../components/os/TokenImg';
@@ -24,7 +24,8 @@ import { resolveCustomAppRecordHtml, composeCustomAppCardHtml, buildCustomAppHtm
 import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
-import { personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
+import { personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
+import { lineFor, lineMsgFields, linePersonaKey, lineView } from '../utils/chatLine';
 import { ensureRealBalanceState } from '../utils/realBalance';
 import { computeNetWorth, formatMoneyDisplay } from '../utils/finance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
@@ -271,11 +272,41 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs, updateNPC } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs, updateNPC, activeLineFor, personaLinesEnabled } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
-    const [targetChar, setTargetChar] = useState<CharacterProfile | null>(null);
+    const [rawTargetChar, setTargetChar] = useState<CharacterProfile | null>(null);
+    // 關係線（plans/persona-line-batch3.md 收尾）：手機是角色本人的、只有一支，偷看的是「現在的我」。
+    // 角色認識現在這張卡就用那條線的視圖（讀的私聊、被發現時的卡片都在那條線），不認識照舊主線。
+    // 手機資料（phoneState）是角色本人的，不跟線走，所以 updateCharacter 照舊寫原角色卡。
+    const targetChar = useMemo(
+        () => (rawTargetChar ? lineView(rawTargetChar, activeLineFor(rawTargetChar)) : null),
+        [rawTargetChar, activeLineFor],
+    );
+    /** 別的角色（A 背著你聊的 B）那邊的「現在的我」：B 認識這張卡就是那條線。 */
+    const phoneLineView = (c: CharacterProfile): CharacterProfile =>
+        (targetChar && c.id === targetChar.id ? targetChar : lineView(c, activeLineFor(c)));
+    // 角色認識的其他身份卡：在 TA 生活裡是真實存在的人，通訊錄裡列出來、點進去是那條線真實的聊天（唯讀）。
+    // 對用戶來說哪張卡都是自己，所以都看得到；偷看本身照舊是秘密，TA 不會因此察覺。
+    const otherPersonaLines = useMemo(() => {
+        if (!personaLinesEnabled || !rawTargetChar) return [] as { key: string; name: string; avatar: string }[];
+        const current = linePersonaKey(rawTargetChar, activeLineFor(rawTargetChar));
+        return (rawTargetChar.knownPersonaKeys || [])
+            .filter(pk => pk && pk !== current)
+            .map(pk => ({ key: pk, name: personaNameForKey(userProfileBase, pk), avatar: personaAvatarForKey(userProfileBase, pk) }));
+    }, [personaLinesEnabled, rawTargetChar, activeLineFor, userProfileBase]);
+    const [personaLineKey, setPersonaLineKey] = useState<string | null>(null);
+    const [personaLineMsgs, setPersonaLineMsgs] = useState<Message[] | null>(null);
+    useEffect(() => {
+        if (!personaLineKey || !rawTargetChar) { setPersonaLineMsgs(null); return; }
+        let alive = true;
+        setPersonaLineMsgs(null);
+        DB.getRecentMessagesByCharId(lineFor(rawTargetChar, personaLineKey), 200)
+            .then(ms => { if (alive) setPersonaLineMsgs(ms); })
+            .catch(() => { if (alive) setPersonaLineMsgs([]); });
+        return () => { alive = false; };
+    }, [personaLineKey, rawTargetChar?.id]);
     // 分角色身份指定：正在查看的這部手機裡，「你」該是哪張身份卡，按 targetChar.id 單獨解析。
     // 下面所有原本讀 userProfile 的地方（生成偷看內容用的提示詞、關係變動卡片……）都改吃
     // 這份，而不是全域 userProfile——查 A 的手機和查 B 的手機，「你」可以是不同的身份卡。
@@ -438,7 +469,10 @@ const CheckPhone: React.FC = () => {
     const selectedAiSession = aiSessions.find(s => s.id === selectedAiSessionId) || null;
 
     // 人際關係裡永遠不出現「用戶自己」——機主的通訊錄是 TA 揹著用戶的社交圈，把 user 算進來邏輯很繞
-    const isUserName = (name?: string) => !!name && !!checkPhoneUserProfile?.name && normName(name) === normName(checkPhoneUserProfile.name);
+    const isUserName = (name?: string) => !!name && (
+        (!!checkPhoneUserProfile?.name && normName(name) === normName(checkPhoneUserProfile.name))
+        // 角色認識的其他身份卡另有一區真實聊天，不再當成生成出來的聯繫人重複列一次
+        || otherPersonaLines.some(p => normName(p.name) === normName(name)));
     const linkedCharOf = (c: PhoneContact) => (c.linkedCharId ? characters.find(ch => ch.id === c.linkedCharId) : undefined);
     // 真人聯繫人複用其神經鏈接角色的頭像，否則用聯繫人自帶頭像
     const contactAvatar = (c: PhoneContact): string | undefined => linkedCharOf(c)?.avatar || c.avatar;
@@ -454,7 +488,7 @@ const CheckPhone: React.FC = () => {
     useEffect(() => {
         if (targetChar) {
             const updated = characters.find(c => c.id === targetChar.id);
-            if (updated && updated !== targetChar) {
+            if (updated && updated !== rawTargetChar) {
                 setTargetChar(updated);
                 if (selectedChatRecord) {
                     const freshRecord = updated.phoneState?.records?.find(r => r.id === selectedChatRecord.id);
@@ -913,7 +947,8 @@ ${realCharRule}
 接下來要生成的是**你（${targetChar.name}）自己手機裡的東西**——你自己的生活、社交、記錄。
 - 完全用**你（${targetChar.name}）的第一人稱視角**：這些是**你的**聯繫人、**你自己的**社交圈、**你對他們的**印象和備註。
 - **絕不是用戶「${checkPhoneUserProfile.name}」的社交關係**：不要生成用戶的人脈圈，也不要從用戶的角度/口吻寫備註。
-- 用戶「${checkPhoneUserProfile.name}」只是在偷看你的手機，TA **不是**你的聯繫人、**不進**你的通訊錄（下面「和用戶的最近聊天」只是背景參考，不是要生成的對象，也別把用戶的熟人搬進來）。`;
+- 用戶「${checkPhoneUserProfile.name}」只是在偷看你的手機，TA **不是**你的聯繫人、**不進**你的通訊錄（下面「和用戶的最近聊天」只是背景參考，不是要生成的對象，也別把用戶的熟人搬進來）。${otherPersonaLines.length ? `
+- 你也認識${otherPersonaLines.map(p => `「${p.name}」`).join('、')}：跟「${checkPhoneUserProfile.name}」是不同的人，真實存在，你們的私聊是真的、手機裡另有一區放著。**不要**再把這${otherPersonaLines.length > 1 ? '幾個人' : '個人'}生成成聯繫人或 NPC；你的生活紀錄裡自然提到可以，但別編造你們沒聊過的對話。` : ''}`;
 
             const fullPrompt = `${context}\n\n### [你和用戶「${checkPhoneUserProfile.name}」的最近聊天（僅背景參考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n請結合上面的「當前時間 / 距離上次聯繫」和人設調整生成內容的時間戳和情緒。如果很久沒聯繫，記錄可能是近期的獨處狀態；如果剛聊過，記錄可能與聊天內容相關。`;
 
@@ -1003,7 +1038,7 @@ ${realCharRule}
                             timestamp: Date.now(),
                         }, logPrefix);
                         savedMsgId = await DB.saveMessage({
-                            charId: targetChar.id,
+                            ...lineMsgFields(targetChar),
                             role: 'assistant',
                             type: 'phone_card',
                             content: card.content,
@@ -1204,7 +1239,7 @@ ${AI_VENDOR_LORE}
                     const full = parseTranscript(sess.transcript)
                         .map(t => `${t.isMe ? '我' : sess.serviceName}: ${t.text}`).join('\n');
                     await DB.saveMessage({
-                        charId: targetChar.id, role: 'assistant', type: 'phone_card',
+                        ...lineMsgFields(targetChar), role: 'assistant', type: 'phone_card',
                         content: `[你手機的智能體 App·${svcName}] 你和 AI 的對話「${sess.title}」：\n${full}`,
                         metadata: { phoneCard: { app: '智能體', kind: `ai_${service}`, service, serviceName: sess.serviceName, title: sess.title, detail: full } },
                     } as any);
@@ -1259,7 +1294,7 @@ ${AI_VENDOR_LORE}
         const verb = session.service === 'tavern' ? '對戲' : '對話';
         try {
             await DB.saveMessage({
-                charId: targetChar.id, role: 'assistant', type: 'phone_card',
+                ...lineMsgFields(targetChar), role: 'assistant', type: 'phone_card',
                 content: `[你手機的智能體 App·${svcName}] 你和「${session.serviceName}」的${verb}「${session.title}」：\n${body}`,
                 metadata: { phoneCard: { app: '智能體', kind: `ai_${session.service}`, service: session.service, serviceName: session.serviceName, title: session.title, detail: body } },
             } as any);
@@ -1567,7 +1602,7 @@ ${olderText}
         if (targetChar && (status === 'deleted' || status === 'blocked')) {
             const verb = status === 'deleted' ? '刪除' : '拉黑';
             DB.saveMessage({
-                charId: targetChar.id,
+                ...lineMsgFields(targetChar),
                 role: 'assistant',
                 type: 'phone_card',
                 content: `[人際關係變動] ${checkPhoneUserProfile.name} 在偷看你手機時，把你和「${contact.name}」的好友關係${verb}了。你察覺到是 TA 乾的。`,
@@ -1860,7 +1895,7 @@ ${olderText}
             // 續寫時先刪掉這段對話上一張卡，私聊裡只留一張最新完整的（不再 AB / ABC 堆疊）
             if (existing?.systemMessageId) await DB.deleteMessage(existing.systemMessageId);
             msgId = await DB.saveMessage({
-                charId: owner.id, role: 'assistant', type: 'phone_card',
+                ...lineMsgFields(phoneLineView(owner)), role: 'assistant', type: 'phone_card',
                 content: `[你手機的聊天軟件] 你和「${partnerName}」的對話：${detail.replace(/\n/g, ' ')}`,
                 metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: partnerName, detail } },
             } as any);
@@ -1868,7 +1903,7 @@ ${olderText}
         // 自動加刪友播報：進機主與用戶的私聊（同樣受 sendToChat 控制）
         const { broadcast } = applyRealConversationToPhoneState(owner.phoneState, result);
         if (broadcast && ownerSendToChat) {
-            await DB.saveMessage({ charId: owner.id, role: 'assistant', type: 'text', content: broadcast } as any);
+            await DB.saveMessage({ ...lineMsgFields(phoneLineView(owner)), role: 'assistant', type: 'text', content: broadcast } as any);
         }
         updateCharacter(owner.id, (cur) => ({
             phoneState: applyRealConversationToPhoneState(cur.phoneState, { ...result, systemMessageId: msgId }).phoneState,
@@ -1933,10 +1968,11 @@ ${olderText}
             const archivedALines = aAllLines.slice(0, aArchived);            // 留著給用戶看的原文
             const recentDetail = serializeTurns(aAllLines.slice(aArchived));  // 喂上下文的近段
             const result = await runRealConversation({
-                a: targetChar, b, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
+                // B 那邊也照「現在的我」：認識這張卡就是那條線（讀的私聊、名字都是那條線的）
+                a: targetChar, b: phoneLineView(b), user: checkPhoneUserProfile, api: effectiveApiConfig as any,
                 // B 私下認識的可能是另一張身份卡：各用各的名字，並提醒那是不同的人
-                userB: resolveUserProfileForChar(userProfileBase, b),
-                samePersona: personaKeyForChar(userProfileBase, targetChar) === personaKeyForChar(userProfileBase, b),
+                userB: resolveUserProfileForChar(userProfileBase, phoneLineView(b)),
+                samePersona: personaKeyForChar(userProfileBase, targetChar) === personaKeyForChar(userProfileBase, phoneLineView(b)),
                 affinityA: contact.affinity, affinityB: bToA?.affinity ?? 0,
                 existingDetail: recentDetail,
                 // bNote = A 對 B 的備註（餵給 A）；aNote = B 對 A 的備註（餵給 B）。別接反。
@@ -2022,7 +2058,7 @@ ${olderText}
             if (pushToChat) {
                 if (existing?.systemMessageId) await DB.deleteMessage(existing.systemMessageId);
                 msgId = await DB.saveMessage({
-                    charId: targetChar.id, role: 'assistant', type: 'phone_card',
+                    ...lineMsgFields(targetChar), role: 'assistant', type: 'phone_card',
                     content: `[你手機的聊天軟件] 你和「${contact.name}」的對話：${detail.replace(/\n/g, ' ')}`,
                     metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: contact.name, detail } },
                 } as any);
@@ -2095,7 +2131,7 @@ ${olderText}
         let msgId: number | undefined;
         if (has && targetChar.phoneState?.sendToChat !== false) {
             msgId = await DB.saveMessage({
-                charId: targetChar.id, role: 'assistant', type: 'phone_card',
+                ...lineMsgFields(targetChar), role: 'assistant', type: 'phone_card',
                 content: `[你手機的聊天軟件] 你和「${c.name}」的對話：${newDetail.replace(/\n/g, ' ')}`,
                 metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: c.name, detail: newDetail } },
             } as any);
@@ -2121,7 +2157,7 @@ ${olderText}
                 let bMsgId: number | undefined;
                 if (bHas && b.phoneState?.sendToChat !== false) {
                     bMsgId = await DB.saveMessage({
-                        charId: b.id, role: 'assistant', type: 'phone_card',
+                        ...lineMsgFields(phoneLineView(b)), role: 'assistant', type: 'phone_card',
                         content: `[你手機的聊天軟件] 你和「${targetChar.name}」的對話：${bDetail.replace(/\n/g, ' ')}`,
                         metadata: { phoneCard: { app: '聊天軟件', kind: 'chat', title: targetChar.name, detail: bDetail } },
                     } as any);
@@ -2800,7 +2836,29 @@ ${olderText}
                     </button>
                 </div>
                 <div className="flex-1 overflow-y-auto px-4 pt-2 space-y-2.5 no-scrollbar pb-28 overscroll-contain">
-                    {list.length === 0 && <EmptyState text="還沒有聯繫人 · 掃描通訊錄看看" />}
+                    {!contactSelectMode && otherPersonaLines.map(p => (
+                        <div key={`persona-${p.key}`}
+                            onClick={() => { setPersonaLineKey(p.key); setTranscriptExpanded(false); setActiveAppId('persona_line_chat'); }}
+                            className="flex items-center gap-3 rounded-2xl p-3.5 border bg-white/[0.035] border-white/[0.06] active:scale-[0.99] transition cursor-pointer animate-fade-in select-none">
+                            {p.avatar ? (
+                                <TokenImg value={p.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover shrink-0" />
+                            ) : (
+                                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-white font-semibold text-lg"
+                                    style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)`, boxShadow: `inset 0 0 18px ${accent}25` }}>
+                                    {p.name[0]}
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-[13.5px] text-white/95 truncate">{p.name}</span>
+                                    <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full shrink-0" style={{ color: '#fbbf24', background: '#fbbf241f' }}><ChatCircleDots size={11} weight="fill" />私聊</span>
+                                </div>
+                                <div className="text-[11px] text-white/40 truncate mt-0.5">TA 跟「{p.name}」的聊天紀錄</div>
+                            </div>
+                            <CaretRight size={14} weight="bold" className="text-white/30 shrink-0" />
+                        </div>
+                    ))}
+                    {list.length === 0 && otherPersonaLines.length === 0 && <EmptyState text="還沒有聯繫人 · 掃描通訊錄看看" />}
                     {list.map(c => {
                         const badge = kindBadge(c);
                         const dimmed = c.status === 'deleted' || c.status === 'blocked';
@@ -2865,6 +2923,54 @@ ${olderText}
                 ) : (
                     <RefreshFab onClick={() => handleGenerate('contacts')} label="掃描通訊錄" accent={accent} loading={isLoading} />
                 )}
+            </SubAppShell>
+        );
+    };
+
+    // 角色跟另一張身份卡的真實私聊（唯讀）：手機主人的話在右邊
+    const renderPersonaLineChat = () => {
+        if (!targetChar || !personaLineKey) return null;
+        const accent = '#fbbf24';
+        const persona = otherPersonaLines.find(p => p.key === personaLineKey);
+        const name = persona?.name || personaNameForKey(userProfileBase, personaLineKey);
+        const all = (personaLineMsgs || []).filter(m => m.role === 'user' || m.role === 'assistant');
+        const RENDER_CAP = 50;
+        const hiddenCount = transcriptExpanded ? 0 : Math.max(0, all.length - RENDER_CAP);
+        const shown = hiddenCount > 0 ? all.slice(-RENDER_CAP) : all;
+        const textOf = (m: Message) => (m.type === 'text' ? m.content
+            : m.type === 'image' ? '[圖片]' : m.type === 'emoji' ? '[表情]' : m.type === 'voice' ? '[語音]' : `[${m.type}]`);
+        return (
+            <SubAppShell>
+                <TermHeader title={name} sub="私聊 · 只讀" accent={accent} onBack={() => { setPersonaLineKey(null); setActiveAppId('contacts'); }} />
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 no-scrollbar overscroll-contain min-h-0">
+                    {personaLineMsgs === null && <EmptyState text="讀取中…" />}
+                    {personaLineMsgs !== null && all.length === 0 && <EmptyState text="TA 們還沒聊過" />}
+                    {hiddenCount > 0 && (
+                        <button onClick={() => setTranscriptExpanded(true)}
+                            className="w-full py-2 mb-1 rounded-xl text-[11.5px] font-semibold text-white/55 bg-white/[0.04] border border-white/[0.07] active:scale-[0.99] transition">
+                            ▲ 展開更早的 {hiddenCount} 條消息
+                        </button>
+                    )}
+                    {shown.map(m => {
+                        const isMe = m.role === 'assistant';
+                        return (
+                            <div key={m.id} className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                {!isMe && (persona?.avatar ? (
+                                    <TokenImg value={persona.avatar} alt="" className="w-8 h-8 rounded-xl object-cover shrink-0" />
+                                ) : (
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs text-white shrink-0"
+                                        style={{ background: `linear-gradient(135deg, ${accent}40, ${accent}10)` }}>{name[0]}</div>
+                                ))}
+                                <div className={`px-3.5 py-2.5 rounded-2xl max-w-[74%] text-[13px] leading-relaxed break-words whitespace-pre-wrap ${
+                                    isMe ? 'text-white rounded-br-md' : 'bg-white/[0.07] text-white/90 border border-white/[0.06] rounded-bl-md'}`}
+                                    style={isMe ? { background: `linear-gradient(135deg, ${accent}cc, ${accent}88)` } : undefined}>
+                                    {textOf(m)}
+                                </div>
+                                {isMe && <TokenImg value={targetChar.avatar} className="w-8 h-8 rounded-xl object-cover shrink-0" />}
+                            </div>
+                        );
+                    })}
+                </div>
             </SubAppShell>
         );
     };
@@ -4047,6 +4153,7 @@ ${olderText}
                     {activeAppId === 'evidence_detail' && renderEvidenceDetail()}
                     {activeAppId === 'contacts' && renderContactsList()}
                     {activeAppId === 'contact_detail' && renderContactDetail()}
+                    {activeAppId === 'persona_line_chat' && renderPersonaLineChat()}
                     {activeAppId === 'call' && renderCallList()}
                     {activeAppId === 'taobao' && renderShop()}
                     {activeAppId === 'waimai' && renderFood()}
