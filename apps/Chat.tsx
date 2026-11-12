@@ -1,5 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
+import { lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -1095,8 +1095,8 @@ const Chat: React.FC = () => {
                 setSettingsContextRangeMode(resolveContextRangeMode(char));
                 setSettingsHideSysLogs(char.hideSystemLogs || false);
                 setSettingsHtmlModeCustomPrompt((char as any).htmlModeCustomPrompt || '');
-                // 未讀目前只會落在主線（背景訊息還不認得線）；在別條線上不清主線的未讀
-                if (isPrimaryLine(lineOf(char))) clearUnread(char.id);
+                // 未讀按線記（主線的鍵就是 charId）：只清這條線的
+                clearUnread(lineKey(lineOf(char)));
             }
             // Per-character translation toggle + language pair
             try {
@@ -1245,7 +1245,7 @@ const Chat: React.FC = () => {
     useEffect(() => {
         if (activeCharacterId) {
             reloadMessages(visibleCountRef.current);
-            if (!char || isPrimaryLine(lineOf(char))) clearUnread(activeCharacterId);
+            clearUnread(char ? lineKey(lineOf(char)) : activeCharacterId);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- clearUnread is stable (useCallback with []), omit to prevent stale-dep lint noise
     }, [lastMsgTimestamp, activeCharacterId, char?.hideSystemLogs, reloadMessages, clearUnread]);

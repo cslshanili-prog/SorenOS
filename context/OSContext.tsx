@@ -1,6 +1,6 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
-import { isPrimaryLine, lineFor, lineOf, linePatchForChar, lineView, primaryLine, withLineFields } from '../utils/chatLine';
+import { isPrimaryLine, lineFor, lineKey, lineOf, linePatchForChar, lineView, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
@@ -1954,24 +1954,33 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       continue;
                   }
                   if (dueMessages.length > 0) {
+                      // 關係線：在哪條線上排的就送回哪條線（沒標＝主線）；未讀按線記
+                      const dueByLine = new Map<string, number>();
                       for (const msg of dueMessages) {
                           await DB.saveMessage({
                                charId: msg.charId,
+                               ...(msg.personaKey ? { personaKey: msg.personaKey } : {}),
                                role: 'assistant',
                                type: 'text',
                                content: msg.content
                           });
                           await DB.deleteScheduledMessage(msg.id);
+                          const key = lineKey(lineFor(char, msg.personaKey));
+                          dueByLine.set(key, (dueByLine.get(key) || 0) + 1);
                       }
                       if (cancelled) return;
                       hasNewMessage = true;
                       // Use refs for latest state (avoids stale closure & unnecessary deps)
-                      const isChattingWithThisChar = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id;
+                      const openLineKey = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === char.id
+                          ? lineKey(activeLineForRef.current(char))
+                          : null;
+                      const unseen = [...dueByLine.entries()].filter(([key]) => key !== openLineKey);
+                      const isChattingWithThisChar = unseen.length === 0;
 
-                      // If not chatting specifically with this char right now, mark as unread
+                      // If not chatting specifically with this char (on that line) right now, mark as unread
                       if (!isChattingWithThisChar) {
                           addToast(`${char.name} 發來了一條消息`, 'success');
-                          unreadUpdates[char.id] = dueMessages.length;
+                          for (const [key, count] of unseen) unreadUpdates[key] = count;
 
                           // Web Notification
                           if (!Capacitor.isNativePlatform() && window.Notification && Notification.permission === 'granted') {
@@ -3687,6 +3696,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     const key = globalPersonaKey(userProfileBase);
     return char.knownPersonaKeys?.includes(key) ? lineFor(char, key) : primaryLine(char.id);
   }, [userProfileBase, personaLinesEnabled]);
+
+  const activeLineForRef = useRef(activeLineFor);
+  activeLineForRef.current = activeLineFor;
 
   const updateLine = (charView: Pick<CharacterProfile, 'id'>, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
     const line = lineOf(charView);

@@ -114,6 +114,8 @@ const API_CALL_LOG_MAX_ENTRIES = 2000;
 export interface ScheduledMessage {
     id: string;
     charId: string;
+    /** 關係線：在哪條線上排的就送回哪條線；沒有＝主線（utils/chatLine.ts） */
+    personaKey?: string;
     content: string;
     dueAt: number;
     createdAt: number;

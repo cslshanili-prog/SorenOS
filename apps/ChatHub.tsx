@@ -11,7 +11,7 @@ import { formatChatListTimestamp } from '../utils/chatListTime';
 import { characterLaunch } from '../utils/characterLaunch';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
-import { isPrimaryLine, lineArgOf, lineFor, lineView } from '../utils/chatLine';
+import { lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import {
     ChatCircleDots, UsersThree, Camera, UserCircle, Plus, MagnifyingGlass,
@@ -74,13 +74,16 @@ const ChatHub: React.FC = () => {
         try { localStorage.setItem(ALL_PERSONAS_KEY, v ? '1' : '0'); } catch { /* 沒有就算了 */ }
     };
     const showAllLines = personaLinesEnabled && allPersonas;
-    /** 背景訊息目前只會落在主線，所以未讀都算在角色主線那張卡上 */
+    /** 未讀按線記（鍵是 lineKey：主線就是 charId），這裡加總成每張卡各有幾則 */
     const unreadByPersona = useMemo(() => {
         const out: Record<string, number> = {};
         if (!personaLinesEnabled) return out;
         for (const c of characters) {
-            const n = unreadMessages[c.id] || 0;
-            if (n > 0 && c.primaryPersonaKey) out[c.primaryPersonaKey] = (out[c.primaryPersonaKey] || 0) + n;
+            const keys = c.knownPersonaKeys?.length ? c.knownPersonaKeys : (c.primaryPersonaKey ? [c.primaryPersonaKey] : []);
+            for (const key of keys) {
+                const n = unreadMessages[lineKey(lineFor(c, key))] || 0;
+                if (n > 0) out[key] = (out[key] || 0) + n;
+            }
         }
         return out;
     }, [characters, unreadMessages, personaLinesEnabled]);
@@ -111,7 +114,7 @@ const ChatHub: React.FC = () => {
                             kind: 'private', id: c.id, line, personaKey: key || c.primaryPersonaKey,
                             name: view.chatNickname?.trim() || c.name, avatar: c.avatar,
                             preview: messageLogText(msg), timestamp: msg.timestamp,
-                            unread: isPrimaryLine(line) ? (unreadMessages[c.id] || 0) : 0,
+                            unread: unreadMessages[lineKey(line)] || 0,
                         };
                     });
                 })),
