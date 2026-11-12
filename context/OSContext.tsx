@@ -104,7 +104,7 @@ import { allCloudIdsOf, cloudLine, cloudLineViewsOf, findCloudChar, setCloudLine
 import { parseCharCredId } from '../utils/amsgLlmCredentials';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
-import { setCharNameRegistry } from '../utils/charNameRegistry';
+import { setCharNameRegistry, setWorldStyleRegistry } from '../utils/charNameRegistry';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { setMomentsGraphInputs } from '../utils/momentsContext';
@@ -400,6 +400,8 @@ interface OSContextType {
   characterGroups: CharacterGroup[];
   createCharacterGroup: (name: string) => Promise<CharacterGroup | null>;
   renameCharacterGroup: (id: string, name: string) => Promise<void>;
+  /** 世界的畫風（畫風庫 id，'none'＝不套，undefined＝跟全域） */
+  setCharacterGroupStyle: (id: string, imageStyleId: string | undefined) => Promise<void>;
   deleteCharacterGroup: (id: string) => Promise<void>;
   
   // Worldbooks
@@ -2348,6 +2350,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setCharNameRegistry([...characters, ...npcs]);
   }, [characters, npcs]);
+  // 世界的畫風（plans/image-style-presets.md）：生圖時 utils 層照角色的分組找
+  useEffect(() => {
+    setWorldStyleRegistry(characterGroups);
+  }, [characterGroups]);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
     setCloudLineRegistry(characters);
@@ -3919,11 +3925,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               const imageConfig = apiConfigRef.current.imageGenConfig;
               void (async () => {
                   try {
-                      const [{ canGenerateMomentImage }, { generateImage }, { castAvatarPrompt }] = await Promise.all([
-                          import('../utils/momentsGenerate'), import('../utils/imageGeneration'), import('../utils/castGenerate'),
+                      const [{ canGenerateFor }, { generateImage }, { castAvatarPrompt }] = await Promise.all([
+                          import('../utils/imageStyle'), import('../utils/imageGeneration'), import('../utils/castGenerate'),
                       ]);
-                      if (!imageConfig || !canGenerateMomentImage(imageConfig)) return;
-                      const { dataUrl } = await generateImage(imageConfig, castAvatarPrompt({ name: openAlt.name, appearance: '', brief: openAlt.brief }));
+                      if (!imageConfig || !canGenerateFor(imageConfig, 'avatar')) return;
+                      const { dataUrl } = await generateImage(imageConfig, castAvatarPrompt({ name: openAlt.name, appearance: '', brief: openAlt.brief }), undefined, { feature: 'avatar', char: owner, hasPerson: true });
                       const avatar = await migrateDataUrlToRef(dataUrl);
                       updateCharacterRef.current(alt.id, { avatar });
                   } catch (e) { console.warn('[小號] 頭像沒畫成，留預設的', e); }
@@ -4154,6 +4160,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       await DB.saveCharacterGroup(newGroup);
       setCharacterGroups(prev => [...prev, newGroup]);
       return newGroup;
+  };
+
+  const setCharacterGroupStyle = async (id: string, imageStyleId: string | undefined) => {
+      let target: CharacterGroup | undefined;
+      setCharacterGroups(prev => {
+          const updated = prev.map(g => g.id === id ? { ...g, imageStyleId } : g);
+          target = updated.find(g => g.id === id);
+          return updated;
+      });
+      if (target) await DB.saveCharacterGroup(target);
   };
 
   const renameCharacterGroup = async (id: string, name: string) => {
@@ -6315,6 +6331,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     characterGroups,
     createCharacterGroup,
     renameCharacterGroup,
+    setCharacterGroupStyle,
     deleteCharacterGroup,
     worldbooks,
     addWorldbook,

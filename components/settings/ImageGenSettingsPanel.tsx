@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { APIConfig, ImageGenApiConfig } from '../../types';
+import { APIConfig, ImageApiPreset, ImageGenApiConfig, ImageStylePreset } from '../../types';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '../../utils/apiConfigNormalize';
 import { extractModelIds, isLikelyImageModel } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { generateImage } from '../../utils/imageGeneration';
+import { BUILTIN_STYLES, FEATURE_OFF, IMAGE_FEATURES, newImageApiId, newStyleId, normalizeImageGenConfig, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE } from '../../utils/imageStyle';
 
 interface ImageGenSettingsPanelProps {
     apiConfig: APIConfig;
@@ -24,15 +25,37 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
 
     const [charImageGenEnabled, setCharImageGenEnabled] = useState(!!cfg?.charImageGenEnabled);
     const [charImageSendEnabled, setCharImageSendEnabled] = useState(!!cfg?.charImageSendEnabled);
-    const [url, setUrl] = useState(cfg?.baseUrl || '');
-    const [key, setKey] = useState(cfg?.apiKey || '');
-    const [model, setModel] = useState(cfg?.model || '');
-    const [size, setSize] = useState(cfg?.size || SIZE_PRESETS[0]);
+    // API 庫與畫風庫（plans/image-style-presets.md）：草稿在這裡改，按「保存配置」才寫回
+    const blankApi = (): ImageApiPreset => ({ id: newImageApiId(), name: '生圖 API', baseUrl: '', apiKey: '', model: '' });
+    const [apis, setApis] = useState<ImageApiPreset[]>(() => (cfg?.apiPresets?.length ? cfg.apiPresets : [blankApi()]));
+    const [activeApiId, setActiveApiId] = useState<string>(() => cfg?.activeApiId || apis[0].id);
+    const [editingApiId, setEditingApiId] = useState<string>(() => activeApiId);
+    const editingApi = apis.find(a => a.id === editingApiId) || apis[0];
+    const patchApi = (patch: Partial<ImageApiPreset>) => setApis(list => list.map(a => (a.id === editingApi.id ? { ...a, ...patch } : a)));
+    const url = editingApi.baseUrl;
+    const key = editingApi.apiKey;
+    const model = editingApi.model;
+    const size = editingApi.size || SIZE_PRESETS[0];
+    const quality = editingApi.quality || QUALITY_PRESETS[0].value;
+    const setUrl = (v: string) => patchApi({ baseUrl: v });
+    const setKey = (v: string) => patchApi({ apiKey: v });
+    const setModel = (v: string) => patchApi({ model: v });
+    const setSize = (v: string) => patchApi({ size: v });
+    const setQuality = (v: string) => patchApi({ quality: v });
     const [sizeMode, setSizeMode] = useState<'preset' | 'custom'>(
-        cfg?.size && !SIZE_PRESETS.includes(cfg.size) ? 'custom' : 'preset'
+        editingApi.size && !SIZE_PRESETS.includes(editingApi.size) ? 'custom' : 'preset'
     );
-    const [quality, setQuality] = useState(cfg?.quality || QUALITY_PRESETS[0].value);
-    const [extraPrompt, setExtraPrompt] = useState(cfg?.extraPrompt || '');
+    useEffect(() => {
+        setSizeMode(editingApi.size && !SIZE_PRESETS.includes(editingApi.size) ? 'custom' : 'preset');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editingApiId]);
+
+    const [styles, setStyles] = useState<ImageStylePreset[]>(() => cfg?.stylePresets || BUILTIN_STYLES.map(b => ({ ...b })));
+    const [globalStyleId, setGlobalStyleId] = useState<string | undefined>(cfg?.globalStyleId);
+    const [openStyleId, setOpenStyleId] = useState<string | null>(null);
+    const patchStyle = (id: string, patch: Partial<ImageStylePreset>) => setStyles(list => list.map(st => (st.id === id ? { ...st, ...patch } : st)));
+    const [testStyleId, setTestStyleId] = useState<string>('');
+    const [featureStyles, setFeatureStyles] = useState<NonNullable<ImageGenApiConfig['featureStyles']>>(() => cfg?.featureStyles || {});
 
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [showModelModal, setShowModelModal] = useState(false);
@@ -48,29 +71,26 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
     const [testingGen, setTestingGen] = useState(false);
     const [testGenResult, setTestGenResult] = useState<{ dataUrl?: string; error?: string } | null>(null);
 
-    useEffect(() => {
-        setCharImageGenEnabled(!!cfg?.charImageGenEnabled);
-        setCharImageSendEnabled(!!cfg?.charImageSendEnabled);
-        setUrl(cfg?.baseUrl || '');
-        setKey(cfg?.apiKey || '');
-        setModel(cfg?.model || '');
-        setSize(cfg?.size || SIZE_PRESETS[0]);
-        setSizeMode(cfg?.size && !SIZE_PRESETS.includes(cfg.size) ? 'custom' : 'preset');
-        setQuality(cfg?.quality || QUALITY_PRESETS[0].value);
-        setExtraPrompt(cfg?.extraPrompt || '');
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
-    const buildConfig = (): ImageGenApiConfig => ({
+    const buildConfig = (overrideActiveApiId?: string): ImageGenApiConfig => normalizeImageGenConfig({
         charImageGenEnabled,
         charImageSendEnabled,
-        baseUrl: normalizeApiBaseUrl(url),
-        apiKey: normalizeApiCredential(key),
-        model: normalizeApiModel(model),
-        size: size.trim() || undefined,
-        quality: quality.trim() || undefined,
-        extraPrompt: extraPrompt.trim() || undefined,
-    });
+        apiPresets: apis.map(a => ({
+            ...a,
+            name: a.name.trim() || a.model.trim() || '生圖 API',
+            baseUrl: normalizeApiBaseUrl(a.baseUrl),
+            apiKey: normalizeApiCredential(a.apiKey),
+            model: normalizeApiModel(a.model),
+            size: a.size?.trim() || undefined,
+            quality: a.quality?.trim() || undefined,
+        })),
+        activeApiId: overrideActiveApiId || activeApiId,
+        stylePresets: styles.map(st => ({ ...st, name: st.name.trim() || '未命名畫風' })),
+        globalStyleId,
+        builtinStylesSeeded: true,
+        // 指到刪掉的畫風就當跟全域
+        featureStyles: Object.fromEntries(Object.entries(featureStyles).filter(([, v]) => v && (v === FEATURE_OFF || v === STYLE_NONE || styles.some(st => st.id === v)))),
+    })!;
 
     const handleSave = () => {
         updateApiConfig({ imageGenConfig: buildConfig() });
@@ -143,7 +163,7 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
         setTestingGen(true);
         setTestGenResult(null);
         try {
-            const result = await generateImage(buildConfig(), testPrompt.trim());
+            const result = await generateImage(buildConfig(editingApi.id), testPrompt.trim(), undefined, { styleId: testStyleId || undefined });
             setTestGenResult({ dataUrl: result.dataUrl });
         } catch (error: any) {
             setTestGenResult({ error: error?.message || '生成失敗' });
@@ -182,6 +202,32 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                 >
                     <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${charImageSendEnabled ? 'translate-x-4' : ''}`} />
                 </button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">生圖 API</label>
+                <p className="text-[10px] text-slate-400 mb-2 pl-1 leading-relaxed">可以存好幾組（不同中轉、不同模型），打勾的那組是全域；畫風可以偏好某一組，那組失敗會自動改用全域那組。</p>
+                <div className="flex flex-wrap gap-1.5">
+                    {apis.map(a => (
+                        <button key={a.id} onClick={() => setEditingApiId(a.id)} aria-pressed={a.id === editingApi.id}
+                            className={`px-3 py-1.5 rounded-full text-[11px] font-bold border ${a.id === editingApi.id ? 'bg-primary text-white border-primary' : 'bg-white/60 text-slate-600 border-slate-200'}`}>
+                            {a.id === activeApiId ? '✓ ' : ''}{a.name || a.model || '未命名'}
+                        </button>
+                    ))}
+                    <button onClick={() => { const a = blankApi(); setApis(list => [...list, { ...a, name: `生圖 API ${list.length + 1}` }]); setEditingApiId(a.id); }}
+                        className="px-3 py-1.5 rounded-full text-[11px] font-bold border border-dashed border-slate-300 text-slate-500">＋ 新增一組</button>
+                </div>
+            </div>
+
+            <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">名稱</label>
+                <input
+                    type="text"
+                    value={editingApi.name}
+                    onChange={e => patchApi({ name: e.target.value.slice(0, 30) })}
+                    placeholder="例如：主力、備用"
+                    className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm focus:bg-white transition-all"
+                />
             </div>
 
             <div>
@@ -335,18 +381,121 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                 </div>
             </div>
 
-            <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">補充提示詞</label>
-                <textarea
-                    value={extraPrompt}
-                    onChange={e => setExtraPrompt(e.target.value)}
-                    placeholder="拼在每次生成請求正文提示詞後面，如畫風、畫質要求"
-                    rows={2}
-                    className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm resize-none focus:bg-white transition-all"
-                />
+            <label className="flex items-start gap-2 text-[11px] text-slate-600 pl-1">
+                <input type="checkbox" checked={!!editingApi.negativePromptField} onChange={e => patchApi({ negativePromptField: e.target.checked })} className="mt-0.5 accent-primary" />
+                <span>這家支援 <code className="font-mono">negative_prompt</code> 欄位<span className="block text-[10px] text-slate-400">不確定就不要勾：沒勾時負面提示詞寫成「避免：…」接在正文後面；勾了才另外送欄位，不收的接口可能直接報錯。</span></span>
+            </label>
+
+            <div className="flex gap-2">
+                {editingApi.id !== activeApiId && (
+                    <button onClick={() => setActiveApiId(editingApi.id)} className="flex-1 py-2 rounded-xl text-xs font-bold border border-primary/30 text-primary bg-primary/5">設為全域</button>
+                )}
+                {apis.length > 1 && (
+                    <button onClick={() => {
+                        if (!window.confirm(`刪掉「${editingApi.name || editingApi.model || '這組'}」？`)) return;
+                        const rest = apis.filter(a => a.id !== editingApi.id);
+                        setApis(rest);
+                        if (activeApiId === editingApi.id) setActiveApiId(rest[0].id);
+                        setStyles(list => list.map(st => (st.apiId === editingApi.id ? { ...st, apiId: undefined } : st)));
+                        setEditingApiId(rest[0].id);
+                    }} className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-rose-400 bg-white/60">刪除這組</button>
+                )}
             </div>
 
-            <button onClick={handleSave} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-primary/20 bg-primary active:scale-95 transition-all">
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">畫風庫</label>
+                <p className="text-[10px] text-slate-400 pl-1 leading-relaxed">存好幾套畫風，挑一套當全域。「畫面有人時才加」那段只在畫面裡有人時拼上去（臉、皮膚、構圖），拍咖啡、風景時不會硬塞一張臉。</p>
+                <div className="flex items-center gap-2 bg-white/60 border border-slate-200/60 rounded-xl px-3 py-2">
+                    <span className="text-[11px] font-bold text-slate-500 shrink-0">全域畫風</span>
+                    <select value={globalStyleId || ''} onChange={e => setGlobalStyleId(e.target.value || undefined)} className="flex-1 min-w-0 bg-transparent text-xs text-slate-700 outline-none">
+                        <option value="">不套畫風</option>
+                        {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                    </select>
+                </div>
+                {styles.map(st => {
+                    const open = openStyleId === st.id;
+                    return (
+                        <div key={st.id} className="bg-white/60 border border-slate-200/60 rounded-xl overflow-hidden">
+                            <button onClick={() => setOpenStyleId(open ? null : st.id)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
+                                <span className="flex-1 min-w-0 truncate text-xs font-bold text-slate-700">{st.name || '未命名畫風'}</span>
+                                {st.id === globalStyleId && <span className="text-[9px] font-bold text-white bg-primary rounded-full px-1.5 py-0.5">全域</span>}
+                                {st.builtinKey && <span className="text-[9px] font-bold text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5">內建</span>}
+                                <span className={`text-slate-400 text-xs transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden>⌄</span>
+                            </button>
+                            {open && (
+                                <div className="px-3 pb-3 space-y-2">
+                                    <input value={st.name} onChange={e => patchStyle(st.id, { name: e.target.value.slice(0, 30) })} placeholder="畫風名稱"
+                                        className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs" />
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 mb-1">每次都加（畫風、質感、光影、色調）</div>
+                                        <textarea value={st.prompt} onChange={e => patchStyle(st.id, { prompt: e.target.value })} rows={4}
+                                            className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 mb-1">畫面有人時才加（臉、皮膚、構圖）</div>
+                                        <textarea value={st.portraitPrompt || ''} onChange={e => patchStyle(st.id, { portraitPrompt: e.target.value || undefined })} rows={3}
+                                            className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
+                                    </div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 mb-1">避免（負面提示詞，選填）</div>
+                                        <textarea value={st.negativePrompt || ''} onChange={e => patchStyle(st.id, { negativePrompt: e.target.value || undefined })} rows={2}
+                                            className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-400 shrink-0">偏好的 API</span>
+                                        <select value={st.apiId || ''} onChange={e => patchStyle(st.id, { apiId: e.target.value || undefined })} className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1.5 text-xs">
+                                            <option value="">跟全域</option>
+                                            {apis.map(a => <option key={a.id} value={a.id}>{a.name || a.model || '未命名'}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {st.id !== globalStyleId && <button onClick={() => setGlobalStyleId(st.id)} className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-primary/30 text-primary bg-primary/5">設為全域</button>}
+                                        {st.builtinKey && <button onClick={() => setStyles(list => list.map(x => (x.id === st.id ? resetBuiltinStyle(x) : x)))} className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-slate-500 bg-white">恢復原文</button>}
+                                        <button onClick={() => {
+                                            if (!window.confirm(`刪掉畫風「${st.name || '未命名'}」？`)) return;
+                                            setStyles(list => list.filter(x => x.id !== st.id));
+                                            if (globalStyleId === st.id) setGlobalStyleId(undefined);
+                                            setOpenStyleId(null);
+                                        }} className="px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-200 text-rose-400 bg-white">刪除</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+                <div className="flex gap-2">
+                    <button onClick={() => { const id = newStyleId(); setStyles(list => [...list, { id, name: '新畫風', prompt: '' }]); setOpenStyleId(id); }}
+                        className="flex-1 py-2 rounded-xl text-xs font-bold border border-dashed border-slate-300 text-slate-500">＋ 新增畫風</button>
+                    {BUILTIN_STYLES.some(b => !styles.some(st => st.builtinKey === b.builtinKey)) && (
+                        <button onClick={() => setStyles(list => restoreBuiltinStyles(list))} className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-500 bg-white/60">恢復內建畫風</button>
+                    )}
+                </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">各處畫風</label>
+                <p className="text-[10px] text-slate-400 pl-1 leading-relaxed">每一處各自決定：跟全域、用某一套，或乾脆關掉這裡的生圖。角色、世界自己指定了畫風的，照角色、世界的；「關閉」誰也蓋不過。</p>
+                <div className="bg-white/60 border border-slate-200/60 rounded-xl divide-y divide-slate-100">
+                    {IMAGE_FEATURES.map(f => (
+                        <div key={f.key} className="flex items-center gap-2 px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-slate-700">{f.label}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{f.hint}</div>
+                            </div>
+                            <select aria-label={`${f.label}的畫風`} value={featureStyles[f.key] || ''}
+                                onChange={e => setFeatureStyles(prev => { const next = { ...prev }; if (e.target.value) next[f.key] = e.target.value; else delete next[f.key]; return next; })}
+                                className={`w-32 shrink-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1.5 text-[11px] ${featureStyles[f.key] === FEATURE_OFF ? 'text-rose-400' : 'text-slate-600'}`}>
+                                <option value="">跟全域</option>
+                                <option value={FEATURE_OFF}>關閉</option>
+                                <option value={STYLE_NONE}>不套畫風</option>
+                                {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <button onClick={handleSave} className="sticky bottom-2 z-10 w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-primary/20 bg-primary active:scale-95 transition-all">
                 {statusMsg || '保存配置'}
             </button>
 
@@ -363,6 +512,12 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
 
             <div className="pt-2 border-t border-slate-100 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">測試生圖</label>
+                <p className="text-[10px] text-slate-400 pl-1">用上面正在看的那組 API 生一張。</p>
+                <select value={testStyleId} onChange={e => setTestStyleId(e.target.value)} className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-3 py-2 text-xs">
+                    <option value="">畫風：跟全域</option>
+                    <option value={STYLE_NONE}>畫風：不套</option>
+                    {styles.map(st => <option key={st.id} value={st.id}>畫風：{st.name}</option>)}
+                </select>
                 <textarea
                     value={testPrompt}
                     onChange={e => setTestPrompt(e.target.value)}

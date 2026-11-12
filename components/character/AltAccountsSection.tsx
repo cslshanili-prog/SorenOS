@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
+import ImageStylePicker, { EMPTY_PICK, pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
 import type { CharacterProfile } from '../../types';
 import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
 import { ALT_SELF_LIMIT_DEFAULT, ALT_SELF_LIMIT_MAX, altsOf } from '../../utils/charAlt';
 import { altDefaultAvatar as defaultAvatar, buildAltCharacter, requestAltDraft, type AltDraft } from '../../utils/charAltGenerate';
 import { castAvatarPrompt } from '../../utils/castGenerate';
-import { canGenerateMomentImage } from '../../utils/momentsGenerate';
+import { canGenerateFor } from '../../utils/imageStyle';
 import { generateImage } from '../../utils/imageGeneration';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import { trackEvent } from '../../utils/analytics';
@@ -29,7 +30,8 @@ const AltAccountsSection: React.FC<{
     const [draft, setDraft] = useState<AltDraft | null>(null);
     const [busy, setBusy] = useState(false);
     const [wantAvatar, setWantAvatar] = useState(false);
-    const imageReady = canGenerateMomentImage(apiConfig.imageGenConfig);
+    const [stylePick, setStylePick] = useState<ImageStylePick>(EMPTY_PICK);
+    const imageReady = canGenerateFor(apiConfig.imageGenConfig, 'avatar');
     const limit = owner.altSelfLimit ?? ALT_SELF_LIMIT_DEFAULT;
 
     const think = async () => {
@@ -51,7 +53,7 @@ const AltAccountsSection: React.FC<{
             let avatar = defaultAvatar(draft.name);
             if (wantAvatar && imageReady) {
                 try {
-                    const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt({ name: draft.name, appearance: draft.appearance, brief: draft.brief }));
+                    const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt({ name: draft.name, appearance: draft.appearance, brief: draft.brief }), undefined, { feature: 'avatar', char: owner, hasPerson: true, ...pickOptions(stylePick) });
                     avatar = await migrateDataUrlToRef(dataUrl);
                 } catch (e) {
                     console.warn('[小號] 頭像沒畫成，先用預設的', e);
@@ -111,6 +113,7 @@ const AltAccountsSection: React.FC<{
                         <input type="checkbox" checked={wantAvatar && imageReady} disabled={!imageReady} onChange={e => setWantAvatar(e.target.checked)} className="accent-violet-500" />
                         順便畫頭像{imageReady ? '' : '（要先配好生圖 API）'}
                     </label>
+                    {wantAvatar && imageReady && <ImageStylePicker config={apiConfig.imageGenConfig} feature="avatar" char={owner} value={stylePick} onChange={setStylePick} />}
                     <div className="flex gap-2">
                         <button onClick={think} disabled={busy} className="px-3 py-2 rounded-xl bg-white text-xs font-bold text-violet-600 shadow-sm disabled:opacity-50">AI 幫我想</button>
                         <button onClick={() => setDraft(null)} disabled={busy} className="px-3 py-2 rounded-xl bg-white text-xs font-bold text-slate-400 shadow-sm">取消</button>

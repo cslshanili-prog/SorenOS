@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
+import { canGenerateFor, isImageFeatureOff } from '../../utils/imageStyle';
 import { ArrowsClockwise, CalendarBlank, CircleNotch, DownloadSimple, PaperPlaneTilt, PencilSimple, Sparkle, Trash, X } from '@phosphor-icons/react';
 import ImagePromptEditor from '../chat/ImagePromptEditor';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
@@ -83,8 +85,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
 
     const handleGenerate = async () => {
         if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'ootd')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -108,7 +110,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
 
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
             const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, draft.imagePrompt), !!referenceBlob);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'ootd', char, hasPerson: true });
             const image = await migrateDataUrlToRef(dataUrl);
 
             const post = createTrajectoryOotdPost(draft, image);
@@ -125,9 +127,9 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     // 只重生成照片，文案（風格/配色/上下裝等）原樣不動——複用生成當下存下來的 imagePrompt，
     // 保證新照片還是貼合這身穿搭的文字描述，不會圖文不符。
     // description 來自「✎ 改照片描述」：改過的存回 imagePrompt，之後 ⟳ 就照新的跑
-    const handleRegeneratePhoto = async (post: TrajectoryOotdPost, description?: string) => {
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+    const handleRegeneratePhoto = async (post: TrajectoryOotdPost, description?: string, pick?: ImageStylePick) => {
+        if (!canGenerateFor(imageGenConfig, 'ootd')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
@@ -135,7 +137,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             const promptText = description || post.imagePrompt;
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
             const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, promptText), !!referenceBlob);
-            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'ootd', char, hasPerson: true, ...pickOptions(pick) });
+            if (result.apiFallbackFrom) addToast(`「${result.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             const image = await migrateDataUrlToRef(result.dataUrl);
             const patch = { image, imagePrompt: promptText };
             const next = posts.map(p => p.id === post.id ? { ...p, ...patch } : p);
@@ -296,13 +299,14 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                                 key={detailPost.id}
                                 placement="fixed"
                                 title="照片描述"
-                                hint="生成這套穿搭照片時用的描述（英文也可以直接改中文）。生成時還會自動加上：專屬生圖設定的人物特徵、生圖 API 的補充提示詞；OOTD 一律帶參考圖鎖臉。"
+                                hint="生成這套穿搭照片時用的描述（英文也可以直接改中文）。生成時還會自動加上：專屬生圖設定的人物特徵、畫風；OOTD 一律帶參考圖鎖臉。"
                                 initialDescription={detailPost.imagePrompt}
                                 referenceAvailable={false}
                                 defaultForceReference={false}
                                 busy={regeneratingPhoto}
                                 onCancel={() => setEditingPhotoPrompt(false)}
-                                onSubmit={description => void handleRegeneratePhoto(detailPost, description)}
+                                styleContext={{ config: imageGenConfig, feature: 'ootd', char }}
+                                onSubmit={(description, _force, pick) => void handleRegeneratePhoto(detailPost, description, pick)}
                             />
                         )}
                         {confirmDeleteOpen && (

@@ -1,4 +1,5 @@
 import type { APIConfig, ApiPreset } from '../types';
+import { normalizeImageGenConfig } from './imageStyle';
 
 // Clipboard contents can carry zero-width characters that String.trim() does not
 // remove. They are never valid at the edges of an API URL, token, or model id.
@@ -31,6 +32,8 @@ export function normalizeApiConfig(config: APIConfig): APIConfig {
         model: normalizeApiModel(visionApi.model),
       },
     } : {}),
+    // 生圖：API 庫、畫風庫、舊補充提示詞的搬遷（utils/imageStyle.ts）
+    ...(config.imageGenConfig ? { imageGenConfig: normalizeImageGenConfig(config.imageGenConfig) } : {}),
   };
 }
 

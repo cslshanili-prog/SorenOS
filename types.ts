@@ -293,8 +293,57 @@ export interface ImageGenApiConfig {
   size?: string;
   /** 如 'standard' / 'hd'，隨引擎自定義，留空則不傳。 */
   quality?: string;
-  /** 補充提示詞，拼在每次生成請求的正文提示詞後面。 */
+  /**
+   * 舊的「補充提示詞」：讀進來時搬進畫風庫變成一套「我原本的補充提示詞」並設成全域（utils/imageStyle.ts），
+   * 之後就不再有這個欄位。還沒搬的照舊拼在每次生成的最後。
+   */
   extraPrompt?: string;
+  /**
+   * 生圖 API 庫（plans/image-style-presets.md）。上面的 baseUrl／apiKey／model／size／quality 是「全域那組」的鏡像，
+   * 由 normalizeImageGenConfig 從 activeApiId 那組同步過去，舊的呼叫點照讀頂層就對。
+   */
+  apiPresets?: ImageApiPreset[];
+  activeApiId?: string;
+  /** 畫風庫 */
+  stylePresets?: ImageStylePreset[];
+  /** 全域畫風；沒有＝不套 */
+  globalStyleId?: string;
+  /** 內建畫風放過了（之後刪了就不再自動補，要補按「恢復內建畫風」） */
+  builtinStylesSeeded?: boolean;
+  /** 各處畫風（設置頁那張表）：沒有＝跟全域；'off'＝這裡不生圖；其他＝畫風 id */
+  featureStyles?: Partial<Record<ImageFeature, string>>;
+}
+
+/** 會生圖的地方（各處畫風那張表的每一列，utils/imageStyle.ts 的 IMAGE_FEATURES） */
+export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library';
+
+/** 生圖 API 庫裡的一組 */
+export interface ImageApiPreset {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  size?: string;
+  quality?: string;
+  /** 這家收 `negative_prompt` 欄位：勾了才用欄位送負面提示詞，不勾就寫成「避免：…」接在正文後面 */
+  negativePromptField?: boolean;
+}
+
+/** 畫風庫裡的一套 */
+export interface ImageStylePreset {
+  id: string;
+  name: string;
+  /** 每次都加：畫風、質感、光影、色調 */
+  prompt: string;
+  /** 畫面裡有人時才加：臉、皮膚、構圖（拍食物、風景時不加） */
+  portraitPrompt?: string;
+  /** 負面提示詞 */
+  negativePrompt?: string;
+  /** 偏好用哪組 API（失敗會退回全域那組重試一次）；沒有＝跟全域 */
+  apiId?: string;
+  /** 內建的那幾套：記是哪一套，「恢復預設」照這個找回原文 */
+  builtinKey?: string;
 }
 
 export interface APIConfig {
@@ -3550,6 +3599,8 @@ export interface CharacterProfile {
       y: number;
       size: number;
     };
+    /** 這個角色的畫風（畫風庫 id，'none'＝不套）；沒有＝跟世界、再跟全域。小號跟本人 */
+    styleId?: string;
   };
 
   // 情緒Buff系統
@@ -3704,6 +3755,8 @@ export interface CharacterProfile {
 export interface CharacterGroup {
     id: string;
     name: string;
+    /** 這個世界的畫風（畫風庫 id，'none'＝不套）；沒有＝跟全域 */
+    imageStyleId?: string;
     /** 排序權重（暫未在 UI 暴露，缺省按 createdAt 先後） */
     order?: number;
     createdAt?: number;

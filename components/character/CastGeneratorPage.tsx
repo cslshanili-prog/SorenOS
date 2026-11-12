@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ImageStylePicker, { EMPTY_PICK, pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
 import { createPortal } from 'react-dom';
 import { ArrowsClockwise, CaretLeft, Sparkle } from '@phosphor-icons/react';
 import type { CharacterProfile } from '../../types';
@@ -8,7 +9,7 @@ import { isSupporting } from '../../utils/castRole';
 import { resolveUserProfileForChar } from '../../utils/userPersona';
 import { buildCastCharacters, castAvatarPrompt, CAST_GEN_MAX, CAST_GEN_MIN, type CastDraft } from '../../utils/castGenerate';
 import { requestCastDrafts } from '../../utils/castGenerateRun';
-import { canGenerateMomentImage } from '../../utils/momentsGenerate';
+import { canGenerateFor } from '../../utils/imageStyle';
 import { generateImage } from '../../utils/imageGeneration';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import { trackEvent } from '../../utils/analytics';
@@ -35,7 +36,7 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
     const [direction, setDirection] = useState('');
     const [includeUser, setIncludeUser] = useState(false);
     const [wantAvatar, setWantAvatar] = useState(false);
-    const [style, setStyle] = useState('');
+    const [stylePick, setStylePick] = useState<ImageStylePick>(EMPTY_PICK);
     const [rows, setRows] = useState<DraftRow[]>([]);
     const [busy, setBusy] = useState(false);
     const [progress, setProgress] = useState('');
@@ -43,7 +44,7 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
     const lead = characters.find(c => c.id === leadId) || null;
     const worldChars = useMemo(() => (lead ? characters.filter(c => c.id !== lead.id && (lead.groupId ? c.groupId === lead.groupId : !c.groupId)) : []), [characters, lead]);
     const userName = lead ? resolveUserProfileForChar(userProfileBase, lead).name || '你' : '你';
-    const imageReady = canGenerateMomentImage(apiConfig.imageGenConfig);
+    const imageReady = canGenerateFor(apiConfig.imageGenConfig, 'avatar');
 
     const generate = async () => {
         if (!lead || busy) return;
@@ -92,7 +93,8 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                 if (wantAvatar && imageReady) {
                     setProgress(`正在畫 ${r.name} 的頭像（${i + 1}/${picked.length}）…`);
                     try {
-                        const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt(r, style));
+                        // 畫風照主角那邊（角色 > 世界 > 頭像那格 > 全域）；「這次的風格」有寫就再加在後面
+                        const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt(r), undefined, { feature: 'avatar', char: lead, hasPerson: true, ...pickOptions(stylePick) });
                         avatar = await migrateDataUrlToRef(dataUrl);
                     } catch (e) {
                         avatarFailed++;
@@ -176,9 +178,9 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                         <label className={`flex items-start gap-3 bg-white rounded-2xl border border-slate-100 px-4 py-3 ${imageReady ? '' : 'opacity-60'}`}>
                             <input type="checkbox" checked={wantAvatar && imageReady} disabled={!imageReady} onChange={e => setWantAvatar(e.target.checked)} className="mt-0.5 accent-violet-500" />
                             <span className="text-xs text-slate-600 leading-relaxed flex-1">順便畫頭像
-                                <span className="block text-[10px] text-slate-400">{imageReady ? '照每個人的外觀一張張畫，畫風跟著生圖設定的補充提示詞，也可以在下面加一句。' : '要先在設置裡配好生圖 API。'}</span>
+                                <span className="block text-[10px] text-slate-400">{imageReady ? '照每個人的外觀一張張畫；畫風照主角那邊（角色、世界、各處畫風的頭像那格），也可以這次換一套。' : '要先在設置裡配好生圖 API。'}</span>
                                 {wantAvatar && imageReady && (
-                                    <input value={style} onChange={e => setStyle(e.target.value.slice(0, 100))} placeholder="這次的風格（選填），例如：日系動畫風" className={`${field} mt-2 text-xs`} />
+                                    <ImageStylePicker config={apiConfig.imageGenConfig} feature="avatar" char={lead} value={stylePick} onChange={setStylePick} className="mt-2" />
                                 )}
                             </span>
                         </label>

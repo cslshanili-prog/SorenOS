@@ -1,5 +1,6 @@
 
 import React, { useRef, useState } from 'react';
+import { pickOptions } from '../image/ImageStylePicker';
 import { ArrowsClockwise, DownloadSimple, PencilSimple, X } from '@phosphor-icons/react';
 import ImagePromptEditor from './ImagePromptEditor';
 import { describeImageGenRecord } from '../../utils/imageGeneration';
@@ -98,7 +99,9 @@ interface ChatModalsProps {
     onToggleMessageFavorite?: () => void;
     messageFavorited?: boolean;
     onDownloadImage?: (msg: Message) => void;
-    onRegenerateImage?: (msg: Message, overrides?: { description?: string; forceReference?: boolean }) => void | Promise<void>;
+    /** 生圖設定（「✎ 改提示詞」裡這次的畫風下拉用） */
+    imageGenConfig?: APIConfig['imageGenConfig'];
+    onRegenerateImage?: (msg: Message, overrides?: { description?: string; forceReference?: boolean; styleId?: string; apiId?: string }) => void | Promise<void>;
     regeneratingImageId?: number | null;
     onDeleteEmoji: () => void;
     onDeleteCategory: () => void;
@@ -278,7 +281,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     onTransfer, onImportEmoji, onSaveSettings, chatUser,
     onOpenHistoryCleanup,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
-    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
+    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
     translationEnabled, onToggleTranslation, translationExpanded, onToggleTranslationExpanded, translateSourceLang, translateTargetLang, onSetTranslateSourceLang, onSetTranslateLang,
     xhsEnabled, onToggleXhs,
@@ -1103,8 +1106,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             defaultForceReference={selectedMessage.metadata?.imageGen?.reference === 'skipped'}
                             busy={regeneratingImageId === selectedMessage.id}
                             onCancel={() => setEditingImagePrompt(false)}
-                            onSubmit={async (description, forceReference) => {
-                                await onRegenerateImage(selectedMessage, { description, forceReference });
+                            styleContext={{ config: imageGenConfig, feature: 'chatPhoto', char: activeCharacter }}
+                            onSubmit={async (description, forceReference, pick) => {
+                                await onRegenerateImage(selectedMessage, { description, forceReference, ...pickOptions(pick) });
                                 setEditingImagePrompt(false);
                             }}
                         />

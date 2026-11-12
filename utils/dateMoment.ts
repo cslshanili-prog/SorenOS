@@ -8,13 +8,14 @@
  */
 
 import type { CharacterProfile, DateStory, ImageGenApiConfig, Message, UserProfile } from '../types';
+import { canGenerateFor } from './imageStyle';
 import type { ApiMessage } from './datePrompts';
 import { formatDateTranscript, storyMessages, callDateSummaryLLM, type DateSummaryApi } from './dateSummary';
 import { generateImage, resolveCharacterReferenceImage } from './imageGeneration';
 
 /** 生圖總開關開著、API 填好了才能拍 */
 export const canCaptureDateMoment = (config: ImageGenApiConfig | undefined): config is ImageGenApiConfig =>
-    !!(config?.charImageGenEnabled && config?.baseUrl && config?.model);
+    canGenerateFor(config, 'dateMoment');
 
 /** 讀最近幾則就夠（畫的是「此刻」） */
 export const MOMENT_CONTEXT_MESSAGES = 8;
@@ -119,7 +120,7 @@ export const captureDateMoment = async (input: {
         refs: { char: !!charRef, user: !!userRef },
     });
     const refs = [charRef, userRef].filter((blob): blob is Blob => !!blob);
-    const result = await generateImage(input.imageConfig, prompt, refs.length ? refs : undefined);
+    const result = await generateImage(input.imageConfig, prompt, refs.length ? refs : undefined, { feature: 'dateMoment', char: input.char, hasPerson: true });
     let lock: MomentLock = 'none';
     if (result.referenceUsed) {
         if (charRef && userRef) lock = (result.referenceCount ?? 1) >= 2 ? 'both' : 'char';

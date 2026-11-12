@@ -1,7 +1,8 @@
 import { normalizeLibraryDescription } from './library';
+import { isImageFeatureOff } from './imageStyle';
 import type { ImageGenApiConfig, Message } from '../types';
 import { DB } from './db';
-import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage, imageGenRecord } from './imageGeneration';
+import { generateImage, buildCharacterImagePrompt, looksLikeSelfieDescription, resolveCharacterReferenceImage, imageGenRecord } from './imageGeneration';
 import { migrateDataUrlToRef } from './blobRef';
 import { getLocalDateKey } from './localDate';
 
@@ -66,7 +67,7 @@ export function nextPendingPhotoMeta(prev: PendingPhotoMeta, error: string): Pen
 }
 
 export const canGenerateCharPhoto = (config: ImageGenApiConfig | undefined): config is ImageGenApiConfig =>
-    !!(config?.charImageGenEnabled && config?.charImageSendEnabled && config?.baseUrl && config?.model);
+    !!(config?.charImageGenEnabled && config?.charImageSendEnabled && config?.baseUrl && config?.model) && !isImageFeatureOff(config, 'chatPhoto');
 
 const announce = (charId: string) => {
     if (typeof window === 'undefined') return;
@@ -119,7 +120,7 @@ export async function fulfillPendingPhoto(messageId: number, config: ImageGenApi
             const charProfile = chars.find(c => c.id === message.charId);
             const prompt = charProfile ? buildCharacterImagePrompt(charProfile, meta.description) : meta.description;
             const referenceBlob = charProfile ? await resolveCharacterReferenceImage(charProfile, { description: meta.description }) : null;
-            const result = await generateImage(config, prompt, referenceBlob || undefined);
+            const result = await generateImage(config, prompt, referenceBlob || undefined, { feature: 'chatPhoto', char: charProfile, hasPerson: looksLikeSelfieDescription(meta.description) });
             const storedContent = await migrateDataUrlToRef(result.dataUrl);
             const { pendingPhoto: _done, ...rest } = message.metadata || {};
             await DB.replaceMessageFields(messageId, {

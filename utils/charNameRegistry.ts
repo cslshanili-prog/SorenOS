@@ -39,5 +39,14 @@ export const getCharNameById = (id: string | undefined | null): string | null =>
 export const getRegisteredCharacter = <T = any>(id: string | undefined | null): T | undefined =>
     (id ? __charsById.get(id) : undefined) as T | undefined;
 
+/** 每個世界（神經鏈接分組）的畫風（plans/image-style-presets.md）：OSProvider 在分組變化時登記 */
+let __worldStyles: Record<string, string> = {};
+export const setWorldStyleRegistry = (groups: Array<{ id: string; imageStyleId?: string }>): void => {
+    const next: Record<string, string> = {};
+    for (const g of groups) if (g?.id && g.imageStyleId) next[g.id] = g.imageStyleId;
+    __worldStyles = next;
+};
+export const getWorldStyleId = (groupId: string | undefined | null): string | undefined => (groupId ? __worldStyles[groupId] : undefined);
+
 /** 所有登記的角色卡（只讀快照）。 */
 export const getRegisteredCharacters = <T = any>(): T[] => [...__charsById.values()] as T[];
