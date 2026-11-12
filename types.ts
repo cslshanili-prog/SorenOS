@@ -16,7 +16,6 @@ export enum AppID {
   Schedule = 'schedule',
   Room = 'room',
   CheckPhone = 'check_phone',
-  Social = 'social',
   Moments = 'moments', // 朋友圈：單一貼文池的用戶視角（路線圖第 6 項），Dock 上取代舊的 Social
   Study = 'study',
   FAQ = 'faq',
@@ -32,9 +31,7 @@ export enum AppID {
   Call = 'call', // 語音電話測試（MiniMax TTS）
   VoiceDesigner = 'voice_designer', // 捏聲音 — MiniMax 音色設計器
   Guidebook = 'guidebook', // 攻略本 — 角色攻略用戶小遊戲
-  LifeSim = 'lifesim', // 模擬人生 — 與角色共同經營的小世界
   MemoryPalace = 'memory_palace', // 記憶宮殿 — 七個房間可視化
-  Handbook = 'handbook', // 手帳 — 跨角色聚合的生活留痕本（LLM 代筆 + 角色生活流陪伴）
   QQBridge = 'qq_bridge', // QQ 橋接 — 通過 NapCat 把 QQ 私聊接入當前角色，共享 IndexedDB 上下文
   HotNews = 'hot_news', // 熱點 — 分時段召回的多平台熱榜可視化（決定角色可能聊起的話題）
   VRWorld = 'vrworld', // 彼方 — 角色自主登入的虛擬世界（定時驅動，房間裡看小說/聽歌/留言，產出活動卡注入聊天+記憶）
@@ -3903,7 +3900,7 @@ export interface UserProfile {
     perGroupPersonaIds?: Record<string, string>;
     /**
      * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
-     * 'vrworld'（彼方，你的分身只有一個）、'spark'（社群，你只有一個網名帳號）；遊戲和人生模擬的身份存在各自那一局上。
+     * 'vrworld'（彼方，你的分身只有一個）；遊戲的身份存在那一局上。舊資料可能還有 'spark'（Spark 已刪），讀不到就是了。
      * 不設 = 自動：在場角色最多人認識的那個你。解析走 utils/userPersona.ts 的 personaKeyForScene。
      */
     scenePersonaIds?: Record<string, string>;

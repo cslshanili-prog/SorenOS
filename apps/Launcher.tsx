@@ -659,7 +659,7 @@ const Launcher: React.FC = () => {
   // Dock 第三格從舊的 Social 換成朋友圈（Moments）：存過自訂順序的，原位替換，不然 Social 被濾掉、
   // 朋友圈接到最後，別的 App 會往前擠一格。
   const migrateLegacyDockOrder = (saved: string[] | undefined): string[] | undefined =>
-      saved?.map(id => (id === AppID.Social ? AppID.Moments : id));
+      saved?.map(id => (id === 'social' ? AppID.Moments : id));
   const normalizeOrder = useCallback((saved: string[] | undefined, available: string[]) => {
       const valid = new Set(available);
       return [...(saved || []).filter((id, index, all) => valid.has(id) && all.indexOf(id) === index), ...available.filter(id => !(saved || []).includes(id))];

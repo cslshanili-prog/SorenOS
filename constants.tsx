@@ -15,7 +15,6 @@ import {
   SealCheck,
   House,
   DeviceMobileCamera,
-  Fire,
   Books,
   Question,
   GameController,
@@ -30,9 +29,7 @@ import {
   MusicNotes,
   PhoneCall,
   Crosshair,
-  Smiley,
   Brain,
-  Notebook,
   Plugs,
   Newspaper,
   Planet,
@@ -55,7 +52,6 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Schedule: ({ className }) => <SealCheck className={className} weight="regular" />,
   Room: ({ className }) => <House className={className} weight="regular" />,
   CheckPhone: ({ className }) => <DeviceMobileCamera className={className} weight="regular" />,
-  Social: ({ className }) => <Fire className={className} weight="regular" />,
   Moments: ({ className }) => <Aperture className={className} weight="regular" />,
   Study: ({ className }) => <Books className={className} weight="regular" />,
   FAQ: ({ className }) => <Question className={className} weight="regular" />,
@@ -72,9 +68,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Music: ({ className }) => <MusicNotes className={className} weight="regular" />,
   Call: ({ className }) => <PhoneCall className={className} weight="regular" />,
   Guidebook: ({ className }) => <Crosshair className={className} weight="regular" />,
-  LifeSim: ({ className }) => <Smiley className={className} weight="regular" />,
   MemoryPalace: ({ className }) => <Brain className={className} weight="regular" />,
-  Handbook: ({ className }) => <Notebook className={className} weight="regular" />,
   QQBridge: ({ className }) => <Plugs className={className} weight="regular" />,
   HotNews: ({ className }) => <Newspaper className={className} weight="regular" />,
   VRWorld: ({ className }) => <Planet className={className} weight="regular" />,
@@ -98,8 +92,6 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Bank, name: '銀行', icon: 'Bank', color: 'lime' }, // 2026-10 取代存錢罐：用戶自己的錢包（Net Worth＋流水）
   { id: AppID.Mall, name: '購物中心', icon: 'Mall', color: 'slate' }, // 2026-10：私聊「＋」以外的入口，可以給自己或任一角色買
   { id: AppID.Journal, name: '交換日記', icon: 'Journal', color: 'amber' },
-  // { id: AppID.Handbook, name: '手帳', icon: 'Handbook', color: 'fuchsia' }, // Hidden temporarily, pending update
-  { id: AppID.Social, name: 'Spark', icon: 'Social', color: 'red' },
   { id: AppID.Moments, name: '朋友圈', icon: 'Moments', color: 'green' },
   { id: AppID.Study, name: '自習室', icon: 'Study', color: 'emerald' },
   { id: AppID.Game, name: 'TRPG', icon: 'Game', color: 'orange' },
@@ -117,7 +109,6 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Appearance, name: '外觀', icon: 'Appearance', color: 'slate' },
   { id: AppID.Settings, name: '設置', icon: 'Settings', color: 'slate' },
   { id: AppID.Guidebook, name: '攻略本', icon: 'Guidebook', color: 'slate' },
-  { id: AppID.LifeSim, name: '都市人生', icon: 'LifeSim', color: 'purple' },
   { id: AppID.SpecialMoments, name: '特別時光', icon: 'SpecialMoments', color: 'pink' },
   { id: AppID.Music, name: '音樂', icon: 'Music', color: 'rose' },
   { id: AppID.CharCreatorDev, name: '捏臉·開發', icon: 'CharCreatorDev', color: 'amber' }, // 僅開發模式顯示（Launcher 過濾）

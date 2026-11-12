@@ -10,7 +10,6 @@ export const SELF_SAFE_AREA_APPS: ReadonlySet<AppID> = new Set<AppID>([
     AppID.Chat,
     AppID.ChatHub,
     AppID.GroupChat,
-    AppID.Social,
     AppID.Moments,
     // 批量遷移（頂欄自理 safe-top，外層/內層拆見各 App）：
     AppID.Settings,
@@ -39,9 +38,7 @@ export const SELF_SAFE_AREA_APPS: ReadonlySet<AppID> = new Set<AppID>([
     AppID.Call,
     AppID.VoiceDesigner,
     AppID.Guidebook,
-    AppID.LifeSim,
     AppID.MemoryPalace,
-    AppID.Handbook,
     AppID.QQBridge,
     AppID.HotNews,
     AppID.WorldHome,
