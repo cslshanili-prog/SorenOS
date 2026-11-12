@@ -1,5 +1,7 @@
 import { isDateOfflinePaused } from './dateOffline';
 import { loadCharacterContextMessages } from './chatContextRange';
+import { lineArgOf } from './chatLine';
+import { cloudCharId, expandCharIdsWithLines, expandCloudLineViews } from './amsgCloudLine';
 import { ReiClient } from '@rei-standard/amsg-client';
 import {
   ActiveMsg2CharacterConfig,
@@ -10,6 +12,7 @@ import {
   ActiveMsg2TaskRecord,
   APIConfig,
   CharacterProfile,
+  ChatLine,
   Emoji,
   EmojiCategory,
   GroupProfile,
@@ -668,8 +671,8 @@ const formatHistoryLine =(role: string, content: any, char: CharacterProfile, us
   return `【${speaker}】\n${text.trim()}`;
 };
 
-const buildTimeGapHint = async (charId: string) => {
-  const recentMessages = await DB.getRecentMessagesByCharId(charId, 200);
+const buildTimeGapHint = async (line: string | ChatLine) => {
+  const recentMessages = await DB.getRecentMessagesByCharId(line, 200);
   return {
     // 時間差在渲染時刻才算（formatTimeSinceUser），這裡只取原始時間戳——
     // 滿血鏈路會把它放進 fire_pack，worker 到點用「fire 時刻」重算，不吃排程時的陳舊值。
@@ -731,7 +734,7 @@ export const buildFirePack = async (
 ): Promise<AmsgFirePack> => {
   const templateStub = opts?.templateStub === true;
   const [{ lastUserMessageAt }, recentMessages, library, schedule] = await Promise.all([
-    buildTimeGapHint(char.id),
+    buildTimeGapHint(lineArgOf(char)),
     templateStub ? Promise.resolve([]) : loadCharacterContextMessages(char),
     // 表情庫只喂系統提示詞/近史渲染：佔位模板路徑整庫都不用讀（表情記錄帶圖片數據，
     // 全表 getAll 不便宜）。
@@ -1397,7 +1400,7 @@ export const owesInstantChatReply = (charId: string): boolean =>
  * 都走這裡，worker 讀到的永遠是同一個構造出來的形狀。
  */
 const buildLimitsEntry = (char: CharacterProfile, updatedAt: number) => ({
-  namespace: amsgStateNamespace(char.id),
+  namespace: amsgStateNamespace(cloudCharId(char)),
   key: AMSG_LIMITS_KEY,
   value: JSON.stringify(buildAmsgLimitsRecord(char.activeMsg2Config, isAmsg2EnabledForChar(char))),
   updatedAt,
@@ -1410,7 +1413,7 @@ const buildCharStateEntries = async (
 ) => [
   buildLimitsEntry(char, updatedAt),
   {
-    namespace: amsgStateNamespace(char.id),
+    namespace: amsgStateNamespace(cloudCharId(char)),
     key: AMSG_FIRE_PACK_KEY,
     // 壓在加密之前：上游 putClientState 先加密再發，密文壓不動（見 amsgFirePack）。
     value: await packStateValue(JSON.stringify(firePack)),
@@ -1418,7 +1421,7 @@ const buildCharStateEntries = async (
   },
   // v2 服務端工具循環的角色側數據（recall 月度總結 / XHS 開關 / 角色名）。
   {
-    namespace: amsgStateNamespace(char.id),
+    namespace: amsgStateNamespace(cloudCharId(char)),
     key: AMSG_TOOL_PACK_KEY,
     value: await packStateValue(JSON.stringify(buildToolPack(char))),
     updatedAt,
@@ -1435,7 +1438,11 @@ const buildToolConfigEntry = (
   // MCP 配置在這裡現讀現帶：三條上傳路徑（排程 / fire_pack 沖刷 / 設置保存）
   // 全走這個咽喉，不會出現某條路漏帶的版本分叉。
   value: JSON.stringify(buildToolConfig(realtimeConfig, {
-    servers: collectMcpFireServers(),
+    // 「只給哪些角色用」展開到角色名下每條關係線的雲端 id：Worker 拿任務的 charId 比，
+    // 非主線的 id（c1~line~pB）不展開就比不上（utils/amsgCloudLine.ts）
+    servers: collectMcpFireServers().map((server) => (server.charIds?.length
+      ? { ...server, charIds: expandCharIdsWithLines(server.charIds) }
+      : server)),
     useNativeTools: getMcpUseNativeTools(),
   })),
   updatedAt,
@@ -2456,7 +2463,8 @@ export const ActiveMsgClient = {
       // 牆鍾推進——固定加 24 小時的話，跨夏令時切換之後每天的觸發時刻會永久偏一小時。
       tzId,
       metadata: {
-        charId: char.id,
+        // 非主線在雲端是另一個角色（utils/amsgCloudLine.ts）
+        charId: cloudCharId(char),
         charName: char.name,
         source: 'active_msg_2',
         // worker 滿血鏈路的 onLLMOutput 拿不到任務頂層的 messageType，靠 metadata 透傳
@@ -2496,7 +2504,7 @@ export const ActiveMsgClient = {
         // 引用與內聯三件套上游只收一種，同傳直接 400——所以這條路上一個內聯字段都不寫。
         // 行的值按 (char, config, apiConfig) 現算，與後台補傳那條路同一個入口，
         // 兩邊算出來的指紋才對得上（否則每次排程都會白傳一次）。
-        credRow = buildCharChatCredRow(char, config, apiConfig);
+        credRow = buildCharChatCredRow({ id: cloudCharId(char) }, config, apiConfig);
         if (!credRow) throw new Error('主動消息 2.0 缺少可用的 API URL / Key / Model。');
         payload.credRefs = { chat: credRow.credId };
       } else {
@@ -2526,7 +2534,7 @@ export const ActiveMsgClient = {
     // 排完任務緊跟著的落庫會打髒，等回覆銷帳後由狀態同步把最新的包補上去。
     if (firePack) {
       const now = stampStateUpdatedAt();
-      const owesChat = owesInstantChatReply(char.id);
+      const owesChat = owesInstantChatReply(cloudCharId(char));
       if (owesChat) {
         console.warn(`${ACTIVE_MSG_RUNTIME_HEADER} 該角色還欠著一條即時對話回覆，這次排程不覆蓋雲端 fire_pack（等回覆銷帳後由狀態同步補傳）`);
       }
@@ -2853,13 +2861,13 @@ export const ActiveMsgClient = {
     const credRows: LlmCredentialRow[] = [];
     const credRefs: Record<string, string> = {};
     if (useCredRefs) {
-      const instantRow = buildCharInstantCredRow(char.id, api);
+      const instantRow = buildCharInstantCredRow(cloudCharId(char), api);
       if (instantRow) {
         credRows.push(instantRow);
         credRefs.chat = instantRow.credId;
       }
       if (params.emotionEval?.api) {
-        const emotionRow = buildCharEmotionCredRow(char.id, params.emotionEval.api, {
+        const emotionRow = buildCharEmotionCredRow(cloudCharId(char), params.emotionEval.api, {
           baseUrl: api.baseUrl, apiKey: api.apiKey, model: api.model,
         });
         // 只在聊天那一行也立得住時才掛 emotion：單掛一個 emotion 引用就是上面說的那種空殼。
@@ -2918,7 +2926,7 @@ export const ActiveMsgClient = {
         ? { llmExtraBody: params.extraBody }
         : {}),
       metadata: {
-        charId: char.id,
+        charId: cloudCharId(char),
         charName: char.name,
         source: 'active_msg_2',
         // push 的 messageType 取自這裡（收側按 'instant' 分軌）。
@@ -2979,7 +2987,7 @@ export const ActiveMsgClient = {
     // （設備時鐘被改過之後，雲端會一直留著一個還沒到的時刻）。讀回雲端那份對齊水位、
     // 重新蓋戳再發一次。對齊不動就不重發——那說明攔下它的不是時間戳，重發也是白發。
     if (status !== 202 && isInstantChatStateStale(body)) {
-      if (await alignStateClockWithRemote(client, [amsgStateNamespace(char.id)])) {
+      if (await alignStateClockWithRemote(client, [amsgStateNamespace(cloudCharId(char))])) {
         console.warn(`${ACTIVE_MSG_RUNTIME_HEADER} 雲端狀態的時間戳比本機的鐘新，對齊後重發這一輪`);
         statePayload = await encryptStateEntries(stampStateUpdatedAt());
         ({ status, body } = await postInstantChat());
@@ -3070,7 +3078,7 @@ export const ActiveMsgClient = {
       await alignStateClockWithRemote(client, [...new Set(skipped.map((s) => s.namespace))]);
     }
     // 同步已經落定，順路把這幾個角色的存量空殼清一遍（每角色一次，失敗只 warn）。
-    await sweepSidechannelShells(client, items.map((item) => item.char.id));
+    await sweepSidechannelShells(client, items.map((item) => cloudCharId(item.char)));
   },
 
   async syncToolConfig(realtimeConfig: RealtimeConfig | undefined): Promise<void> {
@@ -3505,7 +3513,8 @@ export const ActiveMsgClient = {
     failed: number;
   }> {
     const now = Date.now();
-    const targets = (await DB.getAllCharacters())
+    // 關係線：存過自己那份 2.0 設定的線各有各的任務（utils/amsgCloudLine.ts），一起刷
+    const targets = expandCloudLineViews(await DB.getAllCharacters())
       .filter((char) => isAmsg2EnabledForChar(char))
       .map((char) => ({
         char,

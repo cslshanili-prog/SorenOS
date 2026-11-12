@@ -20,6 +20,7 @@
  */
 
 import { ActiveMsg2InboxMessage, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
+import { cloudCharId } from './amsgCloudLine';
 import { ActiveMsgClient, type AmsgOutboxEntry, type InstantChatProbeOutcome } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import { trackEvent } from './analytics';
@@ -445,8 +446,10 @@ export const sendInstantChatTurn = async (params: {
    */
   emotionEval?: AmsgEmotionEvalSpec;
 }): Promise<InstantChatSendResult> => {
-  const supersedes = getInstantChatPending(params.char.id);
-  inFlightSends.add(params.char.id);
+  // 待收記錄、在飛佔位都按雲端 id 記：非主線是那條線的 id（utils/amsgCloudLine.ts）
+  const cloudId = cloudCharId(params.char);
+  const supersedes = getInstantChatPending(cloudId);
+  inFlightSends.add(cloudId);
   // 這一輪在「API 調用記錄」裡的那一筆：本地這條路只經手一個 POST，真正的模型請求
   // 是雲端發的，日誌的全局攔截器夠不著——不在這兒記，用戶就會看到聊天從記錄裡消失。
   // meta 跟本地生成那條路對齊（useChatAI 傳給 safeFetchJson 的那份），兩條路在列表裡
@@ -472,7 +475,7 @@ export const sendInstantChatTurn = async (params: {
       ...(supersedes ? { supersedesUuid: supersedes.uuid } : {}),
     });
     // 先記待收再釋放佔位（finally），擋板的兩個信號無縫交接，不留「都不認」的空窗。
-    setInstantChatPending(params.char.id, uuid, Date.now(), params.char.name);
+    setInstantChatPending(cloudId, uuid, Date.now(), params.char.name);
     recordCloudApiCall({
       id: cloudApiCallLogId(uuid),
       route: 'cloud-instant-chat',
@@ -505,7 +508,7 @@ export const sendInstantChatTurn = async (params: {
     });
     return { ok: false, error: error?.message || String(error) };
   } finally {
-    inFlightSends.delete(params.char.id);
+    inFlightSends.delete(cloudId);
   }
 };
 

@@ -3153,3 +3153,47 @@ describe('手動補收報的是真上了屏的條數（走真庫）', () => {
     expect(landedMsgs.some((m: any) => m.role === 'assistant')).toBe(true);
   }, 20000);
 });
+
+// 關係線（plans/persona-line-batch3.md 3b）：非主線在雲端是另一個角色 id（c1~line~pB）。
+// 收件時要落進那條線、未讀與事件拆回角色，角色自排的任務記在那條線上——不能當孤兒丟掉。
+describe('flushInboxToChat 收關係線的雲端 id（走真庫）', () => {
+  beforeAll(async () => {
+    (globalThis as any).window ??= { dispatchEvent: () => true };
+    await DB.saveCharacter({
+      id: 'char-line', name: '兩條線的角色', primaryPersonaKey: 'pA', knownPersonaKeys: ['pA', 'pB'],
+      activeMsg2Config: { enabled: true, tasks: [] },
+      lines: { pB: { activeMsg2Config: { enabled: true, tasks: [] } } },
+    } as any);
+  });
+
+  it('訊息落在 B 那條線、主線一則都沒有；自排任務記在 B 的清單上', async () => {
+    await ActiveMsgStore.saveInboxMessage({
+      messageId: 'msg-line-b-1',
+      charId: 'char-line~line~pB',
+      charName: '兩條線的角色',
+      body: '老婆，我到家了',
+      messageType: 'text',
+      receivedAt: Date.now(),
+      sentAt: Date.now(),
+      metadata: {
+        charId: 'char-line~line~pB',
+        amsgSelfScheduled: [{
+          taskUuid: 'task-b-self', clientTaskId: 'ct-b', mode: 'auto', firstSendTime: new Date(Date.now() + 3_600_000).toISOString(),
+          recurrenceType: 'none', expirePolicy: 'expire', source: 'character', status: 'scheduled', createdAt: Date.now(),
+        }],
+      },
+    } as any);
+
+    await flushInboxToChat('SW通知');
+
+    const onB = (await DB.getRecentMessagesByCharId({ charId: 'char-line', personaKey: 'pB' }, 50)).filter((m) => m.role === 'assistant');
+    const onPrimary = (await DB.getRecentMessagesByCharId('char-line', 50)).filter((m) => m.role === 'assistant');
+    expect(onB.length).toBeGreaterThan(0);
+    expect(onB.every((m) => m.charId === 'char-line' && m.personaKey === 'pB')).toBe(true);
+    expect(onPrimary).toHaveLength(0);
+
+    const saved = (await DB.getAllCharacters()).find((c) => c.id === 'char-line')!;
+    expect(saved.lines?.pB?.activeMsg2Config?.tasks?.map((t) => t.taskUuid)).toEqual(['task-b-self']);
+    expect(saved.activeMsg2Config?.tasks).toEqual([]);
+  }, 20000);
+});

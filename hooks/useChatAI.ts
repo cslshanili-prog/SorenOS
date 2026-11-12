@@ -1,6 +1,7 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
-import { lineArgOf, lineMsgFields, lineOf, lineScheduleId, lineViewPersonaKey } from '../utils/chatLine';
+import { lineArgOf, lineMsgFields, lineOf, lineScheduleId } from '../utils/chatLine';
+import { cloudCharId } from '../utils/amsgCloudLine';
 import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
@@ -773,10 +774,8 @@ export const useChatAI = ({
             // 判據就一句話：這一輪上雲會讓角色掉能力，那就別上雲。留在本地跑，工具照常用。
             // （地址夠得著的服務器不受影響，照常上雲，worker 自己跑後台 MCP。）
             const mcpWorkerUnreachable = hasWorkerUnreachableMcpServer(char.id);
-            // 關係線：雲端還不認得主線以外的線（plans/persona-line-batch1-2.md 第 5 節），
-            // 上雲那一輪會落到主線，所以非主線一律留在本地生成。
-            const instantChatVeto: string | null = lineViewPersonaKey(char) ? 'chat-line'
-                : sarModulePlan.hasActiveEffect || sarModulePlan.hasAfterglow ? 'sar-module'
+            // 關係線的非主線在雲端是另一個角色 id（utils/amsgCloudLine.ts），照常可以上雲。
+            const instantChatVeto: string | null = sarModulePlan.hasActiveEffect || sarModulePlan.hasAfterglow ? 'sar-module'
                 : luckinChatOn ? 'luckin-chat'
                 : mcdMiniOpen ? 'mcd'
                     : luckinMiniOpen ? 'luckin'
@@ -1023,12 +1022,14 @@ export const useChatAI = ({
                 // 前面宣判、把一個好端端的 worker 說成舊版讓用戶白重部署。待收記錄沒了
                 // 而結論（emotionDone）一直沒來，才是真的「跑完了但沒人迴音」。
                 const charIdAtArm = char.id;
+                // 待收記錄按雲端 id 記（非主線是那條線的 id）
+                const cloudIdAtArm = cloudCharId(char);
                 const charNameAtArm = char.name;
                 const armCloudEmotionSafetyNet = (delayMs: number) => {
                     clearCloudEmotionTimer(charIdAtArm);
                     cloudEmotionTimers.set(charIdAtArm, setTimeout(() => {
                         cloudEmotionTimers.delete(charIdAtArm);
-                        if (getInstantChatPending(charIdAtArm)) {
+                        if (getInstantChatPending(cloudIdAtArm)) {
                             armCloudEmotionSafetyNet(60_000);
                             return;
                         }
@@ -1282,7 +1283,7 @@ export const useChatAI = ({
                     // failInstantChatPending 會把它們退回未告知，下一輪重新注入。
                     // 本地路徑同一口徑：回覆 applyAssistantPostProcessing 落庫之後才標記。
                     if (amsg2ExpiredIds.length && instantChatResult.uuid) {
-                        stageInstantChatExpiredNotices(char.id, instantChatResult.uuid, amsg2ExpiredIds);
+                        stageInstantChatExpiredNotices(cloudCharId(char), instantChatResult.uuid, amsg2ExpiredIds);
                     }
                 } else {
                     // 沒發出去就是沒發出去：明確落一條系統消息 + 彈錯，用戶可以直接重發。
@@ -1359,7 +1360,7 @@ export const useChatAI = ({
             // 只對已排程 AI 任務的角色開租約：其餘角色沒有 worker 消費，開了純浪費還刷 warn。
             const amsg2Cfg = char.activeMsg2Config;
             if (amsg2Cfg?.enabled && hasActiveAiTask(amsg2Cfg)) {
-                startAmsgChatPresence(char.id, getLastRealUserMessageAt(contextMsgs));
+                startAmsgChatPresence(cloudCharId(char), getLastRealUserMessageAt(contextMsgs));
             }
 
             let data: any;
@@ -2025,14 +2026,14 @@ export const useChatAI = ({
             // 當前掛載的 Chat（可能是切走又切回後新 mount 的實例，本閉包的 setMessages
             // 對它已失效）會重新 reloadMessages；用戶不在該會話時補未讀 + toast。
             // 即時對話路徑不發：它的落庫回落走 'active-msg-received'（activeMsgRuntime）。
-            announceChatGen(CHAT_GEN_EVENTS.replyArrived, { charId: char.id, charName: char.name });
+            announceChatGen(CHAT_GEN_EVENTS.replyArrived, { charId: char.id, charName: char.name, ...(lineOf(char).personaKey ? { personaKey: lineOf(char).personaKey } : {}) });
 
             // 防穿幫閘：僅當這輪請求真的成功、回執確實進了模型上下文併產出已落庫的
             // 回覆，才標記已告知；失敗/中斷路徑不標，下輪重新注入（回執不丟）。
             // 放在 try 成功尾部（回覆已 applyAssistantPostProcessing 落庫），與 catch/finally 互斥；
             // 即時對話路徑在上方已 return，這裡只覆蓋本地 fetch 路徑。
             if (amsg2ExpiredIds.length) {
-                void ActiveMsgStore.markExpiredNoticesNotified(char.id, amsg2ExpiredIds);
+                void ActiveMsgStore.markExpiredNoticesNotified(cloudCharId(char), amsg2ExpiredIds);
             }
 
         } catch (e: any) {
@@ -2056,7 +2057,7 @@ export const useChatAI = ({
             KeepAlive.stop();
             // 本輪生成結束（成功/失敗/中斷都經過）→ 停止本地續租；遠端靠 45s TTL 自然失效。
             // 未開過租約（即時對話 / 非 amsg2 角色）時是冪等 no-op。
-            stopAmsgChatPresence(char.id);
+            stopAmsgChatPresence(cloudCharId(char));
             // 全局橫幅熄滅（成功/失敗/即時對話均經過這裡；OSContext 同時借它兜底刷新，
             // 覆蓋 catch 裡落庫的錯誤系統消息）。
             announceChatGen(CHAT_GEN_EVENTS.replyEnd, { charId: char.id, charName: char.name });

@@ -470,11 +470,13 @@ const Chat: React.FC = () => {
     // 這個 CustomEvent 只在本標籤頁內派發；別的標籤頁銷帳走下面那個 storage 監聽
     //（搜 AMSG_INSTANT_CHAT_PENDING_LS_KEY）。
     useEffect(() => {
-        const sync = () => setInstantChatPending(!!activeCharacterId && !!getInstantChatPending(activeCharacterId));
+        // 待收記錄按雲端 id 記：非主線是那條線的 id（utils/amsgCloudLine.ts，跟排程 id 同一套）
+        const cloudId = chatLineScheduleIdRef.current;
+        const sync = () => setInstantChatPending(!!cloudId && !!getInstantChatPending(cloudId));
         sync();
         window.addEventListener(AMSG_INSTANT_CHAT_PENDING_EVENT, sync);
         return () => window.removeEventListener(AMSG_INSTANT_CHAT_PENDING_EVENT, sync);
-    }, [activeCharacterId]);
+    }, [activeCharacterId, chatLineId]);
 
     // --- Initialize Hook ---
     const { isTyping, streamingBubbles, streamingThinking, streamingHandoverIds, recallStatus, searchStatus, diaryStatus, emotionStatus, memoryPalaceStatus, memoryPalaceResult, setMemoryPalaceResult, lastDigestResult, setLastDigestResult, lastTokenUsage, tokenBreakdown, setLastTokenUsage, triggerAI, startProactiveChat, stopProactiveChat, isProactiveActive } = useChatAI({
@@ -1269,7 +1271,8 @@ const Chat: React.FC = () => {
             // 嚴格按 key 過濾，別的 localStorage 變動（草稿、翻譯開關等）一概不理。
             if (e.key !== AMSG_INSTANT_CHAT_PENDING_LS_KEY) return;
             const charId = activeCharIdRef.current;
-            setInstantChatPending(!!charId && !!getInstantChatPending(charId));
+            const cloudId = chatLineScheduleIdRef.current;
+            setInstantChatPending(!!cloudId && !!getInstantChatPending(cloudId));
             if (charId) reloadMessages(visibleCountRef.current);
         };
         window.addEventListener('storage', onStorage);

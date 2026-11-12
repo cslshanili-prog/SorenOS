@@ -11,7 +11,9 @@
  * 發送成功後調 ActiveMsgStore.markExpiredNoticesNotified 標記，失敗下輪重注（回執不丟）。
  */
 
-import { ActiveMsg2TaskRecord, Amsg2ExpiredNoticeRecord, CharacterProfile } from '../types';
+import { ActiveMsg2TaskRecord, Amsg2ExpiredNoticeRecord, CharacterProfile, ChatLine } from '../types';
+import { lineArgOf } from './chatLine';
+import { cloudCharId } from './amsgCloudLine';
 import { ActiveMsgStore } from './activeMsgStore';
 import { DB } from './db';
 import { resolveCharTimeZone } from './timezone';
@@ -44,7 +46,7 @@ const MESSAGE_FETCH_LIMIT = 2000;
  * 作廢，角色於是把發過的事再來一遍。DB 只提供「最近 N 條」，所以這裡按需翻倍地要，
  * 直到最老一條早於回看起點（窗口蓋住了）或歷史見底為止。
  */
-const loadMessagesCoveringLookback = async (charId: string, sinceMs: number) => {
+const loadMessagesCoveringLookback = async (charId: string | ChatLine, sinceMs: number) => {
   let limit = MESSAGE_PAGE_SIZE;
   let messages = await DB.getRecentMessagesByCharId(charId, limit);
   while (
@@ -272,12 +274,14 @@ export async function collectAmsg2TaskContext(
   const config = char.activeMsg2Config;
   const tasks = config?.tasks ?? [];
   const now = Date.now();
+  // 作廢回執台帳按雲端 id 記：每條線的任務、回執各歸各的（utils/amsgCloudLine.ts）
+  const cloudId = cloudCharId(char);
 
   // 逐任務檢出作廢（AI 任務且 expire 策略才判；force / fixed 不作廢）。
   if (config?.enabled && tasks.length) {
     // 取夠整個回看期的歷史再判：證據（那條已送達的主動消息）落在窗外的話，
     // 檢出側會把一條發過的觸發當成作廢，角色接著把同一件事再說一遍。
-    const messages = await loadMessagesCoveringLookback(char.id, now - AMSG2_TASK_LOOKBACK_MS);
+    const messages = await loadMessagesCoveringLookback(lineArgOf(char), now - AMSG2_TASK_LOOKBACK_MS);
     const candidates = tasks
       .filter(canExpire)
       .flatMap((t) => detectExpiredOccurrences({
@@ -290,14 +294,14 @@ export async function collectAmsg2TaskContext(
         lookbackMs: AMSG2_TASK_LOOKBACK_MS,
       }).filter((c) => !hasDeliveredProactiveNear(messages, c.occurrenceMs, t.clientTaskId))
         .map((c) => ({
-          id: c.id, charId: char.id, occurrenceMs: c.occurrenceMs,
+          id: c.id, charId: cloudId, occurrenceMs: c.occurrenceMs,
           mode: t.mode, promptHint: t.promptHint, recurrenceType: t.recurrenceType,
           kind: 'expired', createdAt: now,
         } satisfies Amsg2ExpiredNoticeRecord)));
-    if (candidates.length) await ActiveMsgStore.upsertExpiredNotices(char.id, candidates);
+    if (candidates.length) await ActiveMsgStore.upsertExpiredNotices(cloudId, candidates);
   }
 
-  const unnotified = (await ActiveMsgStore.getExpiredNotices(char.id)).filter((r) => !r.notifiedAt);
+  const unnotified = (await ActiveMsgStore.getExpiredNotices(cloudId)).filter((r) => !r.notifiedAt);
   const pending = getPendingTasks(config, now);
   return {
     // 時間按角色的鐘寫：這一段是給角色看的，到點 worker 渲染的那份也是角色時區，

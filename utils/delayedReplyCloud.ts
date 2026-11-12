@@ -1,5 +1,5 @@
 import type { APIConfig, CharacterProfile, GroupProfile, RealtimeConfig, UserProfile } from '../types';
-import { lineViewPersonaKey } from './userPersona';
+import { cloudCharId, findCloudChar } from './amsgCloudLine';
 import { ActiveMsgClient } from './activeMsgClient';
 import { ActiveMsgStore } from './activeMsgStore';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
@@ -53,9 +53,9 @@ export async function handoffDelayedReplyToCloud(params: {
     apiConfig: APIConfig;
 }): Promise<void> {
     const { char, entry, userProfile, groups, realtimeConfig, apiConfig } = params;
-    // 關係線：雲端還不認得主線以外的線（plans/persona-line-batch3.md 3b），非主線的待回只在本地回
-    if (lineViewPersonaKey(char)) return;
-    if (entry.cloud || handingOff.has(char.id)) {
+    // 待回清單的 id 跟雲端 id 是同一套（主線＝charId，非主線見 utils/amsgCloudLine.ts）
+    const replyId = cloudCharId(char);
+    if (entry.cloud || handingOff.has(replyId)) {
         markAmsgStateDirty({ char, userProfile, groups, realtimeConfig });
         return;
     }
@@ -67,7 +67,7 @@ export async function handoffDelayedReplyToCloud(params: {
     const decision = await getReadNoReplyDecision(char, new Date(entry.dueAt)).catch(() => null);
     if (decision) return;
 
-    handingOff.add(char.id);
+    handingOff.add(replyId);
     try {
         const result = await ActiveMsgClient.scheduleCharacterTask({
             char,
@@ -84,7 +84,7 @@ export async function handoffDelayedReplyToCloud(params: {
             },
             userProfile, groups, realtimeConfig, apiConfig,
         });
-        if (!attachCloudToDelayedReply(char.id, entry.dueAt, { uuid: result.uuid, sendAt })) {
+        if (!attachCloudToDelayedReply(replyId, entry.dueAt, { uuid: result.uuid, sendAt })) {
             // 交雲端的這幾秒裡已經回過了（手動回覆 / 本地到點）：剛建的那條不要了
             cancelCloudTask(result.uuid);
             return;
@@ -95,7 +95,7 @@ export async function handoffDelayedReplyToCloud(params: {
     } catch (e) {
         console.warn('[延遲自動回覆] 交給雲端失敗，留在本地回', e);
     } finally {
-        handingOff.delete(char.id);
+        handingOff.delete(replyId);
     }
 }
 
@@ -138,7 +138,7 @@ export async function resolveOverdueCloudDelayedReplies(
         const uuid = entry.cloud!.uuid;
         if (now - (lastStatusCheck.get(uuid) ?? 0) < STATUS_CHECK_INTERVAL_MS) continue;
         lastStatusCheck.set(uuid, now);
-        const char = characters.find(c => c.id === charId);
+        const char = findCloudChar(characters, charId);
         try {
             const status = await ActiveMsgClient.getRemoteTaskStatus(uuid);
             if (status.state === 'pending') continue;

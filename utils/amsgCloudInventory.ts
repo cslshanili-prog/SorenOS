@@ -31,6 +31,9 @@ import type { CharacterProfile } from '../types';
 import { ActiveMsgClient } from './activeMsgClient';
 import { AMSG_INSTANT_CHAT_SUBTYPE, AMSG_STATE_NAMESPACE_PREFIX } from './amsgFirePack';
 import { parseCharCredId, type LlmCredentialPurpose } from './amsgLlmCredentials';
+import { cloudLine } from './amsgCloudLine';
+import { DB } from './db';
+import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
 
 /** 雲端某個角色名下的佔用。 */
 export interface CloudCharEntry {
@@ -149,10 +152,25 @@ export const collectCloudInventory = async (
     gaps.push({ kind: 'namespaces', message: describeError(error) });
   }
 
+  // 關係線的非主線在雲端是另一個 id（c1~line~pB，見 utils/amsgCloudLine.ts）：拆回角色，
+  // 名字後面標是跟哪張卡的那條線。角色還在就不算孤兒，別被預設勾去清掉。
   const localById = new Map(localChars.map((char) => [char.id, char]));
+  const profile = [...byId.keys()].some((id) => cloudLine(id).personaKey)
+    ? await DB.getUserProfile().catch(() => null)
+    : null;
+  const personaName = (key: string): string =>
+    key === REAL_IDENTITY_PERSONA_ID
+      ? (profile?.name || '真實身份')
+      : (profile?.personas?.find((p) => p.id === key)?.name || '另一張身份卡');
   for (const entry of byId.values()) {
-    const char = localById.get(entry.charId);
-    if (char) entry.local = { name: char.name, avatar: char.avatar };
+    const line = cloudLine(entry.charId);
+    const char = localById.get(line.charId);
+    if (char) {
+      entry.local = {
+        name: line.personaKey ? `${char.name}（跟「${personaName(line.personaKey)}」）` : char.name,
+        avatar: char.avatar,
+      };
+    }
   }
 
   const all = [...byId.values()].sort(compareByWeight);

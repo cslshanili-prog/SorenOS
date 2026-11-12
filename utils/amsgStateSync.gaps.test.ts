@@ -84,7 +84,8 @@ describe('備份導入後跟 amsg2 雲端對帳', () => {
   it('無主任務（角色已不在新檔裡）逐個 cancel', () => {
     const tail = importTail();
     expect(tail).toContain('ActiveMsgClient.listAllTasks()');
-    expect(tail).toContain('knownCharIds.has(owner)');
+    // 關係線的任務掛在線的雲端 id 上，拆回角色再認（utils/amsgCloudLine.ts）
+    expect(tail).toContain('knownCharIds.has(cloudLine(owner).charId)');
     expect(tail).toContain('ActiveMsgClient.cancelTask(');
   });
 
@@ -92,7 +93,7 @@ describe('備份導入後跟 amsg2 雲端對帳', () => {
     const tail = importTail();
     expect(tail).not.toContain('hasCharIdProjection');
     // 只有「主人還在新檔裡」才放過，其餘（含沒主人的）一律取消
-    expect(tail).toMatch(/if \(owner && knownCharIds\.has\(owner\)\) continue;[\s\S]*?cancelTask\(/);
+    expect(tail).toMatch(/if \(owner && knownCharIds\.has\(cloudLine\(owner\)\.charId\)\) continue;[\s\S]*?cancelTask\(/);
   });
 
   it('導入進來的角色刷雲端快照 + 憑據走同一個入口上傳', () => {

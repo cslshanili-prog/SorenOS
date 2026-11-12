@@ -1,4 +1,6 @@
 import { loadCharacterContextMessages } from './chatContextRange';
+import { lineArgOf } from './chatLine';
+import { cloudCharPatch, cloudLocalCharId, findCloudChar } from './amsgCloudLine';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
 import { ChatPrompts } from './chatPrompts';
@@ -305,13 +307,15 @@ const fetchOffloadedReasoning = (
  */
 const landCloudEmotionResult = async (charId: string, raw: string): Promise<void> => {
   try {
+    // 情緒是角色本人的，不分線：雲端 id 拆回本地角色 id（utils/amsgCloudLine.ts）
+    const localId = cloudLocalCharId(charId);
     const chars = await DB.getAllCharacters();
-    const ch = chars.find((c) => c.id === charId);
+    const ch = chars.find((c) => c.id === localId);
     if (!ch) return;
     const innerState = await applyEmotionEvalRaw(raw, ch);
     if (innerState) {
       window.dispatchEvent(new CustomEvent('emotion-innerstate-updated', {
-        detail: { charId, innerState },
+        detail: { charId: localId, innerState },
       }));
     }
   } catch (e) {
@@ -551,7 +555,8 @@ const processInboxMessageWithPostProcessing = async (
   // 這一趟從雲端旁路存儲取回來的東西，等整條消息處理成功了再去刪（見 OffloadedCleanup）。
   const offloadedCleanups: OffloadedCleanup[] = [];
   const characters = await DB.getAllCharacters();
-  const char = characters.find(c => c.id === message.charId);
+  // 雲端 id 可能是關係線的（c1~line~pB）：拿回那條線看到的角色卡，後處理、落庫都照那條線走
+  const char = findCloudChar(characters, message.charId);
   if (!char) {
     // 一個角色都讀不到，多半是本地存儲本身出了問題，而不是「這個角色被刪了」——
     // 按可重試的普通失敗處理，別把還在用的任務當孤兒取消掉。
@@ -575,7 +580,7 @@ const processInboxMessageWithPostProcessing = async (
   const { emojis, categories } = ChatPrompts.filterVisibleEmojis(
     await DB.getEmojis(),
     await DB.getEmojiCategories(),
-    message.charId,
+    char.id,
   );
   const contextMsgs = await loadCharacterContextMessages(char);
 
@@ -991,19 +996,24 @@ async function adoptSelfScheduledTasks(message: ActiveMsg2InboxMessage): Promise
   if (typeof charId !== 'string' || !charId) return;
 
   try {
-    const char = (await DB.getAllCharacters()).find((c) => c.id === charId);
-    if (!char) return;
+    // 非主線的任務清單存在那條線上（charId 是雲端 id，見 utils/amsgCloudLine.ts）
+    const all = await DB.getAllCharacters();
+    const raw = all.find((c) => c.id === cloudLocalCharId(charId));
+    const char = findCloudChar(all, charId);
+    if (!raw || !char) return;
     const existing = char.activeMsg2Config?.tasks ?? [];
     const known = new Set(existing.map((t: ActiveMsg2TaskRecord) => t.taskUuid));
     const added = incoming.filter((t: any) => t?.taskUuid && !known.has(t.taskUuid));
     if (added.length === 0) return;
 
     await DB.saveCharacter({
-      ...char,
-      activeMsg2Config: {
-        ...(char.activeMsg2Config ?? { enabled: true }),
-        tasks: pruneStaleTasks([...existing, ...added], Date.now()),
-      },
+      ...raw,
+      ...cloudCharPatch(raw, charId, {
+        activeMsg2Config: {
+          ...(char.activeMsg2Config ?? { enabled: true }),
+          tasks: pruneStaleTasks([...existing, ...added], Date.now()),
+        },
+      }),
     });
     console.log('[ActiveMsg] 認領角色自排任務', added.map((t: any) => t.taskUuid));
     // 只在真的新增了任務時才廣播（上面 added.length === 0 已經提前 return），
@@ -1038,9 +1048,11 @@ async function applyRemoteTaskMutations(message: ActiveMsg2InboxMessage): Promis
   if (typeof charId !== 'string' || !charId) return;
 
   try {
-    const char = (await DB.getAllCharacters()).find((c) => c.id === charId);
+    const all = await DB.getAllCharacters();
+    const raw = all.find((c) => c.id === cloudLocalCharId(charId));
+    const char = findCloudChar(all, charId);
     const existing = char?.activeMsg2Config?.tasks ?? [];
-    if (!char || existing.length === 0) return;
+    if (!raw || !char || existing.length === 0) return;
 
     const gone = new Set(cancelled);
     const renewedAt = new Map(renewed.map((r) => [r.taskUuid, r.sendAt]));
@@ -1057,8 +1069,10 @@ async function applyRemoteTaskMutations(message: ActiveMsg2InboxMessage): Promis
     if (!changed) return;
 
     await DB.saveCharacter({
-      ...char,
-      activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: true }), tasks: next },
+      ...raw,
+      ...cloudCharPatch(raw, charId, {
+        activeMsg2Config: { ...(char.activeMsg2Config ?? { enabled: true }), tasks: next },
+      }),
     });
     console.log('[ActiveMsg] 消帳角色取消/改期的任務', { cancelled, renewed });
     // 與認領共用同一個事件：監聽方（OSContext）做的是「重讀角色」，增刪改對它是一回事。
@@ -1109,7 +1123,7 @@ async function runPushTailPipeline(
 
   if ((char as any).memoryPalaceEnabled && mpEmb?.baseUrl && mpEmb?.apiKey && mpLLM.baseUrl) {
     try {
-      const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
+      const recentMsgs = await DB.getRecentMessagesByCharId(lineArgOf(char), 50);
       // fire-and-forget: pipeline 內部有併發鎖 + 水位線檢查, 不會搶著跑兩份
       void processNewMessagesWithAutoArchive(
         recentMsgs,
@@ -1739,7 +1753,7 @@ const flushInboxToChatImpl = async (trigger: FlushTrigger): Promise<string[]> =>
       // ─── 拉黑閘：私聊拉黑中（誰拉黑誰都算，見 utils/chatBlock.ts）定時任務的話一律不收 ───
       // Soren Worker 看 fire_pack.chatBlocked 已經在雲端跳過；這裡兜住舊 Worker、以及拉黑前就生成好的那幾條。
       if (message.source === 'scheduled') {
-        const blockedChar = (await DB.getAllCharacters()).find((c) => c.id === message.charId);
+        const blockedChar = findCloudChar(await DB.getAllCharacters(), message.charId);
         if (blockedChar?.chatBlock) {
           activeMsgTrace('runtime-chat-blocked-swallow', {
             messageId: message.messageId,

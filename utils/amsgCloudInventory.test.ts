@@ -179,3 +179,17 @@ describe('小工具', () => {
     expect(formatCloudSize(2 * 1024 * 1024)).toBe('2.0 MB');
   });
 });
+
+describe('關係線的雲端 id', () => {
+  it('c1~line~pB 認回角色、標上是哪張卡的線，不當成孤兒', async () => {
+    const { DB } = await import('./db');
+    await DB.saveUserProfile({ name: '我', avatar: '', bio: '', personas: [{ id: 'pB', name: '老婆', avatar: '', bio: '', createdAt: 0, updatedAt: 0 }] } as any);
+    tasksMock().mockResolvedValue([{ uuid: 'u1', charId: 'char-1~line~pB', messageSubtype: 'chat' }]);
+    credsMock().mockResolvedValue([{ credId: 'char:char-1~line~pB/chat' }]);
+
+    const { live, orphans } = await collectCloudInventory([char('char-1', '小明')]);
+
+    expect(orphans).toHaveLength(0);
+    expect(live[0]).toMatchObject({ charId: 'char-1~line~pB', local: { name: '小明（跟「老婆」）' }, taskCount: 1 });
+  });
+});

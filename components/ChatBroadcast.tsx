@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CHAT_GEN_EVENTS, CHAT_VIEW_CHANGED_EVENT, getChatViewSnapshot } from '../utils/chatGenEvents';
 import { AMSG_INSTANT_CHAT_PENDING_EVENT, listInstantChatPendings } from '../utils/amsgInstantChat';
+import { cloudLocalCharId } from '../utils/amsgCloudLine';
 import { INSTANT_TOTAL_TIMEOUT_MS } from '../worker/amsg/src/instantChat';
 
 /**
@@ -19,7 +20,7 @@ import { INSTANT_TOTAL_TIMEOUT_MS } from '../worker/amsg/src/instantChat';
  */
 
 type GenKind = 'reply' | 'emotion';
-interface GenEntry { kind: GenKind; charId: string; charName: string; startedAt: number; ttlMs: number; }
+interface GenEntry { kind: GenKind; charId: string; charName: string; startedAt: number; ttlMs: number; /** 點下去要開哪條線（關係線的雲端 id）；沒有就開 charId */ openId?: string; }
 
 // 兜底過期的默認檔：主回覆對齊 instant 300s 超時 + 本地重試餘量；情緒評估按本地評估的量級給。
 //
@@ -101,10 +102,11 @@ const ChatBroadcast: React.FC = () => {
     const now = Date.now();
     const cloudEntries: GenEntry[] = listInstantChatPendings()
         .filter(p => now - p.acceptedAt < INSTANT_PENDING_TTL_MS)
-        .filter(p => !entries.some(e => e.kind === 'reply' && e.charId === p.charId))
+        // 待收記錄按雲端 id 記，非主線長 c1~line~pB（utils/amsgCloudLine.ts）
+        .filter(p => !entries.some(e => e.kind === 'reply' && e.charId === cloudLocalCharId(p.charId)))
         .map(p => ({
-            kind: 'reply' as const, charId: p.charId, charName: p.charName || '',
-            startedAt: p.acceptedAt, ttlMs: INSTANT_PENDING_TTL_MS,
+            kind: 'reply' as const, charId: cloudLocalCharId(p.charId), charName: p.charName || '',
+            startedAt: p.acceptedAt, ttlMs: INSTANT_PENDING_TTL_MS, openId: p.charId,
         }));
 
     const view = getChatViewSnapshot();
@@ -118,7 +120,7 @@ const ChatBroadcast: React.FC = () => {
 
     const jump = () => {
         try {
-            window.dispatchEvent(new CustomEvent('active-msg-open', { detail: { charId: cur.charId } }));
+            window.dispatchEvent(new CustomEvent('active-msg-open', { detail: { charId: cur.openId || cur.charId } }));
         } catch { /* ignore */ }
     };
 
