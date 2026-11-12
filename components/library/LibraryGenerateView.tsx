@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { isImageFeatureOff } from '../../utils/imageStyle';
 import { useOS } from '../../context/OSContext';
 import type { GalleryImage, LibraryAccess, LibraryGenKind } from '../../types';
 import TokenImg from '../os/TokenImg';
@@ -77,6 +78,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void }> 
         try {
             const next = await generateLibraryImage({ kind, prompt, subjects: people ? subjects : [], imageConfig });
             setResult(next);
+            if (next.apiFallbackFrom) addToast(`「${next.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             if (!description.trim()) setDescription(prompt.trim().slice(0, LIBRARY_DESCRIPTION_MAX));
             if (!result) setAccess(defaultLibraryGenAccess(kind, people ? subjects : []));
             trackEvent('在资料库生成照片', { 类型: ({ solo: '独照', group: '合照', object: '物品', scenery: '风景' } as const)[kind] });
@@ -123,8 +125,13 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void }> 
     if (!canGenerateInLibrary(imageConfig)) {
         return (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-8 text-center">
-                <p className="text-sm font-bold text-slate-500">還沒設生圖 API</p>
-                <p className="text-[12px] leading-relaxed text-slate-400">到「設置 → 生圖 API」填好網址和模型，就能在這裡生成照片。</p>
+                {isImageFeatureOff(imageConfig, 'library') ? (<>
+                    <p className="text-sm font-bold text-slate-500">資料庫的生圖關掉了</p>
+                    <p className="text-[12px] leading-relaxed text-slate-400">到「設置 → 生圖API → 各處畫風」把「資料庫生圖」改回來，就能在這裡生成照片。</p>
+                </>) : (<>
+                    <p className="text-sm font-bold text-slate-500">還沒設生圖 API</p>
+                    <p className="text-[12px] leading-relaxed text-slate-400">到「設置 → 生圖 API」填好網址和模型，就能在這裡生成照片。</p>
+                </>)}
             </div>
         );
     }

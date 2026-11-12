@@ -2,8 +2,9 @@
  * 生圖：調用 OpenAI 兼容的 /images/generations（純文字）或 /images/edits（帶參考圖）接口，
  * 產出一張圖的 data URL。用於「系統設置 → 生圖API」的測試生圖，以及角色/用戶手動觸發的生圖。
  */
-import { CharacterProfile, ImageApiPreset, ImageGenApiConfig } from '../types';
-import { apiForStyle, applyStyleToPrompt, pickStyle } from './imageStyle';
+import { CharacterProfile, ImageApiPreset, ImageFeature, ImageGenApiConfig } from '../types';
+import { apiForStyle, applyStyleToPrompt, pickStyle, resolveImageStyle } from './imageStyle';
+import { getRegisteredCharacter, getWorldStyleId } from './charNameRegistry';
 import { safeResponseJson } from './safeApi';
 import { getBlobForRef } from './blobRef';
 
@@ -22,8 +23,12 @@ export interface GeneratedImage {
 }
 
 export interface GenerateImageOptions {
-  /** 畫風：不給＝全域；'none'＝不套；其他＝那一套（utils/imageStyle.ts 的 pickStyle） */
+  /** 這一次指定的畫風（臨時下拉）：不給就照 feature／char 解析（角色 > 世界 > 功能那格 > 全域）；'none'＝不套 */
   styleId?: string | null;
+  /** 哪一處在生圖（各處畫風那張表）；那一處關了就直接丟錯 */
+  feature?: ImageFeature;
+  /** 畫的是哪個角色（看角色、世界的畫風；小號跟本人） */
+  char?: Pick<CharacterProfile, 'groupId' | 'altOf' | 'imageGenCharConfig'> | null;
   /** 畫面裡有沒有人（決定加不加畫風的人像段）；不給就看提示詞 */
   hasPerson?: boolean;
 }
@@ -249,7 +254,15 @@ export async function generateImage(
   options?: GenerateImageOptions,
 ): Promise<GeneratedImage> {
   // 畫風庫（plans/image-style-presets.md）：套哪一套、打哪組 API；偏好那組失敗就退回全域那組重試一次
-  const style = pickStyle(config, options?.styleId);
+  const resolved = resolveImageStyle(config, {
+    feature: options?.feature,
+    char: options?.char,
+    owner: options?.char?.altOf ? getRegisteredCharacter<CharacterProfile>(options.char.altOf) : undefined,
+    override: options?.styleId,
+    worldStyleOf: getWorldStyleId,
+  });
+  if (resolved.off) throw new Error('這裡的生圖在「設置 → 生圖API → 各處畫風」關掉了');
+  const style = pickStyle(config, resolved.styleId);
   const { preferred, global } = apiForStyle(config, style);
   const hasPerson = options?.hasPerson ?? looksLikeSelfieDescription(prompt);
   const run = (api: ImageApiTarget) => {

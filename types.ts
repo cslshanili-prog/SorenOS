@@ -310,7 +310,12 @@ export interface ImageGenApiConfig {
   globalStyleId?: string;
   /** 內建畫風放過了（之後刪了就不再自動補，要補按「恢復內建畫風」） */
   builtinStylesSeeded?: boolean;
+  /** 各處畫風（設置頁那張表）：沒有＝跟全域；'off'＝這裡不生圖；其他＝畫風 id */
+  featureStyles?: Partial<Record<ImageFeature, string>>;
 }
+
+/** 會生圖的地方（各處畫風那張表的每一列，utils/imageStyle.ts 的 IMAGE_FEATURES） */
+export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library';
 
 /** 生圖 API 庫裡的一組 */
 export interface ImageApiPreset {
@@ -3594,6 +3599,8 @@ export interface CharacterProfile {
       y: number;
       size: number;
     };
+    /** 這個角色的畫風（畫風庫 id，'none'＝不套）；沒有＝跟世界、再跟全域。小號跟本人 */
+    styleId?: string;
   };
 
   // 情緒Buff系統
@@ -3748,6 +3755,8 @@ export interface CharacterProfile {
 export interface CharacterGroup {
     id: string;
     name: string;
+    /** 這個世界的畫風（畫風庫 id，'none'＝不套）；沒有＝跟全域 */
+    imageStyleId?: string;
     /** 排序權重（暫未在 UI 暴露，缺省按 createdAt 先後） */
     order?: number;
     createdAt?: number;

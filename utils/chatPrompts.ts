@@ -1,4 +1,5 @@
 import { isOnlinePaused } from './dateOffline';
+import { isImageFeatureOff } from './imageStyle';
 import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
 import { sarPublicContext } from './vrWorld/kanataPublicContext';
 import { kanataTitleContext } from './vrWorld/kanataTitle';
@@ -867,7 +868,7 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
         const photoSendEnabled = !!(
             imageGenCfg?.charImageGenEnabled && imageGenCfg?.charImageSendEnabled
             && imageGenCfg?.baseUrl && imageGenCfg?.model
-        );
+        ) && !isImageFeatureOff(imageGenCfg, 'chatPhoto');
 
         // 規則管「怎麼說話」，不替角色決定感情深淺（2026-10-11）：下面幾條的例子以前都默認你們很親，
         // 慢熱、對頭、剛認識的角色會一路被推成同一個深情伴侶。不寫「別太愛用戶」這類禁語——會反過來激活它。

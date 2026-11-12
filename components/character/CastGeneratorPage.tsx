@@ -8,7 +8,7 @@ import { isSupporting } from '../../utils/castRole';
 import { resolveUserProfileForChar } from '../../utils/userPersona';
 import { buildCastCharacters, castAvatarPrompt, CAST_GEN_MAX, CAST_GEN_MIN, type CastDraft } from '../../utils/castGenerate';
 import { requestCastDrafts } from '../../utils/castGenerateRun';
-import { canGenerateMomentImage } from '../../utils/momentsGenerate';
+import { canGenerateFor } from '../../utils/imageStyle';
 import { generateImage } from '../../utils/imageGeneration';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import { trackEvent } from '../../utils/analytics';
@@ -43,7 +43,7 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
     const lead = characters.find(c => c.id === leadId) || null;
     const worldChars = useMemo(() => (lead ? characters.filter(c => c.id !== lead.id && (lead.groupId ? c.groupId === lead.groupId : !c.groupId)) : []), [characters, lead]);
     const userName = lead ? resolveUserProfileForChar(userProfileBase, lead).name || '你' : '你';
-    const imageReady = canGenerateMomentImage(apiConfig.imageGenConfig);
+    const imageReady = canGenerateFor(apiConfig.imageGenConfig, 'avatar');
 
     const generate = async () => {
         if (!lead || busy) return;
@@ -92,7 +92,8 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                 if (wantAvatar && imageReady) {
                     setProgress(`正在畫 ${r.name} 的頭像（${i + 1}/${picked.length}）…`);
                     try {
-                        const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt(r, style));
+                        // 畫風照主角那邊（角色 > 世界 > 頭像那格 > 全域）；「這次的風格」有寫就再加在後面
+                        const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt(r, style), undefined, { feature: 'avatar', char: lead, hasPerson: true });
                         avatar = await migrateDataUrlToRef(dataUrl);
                     } catch (e) {
                         avatarFailed++;

@@ -7,7 +7,7 @@
  * - pickStyle／applyStyleToPrompt：決定這次用哪套、怎麼拼進提示詞（有人才加人像那段、負面提示詞寫成文字或欄位）。
  * - apiForStyle：畫風偏好的那組 API，和失敗時退回的全域那組。
  */
-import type { ImageApiPreset, ImageGenApiConfig, ImageStylePreset } from '../types';
+import type { CharacterProfile, ImageApiPreset, ImageFeature, ImageGenApiConfig, ImageStylePreset } from '../types';
 
 export const LEGACY_STYLE_ID = 'style-legacy';
 /** 「這次不套畫風」 */
@@ -165,4 +165,72 @@ export function apiForStyle(cfg: Pick<ImageGenApiConfig, 'apiPresets' | 'activeA
     const global = apis.find(a => a.id === cfg?.activeApiId) || apis[0];
     const preferred = style?.apiId ? apis.find(a => a.id === style.apiId) : undefined;
     return { global, ...(preferred && preferred.id !== global?.id ? { preferred } : {}) };
+}
+
+// ─── 第 b 步：誰用哪一套 ───
+
+/** 各處畫風表的「關閉」 */
+export const FEATURE_OFF = 'off';
+
+export const IMAGE_FEATURES: Array<{ key: ImageFeature; label: string; hint: string; charScoped: boolean }> = [
+    { key: 'chatPhoto', label: '聊天照片', hint: '角色在私聊傳的照片、你按重新生成', charScoped: true },
+    { key: 'moments', label: '朋友圈配圖', hint: '角色發的朋友圈、軌跡裡的動態', charScoped: true },
+    { key: 'ootd', label: '穿搭', hint: '軌跡的今日穿搭', charScoped: true },
+    { key: 'dateMoment', label: '見面拍照', hint: '見面「拍下這一刻」', charScoped: true },
+    { key: 'avatar', label: '頭像', hint: 'AI 生成配角、小號頭像', charScoped: true },
+    { key: 'library', label: '資料庫生圖', hint: '資料庫裡你叫 AI 生的圖（不看角色、世界）', charScoped: false },
+];
+
+const validStyle = (cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefined, id: string | undefined | null): string | undefined => {
+    if (!id) return undefined;
+    if (id === STYLE_NONE) return id;
+    return cfg?.stylePresets?.some(s => s.id === id) ? id : undefined;
+};
+
+export function isImageFeatureOff(cfg: Pick<ImageGenApiConfig, 'featureStyles'> | undefined, feature: ImageFeature | undefined): boolean {
+    return !!feature && cfg?.featureStyles?.[feature] === FEATURE_OFF;
+}
+
+/** 生圖總開關、API 配好、這一處沒關 */
+export function canGenerateFor(cfg: ImageGenApiConfig | undefined, feature: ImageFeature): cfg is ImageGenApiConfig {
+    return !!(cfg?.charImageGenEnabled && cfg?.baseUrl && cfg?.model) && !isImageFeatureOff(cfg, feature);
+}
+
+type StyleChar = Pick<CharacterProfile, 'groupId' | 'altOf'> & { imageGenCharConfig?: Pick<NonNullable<CharacterProfile['imageGenCharConfig']>, 'styleId'> };
+
+/**
+ * 這次用哪套（plans/image-style-presets.md 第 5 節）：這一次 > 角色 > 世界 > 功能那格 > 全域；那一處「關閉」誰也蓋不過。
+ * 回傳的 styleId 給 pickStyle：undefined＝全域、STYLE_NONE＝不套。指到已刪掉的畫風就往下一層找。
+ * owner：小號的本人（小號跟本人的畫風與世界）。worldStyleOf：世界 id → 畫風（預設讀 OSProvider 登記的那份）。
+ */
+export function resolveImageStyle(cfg: Pick<ImageGenApiConfig, 'stylePresets' | 'featureStyles'> | undefined, args: {
+    feature?: ImageFeature;
+    char?: StyleChar | null;
+    owner?: StyleChar | null;
+    override?: string | null;
+    worldStyleOf?: (groupId: string | undefined) => string | undefined;
+}): { off: boolean; styleId?: string } {
+    const featureValue = args.feature ? cfg?.featureStyles?.[args.feature] : undefined;
+    if (featureValue === FEATURE_OFF) return { off: true };
+    const scoped = args.feature ? IMAGE_FEATURES.find(f => f.key === args.feature)?.charScoped !== false : true;
+    const who = args.char?.altOf && args.owner ? args.owner : args.char;
+    const chain = [
+        args.override,
+        scoped ? who?.imageGenCharConfig?.styleId : undefined,
+        scoped && who?.groupId ? args.worldStyleOf?.(who.groupId) : undefined,
+        featureValue,
+    ];
+    for (const id of chain) {
+        const v = validStyle(cfg, id);
+        if (v) return { off: false, styleId: v };
+    }
+    return { off: false };
+}
+
+/** 下拉選單用：某一層現在選的是什麼字 */
+export function styleLabel(cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefined, id: string | undefined, fallback: string): string {
+    if (!id) return fallback;
+    if (id === STYLE_NONE) return '不套畫風';
+    if (id === FEATURE_OFF) return '關閉';
+    return cfg?.stylePresets?.find(s => s.id === id)?.name || fallback;
 }

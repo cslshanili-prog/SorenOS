@@ -1,5 +1,6 @@
 
 import { SEND_SAVED_PHOTO_RE, resolveLibraryPhotoCode } from './libraryPrompt';
+import { isImageFeatureOff } from './imageStyle';
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { CharacterProfile, CharPlaylistSong, ChatLine, ImageGenApiConfig, MallProduct } from '../types';
@@ -600,7 +601,7 @@ export const ChatParser = {
             const canGenerate = !!(
                 imageGenConfig?.charImageGenEnabled && imageGenConfig?.charImageSendEnabled
                 && imageGenConfig?.baseUrl && imageGenConfig?.model
-            );
+            ) && !isImageFeatureOff(imageGenConfig, 'chatPhoto');
             if (canGenerate) {
                 // 先落「照片生成中」的佔位卡再生成（utils/pendingPhoto.ts）：生成途中切走、失敗的，
                 // 卡片留著，回到 App 時自動補。挨個順序來——生圖要花錢，不併發搶速度。

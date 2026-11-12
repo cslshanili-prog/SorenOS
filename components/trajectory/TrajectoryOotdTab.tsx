@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { canGenerateFor, isImageFeatureOff } from '../../utils/imageStyle';
 import { ArrowsClockwise, CalendarBlank, CircleNotch, DownloadSimple, PaperPlaneTilt, PencilSimple, Sparkle, Trash, X } from '@phosphor-icons/react';
 import ImagePromptEditor from '../chat/ImagePromptEditor';
 import type { CharacterProfile, ImageGenApiConfig, TrajectoryOotdPost } from '../../types';
@@ -83,8 +84,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
 
     const handleGenerate = async () => {
         if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'ootd')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -108,7 +109,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
 
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
             const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, draft.imagePrompt), !!referenceBlob);
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'ootd', char, hasPerson: true });
             const image = await migrateDataUrlToRef(dataUrl);
 
             const post = createTrajectoryOotdPost(draft, image);
@@ -126,8 +127,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     // 保證新照片還是貼合這身穿搭的文字描述，不會圖文不符。
     // description 來自「✎ 改照片描述」：改過的存回 imagePrompt，之後 ⟳ 就照新的跑
     const handleRegeneratePhoto = async (post: TrajectoryOotdPost, description?: string) => {
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'ootd')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
@@ -135,7 +136,8 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             const promptText = description || post.imagePrompt;
             const referenceBlob = await resolveCharacterReferenceImage(char, { forceSelfie: true });
             const imagePrompt = withOotdFaceNote(buildCharacterImagePrompt(char, promptText), !!referenceBlob);
-            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'ootd', char, hasPerson: true });
+            if (result.apiFallbackFrom) addToast(`「${result.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             const image = await migrateDataUrlToRef(result.dataUrl);
             const patch = { image, imagePrompt: promptText };
             const next = posts.map(p => p.id === post.id ? { ...p, ...patch } : p);

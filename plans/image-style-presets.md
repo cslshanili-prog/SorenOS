@@ -1,6 +1,6 @@
 # 生圖畫風庫與 API 庫
 
-> 狀態：第 6 節四點都定了（Liora 2026-11-12）；**a 已做**，b、c 待做。起因：第 6 批 AI 生成配角時發現 Soren 沒有「畫風」可選，只能每次手填「這次的風格」。
+> 狀態：第 6 節四點都定了（Liora 2026-11-12）；**a、b 已做**，c 待做。起因：第 6 批 AI 生成配角時發現 Soren 沒有「畫風」可選，只能每次手填「這次的風格」。
 
 ## 1. 現在的樣子
 
@@ -81,5 +81,11 @@ interface ImageStylePreset {
   - `generateImage(config, prompt, refs?, { styleId, hasPerson })`：不給 styleId 就套全域；`'none'` 不套。`hasPerson` 不給就用 `looksLikeSelfieDescription` 看提示詞決定加不加人像段。負面提示詞預設寫成「避免（Negative）：…」接在後面，那組 API 勾了「支援 negative_prompt」才改用欄位送（純文字和帶參考圖兩條路都送）。畫風偏好的 API 失敗就改用全域那組重試一次，結果帶 `apiFallbackFrom`（b 讓各入口提示一聲）。看不見的字元（零寬、方向控制）送出前一律清掉。
   - 設置頁（`components/settings/ImageGenSettingsPanel.tsx`）：API 一排膠囊（✓ 是全域）、＋新增一組、名稱、原本那些欄位、「支援 negative_prompt」、設為全域／刪除這組；畫風庫：全域畫風下拉、每套展開編輯（名稱、每次都加、畫面有人時才加、避免、偏好的 API、設為全域、內建的「恢復原文」、刪除）、＋新增畫風、恢復內建畫風；保存按鈕黏在底部；測試生圖用正在看的那組 API，可以選畫風。
   - 內建的偽厚塗、半寫實 CG 只把臉、構圖那幾句移到「畫面有人時才加」，字面沒改。
-- **b**：各處畫風那張表、角色／世界的指定、所有生圖入口改走解析函式。
+- **b — 已做**：各處畫風那張表、角色／世界的指定、所有生圖入口改走解析。
+  - `utils/imageStyle.ts` 多了 `IMAGE_FEATURES`（六處：聊天照片、朋友圈配圖、穿搭、見面拍照、頭像、資料庫生圖）、`resolveImageStyle`（這一次 > 角色 > 世界 > 功能那格 > 全域；那一處 `'off'` 誰也蓋不過；指到刪掉的畫風就往下一層找；資料庫那格不看角色和世界；小號照本人）、`canGenerateFor`、`isImageFeatureOff`。
+  - 資料：`imageGenConfig.featureStyles`（沒有＝跟全域、`'off'`＝關閉、`'none'`＝不套、其他是畫風 id）、`imageGenCharConfig.styleId`、`CharacterGroup.imageStyleId`。世界的畫風由 OSProvider 登記到 `charNameRegistry`（`setWorldStyleRegistry`／`getWorldStyleId`），utils 層照角色的分組找。
+  - `generateImage` 的選項多了 `feature`、`char`：不給 `styleId` 就自己解析；那一處關了直接丟錯（各入口事先用 `canGenerateFor` 擋，提示「在各處畫風關掉了」）。每個入口都明確給 `hasPerson`（聊天照片、朋友圈照畫面描述判斷；穿搭、見面、頭像一定有人；資料庫看有沒有選人），不再拿拼了人物特徵的整段提示詞去猜。
+  - 入口：私聊重新生成、角色傳的照片（`pendingPhoto`，關了也不教 SEND_PHOTO、不落佔位卡）、朋友圈（自動發和軌跡重生）、穿搭（生成和重生）、見面拍照、資料庫、頭像（生成配角跟主角、小號跟本人、它自己開的小號跟本人）。看得到結果的入口在偏好 API 失敗時提示「○○ 沒回應，這張改用全域那組 API」；背景生成（角色傳照片、自動朋友圈）只記日誌。
+  - 介面：設置頁畫風庫下面一張「各處畫風」表（跟全域／關閉／不套畫風／某一套）；角色編輯頁「專屬生圖設定」最上面一格畫風，第一個選項寫現在會用到什麼（「跟世界『古風』：偽厚塗 CG」），小號那格改成「跟本人」；神經鏈接「分組」視窗每個世界一格畫風。
+  - 生成配角那格「這次的風格」暫時照舊，有寫就加在畫風後面；c 改成下拉。
 - **c**：生圖地方的臨時下拉；資料庫生圖的預覽框（按下去頁面沒反應那個）另外排。

@@ -1,4 +1,5 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
+import { STYLE_NONE, styleLabel } from '../utils/imageStyle';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -110,7 +111,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -1958,6 +1959,14 @@ ${isInitialGeneration ? `
                                    value={formData.imageGenCharConfig}
                                    onChange={(v) => handleChange('imageGenCharConfig', v)}
                                    globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
+                                   stylePresets={apiConfig.imageGenConfig?.stylePresets || []}
+                                   styleFallbackLabel={(() => {
+                                       const cfg = apiConfig.imageGenConfig;
+                                       const world = characterGroups.find(g => g.id === formData.groupId);
+                                       if (world?.imageStyleId) return `跟世界「${world.name}」：${styleLabel(cfg, world.imageStyleId, '全域')}`;
+                                       return `跟全域：${styleLabel(cfg, cfg?.globalStyleId, '不套畫風')}`;
+                                   })()}
+                                   styleLockedNote={formData.altOf ? `小號的畫風跟本人「${characters.find(c => c.id === formData.altOf)?.name || '本人'}」。` : undefined}
                                />
                            </div>
 
@@ -2310,7 +2319,8 @@ ${isInitialGeneration ? `
                 ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
                         {sortCharacterGroups(characterGroups).map(g => (
-                            <div key={g.id} className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                            <div key={g.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
+                            <div className="flex items-center gap-2">
                                 <input
                                     defaultValue={g.name}
                                     onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) renameCharacterGroup(g.id, v); else e.target.value = g.name; }}
@@ -2324,6 +2334,17 @@ ${isInitialGeneration ? `
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                                 </button>
+                            </div>
+                            {/* 世界的畫風（plans/image-style-presets.md）：這個世界的人生圖都用這套，角色自己指定的優先 */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-slate-400 shrink-0">畫風</span>
+                                <select aria-label={`${g.name}的畫風`} value={g.imageStyleId || ''} onChange={e => { void setCharacterGroupStyle(g.id, e.target.value || undefined); }}
+                                    className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1 text-[11px] text-slate-600">
+                                    <option value="">跟全域</option>
+                                    <option value={STYLE_NONE}>不套畫風</option>
+                                    {(apiConfig.imageGenConfig?.stylePresets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                                </select>
+                            </div>
                             </div>
                         ))}
                     </div>

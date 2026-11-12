@@ -5,7 +5,7 @@ import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '
 import { extractModelIds, isLikelyImageModel } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { generateImage } from '../../utils/imageGeneration';
-import { BUILTIN_STYLES, newImageApiId, newStyleId, normalizeImageGenConfig, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE } from '../../utils/imageStyle';
+import { BUILTIN_STYLES, FEATURE_OFF, IMAGE_FEATURES, newImageApiId, newStyleId, normalizeImageGenConfig, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE } from '../../utils/imageStyle';
 
 interface ImageGenSettingsPanelProps {
     apiConfig: APIConfig;
@@ -55,6 +55,7 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
     const [openStyleId, setOpenStyleId] = useState<string | null>(null);
     const patchStyle = (id: string, patch: Partial<ImageStylePreset>) => setStyles(list => list.map(st => (st.id === id ? { ...st, ...patch } : st)));
     const [testStyleId, setTestStyleId] = useState<string>('');
+    const [featureStyles, setFeatureStyles] = useState<NonNullable<ImageGenApiConfig['featureStyles']>>(() => cfg?.featureStyles || {});
 
     const [availableModels, setAvailableModels] = useState<string[]>([]);
     const [showModelModal, setShowModelModal] = useState(false);
@@ -87,6 +88,8 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
         stylePresets: styles.map(st => ({ ...st, name: st.name.trim() || '未命名畫風' })),
         globalStyleId,
         builtinStylesSeeded: true,
+        // 指到刪掉的畫風就當跟全域
+        featureStyles: Object.fromEntries(Object.entries(featureStyles).filter(([, v]) => v && (v === FEATURE_OFF || v === STYLE_NONE || styles.some(st => st.id === v)))),
     })!;
 
     const handleSave = () => {
@@ -466,6 +469,29 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                     {BUILTIN_STYLES.some(b => !styles.some(st => st.builtinKey === b.builtinKey)) && (
                         <button onClick={() => setStyles(list => restoreBuiltinStyles(list))} className="px-3 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-500 bg-white/60">恢復內建畫風</button>
                     )}
+                </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">各處畫風</label>
+                <p className="text-[10px] text-slate-400 pl-1 leading-relaxed">每一處各自決定：跟全域、用某一套，或乾脆關掉這裡的生圖。角色、世界自己指定了畫風的，照角色、世界的；「關閉」誰也蓋不過。</p>
+                <div className="bg-white/60 border border-slate-200/60 rounded-xl divide-y divide-slate-100">
+                    {IMAGE_FEATURES.map(f => (
+                        <div key={f.key} className="flex items-center gap-2 px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-slate-700">{f.label}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{f.hint}</div>
+                            </div>
+                            <select aria-label={`${f.label}的畫風`} value={featureStyles[f.key] || ''}
+                                onChange={e => setFeatureStyles(prev => { const next = { ...prev }; if (e.target.value) next[f.key] = e.target.value; else delete next[f.key]; return next; })}
+                                className={`w-32 shrink-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1.5 text-[11px] ${featureStyles[f.key] === FEATURE_OFF ? 'text-rose-400' : 'text-slate-600'}`}>
+                                <option value="">跟全域</option>
+                                <option value={FEATURE_OFF}>關閉</option>
+                                <option value={STYLE_NONE}>不套畫風</option>
+                                {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                        </div>
+                    ))}
                 </div>
             </div>
 

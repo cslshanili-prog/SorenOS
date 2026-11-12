@@ -1,6 +1,7 @@
 
 import React, { useRef, useState } from 'react';
-import { CharacterProfile } from '../../types';
+import { CharacterProfile, ImageStylePreset } from '../../types';
+import { STYLE_NONE } from '../../utils/imageStyle';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import FaceCropModal, { FaceBox } from './FaceCropModal';
@@ -14,9 +15,15 @@ interface CharacterImageGenPanelProps {
     globalImageGenEnabled: boolean;
     /** 'user'：身份卡用（見面「拍下這一刻」鎖你的臉），文案換成你、拿掉只跟角色傳照片有關的選項 */
     subject?: 'character' | 'user';
+    /** 畫風庫（給了才顯示「畫風」那一格；身份卡不給） */
+    stylePresets?: ImageStylePreset[];
+    /** 沒指定時會用什麼（例如「跟世界：偽厚塗 CG」），寫在下拉的第一個選項 */
+    styleFallbackLabel?: string;
+    /** 小號：畫風跟本人，不能自己選；這裡寫原因 */
+    styleLockedNote?: string;
 }
 
-const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange, globalImageGenEnabled, subject = 'character' }) => {
+const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charName, value, onChange, globalImageGenEnabled, subject = 'character', stylePresets, styleFallbackLabel, styleLockedNote }) => {
     const isUser = subject === 'user';
     const fileRef = useRef<HTMLInputElement>(null);
     const [showFaceCrop, setShowFaceCrop] = useState(false);
@@ -70,6 +77,23 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 {!globalImageGenEnabled && (
                     <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">
                         「系統設置 → 生圖API」的總開關「開啟角色生圖」目前是關閉的，這裡可以先設定，但要等總開關打開才會真的生效。
+                    </div>
+                )}
+
+                {!isUser && stylePresets && (
+                    <div className="mb-4">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">畫風</label>
+                        {styleLockedNote ? (
+                            <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5">{styleLockedNote}</p>
+                        ) : (
+                            <select aria-label="這個角色的畫風" value={value?.styleId || ''} onChange={e => patch({ styleId: e.target.value || undefined })}
+                                className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5 text-xs text-slate-700">
+                                <option value="">{styleFallbackLabel || '跟世界／全域'}</option>
+                                <option value={STYLE_NONE}>不套畫風</option>
+                                {stylePresets.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                            </select>
+                        )}
+                        <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">畫風庫在「設置 → 生圖API」。各處畫風那張表關掉的地方，這裡選什麼都不會生圖。</p>
                     </div>
                 )}
 

@@ -1,4 +1,6 @@
 import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost, NPCProfile, UserProfile } from '../types';
+import { canGenerateFor } from './imageStyle';
+import { looksLikeSelfieDescription } from './imageGeneration';
 import { nowInTimeZone, resolveCharTimeZone } from './timezone';
 import { isScheduleFeatureOn } from './scheduleFeature';
 import { getDailyScheduleForChar } from './dailySchedule';
@@ -20,8 +22,9 @@ import { createMomentPost } from './momentsStore';
  * 文案用角色自己的模型（resolveCharacterChatApi）；生圖設定開著才配圖，沒開就發純文字。
  */
 
+/** 朋友圈配圖：總開關、API 配好、各處畫風那格沒關 */
 export const canGenerateMomentImage = (config: ImageGenApiConfig | undefined): config is ImageGenApiConfig =>
-    !!(config?.charImageGenEnabled && config?.baseUrl && config?.model);
+    canGenerateFor(config, 'moments');
 
 /** 給朋友圈看的最近聊天，取最後幾則就好：要的是「最近發生了什麼」，不是整段對話 */
 export const MOMENT_CHAT_TAIL = 16;
@@ -120,7 +123,7 @@ export async function generateCharacterMoment(params: {
         try {
             const imagePrompt = buildCharacterImagePrompt(char, draft.imagePrompt);
             const referenceBlob = await resolveCharacterReferenceImage(char, { description: draft.content });
-            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const { dataUrl } = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'moments', char, hasPerson: looksLikeSelfieDescription(draft.imagePrompt) });
             images = [await migrateDataUrlToRef(dataUrl)];
         } catch (e) {
             // 軌跡那邊一定要圖；重整時生圖失敗就發純文字，別整篇丟掉

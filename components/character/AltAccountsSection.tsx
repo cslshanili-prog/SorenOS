@@ -5,7 +5,7 @@ import TokenImg from '../os/TokenImg';
 import { ALT_SELF_LIMIT_DEFAULT, ALT_SELF_LIMIT_MAX, altsOf } from '../../utils/charAlt';
 import { altDefaultAvatar as defaultAvatar, buildAltCharacter, requestAltDraft, type AltDraft } from '../../utils/charAltGenerate';
 import { castAvatarPrompt } from '../../utils/castGenerate';
-import { canGenerateMomentImage } from '../../utils/momentsGenerate';
+import { canGenerateFor } from '../../utils/imageStyle';
 import { generateImage } from '../../utils/imageGeneration';
 import { migrateDataUrlToRef } from '../../utils/blobRef';
 import { trackEvent } from '../../utils/analytics';
@@ -29,7 +29,7 @@ const AltAccountsSection: React.FC<{
     const [draft, setDraft] = useState<AltDraft | null>(null);
     const [busy, setBusy] = useState(false);
     const [wantAvatar, setWantAvatar] = useState(false);
-    const imageReady = canGenerateMomentImage(apiConfig.imageGenConfig);
+    const imageReady = canGenerateFor(apiConfig.imageGenConfig, 'avatar');
     const limit = owner.altSelfLimit ?? ALT_SELF_LIMIT_DEFAULT;
 
     const think = async () => {
@@ -51,7 +51,7 @@ const AltAccountsSection: React.FC<{
             let avatar = defaultAvatar(draft.name);
             if (wantAvatar && imageReady) {
                 try {
-                    const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt({ name: draft.name, appearance: draft.appearance, brief: draft.brief }));
+                    const { dataUrl } = await generateImage(apiConfig.imageGenConfig!, castAvatarPrompt({ name: draft.name, appearance: draft.appearance, brief: draft.brief }), undefined, { feature: 'avatar', char: owner, hasPerson: true });
                     avatar = await migrateDataUrlToRef(dataUrl);
                 } catch (e) {
                     console.warn('[小號] 頭像沒畫成，先用預設的', e);

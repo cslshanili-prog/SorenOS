@@ -1,4 +1,6 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
+import { canGenerateFor, isImageFeatureOff } from '../utils/imageStyle';
+import { looksLikeSelfieDescription } from '../utils/imageGeneration';
 import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineScheduleId, lineView, lineViewPersonaKey } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
@@ -3043,15 +3045,16 @@ const Chat: React.FC = () => {
         const description = (overrides?.description ?? (typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '')).trim();
         if (!description) { addToast('這張圖片沒有可重新生成的描述', 'error'); return; }
         const imageGenConfig = apiConfig.imageGenConfig;
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'chatPhoto')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'chatPhoto') ? '聊天照片的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingImageId(msg.id);
         try {
             const prompt = buildCharacterImagePrompt(char, description);
             const referenceBlob = await resolveCharacterReferenceImage(char, { description, forceReference: overrides?.forceReference });
-            const result = await generateImage(imageGenConfig, prompt, referenceBlob || undefined);
+            const result = await generateImage(imageGenConfig, prompt, referenceBlob || undefined, { feature: 'chatPhoto', char, hasPerson: looksLikeSelfieDescription(description) });
+            if (result.apiFallbackFrom) addToast(`「${result.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             const nextContent = await migrateDataUrlToRef(result.dataUrl);
             const oldContent = msg.content;
             const imageGen = imageGenRecord(char.imageGenCharConfig, !!referenceBlob, result);

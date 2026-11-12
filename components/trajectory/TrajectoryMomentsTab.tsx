@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { canGenerateFor, isImageFeatureOff } from '../../utils/imageStyle';
 import { ArrowsClockwise, ChatCircle, CircleNotch, DownloadSimple, Heart, PaperPlaneTilt, PencilSimple, Sparkle, Trash, X } from '@phosphor-icons/react';
 import type { CharacterProfile, ImageGenApiConfig, MomentActor, MomentPost } from '../../types';
 import TokenImg from '../os/TokenImg';
@@ -11,7 +12,7 @@ import { deleteMomentComment, deleteMomentPost, editMomentComment, MOMENTS_CHANG
 import { generateCharacterMoment } from '../../utils/momentsGenerate';
 import { commentAsCharacter } from '../../utils/momentsReply';
 import { trackEvent } from '../../utils/analytics';
-import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
+import { generateImage, buildCharacterImagePrompt, looksLikeSelfieDescription, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
 import { deleteBlobRefIfUnreferenced, getBlobForRef, migrateDataUrlToRef } from '../../utils/blobRef';
 import { shareOrDownloadBlob } from '../../utils/shareExport';
 import { processImage } from '../../utils/file';
@@ -103,8 +104,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
 
     const handleGenerate = async () => {
         if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'moments')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -127,8 +128,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     // 保證新照片還是貼合文案描述的場景，不會圖文不符。
     // overrides 來自「✎ 改照片描述」：改過的描述存回 imagePrompt，之後 ⟳ 就照新的跑
     const handleRegeneratePhoto = async (post: MomentPost, overrides?: { description: string; forceReference: boolean }) => {
-        if (!imageGenConfig?.charImageGenEnabled || !imageGenConfig?.baseUrl || !imageGenConfig?.model) {
-            addToast('先在設置裡開啟並配置好生圖 API', 'info');
+        if (!canGenerateFor(imageGenConfig, 'moments')) {
+            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);
@@ -136,7 +137,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
             const description = overrides?.description || post.imagePrompt || post.content;
             const imagePrompt = buildCharacterImagePrompt(char, description);
             const referenceBlob = await resolveCharacterReferenceImage(char, { description: post.content, forceReference: overrides?.forceReference });
-            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined);
+            const result = await generateImage(imageGenConfig, imagePrompt, referenceBlob || undefined, { feature: 'moments', char, hasPerson: looksLikeSelfieDescription(description) });
+            if (result.apiFallbackFrom) addToast(`「${result.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             const image = await migrateDataUrlToRef(result.dataUrl);
             const old = post.images[0];
             await updateMomentPostFields(post.id, { images: [image, ...post.images.slice(1)], ...(overrides ? { imagePrompt: description } : {}) });

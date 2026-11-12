@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiForStyle, applyStyleToPrompt, BUILTIN_STYLES, LEGACY_STYLE_ID, normalizeImageGenConfig, pickStyle, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE, stripInvisible } from './imageStyle';
+import { apiForStyle, applyStyleToPrompt, BUILTIN_STYLES, canGenerateFor, isImageFeatureOff, resolveImageStyle, LEGACY_STYLE_ID, normalizeImageGenConfig, pickStyle, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE, stripInvisible } from './imageStyle';
 
 describe('搬遷', () => {
     const old = { charImageGenEnabled: true, baseUrl: 'https://a', apiKey: 'k', model: 'm1', size: '1024x1024', extraPrompt: '水彩風' };
@@ -56,5 +56,31 @@ describe('套用', () => {
         expect(apiForStyle(c, { id: 's', name: 's', prompt: '', apiId: 'b' }).preferred?.id).toBe('b');
         expect(apiForStyle(c, { id: 's', name: 's', prompt: '', apiId: 'a' }).preferred).toBeUndefined();
         expect(apiForStyle(c, undefined).global?.id).toBe('a');
+    });
+});
+
+describe('誰用哪一套（b）', () => {
+    const cfg = { stylePresets: [{ id: 'a', name: 'A', prompt: '' }, { id: 'b', name: 'B', prompt: '' }, { id: 'c', name: 'C', prompt: '' }], featureStyles: { moments: 'c', library: 'b', ootd: 'off' } };
+    const worlds: Record<string, string> = { w1: 'b' };
+    const worldStyleOf = (g: string | undefined) => (g ? worlds[g] : undefined);
+    const char = { groupId: 'w1', imageGenCharConfig: { styleId: 'a' } };
+    it('這一次 > 角色 > 世界 > 功能那格 > 全域', () => {
+        expect(resolveImageStyle(cfg, { feature: 'moments', char, override: 'c', worldStyleOf })).toEqual({ off: false, styleId: 'c' });
+        expect(resolveImageStyle(cfg, { feature: 'moments', char, worldStyleOf }).styleId).toBe('a');
+        expect(resolveImageStyle(cfg, { feature: 'moments', char: { groupId: 'w1' }, worldStyleOf }).styleId).toBe('b');
+        expect(resolveImageStyle(cfg, { feature: 'moments', char: { groupId: 'w9' }, worldStyleOf }).styleId).toBe('c');
+        expect(resolveImageStyle(cfg, { feature: 'chatPhoto', char: {}, worldStyleOf })).toEqual({ off: false });
+    });
+    it('關閉誰也蓋不過；不套畫風也算一層；刪掉的往下找', () => {
+        expect(resolveImageStyle(cfg, { feature: 'ootd', char, override: 'a', worldStyleOf })).toEqual({ off: true });
+        expect(resolveImageStyle(cfg, { feature: 'moments', char: { imageGenCharConfig: { styleId: STYLE_NONE } } }).styleId).toBe(STYLE_NONE);
+        expect(resolveImageStyle(cfg, { feature: 'moments', char: { groupId: 'w1', imageGenCharConfig: { styleId: 'gone' } }, worldStyleOf }).styleId).toBe('b');
+    });
+    it('小號照本人；資料庫不看角色和世界', () => {
+        expect(resolveImageStyle(cfg, { feature: 'avatar', char: { altOf: 'o', imageGenCharConfig: { styleId: 'c' } }, owner: { imageGenCharConfig: { styleId: 'a' } } }).styleId).toBe('a');
+        expect(resolveImageStyle(cfg, { feature: 'library', char, worldStyleOf }).styleId).toBe('b');
+        expect(isImageFeatureOff(cfg, 'ootd')).toBe(true);
+        expect(canGenerateFor({ charImageGenEnabled: true, baseUrl: 'x', model: 'm', featureStyles: { ootd: 'off' } }, 'ootd')).toBe(false);
+        expect(canGenerateFor({ charImageGenEnabled: true, baseUrl: 'x', model: 'm' }, 'ootd')).toBe(true);
     });
 });
