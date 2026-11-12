@@ -2,6 +2,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { knowsPersona, lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
+import LinePersonaPicker from '../components/user/LinePersonaPicker';
 import { Microphone, SpeakerHigh, SpeakerSlash, PhoneDisconnect, Translate, Gear, Clock, CaretLeft, CaretRight, Phone, VideoCamera, VideoCameraSlash, Cube, FolderOpen, FileZip, Moon, Sun, Check, ArrowsOutSimple, ArrowsInSimple } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { extractContent, safeFetchJson } from '../utils/safeApi';
@@ -3151,6 +3152,8 @@ ${sentencePlan}`;
               <span className="text-sm mt-1" style={{ color: accentColor, textShadow: `0 0 10px ${accentColor}` }}>✦</span>
             </h1>
             <p className="text-sm text-white/45 mt-1">選一個人，撥過去吧。</p>
+            {/* 關係線：就地換「現在的我」，下面只列認識這張卡的角色 */}
+            <LinePersonaPicker characters={rawCharacters} dark={!lightTheme} accent={accentColor} className="mt-3" />
           </div>
 
           {/* 分組篩選（沒建分組時不渲染） */}

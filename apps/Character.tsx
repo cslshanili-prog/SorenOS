@@ -50,6 +50,7 @@ import {
 } from '../utils/memoryPalace/externalMemory';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { isPrimaryLine, lineArgOf, linePatchForChar, lineView } from '../utils/chatLine';
+import LinePersonaPicker from '../components/user/LinePersonaPicker';
 
 // ── 神經鏈接 · 列表頁視覺件（淡紫留白風）────────────────────
 // 之前的「星點 + 玻璃飾帶 + 華麗頭像框」看久了眼花、低端機也重繪卡。
@@ -1429,6 +1430,12 @@ ${isInitialGeneration ? `
                  </div>
                </div>
                <div className="flex-1 overflow-y-auto p-5 no-scrollbar pb-10">
+                   {/* 關係線：印象、記憶照「現在的我」那條線，這裡就地換線看 */}
+                   {(detailTab === 'memory' || detailTab === 'impression') && (
+                       <div className="relative z-30 mb-4">
+                           <LinePersonaPicker char={formData} label="這條線" align="left" />
+                       </div>
+                   )}
                    {detailTab === 'identity' && (
                        <div className="space-y-6 animate-fade-in">
                            <div className="flex items-center gap-5">

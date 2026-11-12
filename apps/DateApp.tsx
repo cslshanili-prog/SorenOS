@@ -4,6 +4,7 @@ import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { knowsPersona, lineArgOf, lineMsgFields, lineView, lineViewPersonaKey } from '../utils/chatLine';
+import LinePersonaPicker from '../components/user/LinePersonaPicker';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
@@ -1406,8 +1407,8 @@ const DateApp: React.FC = () => {
                 {/* 柔星點氛圍 */}
                 <div className="absolute inset-0 pointer-events-none opacity-70" style={{ backgroundImage: th.stars }} />
 
-                {/* 頂欄 + 標題 */}
-                <div className="relative z-10 shrink-0" style={{ paddingTop: 'max(1.25rem, var(--safe-top))' }}>
+                {/* 頂欄 + 標題（z-20：「現在的我」的下拉要蓋過下面的角色卡） */}
+                <div className="relative z-20 shrink-0" style={{ paddingTop: 'max(1.25rem, var(--safe-top))' }}>
                     <div className="relative flex items-center justify-center px-5 pt-2">
                         <button onClick={() => { if (cameFromChat) { returnToChat(); } else { closeApp(); } }}
                                 className="absolute left-4 w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all"
@@ -1423,7 +1424,11 @@ const DateApp: React.FC = () => {
                             </div>
                         </div>
                     </div>
-                    <div className='mx-auto mt-4 mb-3 grid w-[min(18rem,calc(100%-2.5rem))] grid-cols-2 rounded-xl bg-white/45 p-1 shadow-sm'>
+                    {/* 關係線：就地換「現在的我」，下面只列認識這張卡的角色 */}
+                    <div className="relative z-20 flex justify-center mt-3">
+                        <LinePersonaPicker characters={rawCharacters} accent="#8f7bb5" />
+                    </div>
+                    <div className='mx-auto mt-3 mb-3 grid w-[min(18rem,calc(100%-2.5rem))] grid-cols-2 rounded-xl bg-white/45 p-1 shadow-sm'>
                         <button className='rounded-lg bg-white py-2 text-xs font-bold text-[#715d99] shadow-sm'>陪伴</button>
                         <button onClick={() => setMeetSurface('story')} className='rounded-lg py-2 text-xs font-bold text-[#8f7bb5]'>劇情</button>
                     </div>
