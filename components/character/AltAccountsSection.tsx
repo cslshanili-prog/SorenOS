@@ -83,7 +83,7 @@ const AltAccountsSection: React.FC<{
                             <button onClick={() => onOpenAlt(a)} className="min-w-0 flex-1 text-left">
                                 <div className="text-sm font-bold text-slate-700 truncate">{a.name}<span className="ml-1.5 text-[9px] font-bold text-slate-400">{a.altCreatedBy === 'char' ? '它自己開的' : '你幫它開的'}</span></div>
                                 <div className="text-[10px] text-slate-400 truncate">{a.altPurpose || a.description || '（沒寫理由）'}</div>
-                                <div className="text-[10px] font-semibold text-violet-400 truncate">{altRequestStatusText(a, now)}</div>
+                                <div className="text-[10px] font-semibold text-violet-400 truncate">{altRequestStatusText(a, now)}{a.altRevealed ? ' · 你已經知道是 TA 了' : a.altDenied?.times ? ` · 你懷疑過 ${a.altDenied.times} 次，TA 沒認` : ''}</div>
                             </button>
                             {a.altFriendRequest?.status === 'pending' && a.altFriendRequest.at > now && (
                                 <button onClick={() => updateCharacter(a.id, { altFriendRequest: { ...a.altFriendRequest!, at: Date.now() } })}

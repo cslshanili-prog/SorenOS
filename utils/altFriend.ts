@@ -19,6 +19,8 @@ export interface AltActionDetail {
     personaKey: string;
     openAlt: OpenAltTag | null;
     altAdd: AltAddTag | null;
+    /** 說出來了（7d）：本人寫的帶小號名，小號自己寫的不帶名字＝就是這個小號（altId 由後處理填） */
+    reveal?: { altId: string } | null;
 }
 export const ALT_GREETING_MAX = 120;
 
@@ -84,6 +86,8 @@ export function altRequestStatusText(alt: Pick<CharacterProfile, 'altFriendReque
 
 /** [[ACTION:OPEN_ALT|網名|簡介|理由|招呼]]；簡介、理由、招呼可省 */
 const OPEN_ALT_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:OPEN_ALT|NEW_ALT|開小號|开小号)\s*((?:[|｜][^\]\n]*)?)\]\]/gi;
+/** [[ACTION:ALT_REVEAL|小號名]]（小號自己寫可以不帶名字） */
+const ALT_REVEAL_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:ALT_REVEAL|REVEAL_ALT|承認小號|承认小号|說出小號|说出小号)\s*((?:[|｜][^\]\n]*)?)\]\]/gi;
 /** [[ACTION:ALT_ADD|小號名|招呼]] */
 const ALT_ADD_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:ALT_ADD|ALT_FRIEND|小號加好友|小号加好友)\s*((?:[|｜][^\]\n]*)?)\]\]/gi;
 
@@ -93,9 +97,10 @@ export interface OpenAltTag { name: string; brief: string; purpose: string; gree
 export interface AltAddTag { name: string; greeting: string }
 
 /** 兩種標籤一律剝掉；各以第一個為準（一則回覆最多開一個、加一次）。沒寫名字的當作沒寫。 */
-export function extractAltTags(text: string): { cleanedText: string; openAlt: OpenAltTag | null; altAdd: AltAddTag | null } {
+export function extractAltTags(text: string): { cleanedText: string; openAlt: OpenAltTag | null; altAdd: AltAddTag | null; reveal: { name: string } | null } {
     let openAlt: OpenAltTag | null = null;
     let altAdd: AltAddTag | null = null;
+    let reveal: { name: string } | null = null;
     let matched = false;
     let out = text.replace(OPEN_ALT_TAG_RE, (_m, raw?: string) => {
         matched = true;
@@ -111,8 +116,13 @@ export function extractAltTags(text: string): { cleanedText: string; openAlt: Op
         if (!altAdd && n) altAdd = { name: n, greeting: clean(greeting, ALT_GREETING_MAX) };
         return '';
     });
-    if (!matched) return { cleanedText: text, openAlt: null, altAdd: null };
-    return { cleanedText: out.replace(/[ \t]+\n/g, '\n').trim(), openAlt, altAdd };
+    out = out.replace(ALT_REVEAL_TAG_RE, (_m, raw?: string) => {
+        matched = true;
+        if (!reveal) reveal = { name: clean(splitFields(raw)[0], 20) };
+        return '';
+    });
+    if (!matched) return { cleanedText: text, openAlt: null, altAdd: null, reveal: null };
+    return { cleanedText: out.replace(/[ \t]+\n/g, '\n').trim(), openAlt, altAdd, reveal };
 }
 
 /** 本人寫的 OPEN_ALT 能不能開：還有名額、名字沒跟本人和現有小號撞 */
@@ -129,13 +139,15 @@ export function resolveAltAdd<T extends Pick<CharacterProfile, 'id' | 'altOf' | 
 }
 
 /** 本人私聊的「你的小號」那段：列出小號跟你的好友狀態，教 ALT_ADD；還有名額就教 OPEN_ALT。沒東西可說回空字串。 */
-export function buildOwnerAltPrompt(owner: Pick<CharacterProfile, 'id' | 'name' | 'altSelfLimit'>, chars: Array<Pick<CharacterProfile, 'id' | 'altOf' | 'altCreatedBy' | 'name' | 'description' | 'altPurpose' | 'altFriendRequest' | 'altUserFriend'>>, userName: string): string {
+export function buildOwnerAltPrompt(owner: Pick<CharacterProfile, 'id' | 'name' | 'altSelfLimit'>, chars: Array<Pick<CharacterProfile, 'id' | 'altOf' | 'altCreatedBy' | 'name' | 'description' | 'altPurpose' | 'altFriendRequest' | 'altUserFriend' | 'altRevealed' | 'altDenied'>>, userName: string): string {
     const alts = altsOf(owner.id, chars);
     const room = altSelfRoom(owner, chars);
     if (!alts.length && room <= 0) return '';
     const status = (a: typeof alts[number]): string => {
         const r = a.altFriendRequest;
-        if (a.altUserFriend || r?.status === 'accepted') return `已經是${userName}的好友`;
+        if (a.altRevealed) return `${userName}已經知道它是你了`;
+        const denied = a.altDenied?.times ? `；${userName}懷疑過 ${a.altDenied.times} 次它就是你，你都沒認` : '';
+        if (a.altUserFriend || r?.status === 'accepted') return `已經是${userName}的好友${denied}`;
         if (!r) return `還沒加${userName}好友`;
         if (r.status === 'blocked') return `被${userName}封鎖了，加不了`;
         const tried = r.rejectCount ? `，${userName}拒絕過 ${r.rejectCount} 次${r.lastRejectedGreeting ? `（上次你說「${r.lastRejectedGreeting}」）` : ''}` : '';
@@ -144,12 +156,19 @@ export function buildOwnerAltPrompt(owner: Pick<CharacterProfile, 'id' | 'name' 
     };
     const lines = [`\n### 你的小號（只有你自己知道）`];
     if (alts.length) {
-        lines.push(`${userName}不知道這些帳號是你。`);
+        lines.push(`除非下面寫了${userName}已經知道，${userName}不知道這些帳號是你。`);
         for (const a of alts) lines.push(`- 「${a.name}」${a.description ? `（簡介：${a.description}）` : ''}${a.altPurpose ? `；你開它是因為：${a.altPurpose}` : ''}；${status(a)}`);
         lines.push(`想用小號（再）加${userName}好友：在回覆最後另起一行寫 [[ACTION:ALT_ADD|小號名|加好友時的招呼]]，過一陣子${userName}會收到申請；要不要再來、隔多久，照你的性格。`);
+        if (alts.some(a => !a.altRevealed)) lines.push(`你決定親口告訴${userName}某個小號就是你時：說完之後另起一行寫 [[ACTION:ALT_REVEAL|小號名]]。`);
     }
     if (room > 0) {
         lines.push(`你也可以自己開一個新的小號（還能開 ${room} 個）：在回覆最後另起一行寫 [[ACTION:OPEN_ALT|網名|帳號簡介|為什麼開|加${userName}好友的招呼]]。這很少用：只有你真的有理由（想用別人的身份接近誰、說不敢用本名說的話……）才開；開了${userName}不會知道是你。招呼留空就先不加${userName}。不要在對話裡提到你開了小號。`);
     }
     return `${lines.join('\n')}\n`;
+}
+
+/** 小號自己的私聊：教它說出來的標記（還沒被認出來才帶） */
+export function buildAltSelfRevealPrompt(alt: Pick<CharacterProfile, 'name' | 'altOf' | 'altRevealed'>, ownerName: string, userName: string): string {
+    if (!alt.altOf || alt.altRevealed) return '';
+    return `\n### 說出你是誰\n你決定親口告訴${userName}「${alt.name}」其實就是你（${ownerName}）時：說完之後另起一行寫 [[ACTION:ALT_REVEAL]]。不想說就不要寫。\n`;
 }

@@ -36,7 +36,7 @@ import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById, getCharRefs, getRegisteredCharacters } from './charNameRegistry';
-import { buildOwnerAltPrompt } from './altFriend';
+import { buildAltSelfRevealPrompt, buildOwnerAltPrompt } from './altFriend';
 import { isPersonaLinesEnabled } from './devDebug';
 import { getMomentsContextForChar } from './momentsContext';
 import { buildRealBalanceBlock } from './realBalancePrompt';
@@ -400,6 +400,7 @@ export const ChatPrompts = {
         baseSystemPrompt += buildSuspectPrompt(char, userProfile);
         // 關係線第 7 批 · 本人私聊教「你的小號」：小號加你好友（ALT_ADD）、自己開小號（OPEN_ALT），見 utils/altFriend.ts
         if (isPersonaLinesEnabled() && !char.altOf) baseSystemPrompt += buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name);
+        if (isPersonaLinesEnabled() && char.altOf) baseSystemPrompt += buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name);
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，

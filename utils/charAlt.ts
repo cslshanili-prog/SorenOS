@@ -52,7 +52,7 @@ export function altPersonaView(alt: CharacterProfile, owner: CharacterProfile): 
 export const isAltResolved = (c: unknown): boolean => !!(c && typeof c === 'object' && (c as any)[ALT_RESOLVED]);
 
 /** 「你的身份」那段換成：你是本人，現在用小號在說話 */
-export function altIdentityBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose'>, owner: Pick<CharacterProfile, 'name' | 'systemPrompt'>): string {
+export function altIdentityBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'>, owner: Pick<CharacterProfile, 'name' | 'systemPrompt'>): string {
     return `### 你的身份 (Character)
 - 你是「${owner.name}」。
 - 核心性格/指令:
@@ -62,12 +62,22 @@ ${altMaskBlock(alt, owner)}`;
 }
 
 /** 「你現在用的小號」那一段（朋友圈等只用角色設定的地方也帶） */
-export function altMaskBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose'>, owner: Pick<CharacterProfile, 'name'>): string {
+export function altMaskBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'>, owner: Pick<CharacterProfile, 'name'>): string {
+    const purpose = alt.altPurpose ? `- 你開這個小號的理由：${alt.altPurpose}\n` : '';
+    // 被認出來了（7d）：對方知道是你，帳號照舊在，用不用由你
+    if (alt.altRevealed) {
+        return `### 你現在用的小號
+- 你現在用小號「${alt.name}」在說話${alt.description ? `（簡介：${alt.description}）` : ''}。
+${purpose}- 對方已經知道「${alt.name}」就是你（${owner.name}）了（${alt.altRevealed.how === 'admitted' ? '對方認出來、你承認了' : '你自己說的'}）。不用再裝；要不要繼續用這個帳號、用它說什麼，由你決定。
+
+`;
+    }
+    const denied = alt.altDenied?.times ? `- 對方懷疑過 ${alt.altDenied.times} 次「${alt.name}」就是你，你都沒認；之後說話要更小心。\n` : '';
     return `### 你現在用的小號
 - 你現在用小號「${alt.name}」在說話：對方看到的是「${alt.name}」${alt.description ? `（簡介：${alt.description}）` : ''}，不是「${owner.name}」。
-${alt.altPurpose ? `- 你開這個小號的理由：${alt.altPurpose}\n` : ''}- 對方不知道「${alt.name}」就是你。要不要說、什麼時候說，由你決定；說話方式可以刻意跟平常不一樣（換個口吻、少用你的口頭禪），但你還是你，知道的事、在意的人都一樣。
+${purpose}- 對方不知道「${alt.name}」就是你。要不要說、什麼時候說，由你決定；說話方式可以刻意跟平常不一樣（換個口吻、少用你的口頭禪），但你還是你，知道的事、在意的人都一樣。
 - 你用本名「${owner.name}」跟對方說過的話、你們之間的一切，你都記得；用小號時別不小心說出只有「${owner.name}」才會知道的事——除非你就是想讓對方發現。
-
+${denied}
 `;
 }
 
@@ -86,6 +96,8 @@ export function formatAltBridge(args: {
     userName: string;
     msgs: Array<Pick<Message, 'role' | 'content' | 'timestamp'>>;
     formatDate: (ts: number) => string;
+    /** 對方已經知道小號是你了（7d） */
+    revealed?: boolean;
 }): string {
     const rows = args.msgs.filter(m => typeof m.content === 'string' && m.content.trim() && (m.role === 'user' || m.role === 'assistant'));
     if (!rows.length) return '';
@@ -95,8 +107,8 @@ export function formatAltBridge(args: {
         return `[${args.formatDate(m.timestamp)}] ${who}: ${text.length > LINE_MAX ? `${text.slice(0, LINE_MAX)}…` : text}`;
     });
     const head = args.selfIsAlt
-        ? `### 【你用本名「${args.ownerName}」跟「${args.userName}」最近聊的】\n（這是你自己用本名說的，「${args.userName}」不知道你現在用的小號就是你。）`
-        : `### 【你用小號「${args.otherName}」跟「${args.userName}」最近聊的】\n（「${args.userName}」不知道「${args.otherName}」就是你。這些是你自己說過的，你都記得；要不要讓 TA 發現由你決定。）`;
+        ? `### 【你用本名「${args.ownerName}」跟「${args.userName}」最近聊的】\n（這是你自己用本名說的${args.revealed ? `；「${args.userName}」已經知道你現在用的小號就是你` : `，「${args.userName}」不知道你現在用的小號就是你`}。）`
+        : `### 【你用小號「${args.otherName}」跟「${args.userName}」最近聊的】\n（${args.revealed ? `「${args.userName}」已經知道「${args.otherName}」就是你了。` : `「${args.userName}」不知道「${args.otherName}」就是你。`}這些是你自己說過的，你都記得${args.revealed ? '。' : '；要不要讓 TA 發現由你決定。'}）`;
     return `\n${head}\n${lines.join('\n')}\n`;
 }
 
@@ -122,12 +134,12 @@ export async function loadAltBridgeText(args: {
     if (args.char.altOf) {
         const owner = getRegisteredCharacter<CharacterProfile>(args.char.altOf);
         if (!owner) return '';
-        return formatAltBridge({ selfIsAlt: true, otherName: owner.name, ownerName: owner.name, userName: args.userName, msgs: await readLine(owner), formatDate: args.formatDate });
+        return formatAltBridge({ selfIsAlt: true, otherName: owner.name, ownerName: owner.name, userName: args.userName, msgs: await readLine(owner), formatDate: args.formatDate, revealed: !!args.char.altRevealed });
     }
     const alts = getRegisteredCharacters<CharacterProfile>().filter(c => c.altOf === args.char.id);
     let out = '';
     for (const alt of alts) {
-        out += formatAltBridge({ selfIsAlt: false, otherName: alt.name, ownerName: args.char.name, userName: args.userName, msgs: await readLine(alt), formatDate: args.formatDate });
+        out += formatAltBridge({ selfIsAlt: false, otherName: alt.name, ownerName: args.char.name, userName: args.userName, msgs: await readLine(alt), formatDate: args.formatDate, revealed: !!alt.altRevealed });
     }
     return out;
 }

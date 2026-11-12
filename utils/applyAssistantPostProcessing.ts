@@ -58,6 +58,8 @@ import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, extractBlockUser, type ChatBlockCh
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
 import { extractSuspicion, resolveSuspicion, type PersonaRevealMeta } from './personaReveal';
 import { ALT_ACTION_EVENT, extractAltTags, type AltActionDetail } from './altFriend';
+import { writeAltRevealNotes } from './altRevealActions';
+import { getRegisteredCharacter, getRegisteredCharacters } from './charNameRegistry';
 import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
 import { canCharCallNow, describeCharCall, extractCharCall, INCOMING_CHAR_CALL_EVENT, markCharCallAttempt, shouldRingNow, type CharCallMeta, type CharCallMode, type IncomingCharCallDetail } from './charCall';
 import { buildNoReplyNarration, extractNoReplyDirective, pickAutoReplyText } from './readNoReply';
@@ -889,8 +891,14 @@ export async function applyAssistantPostProcessing(
      */
     let pendingAltTags: Omit<AltActionDetail, 'ownerId' | 'personaKey'> | null = null;
     const consumeAltTags = (content: string): string => {
-        const { cleanedText, openAlt, altAdd } = extractAltTags(content);
-        if ((openAlt || altAdd) && !char.altOf && !pendingAltTags) pendingAltTags = { openAlt, altAdd };
+        const { cleanedText, openAlt, altAdd, reveal } = extractAltTags(content);
+        if (pendingAltTags) return cleanedText;
+        // 說出來（7d）：小號自己寫的就是這個小號；本人寫的照名字對自己的小號
+        const revealAlt = !reveal ? null
+            : char.altOf ? { altId: char.id }
+            : (() => { const a = getRegisteredCharacters<CharacterProfile>().find(c => c.altOf === char.id && c.name === reveal.name); return a ? { altId: a.id } : null; })();
+        if (char.altOf) { if (revealAlt) pendingAltTags = { openAlt: null, altAdd: null, reveal: revealAlt }; }
+        else if (openAlt || altAdd || revealAlt) pendingAltTags = { openAlt, altAdd, reveal: revealAlt };
         return cleanedText;
     };
 
@@ -2526,8 +2534,18 @@ export async function applyAssistantPostProcessing(
     }
 
     if (pendingAltTags && typeof window !== 'undefined') {
+        const tags = pendingAltTags as Omit<AltActionDetail, 'ownerId' | 'personaKey'>;
+        // 說出來了：兩條線的系統提示這裡就落（這一頁馬上看得到），寫回小號交給 OSContext
+        if (tags.reveal) {
+            const alt = char.altOf ? char : getRegisteredCharacter<CharacterProfile>(tags.reveal.altId);
+            const owner = getRegisteredCharacter<CharacterProfile>(char.altOf || char.id);
+            if (alt && owner && !alt.altRevealed) {
+                await writeAltRevealNotes({ alt, owner, how: 'told', userName: userProfile?.name || '你' });
+                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
+            } else tags.reveal = null;
+        }
         window.dispatchEvent(new CustomEvent<AltActionDetail>(ALT_ACTION_EVENT, {
-            detail: { ownerId: char.id, personaKey: lineViewPersonaKey(char) || char.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID, ...(pendingAltTags as Omit<AltActionDetail, 'ownerId' | 'personaKey'>) },
+            detail: { ownerId: char.altOf || char.id, personaKey: lineViewPersonaKey(char) || char.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID, ...tags },
         }));
     }
 

@@ -31,7 +31,7 @@ describe('標籤', () => {
         expect(r.cleanedText).toBe('晚安');
         expect(r.openAlt).toEqual({ name: '雨夜', brief: '只在半夜出沒', purpose: '想偷偷關心她', greeting: '你好呀' });
         expect(r.altAdd).toEqual({ name: '夜航', greeting: '嗨' });
-        expect(extractAltTags('沒有標籤')).toEqual({ cleanedText: '沒有標籤', openAlt: null, altAdd: null });
+        expect(extractAltTags('沒有標籤')).toEqual({ cleanedText: '沒有標籤', openAlt: null, altAdd: null, reveal: null });
         expect(extractAltTags('[[ACTION:OPEN_ALT]]').openAlt).toBeNull();
     });
     it('開不開得了、加的是哪個', () => {
@@ -52,5 +52,18 @@ describe('本人私聊「你的小號」', () => {
         expect(p).toContain('還能開 2 個');
         expect(buildOwnerAltPrompt({ ...owner, altSelfLimit: 0 }, [owner], '小星')).toBe('');
         expect(buildOwnerAltPrompt({ ...owner, altSelfLimit: 0 }, [owner, alt()], '小星')).not.toContain('OPEN_ALT');
+    });
+});
+
+describe('說出來（7d）', () => {
+    it('ALT_REVEAL 剝掉；本人寫帶名字、小號寫不帶', () => {
+        expect(extractAltTags('其實是我\n[[ACTION:ALT_REVEAL|夜航]]')).toMatchObject({ cleanedText: '其實是我', reveal: { name: '夜航' } });
+        expect(extractAltTags('[[ACTION:ALT_REVEAL]]').reveal).toEqual({ name: '' });
+    });
+    it('本人那段：被認出來的寫清楚、懷疑過的寫次數', () => {
+        const p = buildOwnerAltPrompt(owner, [owner, alt({ altRevealed: { at: 1, how: 'admitted' } }), alt({ id: 'x2', name: '雨夜', altUserFriend: true, altDenied: { times: 2, lastAt: 1 } })], '小星');
+        expect(p).toContain('「夜航」；小星已經知道它是你了');
+        expect(p).toContain('已經是小星的好友；小星懷疑過 2 次它就是你，你都沒認');
+        expect(p).toContain('ALT_REVEAL|小號名');
     });
 });

@@ -3898,7 +3898,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const owner = all.find(c => c.id === detail.ownerId);
           if (!owner || owner.altOf) return;
           const now = Date.now();
-          const { openAlt, altAdd } = detail;
+          const { openAlt, altAdd, reveal } = detail;
+          // 說出來了（7d）：系統提示後處理已經落了，這裡只寫回小號
+          if (reveal) {
+              const alt = all.find(c => c.id === reveal.altId && c.altOf === owner.id);
+              if (alt && !alt.altRevealed) {
+                  updateCharacterRef.current(alt.id, { altRevealed: { at: now, how: 'told' } });
+                  trackEvent('小号被认出来', { 方式: '自己说的' });
+              }
+          }
           if (openAlt && canOpenAlt(owner, all, openAlt.name)) {
               const req = openAlt.greeting ? planAltRequest(undefined, { personaKey: detail.personaKey, greeting: openAlt.greeting, now }) : null;
               const alt: CharacterProfile = {
