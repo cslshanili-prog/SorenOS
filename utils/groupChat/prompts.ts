@@ -237,6 +237,12 @@ export const buildMultiPresenceNote = (names: string[] | undefined): string => {
 `;
 };
 
+/**
+ * 成員私訊成員（關係線第 6 批 6d）：群裡看不到，只進兩人的私聊，對方會回。群裡有兩個以上角色成員才教。
+ */
+export const buildMemberDmNote = (enabled: boolean | undefined): string => (enabled ? `
+- **私訊其他成員（可選，罕見）**：真的有不想讓群裡其他人看到、只想對某個成員說的話，在你的內容裡單獨寫一行 \`[[DM|對方名字: 內容]]\`——群裡不顯示，只進你們倆的私聊，對方會回你。用在約人、八卦、提醒、不方便公開的關心；**不要**拿來代替正常的群聊，也不要每輪都用。` : '');
+
 /** 導演模式一輪最多生成幾條消息的默認上限；下限固定 1，"少即是多"不受這個值影響。 */
 export const DEFAULT_MAX_ROUND_MESSAGES = 5;
 
@@ -251,7 +257,7 @@ const buildLeaveGroupNote = (): string => `
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[] },
+    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[]; memberDm?: boolean },
 ): string {
     const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 導演任務指令 (Director Mode)】
@@ -315,7 +321,7 @@ ${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.p
 - **嚴禁**把 PRIVATE 當"吐槽群友"的工具——這是低成本製造修羅場的來源，禁止。
 - **嚴禁**多個角色同一輪都發 PRIVATE。最多一個。
 - 格式: \`[[PRIVATE: 私聊內容]]\`。這條消息只進私聊頻道，不在群裡顯示。
-${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildMemberDmNote(options?.memberDm)}${buildNpcDirectorNote(options?.npcNames || [])}
 #### 七、只寫台詞，不寫思考
 - content 裡只放角色真的會發在群裡的話。**不要**輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白——要想就在心裡想完，直接寫結果。
 - 也不要寫成報告：不要 markdown 標題（# …）、粗體小標（**時間認知**：…）、發言策略清單、「---」分隔線，更不要先寫分析再寫「最終發言／最終輸出」。第一行就是角色要發的第一句話。
@@ -349,7 +355,7 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[] },
+    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[]; memberDm?: boolean },
 ): string {
     const asNpc = !!options?.asNpc;
     const privateRule = asNpc
@@ -378,5 +384,5 @@ ${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。群裡可能有人跟你同時在打字，他們這一刻要發的話你看不到——所以別只是把用戶的話原樣再回一遍，說你自己的角度。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
 9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話，第一行就是你要發的第一句。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白，也不要寫成報告（# 標題、**粗體小標**、發言策略清單、「---」、先分析再寫「最終發言／最終輸出」）。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
-10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}`;
+10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}${!asNpc ? buildMemberDmNote(options?.memberDm) : ''}`;
 }

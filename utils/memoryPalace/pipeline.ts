@@ -2374,6 +2374,8 @@ export async function importDateStorySummary(
         /** 整場故事的大總結比分段的重要一點 */
         final?: boolean;
         tags?: string[];
+        /** 固定帶的標籤；不給就是見面那組（角色私聊送的是「角色私聊」那組，關係線第 6 批） */
+        baseTags?: string[];
     },
     embeddingConfig: EmbeddingConfig,
     llmConfig: LightLLMConfig,
@@ -2396,7 +2398,7 @@ export async function importDateStorySummary(
             charId: input.charId,
             content,
             room: input.final ? 'bedroom' : 'living_room',
-            tags: ['見面', '線下故事', ...(input.tags || [])].filter((tag, index, all) => tag && all.indexOf(tag) === index),
+            tags: [...(input.baseTags || ['見面', '線下故事']), ...(input.tags || [])].filter((tag, index, all) => tag && all.indexOf(tag) === index),
             importance: input.final ? 8 : 6,
             mood: 'neutral',
             embedded: false,

@@ -54,7 +54,13 @@ export function isOffstage(m: Pick<Message, 'metadata'>): boolean {
  * 代打（puppeted）的訊息是成員說的，role 不是 user，不受影響。
  */
 export function memberVisibleGroupMessages<T extends Pick<Message, 'role' | 'metadata'>>(msgs: T[], lurking: boolean): T[] {
-    return msgs.filter(m => m.role !== 'user' || (!lurking && !isOffstage(m)));
+    // 只給你看的那幾行（「阿澈 私訊了 小雨」，關係線第 6 批 6d）角色永遠看不到
+    return msgs.filter(m => !isUserOnly(m) && (m.role !== 'user' || (!lurking && !isOffstage(m))));
+}
+
+/** 只顯示給你看、不進任何角色上下文的群訊息 */
+export function isUserOnly(m: Pick<Message, 'metadata'>): boolean {
+    return !!m.metadata?.userOnly;
 }
 
 /** 這則群訊息是哪一個你發的：訊息上記的身份鍵，舊訊息沒記就算 fallback（通常是第一張在場的卡）。 */
