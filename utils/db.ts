@@ -1,4 +1,5 @@
 import { toMountedWorldbook } from './worldbook';
+import { lineViewPersonaKey } from './userPersona';
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
 import type { MeetingPresetRecord } from './meetingPreset/types';
 import type { DateStory, DateSummaryPreset } from '../types';
@@ -608,6 +609,12 @@ export const DB = {
   },
 
   saveCharacter: async (character: CharacterProfile): Promise<void> => {
+    // 關係線：線視圖不是完整的角色卡（主線的關係欄位被換成那條線的了），整張存回去會把
+    // 那條線的值蓋到主線上。拒存；要改某條線請走 OSContext 的 updateLine（utils/chatLine.ts）。
+    if (lineViewPersonaKey(character)) {
+      console.error('[DB] 拒絕把關係線視圖整張存成角色卡', character.id);
+      return;
+    }
     const db = await openDB();
     // 等事務真正提交再 resolve —— 否則調用方 await 後立刻重讀 DB 會拿到舊值 (情緒 buff 落庫競態根因).
     return new Promise((resolve, reject) => {
@@ -987,6 +994,8 @@ export const DB = {
         const store = transaction.objectStore(STORE_MESSAGES);
         const timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
         const { timestamp: _ignored, ...payload } = msg;
+        // 主線不寫 personaKey（「沒標＝主線」要永遠成立）；群訊息也不用這個欄位
+        if (!payload.personaKey || payload.groupId) delete (payload as { personaKey?: string }).personaKey;
         const request = store.add({ ...payload, timestamp });
         request.onsuccess = () => clearStaleMemoryMirror(transaction, msg.charId, request.result as number);
         // request 成功後事務仍可能回滾。主動消息通知和定時任務銷帳都必須等提交。
@@ -1027,7 +1036,9 @@ export const DB = {
           if (cursor.value.metadata?.deliveryId === deliveryId) { savedId = cursor.value.id; return; }
           cursor.continue(); return;
         }
-        const request = store.add({ ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } });
+        const row: Record<string, unknown> = { ...msg, timestamp: msg.timestamp ?? Date.now(), metadata: { ...msg.metadata, deliveryId } };
+        if (!msg.personaKey || msg.groupId) delete row.personaKey; // 主線不寫 personaKey
+        const request = store.add(row);
         request.onsuccess = () => {
           savedId = request.result as number;
           inserted = true;
@@ -2645,13 +2656,15 @@ export const DB = {
       transaction.objectStore(STORE_STORY_THEATER_PRESETS).delete(id);
   },
 
-  getDateStories: async (charId?: string): Promise<DateStory[]> => {
+  /** 不傳就是全部；傳 charId 是主線的故事，傳一條線就是那條線的（沒標 personaKey 的算主線）。 */
+  getDateStories: async (lineArg?: LineArg): Promise<DateStory[]> => {
+      const line = lineArg === undefined ? undefined : asLine(lineArg);
       const db = await openDB();
       if (!db.objectStoreNames.contains(STORE_DATE_STORIES)) return [];
       return new Promise((resolve, reject) => {
           const request = db.transaction(STORE_DATE_STORIES, 'readonly').objectStore(STORE_DATE_STORIES).getAll();
           request.onsuccess = () => resolve(((request.result || []) as DateStory[])
-              .filter(story => !charId || story.charId === charId)
+              .filter(story => !line || (story.charId === line.charId && (story.personaKey || undefined) === (line.personaKey || undefined)))
               .sort((a, b) => b.createdAt - a.createdAt));
           request.onerror = () => reject(request.error);
       });

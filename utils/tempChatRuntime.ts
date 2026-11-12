@@ -1,4 +1,5 @@
 import type { APIConfig, CharacterProfile, Message } from '../types';
+import { lineArgOf, lineMsgFields } from './chatLine';
 import { DB } from './db';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
@@ -29,7 +30,7 @@ const lineOf = (m: Message, charName: string, userName: string) => {
 
 export async function loadTempChatState(char: CharacterProfile, now: number = Date.now()) {
     const limits = normalizeTempChatLimits(char.tempChatLimits);
-    const recent = (await DB.getRecentMessagesByCharId(char.id, 200)).filter(visible);
+    const recent = (await DB.getRecentMessagesByCharId(lineArgOf(char), 200)).filter(visible);
     const since = char.chatBlock?.since ?? now;
     const dayKey = charDayKey(char, now);
     return {
@@ -51,7 +52,7 @@ export async function sendUserTempMessage(char: CharacterProfile, text: string, 
     if (state.userRemaining <= 0) return { ok: false, reason: '今天的次數用完了，明天再說吧' };
     if (charCount(content) > state.limits.maxChars) return { ok: false, reason: `最多 ${state.limits.maxChars} 個字` };
     const meta: TempChatMeta = { from: 'user', dayKey: state.dayKey };
-    await DB.saveMessage({ charId: char.id, role: 'user', type: 'text', content, metadata: { tempChat: meta } });
+    await DB.saveMessage({ ...lineMsgFields(char), role: 'user', type: 'text', content, metadata: { tempChat: meta } });
     return { ok: true };
 }
 
@@ -100,7 +101,7 @@ export async function generateCharTempMessage(params: {
     const result = parseTempChatReply(extractJson(rawText, { silent: true }), rawText, state.limits.maxChars);
     if (result.message) {
         const meta: TempChatMeta = { from: 'char', dayKey: state.dayKey };
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: result.message, metadata: { tempChat: meta } });
+        await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: result.message, metadata: { tempChat: meta } });
     }
     return { message: result.message, unblock: block.by === 'char' && result.unblock };
 }

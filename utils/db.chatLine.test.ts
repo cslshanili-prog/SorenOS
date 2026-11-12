@@ -36,3 +36,25 @@ describe('私聊訊息按關係線讀', () => {
         expect(firstB).not.toBeNull();
     });
 });
+
+describe('見面故事按線、角色卡不收線視圖', () => {
+    it('getDateStories 照線分，沒標身份的算主線', async () => {
+        const base = { status: 'ongoing' as const, createdAt: 1, updatedAt: 1 };
+        await DB.saveDateStory({ ...base, id: 'st-a', charId: 'line-c2' });
+        await DB.saveDateStory({ ...base, id: 'st-b', charId: 'line-c2', personaKey: 'pB' });
+        expect((await DB.getDateStories('line-c2')).map(s => s.id)).toEqual(['st-a']);
+        expect((await DB.getDateStories({ charId: 'line-c2', personaKey: 'pB' })).map(s => s.id)).toEqual(['st-b']);
+        expect((await DB.getDateStories()).map(s => s.id)).toEqual(expect.arrayContaining(['st-a', 'st-b']));
+    });
+
+    it('線視圖整張存回去會被拒絕，原角色卡不被蓋掉', async () => {
+        const { lineView, lineFor } = await import('./chatLine');
+        const raw = { id: 'line-c3', name: '阿澈', avatar: '', description: '', systemPrompt: '', memories: [], primaryPersonaKey: 'pA', userNickname: '小妹', lines: { pB: { userNickname: '老婆' } } } as any;
+        await DB.saveCharacter(raw);
+        const view = lineView(raw, lineFor(raw, 'pB'));
+        await DB.saveCharacter({ ...view, name: '被改壞' });
+        const stored = await DB.getCharacter('line-c3');
+        expect(stored?.name).toBe('阿澈');
+        expect(stored?.userNickname).toBe('小妹');
+    });
+});

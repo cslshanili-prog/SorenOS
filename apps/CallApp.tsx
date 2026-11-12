@@ -1,6 +1,7 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
 import { Microphone, SpeakerHigh, SpeakerSlash, PhoneDisconnect, Translate, Gear, Clock, CaretLeft, CaretRight, Phone, VideoCamera, VideoCameraSlash, Cube, FolderOpen, FileZip, Moon, Sun, Check, ArrowsOutSimple, ArrowsInSimple } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { extractContent, safeFetchJson } from '../utils/safeApi';
@@ -516,7 +517,21 @@ ${currentVoiceActingGuide()}
   return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
+  const { closeApp, openApp, characters: rawCharacters, activeLineFor, updateLine, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter: updateCharacterRaw, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
+  // 關係線（plans/persona-line-batch1-2.md）：通話裡的角色一律是「現在的我」那條線的視圖，
+  // 通話訊息讀寫用 lineArgOf / lineMsgFields，改角色卡走下面的 updateCharacter（寫到那條線上）。
+  const characters = useMemo(() => rawCharacters.map(c => lineView(c, activeLineFor(c))), [rawCharacters, activeLineFor]);
+  const lineCharsRef = useRef(characters);
+  lineCharsRef.current = characters;
+  const updateCharacter = useCallback((id: string, updates: Parameters<typeof updateCharacterRaw>[1]) => {
+    const view = lineCharsRef.current.find(c => c.id === id);
+    return view ? updateLine(view, updates) : updateCharacterRaw(id, updates);
+  }, [updateLine, updateCharacterRaw]);
+  /** 某角色在這條線上讀通話訊息用的參數 */
+  const callLineArg = (charId: string) => {
+    const view = lineCharsRef.current.find(c => c.id === charId);
+    return view ? lineArgOf(view) : charId;
+  };
 
   const [viewMode, setViewMode] = useState<ViewMode>('role-select');
   const [selectedCharId, setSelectedCharId] = useState<string>(activeCharacterId || characters[0]?.id || '');
@@ -1497,7 +1512,7 @@ const CallApp: React.FC = () => {
     // includeProcessed=true：通話消息與聊天消息同存一個 store，記憶宮殿處理後會推進
     // 高水位標記 mp_lastMsgId_<charId>，默認的 getMessagesByCharId 會過濾掉水位線之前的
     // 消息——這會導致繼續聊天后通話記錄被"清空"。這裡必須讀取全部消息。
-    const all = await DB.getMessagesByCharId(charId, true);
+    const all = await DB.getMessagesByCharId(callLineArg(charId), true);
     const callMsgs = all
       .filter(m => m.metadata?.source === 'call' && m.metadata?.callSessionId)
       .sort((a, b) => a.timestamp - b.timestamp);
@@ -1551,7 +1566,7 @@ const CallApp: React.FC = () => {
     setCallRecords(records);
   };
   const pruneCallSnapshots = async (charId: string, sessionId: string) => {
-    const all = await DB.getMessagesByCharId(charId, true);
+    const all = await DB.getMessagesByCharId(callLineArg(charId), true);
     const expired = findExpiredCallSnapshots(all, sessionId);
     if (!expired.length) return;
     for (const snapshot of expired) {
@@ -1680,7 +1695,7 @@ const CallApp: React.FC = () => {
         endedAt: Date.now(),
       };
       await DB.saveMessage({
-        charId: selectedChar.id,
+        ...lineMsgFields(selectedChar),
         role: 'system',
         type: 'system',
         content: `通話結束 · ${selectedChar.name}｜${formatDuration(elapsedSeconds)}｜${Math.max(1, userTurns)}輪對話`,
@@ -2390,7 +2405,7 @@ ${sentencePlan}`;
         setCallState('speaking');
         setBubbles([greetingBubble]);
         const dbId = await DB.saveMessage({
-          charId: selectedChar.id,
+          ...lineMsgFields(selectedChar),
           role: 'assistant',
           type: 'text',
           content: greetingText,
@@ -2592,7 +2607,7 @@ ${sentencePlan}`;
     if (selectedChar?.id) {
       if (!userDbId) {
         userDbId = await DB.saveMessage({
-          charId: selectedChar.id,
+          ...lineMsgFields(selectedChar),
           role: 'user',
           type: 'text',
           content: input,
@@ -2689,7 +2704,7 @@ ${sentencePlan}`;
     let assistantDbId: number | undefined;
     if (selectedChar?.id) {
       assistantDbId = await DB.saveMessage({
-        charId: selectedChar.id,
+        ...lineMsgFields(selectedChar),
         role: 'assistant',
         type: 'text',
         content: assistantText,
@@ -2757,7 +2772,7 @@ ${sentencePlan}`;
     if (!record) return;
     setDeleteConfirmRecord(null);
     // includeProcessed=true：同 loadCallRecords，否則水位線之前的通話消息刪不掉
-    const all = await DB.getMessagesByCharId(record.characterId, true);
+    const all = await DB.getMessagesByCharId(callLineArg(record.characterId), true);
     // 刪除通話消息 + 聊天頁的通話總結卡片
     const sessionMessages = all.filter(m => {
       if (m.metadata?.source === 'call' && m.metadata?.callSessionId === record.sessionId) return true;
@@ -2897,7 +2912,7 @@ ${sentencePlan}`;
       setBubbles(previous => [...previous, nudgeBubble]);
       idleNudgeCountRef.current += 1;
       const dbId = await DB.saveMessage({
-        charId: selectedChar.id,
+        ...lineMsgFields(selectedChar),
         role: 'assistant',
         type: 'text',
         content: reply.text,

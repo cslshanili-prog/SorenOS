@@ -2927,6 +2927,8 @@ export interface CharacterCustomMeter {
 export interface DateStory {
   id: string;
   charId: string;
+  /** 關係線：哪條線上的故事；沒有＝主線（utils/chatLine.ts） */
+  personaKey?: string;
   status: 'ongoing' | 'completed';
   /** 用戶取的名字；沒取就顯示開始日期 */
   title?: string;

@@ -1,11 +1,11 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
-import { withLineFields } from '../utils/chatLine';
+import { isPrimaryLine, lineFor, lineOf, linePatchForChar, lineView, primaryLine, withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags } from '../types';
-import { applyActivePersona, resolveUserProfileForChar } from '../utils/userPersona';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags, ChatLine } from '../types';
+import { applyActivePersona, globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../utils/userHolidays';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
@@ -355,6 +355,16 @@ interface OSContextType {
   activeCharacterId: string;
   addCharacter: () => Promise<CharacterProfile>;
   updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
+  /**
+   * 關係線（plans/persona-line-batch1-2.md）：現在的我跟這個角色是哪條線。角色認識現在這張卡就是那條，
+   * 否則是主線。私聊、通話、見面拿 lineView(char, activeLineFor(char)) 當角色卡用。
+   */
+  activeLineFor: (char: CharacterProfile) => ChatLine;
+  /**
+   * 在某條線上改角色卡：傳線視圖（或原角色卡＝主線）。跟著線走的欄位寫進那條線，其他照舊寫角色卡；
+   * 函式形式的 updates 拿到的 prev 也是那條線的視圖。主線時跟 updateCharacter 一模一樣。
+   */
+  updateLine: (charView: Pick<CharacterProfile, 'id'>, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
   /**
    * 刪角色。名下有 amsg2 任務的角色會先 await 雲端任務取消 + client_state 清理，
    * 清不掉返回 cloud-cleanup-failed 且**不刪本地**（調用方彈「重試 / 仍然刪除」，
@@ -3662,16 +3672,35 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     });
   };
 
+  const activeLineFor = useCallback((char: CharacterProfile): ChatLine => {
+    const key = globalPersonaKey(userProfileBase);
+    return char.knownPersonaKeys?.includes(key) ? lineFor(char, key) : primaryLine(char.id);
+  }, [userProfileBase]);
+
+  const updateLine = (charView: Pick<CharacterProfile, 'id'>, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
+    const line = lineOf(charView);
+    if (isPrimaryLine(line)) { updateCharacter(charView.id, updates); return; }
+    updateCharacter(charView.id, prev => {
+      const patch = typeof updates === 'function' ? updates(lineView(prev, line)) : updates;
+      return linePatchForChar(prev, line, patch);
+    });
+  };
+
   // 角色在聊天裡用 [[ACTION:RELATIONSHIP|…]] 改了「角色認為的關係」：後處理那邊拿不到
   // updateCharacter，發事件過來由這裡寫回（見 utils/chatRelationship.ts）。走 ref 拿最新的
   // updateCharacter，免得打髒雲端快照時用到第一次渲染時的舊 userProfile。
   const updateCharacterRef = useRef(updateCharacter);
   updateCharacterRef.current = updateCharacter;
+  const updateLineRef = useRef(updateLine);
+  updateLineRef.current = updateLine;
   useEffect(() => {
       const onRelationshipChange = (event: Event) => {
           const detail = (event as CustomEvent<CharRelationshipChangeDetail>).detail;
           if (!detail?.charId || !detail.relationship) return;
-          void updateCharacterRef.current(detail.charId, { charViewRelationship: detail.relationship });
+          // 關係線：改的是事件帶的那條線（沒帶＝主線）
+          const target = charactersRef.current.find(c => c.id === detail.charId);
+          const view = target ? lineView(target, lineFor(target, detail.personaKey)) : { id: detail.charId };
+          void updateLineRef.current(view, { charViewRelationship: detail.relationship });
       };
       window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
       return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
@@ -3683,13 +3712,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const onBlockChange = (event: Event) => {
           const detail = (event as CustomEvent<ChatBlockChangeDetail>).detail;
           if (!detail?.charId || detail.action !== 'charBlock') return;
-          const target = charactersRef.current.find(c => c.id === detail.charId);
-          if (!target) return;
+          const raw = charactersRef.current.find(c => c.id === detail.charId);
+          if (!raw) return;
+          // 關係線：拉黑記在事件帶的那條線上（沒帶＝主線）
+          const target = lineView(raw, lineFor(raw, detail.personaKey));
           const patch = startChatBlock(target, 'char', Date.now(), { reason: detail.reason });
           if (!patch) return;
           cancelDelayedReplyEverywhere(target.id);
           trackEvent('角色拉黑用户');
-          void updateCharacterRef.current(target.id, patch);
+          void updateLineRef.current(target, patch);
       };
       window.addEventListener(CHAT_BLOCK_CHANGE_EVENT, onBlockChange);
       return () => window.removeEventListener(CHAT_BLOCK_CHANGE_EVENT, onBlockChange);
@@ -5961,6 +5992,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     activeCharacterId,
     addCharacter,
     updateCharacter,
+    activeLineFor,
+    updateLine,
     deleteCharacter,
     setActiveCharacterId,
     npcs,

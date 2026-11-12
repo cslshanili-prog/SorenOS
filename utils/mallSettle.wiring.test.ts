@@ -19,6 +19,7 @@ describe('購物中心標籤在每條路上都會結算', () => {
 
     it('前台：parseAndExecuteActions 走同一個 settleMallCommands', () => {
         const src = read('utils/chatParser.ts');
-        expect(src).toMatch(/content = await ChatParser\.settleMallCommands\(content, charId,/);
+        // 關係線：傳的是這一輪的線（utils/chatLine.ts），不只是 charId
+        expect(src).toMatch(/content = await ChatParser\.settleMallCommands\(content, line,/);
     });
 });

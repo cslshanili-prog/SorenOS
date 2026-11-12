@@ -3,6 +3,7 @@ import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
@@ -77,7 +78,18 @@ const loadRememberedOpening = (): DateOpeningMode => {
 };
 
 const DateApp: React.FC = () => {
-    const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, dateAutoStartMeetup, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+    const { closeApp, openApp, characters: rawCharacters, activeCharacterId, setActiveCharacterId, apiConfig, addToast, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, updateUserProfile, virtualTime, userProfile, userProfileBase, memoryPalaceConfig, dateAutoStartCharId, dateAutoStartMeetup, consumeDateAutoStart, characterGroups, groups, realtimeConfig } = useOS();
+
+    // 關係線（plans/persona-line-batch1-2.md）：見面裡的角色一律是「現在的我」那條線的視圖——
+    // 讀到的見面存檔、故事、設定都是那條線的；讀寫見面訊息用 lineArgOf / lineMsgFields；
+    // 改角色卡走下面的 updateCharacter（寫到那條線上）。
+    const characters = useMemo(() => rawCharacters.map(c => lineView(c, activeLineFor(c))), [rawCharacters, activeLineFor]);
+    const charactersForLineRef = useRef(characters);
+    charactersForLineRef.current = characters;
+    const updateCharacter = useCallback((id: string, updates: Parameters<typeof updateCharacterRaw>[1]) => {
+        const view = charactersForLineRef.current.find(c => c.id === id);
+        return view ? updateLine(view, updates) : updateCharacterRaw(id, updates);
+    }, [updateLine, updateCharacterRaw]);
 
     // 是否由聊天「見面」按鈕進入：為真時，退出見面流程回到聊天而非見面選擇頁/桌面。
     // 用本地 state（而非 context）承載：DateApp 切走即卸載，標記隨之消失，不會洩漏到
@@ -258,7 +270,8 @@ const DateApp: React.FC = () => {
     };
 
     const loadRecentDateMessages = async (charId: string, limit = DATE_SESSION_MESSAGE_LIMIT) => {
-        return (await DB.getRecentMessagesByCharIdAndSource(charId, 'date', limit))
+        const view = charactersForLineRef.current.find(c => c.id === charId);
+        return (await DB.getRecentMessagesByCharIdAndSource(view ? lineArgOf(view) : charId, 'date', limit))
             .sort((a, b) => a.timestamp - b.timestamp);
     };
 
@@ -481,7 +494,7 @@ const DateApp: React.FC = () => {
     const ensureStoryFor = async (c: CharacterProfile): Promise<DateStory | null> => {
         const existing = await loadActiveDateStory(c).catch(() => null);
         if (existing) return existing;
-        const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', 400).catch(() => [] as Message[]);
+        const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(c), 'date', 400).catch(() => [] as Message[]);
         const migrated = await migrateLegacyDateStory(c, dateMsgs).catch(() => null);
         if (!migrated) return null;
         updateCharacter(c.id, migrated.charPatch);
@@ -582,7 +595,7 @@ const DateApp: React.FC = () => {
         setFinishingStory(true);
         try {
             if (withSummary) {
-                const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', 2000);
+                const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(c), 'date', 2000);
                 const done = await finishDateStoryWithSummary({
                     char: c, story, userName: resolveUserProfileForChar(userProfileBase, c).name,
                     api: resolveCharacterChatApi(c, apiConfig), messages: msgs,
@@ -650,7 +663,7 @@ const DateApp: React.FC = () => {
                     setActiveStory(story);
                 }
                 await DB.saveMessage({
-                    charId: char.id,
+                    ...lineMsgFields(char),
                     role: 'assistant',
                     type: 'text',
                     content: peekStatus,
@@ -759,7 +772,7 @@ const DateApp: React.FC = () => {
 
         // charForHook 未必等於當前渲染的 char（回調可能在切換角色後才跑完），按它自己的 id 單獨解析
         const hookUserName = resolveUserProfileForChar(userProfileBase, charForHook).name;
-        const recentMsgs = await DB.getRecentMessagesByCharId(charForHook.id, 50);
+        const recentMsgs = await DB.getRecentMessagesByCharId(lineArgOf(charForHook), 50);
         try {
             const pipelineResult = await processNewMessagesWithAutoArchive(
                 recentMsgs,
@@ -806,7 +819,7 @@ const DateApp: React.FC = () => {
         const live = charactersRef.current.find(c => c.id === charForRun.id) || charForRun;
         const config = resolveDateSummaryConfig(live);
         try {
-            const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(live.id, 'date', 600);
+            const dateMsgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(live), 'date', 600);
             if (!shouldAutoSummarize(config, story, dateMsgs)) return;
             const done = await runDateSummary({
                 char: live, story, userName: resolveUserProfileForChar(userProfileBase, live).name,
@@ -843,7 +856,7 @@ const DateApp: React.FC = () => {
 
         // 重發場景：如果 DB 裡最後一條已經是這條 user 消息（上一輪發送後 API 失敗 / 網絡抖動等），
         // 就跳過重複落庫，直接走 API。與 chat app 行為對齊，讓用戶按發送鍵即可重新觸發 LLM。
-        const recentCheck = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 1);
+        const recentCheck = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 1);
         const isRetry = recentCheck.length > 0
             && recentCheck[0].role === 'user'
             && recentCheck[0].content === storedText
@@ -856,7 +869,7 @@ const DateApp: React.FC = () => {
         if (!isRetry) {
             // 1. Save User Msg
             userMessageId = await DB.saveMessage({
-                charId: char.id,
+                ...lineMsgFields(char),
                 role: 'user',
                 type: 'text',
                 content: storedText,
@@ -903,7 +916,7 @@ const DateApp: React.FC = () => {
             : undefined;
 
         // 3. Save AI Response
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         // 線下情緒獨立：這則回覆落庫後評估一次，結果只寫進這場故事（utils/dateEmotion.ts）
         void runDateEmotionEval({ char, story: activeStoryRef.current, userProfile: dateUserProfile, messages, reply: parsed.canonical, apiConfig }).catch(() => {});
         if (sarModulePlan.character) {
@@ -955,12 +968,12 @@ const DateApp: React.FC = () => {
             if (nextGreeting) {
                 const content = expandGreeting(nextGreeting.text, char.name, dateUserProfile.name);
                 await DB.deleteMessage(lastMsg.id);
-                await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { ...lastMsg.metadata, dateGreetingId: nextGreeting.id } });
+                await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content, metadata: { ...lastMsg.metadata, dateGreetingId: nextGreeting.id } });
                 markDateTurnDirty(char);
                 trackEvent('重掷见面回复', { 目标: '开场白' });
                 setPeekGreetingId(nextGreeting.id);
                 setPeekStatus(content);
-                const freshMsgs = await DB.getMessagesByCharId(char.id, true);
+                const freshMsgs = await DB.getMessagesByCharId(lineArgOf(char), true);
                 setDateMessages(freshMsgs.filter(m => m.metadata?.source === 'date').sort((a,b) => a.timestamp - b.timestamp));
                 return content;
             }
@@ -983,13 +996,13 @@ const DateApp: React.FC = () => {
             const content = presetOpening ? presetOpening.content : await callLLM(messages, Math.max(apiConfig.temperature ?? 0.85, 0.9));
             // 生成成功後才動庫：先刪舊開場、再帶 isOpening 落新開場，請求失敗時原劇情不丟
             await DB.deleteMessage(lastMsg.id);
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content, metadata: { source: 'date', ...(presetOpening?.meta || {}), isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}), ...(lastMsg.metadata?.dateStoryId ? { dateStoryId: lastMsg.metadata.dateStoryId } : {}) } });
+            await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content, metadata: { source: 'date', ...(presetOpening?.meta || {}), isOpening: true, ...(rerollOpening === 'invite' ? { dateOpeningMode: 'invite' } : {}), ...(lastMsg.metadata?.dateMeetup ? { dateMeetup: lastMsg.metadata.dateMeetup } : {}), ...(lastMsg.metadata?.dateStoryId ? { dateStoryId: lastMsg.metadata.dateStoryId } : {}) } });
             markDateTurnDirty(char);
             trackEvent('重掷见面回复', { 目标: '开场白' });
             // 閱讀模式空會話時頂部渲染的開場 & 退出快照裡的 peekStatus 同步成新開場
             setPeekStatus(content);
 
-            const freshMsgs = await DB.getMessagesByCharId(char.id, true);
+            const freshMsgs = await DB.getMessagesByCharId(lineArgOf(char), true);
             setDateMessages(freshMsgs.filter(m => m.metadata?.source === 'date').sort((a,b) => a.timestamp - b.timestamp));
             return content;
         }
@@ -1041,7 +1054,7 @@ const DateApp: React.FC = () => {
 
         // 生成成功後才刪舊回覆：以前先刪後調 API，請求一失敗上一條劇情就永久消失
         await DB.deleteMessage(lastMsg.id);
-        await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
+        await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: parsed.canonical, metadata: { source: 'date', ...dateReplyMeta(reply, parsed.canonical, preset?.doc.name), ...(assistantSurface ? { sarModuleSurface: assistantSurface } : {}), ...storyTag(activeStoryRef.current) } });
         // 線下情緒獨立：這則回覆落庫後評估一次，結果只寫進這場故事（utils/dateEmotion.ts）
         void runDateEmotionEval({ char, story: activeStoryRef.current, userProfile: dateUserProfile, messages, reply: parsed.canonical, apiConfig }).catch(() => {});
         markDateTurnDirty(char);
@@ -1152,7 +1165,7 @@ const DateApp: React.FC = () => {
         addToast('喀嚓——照片洗出來要一點時間', 'info');
         try {
             const story = activeStoryRef.current;
-            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 200);
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 200);
             const clock = makeDateClock(char, story);
             const result = await captureDateMoment({
                 char, user: dateUserProfile, story, messages: msgs,
@@ -1161,7 +1174,7 @@ const DateApp: React.FC = () => {
             });
             const stored = await migrateDataUrlToRef(result.dataUrl);
             const messageId = await DB.saveMessage({
-                charId: char.id, role: 'assistant', type: 'image', content: stored,
+                ...lineMsgFields(char), role: 'assistant', type: 'image', content: stored,
                 metadata: {
                     source: 'date', dateMoment: true, aiGenerated: true,
                     imagePrompt: result.scene, visionDescription: result.scene,
@@ -1237,7 +1250,7 @@ const DateApp: React.FC = () => {
         if (!palace) { if (!quietIfUnset) addToast('這個角色沒開記憶宮殿，或還沒設 Embedding', 'info'); return; }
         setHistoryStoryBusy(story.id);
         try {
-            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 2000);
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 2000);
             const last = msgs.filter(m => m.metadata?.dateStoryId === story.id).sort((a, b) => a.id - b.id).pop();
             palaceToast(await sendDateFinalToPalace({ char, story, config: palace, happenedAt: last?.timestamp ?? story.completedAt ?? Date.now() }));
             await refreshHistoryStory(story.id);
@@ -1250,7 +1263,7 @@ const DateApp: React.FC = () => {
         setHistoryStoryBusy(story.id);
         let written: DateStory | null = null;
         try {
-            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 2000);
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 2000);
             written = await writeDateFinalSummary({ char, story, userName: dateUserProfile?.name || '', api: resolveCharacterChatApi(char, apiConfig), messages: msgs });
             await refreshHistoryStory(story.id);
             if (!written?.finalSummary) addToast('這場沒有內容可以總結', 'info');
@@ -1274,9 +1287,9 @@ const DateApp: React.FC = () => {
     const openHistory = async (c: CharacterProfile) => {
         setActiveCharacterId(c.id);
         // 見面歷史按 source=date 獨立讀取，不受聊天側記憶宮殿高水位影響。
-        const msgs = await DB.getRecentMessagesByCharIdAndSource(c.id, 'date', DATE_HISTORY_MESSAGE_LIMIT);
+        const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(c), 'date', DATE_HISTORY_MESSAGE_LIMIT);
         setHistoryMessages(msgs);
-        const stories = await DB.getDateStories(c.id).catch(() => [] as DateStory[]);
+        const stories = await DB.getDateStories(lineArgOf(c)).catch(() => [] as DateStory[]);
         setHistoryStories(stories);
         // 有故事就先看故事
         setHistoryView(stories.length ? 'story' : 'encounter');
@@ -1292,7 +1305,7 @@ const DateApp: React.FC = () => {
         const nextLimit = historyLoadLimit + DATE_HISTORY_MESSAGE_LIMIT;
         setHistoryBusy(true);
         try {
-            const msgs = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', nextLimit);
+            const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', nextLimit);
             setHistoryMessages(msgs);
             setHistoryLoadLimit(nextLimit);
             setHistoryReachedEnd(msgs.length < nextLimit);
@@ -1329,7 +1342,7 @@ const DateApp: React.FC = () => {
         setHistoryBusy(true);
         try {
             // 導出屬於用戶主動操作，可以完整掃描該角色消息索引；只收集 source=date，避免把圖片聊天讀進內存。
-            const allDateMessages = await DB.getRecentMessagesByCharIdAndSource(char.id, 'date', Number.MAX_SAFE_INTEGER);
+            const allDateMessages = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', Number.MAX_SAFE_INTEGER);
             const allGroups = buildDateHistoryGroups(allDateMessages, historyView, historySortOrder, historyStories);
             if (allGroups.length === 0) {
                 addToast('暫無可導出的見面記錄', 'info');

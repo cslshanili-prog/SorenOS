@@ -1,5 +1,6 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
+import { lineArgOf, lineMsgFields, lineViewPersonaKey } from '../utils/chatLine';
 import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
@@ -643,7 +644,7 @@ export const useChatAI = ({
             const outcome = await applyForcedReadNoReply(char, resolveCharacterMeterApi(char, apiConfig), currentMsgs)
                 .catch((e) => { console.warn('[已讀不回] 判斷失敗，照常回覆', e); return null; });
             if (outcome) {
-                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                 if (outcome === 'repeat') addToast(`${char.chatNickname?.trim() || char.name} 還沒空，訊息已讀`, 'info');
                 return;
             }
@@ -772,7 +773,10 @@ export const useChatAI = ({
             // 判據就一句話：這一輪上雲會讓角色掉能力，那就別上雲。留在本地跑，工具照常用。
             // （地址夠得著的服務器不受影響，照常上雲，worker 自己跑後台 MCP。）
             const mcpWorkerUnreachable = hasWorkerUnreachableMcpServer(char.id);
-            const instantChatVeto: string | null = sarModulePlan.hasActiveEffect || sarModulePlan.hasAfterglow ? 'sar-module'
+            // 關係線：雲端還不認得主線以外的線（plans/persona-line-batch1-2.md 第 5 節），
+            // 上雲那一輪會落到主線，所以非主線一律留在本地生成。
+            const instantChatVeto: string | null = lineViewPersonaKey(char) ? 'chat-line'
+                : sarModulePlan.hasActiveEffect || sarModulePlan.hasAfterglow ? 'sar-module'
                 : luckinChatOn ? 'luckin-chat'
                 : mcdMiniOpen ? 'mcd'
                     : luckinMiniOpen ? 'luckin'
@@ -844,8 +848,8 @@ export const useChatAI = ({
                     // （熄 isTyping / 停 KeepAlive），和那條失敗路徑同一段。
                     const reason = '即時對話暫時出了點問題：本地配置這一刻讀不出來（可能是存儲正忙）。這條沒有發出去，稍等幾秒重新發一次就好。';
                     console.warn('[AmsgInstantChat] 全局配置讀不出來，開沒開都不知道：這一輪明確報錯等重發，不悄悄退回本地生成');
-                    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: `[${reason}]` });
-                    setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                    await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: `[${reason}]` });
+                    setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                     if (showError) showError('即時對話發送失敗', reason);
                     else addToast(reason, 'error');
                     return;
@@ -1284,8 +1288,8 @@ export const useChatAI = ({
                     // 沒發出去就是沒發出去：明確落一條系統消息 + 彈錯，用戶可以直接重發。
                     // **絕不靜默退回本地生成** —— 靜默分流那種查無可查的坑踩過一次就夠了。
                     const reason = instantChatResult.error || '未知錯誤';
-                    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: `[${reason}]` });
-                    setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                    await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: `[${reason}]` });
+                    setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                     if (showError) showError('即時對話發送失敗', reason);
                     else addToast(reason, 'error');
                     // 沒發出去 → 雲端不會跑評估，那個正常的熄滅信號永不到達。當場自己熄，
@@ -1429,13 +1433,13 @@ export const useChatAI = ({
                     const cleanChunk = ChatParser.sanitize(chunk, { keepCitations: true }).trim();
                     if (!cleanChunk) continue;
                     await DB.saveMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'assistant',
                         type: 'text',
                         content: cleanChunk,
                         metadata: { mcpLeadIn: true },
                     } as any);
-                    setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                    setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                 }
             };
 
@@ -1506,7 +1510,7 @@ export const useChatAI = ({
                             }
                             try {
                                 await DB.saveMessage({
-                                    charId: char.id,
+                                    ...lineMsgFields(char),
                                     role: 'assistant',
                                     type: 'mcd_card',
                                     content: `${args.items.length} 件推薦`,
@@ -1516,7 +1520,7 @@ export const useChatAI = ({
                                         fromMcdMiniApp: true,
                                     },
                                 } as any);
-                                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                             } catch (e) {
                                 console.warn('🍔 [MCD-MiniApp] 保存 proposal 失敗:', e);
                             }
@@ -1611,7 +1615,7 @@ export const useChatAI = ({
                             }
                             try {
                                 await DB.saveMessage({
-                                    charId: char.id,
+                                    ...lineMsgFields(char),
                                     role: 'assistant',
                                     type: 'luckin_card',
                                     content: `${args.items.length} 件推薦`,
@@ -1621,7 +1625,7 @@ export const useChatAI = ({
                                         fromLuckinMiniApp: true,
                                     },
                                 } as any);
-                                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                             } catch (e) {
                                 console.warn('☕ [Luckin-MiniApp] 保存 proposal 失敗:', e);
                             }
@@ -1757,7 +1761,7 @@ export const useChatAI = ({
                         const isPreview = /preview[-_]?order/i.test(fname);
                         try {
                             await DB.saveMessage({
-                                charId: char.id,
+                                ...lineMsgFields(char),
                                 role: 'assistant',
                                 type: 'luckin_card',
                                 content: fname,
@@ -1771,7 +1775,7 @@ export const useChatAI = ({
                                     luckinLoc: (loc && loc.longitude != null) ? { longitude: loc.longitude, latitude: loc.latitude } : undefined,
                                 },
                             } as any);
-                            setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                         } catch (e) { console.warn('☕ [Luckin-Chat] 存卡片失敗:', e); }
 
                         const toolMsg = result.success
@@ -2039,13 +2043,13 @@ export const useChatAI = ({
             // 在 APK 裡看不到控制台, 這裡把完整原因 + 解法存成可讀消息, 方便排查。
             if (luckinChatRef?.current?.active && /\b400\b|tool|function[_\s-]?call/i.test(errMsg)) {
                 await DB.saveMessage({
-                    charId: char.id, role: 'system', type: 'text',
+                    ...lineMsgFields(char), role: 'system', type: 'text',
                     content: `[瑞一杯失敗] ${errMsg}\n\n大概率是你當前聊天用的「模型/中轉」不支持函數調用(function calling / tools)——瑞一杯靠角色自己調工具點單, 模型不支持就會直接報 400。\n解決: 換一個支持 tools 的模型/中轉 (如官方 OpenAI / Claude / 多數主流中轉)。\n另外確認: APK 是全新存儲, 你的聊天 API 配置(密鑰/地址/模型)在 APK 裡填好了嗎?`,
                 });
             } else {
-                await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: `[回覆處理失敗: ${errMsg}]` });
+                await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: `[回覆處理失敗: ${errMsg}]` });
             }
-            setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         } finally {
             releaseReply();
             setLocalTyping(false);
@@ -2096,7 +2100,7 @@ export const useChatAI = ({
                 // 才首次觸發 setMemoryPalaceStatus，這樣 skip 路徑下指示器不會亮。
 
                 // 緩衝區處理（LLM提取 + Embedding向量化）
-                const recentMsgs = await DB.getRecentMessagesByCharId(char.id, 50);
+                const recentMsgs = await DB.getRecentMessagesByCharId(lineArgOf(char), 50);
                 processNewMessagesWithAutoArchive(recentMsgs, char.id, charName, mpEmb, mpLLM, userProfile?.name || '', false, (stage) => {
                         setMemoryPalaceStatus(stage);
                     })

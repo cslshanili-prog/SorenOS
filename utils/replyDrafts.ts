@@ -1,4 +1,5 @@
 import type { APIConfig, CharacterProfile, Message, UserProfile } from '../types';
+import { lineArgOf } from './chatLine';
 import { DB } from './db';
 import { resolveCharacterChatApi } from './characterApi';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
@@ -127,7 +128,7 @@ export async function generateReplyDrafts(params: {
     const api = resolveReplyDraftApi(lightLLM, char, apiConfig);
     if (!api.baseUrl) throw new Error('請先在設定裡配置 API');
     const withActions = !!char.replyDrafts?.withActions;
-    const recent = await DB.getRecentMessagesByCharId(char.id, 60);
+    const recent = await DB.getRecentMessagesByCharId(lineArgOf(char), 60);
     const prompt = buildReplyDraftPrompt({
         char, user, withActions, partial,
         history: draftHistoryLines(recent, char.name, user.name || '我'),

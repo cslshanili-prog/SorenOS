@@ -2,7 +2,11 @@
 import { SEND_SAVED_PHOTO_RE, resolveLibraryPhotoCode } from './libraryPrompt';
 import { DB } from './db';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import { CharacterProfile, CharPlaylistSong, ImageGenApiConfig, MallProduct } from '../types';
+import { CharacterProfile, CharPlaylistSong, ChatLine, ImageGenApiConfig, MallProduct } from '../types';
+
+/** 關係線：私聊訊息寫在這條線上（主線不帶 personaKey）。見 utils/chatLine.ts。 */
+const onThisLine = <T extends { personaKey?: string }>(msg: T, line: ChatLine): T =>
+    (line.personaKey ? { ...msg, personaKey: line.personaKey } : msg);
 import { sanitizeForBubble } from './sanitize';
 import { extractTransferCommands } from './transferFormat';
 import { extractMallOrderCommands } from './mallOrderFormat';
@@ -144,7 +148,7 @@ export const ChatParser = {
      */
     settleTransferCommands: async (
         content: string,
-        charId: string,
+        charIdOrLine: string | ChatLine,
         opts: {
             messageTimestamp?: number;
             /** 落庫方式；不傳就是 DB.saveMessage（帶上 messageTimestamp） */
@@ -154,11 +158,15 @@ export const ChatParser = {
             onCharTransferSend?: (amount: number) => Promise<boolean>;
         } = {},
     ): Promise<string> => {
+        // 關係線：可以傳 charId（＝主線）或一條線；讀寫這個角色的私聊都照這條線（utils/chatLine.ts）
+        const line: ChatLine = typeof charIdOrLine === 'string' ? { charId: charIdOrLine } : charIdOrLine;
+        const charId = line.charId;
         const { messageTimestamp, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend } = opts;
-        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+        const basePersist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
             ...msg,
             ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
         }));
+        const persist = (msg: Parameters<typeof DB.saveMessage>[0]) => basePersist(onThisLine(msg, line));
 
         // TRANSFER_ACCEPT / TRANSFER_RETURN — char 收下 / 退回 user 最近一筆待處理的轉帳。
         // 找最近一條 user 發出、還沒被收/退、且不是回執卡本身的轉帳，標記狀態並補一張回執小卡。
@@ -171,7 +179,7 @@ export const ChatParser = {
             let amount: string | number | undefined;
             let refId: number | undefined;
             try {
-                const all = await DB.getMessagesByCharId(charId, true);
+                const all = await DB.getMessagesByCharId(line, true);
                 const pendings = all.filter(
                     x => x.type === 'transfer' && x.role === 'user' && !x.metadata?.receipt
                         && (!x.metadata?.status || x.metadata.status === 'pending'),
@@ -255,18 +263,22 @@ export const ChatParser = {
      */
     settleSavedPhotoCommands: async (
         content: string,
-        charId: string,
+        charIdOrLine: string | ChatLine,
         opts: {
             messageTimestamp?: number;
             persist?: (msg: Parameters<typeof DB.saveMessage>[0]) => Promise<unknown>;
         } = {},
     ): Promise<string> => {
+        // 關係線：可以傳 charId（＝主線）或一條線；讀寫這個角色的私聊都照這條線（utils/chatLine.ts）
+        const line: ChatLine = typeof charIdOrLine === 'string' ? { charId: charIdOrLine } : charIdOrLine;
+        const charId = line.charId;
         const matches = [...content.matchAll(SEND_SAVED_PHOTO_RE)];
         if (!matches.length) return content;
         for (const m of matches) content = content.replace(m[0], '').trim();
-        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+        const basePersist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
             ...msg, ...(opts.messageTimestamp ? { timestamp: opts.messageTimestamp } : {}),
         } as Parameters<typeof DB.saveMessage>[0]));
+        const persist = (msg: Parameters<typeof DB.saveMessage>[0]) => basePersist(onThisLine(msg, line));
         try {
             const [char, libraryImages] = await Promise.all([DB.getCharacter(charId), DB.getGalleryImages()]);
             const sent = new Set<string>();
@@ -303,7 +315,7 @@ export const ChatParser = {
      */
     settleMallCommands: async (
         content: string,
-        charId: string,
+        charIdOrLine: string | ChatLine,
         opts: {
             charName?: string;
             messageTimestamp?: number;
@@ -312,11 +324,15 @@ export const ChatParser = {
             onCharGiftSend?: (amount: number) => Promise<boolean>;
         } = {},
     ): Promise<string> => {
+        // 關係線：可以傳 charId（＝主線）或一條線；讀寫這個角色的私聊都照這條線（utils/chatLine.ts）
+        const line: ChatLine = typeof charIdOrLine === 'string' ? { charId: charIdOrLine } : charIdOrLine;
+        const charId = line.charId;
         const { charName, messageTimestamp, onCharDaifuAccept, onCharGiftSend } = opts;
-        const persist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
+        const basePersist = opts.persist ?? ((msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
             ...msg,
             ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
         }));
+        const persist = (msg: Parameters<typeof DB.saveMessage>[0]) => basePersist(onThisLine(msg, line));
 
         // DAIFU — 角色對「外賣代付請求」支付或拒絕。跟 resolveUserTransfer 結構相同：
         // 找最近一條 user 發出、還 pending 的 mall_order(mode=daifu)，標記狀態。跟轉帳不同的是
@@ -327,7 +343,7 @@ export const ChatParser = {
             let refId: number | undefined;
             let orderId: string | undefined;
             try {
-                const all = await DB.getMessagesByCharId(charId, true);
+                const all = await DB.getMessagesByCharId(line, true);
                 const pendings = all.filter(
                     x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'daifu' && x.metadata?.status === 'pending',
                 );
@@ -428,7 +444,7 @@ export const ChatParser = {
         // 直接按"角色這輪說話了 = 已經看到最新一條歷史"這個必然成立的事實來標記，更穩。
         // 只標最新一條：老的已經錯過時機，不用倒著一次性全標。
         try {
-            const allMsgs = await DB.getMessagesByCharId(charId, true);
+            const allMsgs = await DB.getMessagesByCharId(line, true);
             const unacked = allMsgs
                 .filter(x => x.type === 'mall_order' && x.role === 'user' && x.metadata?.mode === 'gift' && x.metadata?.status === 'sent' && !x.metadata?.acknowledged)
                 .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0));
@@ -444,7 +460,7 @@ export const ChatParser = {
 
     parseAndExecuteActions: async (
         aiContent: string,
-        charId: string,
+        charIdOrLine: string | ChatLine,
         charName: string,
         addToast: (msg: string, type: 'info'|'success'|'error') => void,
         musicHooks?: MusicActionHooks,
@@ -523,10 +539,13 @@ export const ChatParser = {
          */
         onCharGiftSend?: (amount: number) => Promise<boolean>,
     ) => {
+        // 關係線：可以傳 charId（＝主線）或一條線；讀寫這個角色的私聊都照這條線（utils/chatLine.ts）
+        const line: ChatLine = typeof charIdOrLine === 'string' ? { charId: charIdOrLine } : charIdOrLine;
+        const charId = line.charId;
         let content = aiContent;
         /** 落庫統一走這裡，別直接調 DB.saveMessage —— 漏一處就是一條消息兩個時間、重試時還認不出來。 */
         const persist = (msg: Parameters<typeof DB.saveMessage>[0]) => DB.saveMessage({
-            ...msg,
+            ...onThisLine(msg, line),
             ...(messageTimestamp != null ? { timestamp: messageTimestamp } : {}),
             // 卡片自己的字段優先，inheritMeta 只補它沒有的鍵（兩邊鍵名本來就不重疊，這裡是防禦）
             ...(inheritMeta ? { metadata: { ...inheritMeta, ...(msg.metadata || {}) } } : {}),
@@ -603,16 +622,16 @@ export const ChatParser = {
         }
 
         // SEND_SAVED_PHOTO — 角色傳資料庫裡現成的照片：見 ChatParser.settleSavedPhotoCommands
-        content = await ChatParser.settleSavedPhotoCommands(content, charId, { persist });
+        content = await ChatParser.settleSavedPhotoCommands(content, line, { persist });
 
         // TRANSFER / TRANSFER_ACCEPT / TRANSFER_RETURN：見 ChatParser.settleTransferCommands。
         // 抽出去是因為背景延遲回覆那條路（OSContext）不走這個大函數，也得能單獨結算轉帳。
-        content = await ChatParser.settleTransferCommands(content, charId, {
+        content = await ChatParser.settleTransferCommands(content, line, {
             messageTimestamp, persist, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend,
         });
 
         // MALL — 購物中心的 GIFT（角色送你）／DAIFU（角色替你付）：見 ChatParser.settleMallCommands。
-        content = await ChatParser.settleMallCommands(content, charId, {
+        content = await ChatParser.settleMallCommands(content, line, {
             charName, messageTimestamp, persist, onCharDaifuAccept, onCharGiftSend,
         });
 

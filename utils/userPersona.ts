@@ -254,7 +254,22 @@ export function personaNameForKey(profileBase: UserProfile, key: string): string
     return profileBase.name;
 }
 
+/**
+ * 關係線的視圖標記（utils/chatLine.ts 的 lineView 會打上）：這份角色卡是某條非主線的視圖時，
+ * 記著那條線是哪張身份卡。用 Symbol，存進 IndexedDB／JSON 都不會跟著寫出去。
+ * 放在這裡而不是 chatLine.ts，是因為身份解析要認它，而 chatLine.ts 本身依賴這個檔。
+ */
+export const LINE_VIEW_PERSONA = Symbol('chatLinePersona');
+
+/** 這份角色卡是不是某條非主線的視圖；是的話回那條線的身份鍵。 */
+export function lineViewPersonaKey(char: unknown): string | undefined {
+    return char && typeof char === 'object' ? (char as { [LINE_VIEW_PERSONA]?: string })[LINE_VIEW_PERSONA] : undefined;
+}
+
 function effectivePersonaOverride(profileBase: UserProfile, char: CharRef): string | undefined {
+    // 關係線視圖：那條線是哪張卡就是哪張卡（主線照舊走下面的指定優先級）
+    const lineKey = lineViewPersonaKey(char);
+    if (lineKey) return lineKey;
     const charId = typeof char === 'string' ? char : char.id;
     const own = profileBase.perCharPersonaIds?.[charId];
     if (own) return own;

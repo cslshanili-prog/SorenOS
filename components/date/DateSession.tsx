@@ -3,6 +3,7 @@ import { CharacterProfile, Message, DateState, UserProfile } from '../../types';
 import Modal from '../../components/os/Modal';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
+import { isPrimaryLine, lineOf, linePatchForChar } from '../../utils/chatLine';
 import DateSettings from './DateSettings';
 import ChatApiSettingsPanel from '../chat/ChatApiSettingsPanel';
 import { useBlobRefUrl } from '../../utils/blobRef';
@@ -522,7 +523,16 @@ const DateSession: React.FC<DateSessionProps> = ({
             if (suppressAutoSaveRef?.current) return;
             try {
                 const state = stateRef.current();
-                DB.saveCharacter({ ...charRef.current, savedDateState: state });
+                const view = charRef.current;
+                const line = lineOf(view);
+                if (isPrimaryLine(line)) {
+                    DB.saveCharacter({ ...view, savedDateState: state });
+                } else {
+                    // 關係線：char 是那條線的視圖，不能整張存回去；讀出原角色卡，把存檔寫進那條線
+                    void DB.getCharacter(view.id).then(raw => {
+                        if (raw) return DB.saveCharacter({ ...raw, ...linePatchForChar(raw, line, { savedDateState: state }) });
+                    });
+                }
             } catch (e) { /* best-effort */ }
         };
 

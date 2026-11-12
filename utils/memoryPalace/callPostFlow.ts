@@ -10,6 +10,7 @@
  * 全局「xx正在整理記憶」提示不在這裡做——pipeline 真正開始處理時會廣播
  * `memory-palace-processing` 事件，由 OSContext 統一彈 toast（三個入口共享）。
  */
+import { lineArgOf } from '../chatLine';
 import type { CharacterProfile } from '../../types';
 import { DB } from '../db';
 import {
@@ -41,7 +42,7 @@ export async function runCallMemoryPalacePostFlow(input: CallPalacePostFlowInput
         : { baseUrl: input.apiConfig.baseUrl, apiKey: input.apiConfig.apiKey, model: input.apiConfig.model };
     if (!mpEmb?.baseUrl || !mpEmb?.apiKey || !mpLLM.baseUrl) return;
 
-    const recentMsgs = await DB.getRecentMessagesByCharId(input.char.id, 50);
+    const recentMsgs = await DB.getRecentMessagesByCharId(lineArgOf(input.char), 50);
     const pipelineResult = await processNewMessages(
         recentMsgs,
         input.char.id,

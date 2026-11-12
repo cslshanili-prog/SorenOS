@@ -10,7 +10,7 @@
 import type {
     CharacterProfile, CharLineFields, ChatLine, LineField, LineSettingField, LineStateField, UserProfile,
 } from '../types';
-import { personaKeyForChar } from './userPersona';
+import { LINE_VIEW_PERSONA, lineViewPersonaKey, personaKeyForChar } from './userPersona';
 
 export const LINE_STATE_FIELDS = [
     'impression', 'chatNickname', 'userNickname', 'userViewRelationship', 'charViewRelationship',
@@ -83,8 +83,7 @@ export function withLineFields(profileBase: UserProfile, char: CharacterProfile)
     };
 }
 
-/** 線視圖上的標記：這份角色卡是哪條線的。用 Symbol，存進 IndexedDB／JSON 時不會跟著寫進去。 */
-export const LINE_VIEW_PERSONA = Symbol('chatLinePersona');
+export { LINE_VIEW_PERSONA, lineViewPersonaKey };
 type LineView = CharacterProfile & { [LINE_VIEW_PERSONA]?: string };
 
 /**
@@ -104,11 +103,6 @@ export function lineView(char: CharacterProfile, line: ChatLine): CharacterProfi
     }
     (view as unknown as LineView)[LINE_VIEW_PERSONA] = line.personaKey;
     return view as unknown as CharacterProfile;
-}
-
-/** 這份角色卡是不是某條非主線的視圖；是的話回那條線的身份鍵。 */
-export function lineViewPersonaKey(char: object): string | undefined {
-    return (char as LineView)[LINE_VIEW_PERSONA];
 }
 
 /** 把一份改動拆成「角色自己的」和「跟著線走的」。 */
@@ -134,4 +128,29 @@ export function linePatchForChar(char: CharacterProfile, line: ChatLine, patch: 
     const merged: Record<string, unknown> = { ...(char.lines?.[pk] || {}), ...linePatch };
     for (const k of Object.keys(merged)) if (merged[k] === undefined) delete merged[k];
     return { ...charPatch, lines: { ...(char.lines || {}), [pk]: merged as CharLineFields } };
+}
+
+/**
+ * 從角色卡（可能是線視圖）拿「讀私聊用的線」：主線回 charId 字串（跟舊呼叫一模一樣），
+ * 非主線回 ChatLine。私聊、通話、見面拿到的 char 是線視圖，所以讀訊息一律寫
+ * `DB.getRecentMessagesByCharId(lineArgOf(char), …)`，不要寫 char.id。
+ */
+export function lineArgOf(char: Pick<CharacterProfile, 'id'>): string | ChatLine {
+    const personaKey = lineViewPersonaKey(char);
+    return personaKey ? { charId: char.id, personaKey } : char.id;
+}
+
+/** 這份角色卡（可能是線視圖）是哪條線。 */
+export function lineOf(char: Pick<CharacterProfile, 'id'>): ChatLine {
+    const personaKey = lineViewPersonaKey(char);
+    return personaKey ? { charId: char.id, personaKey } : { charId: char.id };
+}
+
+/**
+ * 寫私聊訊息時的歸屬欄位：`DB.saveMessage({ ...lineMsgFields(char), role, … })`。
+ * 主線只有 charId（不寫 personaKey），非主線多帶 personaKey。
+ */
+export function lineMsgFields(char: Pick<CharacterProfile, 'id'>): { charId: string; personaKey?: string } {
+    const personaKey = lineViewPersonaKey(char);
+    return personaKey ? { charId: char.id, personaKey } : { charId: char.id };
 }

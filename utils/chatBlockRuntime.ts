@@ -1,4 +1,5 @@
 import type { APIConfig, CharacterProfile, Message } from '../types';
+import { lineArgOf } from './chatLine';
 import { DB } from './db';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
@@ -43,7 +44,7 @@ export async function runCharBlockReconsider(params: {
     if (!api.baseUrl || !api.apiKey) return { kind: 'failed', error: new Error('沒有可用的 API') };
     running = true;
     try {
-        const recent = (await DB.getRecentMessagesByCharId(char.id, 80)).filter(visible);
+        const recent = (await DB.getRecentMessagesByCharId(lineArgOf(char), 80)).filter(visible);
         const before = recent.filter(m => m.timestamp < block.since).slice(-BEFORE_LINES)
             .map(m => lineOf(m, char.name, userName)).join('\n');
         // 拉黑之後對方送出的：私聊裡被拒收的，加上臨時會話雙方說過的話（標了「臨時會話」）

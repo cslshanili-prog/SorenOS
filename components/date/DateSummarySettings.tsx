@@ -1,3 +1,4 @@
+import { lineArgOf } from '../../utils/chatLine';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { CharacterProfile, DateStory, DateSummaryConfig, DateSummaryPreset, Message } from '../../types';
 import { useOS } from '../../context/OSContext';
@@ -83,7 +84,7 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
         if (!story) { setMessages([]); return; }
         let cancelled = false;
         const load = () => {
-            DB.getRecentMessagesByCharIdAndSource(char.id, 'date', 2000)
+            DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 2000)
                 .then(list => { if (!cancelled) setMessages(list); })
                 .catch(() => {});
         };
