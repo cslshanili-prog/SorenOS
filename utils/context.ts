@@ -2,6 +2,21 @@
 import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
+import { lineViewPersonaKey } from './userPersona';
+
+/**
+ * 關係線（plans/persona-line-batch1-2.md 第 6 節）：記憶片段不是這條線的，標清楚是跟誰的。
+ * char 是線視圖時知道現在是哪條線；片段沒標 personaKey 的算主線。只有一條線的角色永遠回空字串。
+ */
+function fragmentLineLabel(
+    char: Pick<CharacterProfile, 'primaryPersonaKey'>,
+    fragment: { personaKey?: string; personaName?: string },
+): string {
+    const current = lineViewPersonaKey(char) || char.primaryPersonaKey;
+    const own = fragment.personaKey || char.primaryPersonaKey;
+    if (!current || !own || current === own) return '';
+    return `〔這是你跟「${fragment.personaName || '另一個人'}」之間的事，現在跟你說話的人不一定知道〕`;
+}
 import { isScheduleFeatureOn } from './scheduleFeature';
 import { buildScheduleInjection as buildScheduleInjectionText } from './scheduleInjection';
 import { TIME_FRAMING_CONVERSATIONAL } from './timeFramingNote';
@@ -147,7 +162,8 @@ export const ContextBuilder = {
                 if (currentMonthLogs.length > 0) {
                     memorySection += `**本月詳細記錄 [${currentMonthKey}]**:\n`;
                     currentMonthLogs.forEach(m => {
-                        memorySection += `- ${m.date} (${m.mood || 'rec'}): ${m.summary}\n`;
+                        const label = fragmentLineLabel(char, m);
+                        memorySection += `- ${m.date} (${m.mood || 'rec'})${label ? ` ${label}` : ''}: ${m.summary}\n`;
                     });
                     memorySection += `\n`;
                 }
@@ -334,7 +350,8 @@ export const ContextBuilder = {
                 if (logs.length > 0) {
                     details += `\n> 詳細回憶 [${monthKey}]:\n`;
                     logs.forEach(m => {
-                        details += `  - ${m.date} (${m.mood || 'rec'}): ${m.summary}\n`;
+                        const label = fragmentLineLabel(char, m);
+                        details += `  - ${m.date} (${m.mood || 'rec'})${label ? ` ${label}` : ''}: ${m.summary}\n`;
                     });
                 }
             });

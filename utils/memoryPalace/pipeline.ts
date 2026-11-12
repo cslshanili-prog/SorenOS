@@ -1,4 +1,5 @@
 import { loadRangeMessageContents } from './rangeMessagePage';
+import { buildMemoryLineLabels, type MemoryLineLabels } from './lineLabels';
 import { loadCharacterContextMessages } from '../chatContextRange';
 /**
  * Memory Palace — 集成管線 (Pipeline)
@@ -122,7 +123,7 @@ import {
     getReliableMemoryPalaceHighWaterMark,
     setReliableMemoryPalaceHighWaterMark,
 } from './highWaterMark';
-import { resolveUserProfileForChar } from '../userPersona';
+import { profileForPersonaKey, resolveUserProfileForChar } from '../userPersona';
 
 // ─── 輕量 LLM 配置類型 ───────────────────────────────
 
@@ -199,9 +200,11 @@ async function loadMemoriesByDateRanges(
  * 返回 null：memories 為空（沒有新記憶，不需要歸檔動作）。
  */
 export function buildAutoArchiveFragments(
-    memories: { id: string; content: string; createdAt: number }[],
+    memories: { id: string; content: string; createdAt: number; personaKey?: string }[],
     hideBeforeMessageId: number,
     linkToPalace = false,
+    /** 關係線：身份鍵（沒有＝主線）→ 名字，給片段記名字快照，之後在別條線上標籤用 */
+    personaNameFor?: (personaKey?: string) => string,
 ): NonNullable<PipelineResult['autoArchive']> | null {
     if (memories.length === 0) return null;
     if (linkToPalace) return {
@@ -212,6 +215,8 @@ export function buildAutoArchiveFragments(
             summary: memory.content,
             mood: 'palace',
             palaceMemoryId: memory.id,
+            ...(memory.personaKey ? { personaKey: memory.personaKey } : {}),
+            ...(personaNameFor ? { personaName: personaNameFor(memory.personaKey) } : {}),
         })),
     };
 
@@ -375,6 +380,8 @@ export interface RecallRetrievalOptions {
     recallPlan?: RecallPlan;
     /** 調用方專用的最終召回/格式化上限；默認聊天仍保持 15。 */
     formatterMaxOutputItems?: number;
+    /** 關係線：別條線的記憶加標籤（只有一條線的角色不傳）。見 lineLabels.ts */
+    lineLabels?: MemoryLineLabels;
 }
 
 export async function retrieveMemories(
@@ -1107,7 +1114,7 @@ export async function retrieveMemories(
         const anticipations = await tRetrieve('AnticipationDB.getByCharId', 'IDB', AnticipationDB.getByCharId(charId));
 
         // 10. 格式化
-        const formatted = await tRetrieve('expandAndFormat', 'IDB', expandAndFormat(results, charId, anticipations, userName, formatterCap));
+        const formatted = await tRetrieve('expandAndFormat', 'IDB', expandAndFormat(results, charId, anticipations, userName, formatterCap, recallOptions?.lineLabels));
 
         // ── 彙總打印 ──
         const perfTotal = Math.round(performance.now() - perfRetrieveT0);
@@ -1377,7 +1384,7 @@ export async function injectMemoryPalace(
         let roomPlateOutcome: RecallTraceStage['outcome'] = 'ok';
         try {
             const { buildRoomPlatesInjection } = await import('./roomPlates');
-            char.roomPlatesInjection = await buildRoomPlatesInjection(char.id, resolvedUserName);
+            char.roomPlatesInjection = await buildRoomPlatesInjection(char.id, resolvedUserName, await buildMemoryLineLabels(char as { knownPersonaKeys?: string[]; primaryPersonaKey?: string }));
         } catch {
             char.roomPlatesInjection = '';
             roomPlateOutcome = 'error';
@@ -1401,7 +1408,12 @@ export async function injectMemoryPalace(
             getRemoteVectorConfig(),
             char.name,
             telemetry => { retrievalTelemetry = telemetry; },
-            { explicitEntityAnalysis, formatterMaxOutputItems: traceContext?.formatterMaxOutputItems },
+            {
+                explicitEntityAnalysis,
+                formatterMaxOutputItems: traceContext?.formatterMaxOutputItems,
+                // 關係線：char 可能是某條線的視圖；角色認識好幾張卡時，別條線的記憶標清楚是跟誰的
+                lineLabels: await buildMemoryLineLabels(char as { knownPersonaKeys?: string[]; primaryPersonaKey?: string }),
+            },
         );
         if (context || !legacyCompatibilityMode) {
             char.memoryPalaceInjection = context || '';
@@ -1699,7 +1711,7 @@ export interface PipelineResult {
      */
     autoArchive?: {
         /** 按日期切好的新 MemoryFragment 列表，id 已生成，mood='palace' */
-        fragments: { id: string; date: string; summary: string; mood: string; palaceMemoryId?: string }[];
+        fragments: { id: string; date: string; summary: string; mood: string; palaceMemoryId?: string; personaKey?: string; personaName?: string }[];
         /** 這一批 buffer 處理完後的水位線（= 最後一條被處理 Message.id），應設到 char.hideBeforeMessageId */
         hideBeforeMessageId: number;
     } | null;
@@ -1748,16 +1760,25 @@ async function extractAndStoreMemories(
     onProgress: ((stage: string) => void) | undefined,
     skipDedup: boolean,
     requireAllBatches: boolean = false,
+    /**
+     * 關係線：這批訊息是角色跟哪張身份卡的那條線（沒有＝主線）。用戶檔案換成那張卡，
+     * 提取出來的記憶都標上這條線（MemoryNode.personaKey）。
+     */
+    personaKey?: string,
 ): Promise<ExtractCoreResult> {
         // 5. 構建精簡上下文：角色檔案 + 用戶檔案 + 相關已有記憶
         let charContext = '';
+        let lineUserName = userName;
         let relatedMemoryRefs: RelatedMemoryRef[] = [];
         try {
             const chars = await DB.getAllCharacters();
             const charProfile = chars.find(c => c.id === charId);
             const rawUserProfile = await DB.getUserProfile();
             // 照這個角色的身份綁定（角色自己指定 > 世界預設 > 全域默認）
-            const userProfile = rawUserProfile ? resolveUserProfileForChar(rawUserProfile, charProfile || charId) : rawUserProfile;
+            const userProfile = rawUserProfile
+                ? (personaKey ? profileForPersonaKey(rawUserProfile, personaKey) : resolveUserProfileForChar(rawUserProfile, charProfile || charId))
+                : rawUserProfile;
+            if (personaKey && userProfile?.name) lineUserName = userProfile.name;
 
             // 5a. 精簡角色檔案（姓名、設定、世界觀）
             if (charProfile) {
@@ -1866,7 +1887,7 @@ async function extractAndStoreMemories(
 
             try {
                 const extractionResult = await extractMemoriesFromBuffer(
-                    chunk, charId, charName, llmConfig, charContext, userName, relatedMemoryRefs, pinnedRefs,
+                    chunk, charId, charName, llmConfig, charContext, lineUserName, relatedMemoryRefs, pinnedRefs,
                 );
                 allMemories.push(...extractionResult.memories);
                 allCrossTimeLinks.push(...extractionResult.crossTimeLinks);
@@ -1906,6 +1927,7 @@ async function extractAndStoreMemories(
         }
 
         const memories = allMemories;
+        if (personaKey) for (const memory of memories) memory.personaKey = personaKey;
 
         if (memories.length === 0) {
             console.warn(`🏰 [Pipeline] 所有批次共提取 0 條記憶（${toProcess.length} 條消息），不更新高水位，下次重試`);
@@ -1941,6 +1963,32 @@ async function extractAndStoreMemories(
             eventBoxHints: allEventBoxHints,
             corrections: allCorrections,
         };
+}
+
+/** 關係線：把一批訊息按線分組（沒標身份的是主線），組內保持原本的順序，主線排第一。 */
+export function groupMessagesByLine(messages: Message[]): { personaKey?: string; messages: Message[] }[] {
+    const groups = new Map<string, Message[]>();
+    for (const message of messages) {
+        const key = message.personaKey || '';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(message);
+    }
+    return [...groups.entries()]
+        .sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : 0))
+        .map(([key, list]) => (key ? { personaKey: key, messages: list } : { messages: list }));
+}
+
+function mergeExtractCores(cores: ExtractCoreResult[]): ExtractCoreResult {
+    if (cores.length === 1) return cores[0];
+    return {
+        stored: cores.reduce((sum, c) => sum + c.stored, 0),
+        skipped: cores.reduce((sum, c) => sum + c.skipped, 0),
+        memories: cores.flatMap(c => c.memories),
+        batches: cores.flatMap(c => c.batches),
+        crossTimeLinks: cores.flatMap(c => c.crossTimeLinks),
+        eventBoxHints: cores.flatMap(c => c.eventBoxHints),
+        corrections: cores.flatMap(c => c.corrections),
+    };
 }
 
 /**
@@ -2087,7 +2135,8 @@ export async function processNewMessages(
         // 1. 加載全部消息（含已處理的），計算熱區和緩衝區
         //    過濾：保留任何有語義的消息類型（文字、帶轉寫的語音、卡片、系統事件等），
         //    只排除純視覺資源和無轉寫的純音頻，避免 URL / base64 汙染 LLM。
-        const allMessages = await DB.getMessagesByCharId(charId, true);
+        // 關係線：記憶只有一份，水位也只有一條——每條線的私聊一起排，處理時再按線分開提取。
+        const allMessages = await DB.getPrivateMessagesAllLines(charId);
         const privateMessages = allMessages
             .filter(message => !message.groupId)
             .sort((a, b) => a.id - b.id);
@@ -2188,10 +2237,22 @@ export async function processNewMessages(
         //       skipDedup=true：聊天總結裡"上週擔心工作 / 這週擔心工作"cosine 完全可能 > 0.9
         //       但是兩件不同時間的事，cosine 去重會精準誤殺；而 high-water-mark 已保證
         //       消息不會被重複處理，去重在這條路徑上收益小、誤傷大。
-        const core = await extractAndStoreMemories(
-            toProcess, charId, charName, embeddingConfig, llmConfig, userName, onProgress, true,
-            options.requireAllBatches === true,
+        // 關係線：按線分開提取（各用那條線的身份名字），記憶標上來源線；水位照舊只推一條。
+        const lineGroups = groupMessagesByLine(toProcess);
+        const rawProfileForLines = lineGroups.some(group => group.personaKey) ? await DB.getUserProfile().catch(() => null) : null;
+        const lineUserNameFor = (personaKey?: string) => (
+            personaKey && rawProfileForLines ? (profileForPersonaKey(rawProfileForLines, personaKey).name || userName) : userName
         );
+        const lineCores: { personaKey?: string; core: ExtractCoreResult }[] = [];
+        for (const group of lineGroups) {
+            const groupCore = await extractAndStoreMemories(
+                group.messages, charId, charName, embeddingConfig, llmConfig, userName, onProgress, true,
+                options.requireAllBatches === true, group.personaKey,
+            );
+            lineCores.push({ personaKey: group.personaKey, core: groupCore });
+            if (options.requireAllBatches && groupCore.batches.some(batch => !batch.ok)) break;
+        }
+        const core = mergeExtractCores(lineCores.map(item => item.core));
 
         if (core.memories.length === 0) {
             const allBatchesSucceeded = core.batches.length > 0 && core.batches.every(batch => batch.ok);
@@ -2223,7 +2284,7 @@ export async function processNewMessages(
         // Resolve committed nodes before advancing the waterline; read failures must not hide messages.
         const storedNodes = (await Promise.all(core.memories.map(memory => MemoryNodeDB.getById(memory.id))))
             .filter((node): node is import('./types').MemoryNode => !!node);
-        const autoArchive = buildAutoArchiveFragments(storedNodes, newHighWaterMark, true);
+        const autoArchive = buildAutoArchiveFragments(storedNodes, newHighWaterMark, true, lineUserNameFor);
         await setReliableMemoryPalaceHighWaterMark(charId, newHighWaterMark);
         console.log(`✅ [Pipeline] 緩衝區處理完成：${core.stored} 條記憶, hwm ${lastProcessedId} → ${newHighWaterMark}`);
         onProgress?.(`記憶整理完成！新增 ${core.stored} 條記憶`);
@@ -2241,11 +2302,14 @@ export async function processNewMessages(
             autoArchive,
         };
 
-        // 10–11. 建鏈 / EventBox / 糾正 / 鞏固（共用 applyMemorySideEffects）
-        await applyMemorySideEffects(
-            charId, charName, core.memories, core.crossTimeLinks, core.eventBoxHints, core.corrections,
-            embeddingConfig, llmConfig, userName,
-        );
+        // 10–11. 建鏈 / EventBox / 糾正 / 鞏固（共用 applyMemorySideEffects）；按線各跑一次，用那條線的名字
+        for (const { personaKey, core: lineCore } of lineCores) {
+            if (lineCore.memories.length === 0) continue;
+            await applyMemorySideEffects(
+                charId, charName, lineCore.memories, lineCore.crossTimeLinks, lineCore.eventBoxHints, lineCore.corrections,
+                embeddingConfig, llmConfig, lineUserNameFor(personaKey),
+            );
+        }
 
         return pipelineResult;
 

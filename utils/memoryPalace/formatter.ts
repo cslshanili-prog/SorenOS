@@ -13,6 +13,7 @@
  */
 
 import type { Anticipation, EventBox, MemoryNode, ScoredMemory } from './types';
+import { memoryLineLabel, type MemoryLineLabels } from './lineLabels';
 import { ROOM_CONFIGS, getRoomLabel } from './types';
 import { MemoryNodeDB, EventBoxDB } from './db';
 import { recordRecallReceipt } from './recallReceipts';
@@ -57,6 +58,8 @@ export async function expandAndFormat(
     userName?: string,
     /** 注入上限。rerank 啟用時傳 15 + topN，讓 rerank 額外召回的不被切。 */
     maxOutputItems: number = DEFAULT_MAX_OUTPUT_ITEMS,
+    /** 關係線：別條線的記憶加標籤（只有一條線的角色不傳）。見 lineLabels.ts */
+    lineLabels?: MemoryLineLabels,
 ): Promise<string> {
     const MAX_OUTPUT_ITEMS = maxOutputItems;
     // 0. 加載便利貼置頂記憶（pinnedUntil > now，不佔 15 條名額）
@@ -104,15 +107,15 @@ export async function expandAndFormat(
         const box = await EventBoxDB.getById(boxId);
         if (!box) {
             // box 丟失 → 退化為單條命中
-            renderItems.push(buildStandaloneItem(hit.sample, now));
+            renderItems.push(buildStandaloneItem(hit.sample, now, lineLabels));
             continue;
         }
-        const item = await buildBoxItem(box, hit.topScore, localNodeMap, now, hit.guaranteed);
+        const item = await buildBoxItem(box, hit.topScore, localNodeMap, now, hit.guaranteed, lineLabels);
         if (item) renderItems.push(item);
     }
 
     for (const r of standaloneItems) {
-        renderItems.push(buildStandaloneItem(r, now));
+        renderItems.push(buildStandaloneItem(r, now, lineLabels));
     }
 
     // 3. 排序（finalScore 降序，同分時較新者優先）+ 截斷到 MAX_OUTPUT_ITEMS
@@ -212,7 +215,8 @@ export async function expandAndFormat(
         output += `（這些是你這幾天一直記著的事。記著不等於要一直說——話趕到那兒了順口提一句就夠了，沒趕到就讓它待在心裡；同一件事不必每次聊天都追問進展，也不必替 ta 安排什麼時候去做。）\n`;
         for (const node of pinnedNodes) {
             const daysLeft = Math.ceil((node.pinnedUntil! - now) / (24 * 60 * 60 * 1000));
-            output += `- [${formatMemoryDateWithDistance(node.createdAt, now)}] ${memoryContentWithDates(node)}（剩餘 ${daysLeft} 天）\n`;
+            const pLabel = memoryLineLabel(node, lineLabels);
+            output += `- [${formatMemoryDateWithDistance(node.createdAt, now)}]${pLabel ? ` ${pLabel}` : ''} ${memoryContentWithDates(node)}（剩餘 ${daysLeft} 天）\n`;
         }
         output += `\n`;
         console.log(`📌 [MemoryPalace] 便利貼置頂 ${pinnedNodes.length} 條`);
@@ -256,10 +260,11 @@ export async function expandAndFormat(
 
 // ─── 子渲染：單條獨立記憶 ──────────────────────────────
 
-function buildStandaloneItem(r: ScoredMemory, now: number): RenderItem {
+function buildStandaloneItem(r: ScoredMemory, now: number, lineLabels?: MemoryLineLabels): RenderItem {
     const node = r.node;
     const date = formatMemoryDateWithDistance(node.createdAt, now);
-    const body = `(${date}, 重要性: ${node.importance})\n${memoryContentWithDates(node)}`;
+    const label = memoryLineLabel(node, lineLabels);
+    const body = `(${date}, 重要性: ${node.importance})${label ? ` ${label}` : ''}\n${memoryContentWithDates(node)}`;
     return {
         guaranteed: r.recallGuarantee === 'explicit_entity',
         score: r.finalScore,
@@ -280,6 +285,7 @@ async function buildBoxItem(
     localNodeMap: Map<string, MemoryNode>,
     now: number,
     guaranteed: boolean = false,
+    lineLabels?: MemoryLineLabels,
 ): Promise<RenderItem | null> {
     // 加載 summary（如有）
     let summary: MemoryNode | null = null;
@@ -313,7 +319,8 @@ async function buildBoxItem(
 
     if (summary) {
         const sDate = formatMemoryDateWithDistance(summary.createdAt, now);
-        body += `_整合回憶_ (${sDate}, 重要性 ${summary.importance}, 已壓縮 ${box.compressionCount} 次)\n`;
+        const sLabel = memoryLineLabel(summary, lineLabels);
+        body += `_整合回憶_ (${sDate}, 重要性 ${summary.importance}, 已壓縮 ${box.compressionCount} 次)${sLabel ? ` ${sLabel}` : ''}\n`;
         body += `${summary.content}\n`;
     }
 
@@ -321,7 +328,8 @@ async function buildBoxItem(
         body += summary ? `_新增片段_：\n` : '';
         for (const n of liveToShow) {
             const d = formatMemoryDateWithDistance(n.createdAt, now);
-            body += `- [${d}] ${memoryContentWithDates(n)}\n`;
+            const nLabel = memoryLineLabel(n, lineLabels);
+            body += `- [${d}]${nLabel ? ` ${nLabel}` : ''} ${memoryContentWithDates(n)}\n`;
         }
         if (omitted > 0) body += `（另有 ${omitted} 條同盒活節點未展示）\n`;
     }

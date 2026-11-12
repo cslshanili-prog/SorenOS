@@ -19,6 +19,7 @@
  */
 
 import type { MemoryNode, PlateRoom, RoomPlate } from './types';
+import type { MemoryLineLabels } from './lineLabels';
 import { PLATE_ROOMS, PLATE_TITLES } from './types';
 import { MemoryNodeDB, RoomPlateDB, loadOrCreatePlate, mutatePlate } from './db';
 import type { LightLLMConfig } from './pipeline';
@@ -366,7 +367,10 @@ const MATERIAL_ANCHOR_CAP = 5;
  * 排除 archived（已被壓進 summary）。sinceTs=0 時全部算新節點（老行為兼容）。
  */
 export function pickMaterialLines(nodes: MemoryNode[], room: PlateRoom, sinceTs: number = 0): string[] {
-    const candidates = nodes.filter(n => n.room === room && !n.archived);
+    // 關係線：「關於你」「我們之間」這兩塊門牌只講主線那張卡（A 愛貓、B 怕貓不能混成一個人）；
+    // 別條線的記憶不進這兩塊的原料，召回時照樣找得到、會標清楚是跟誰的。
+    const lineScoped = room === 'user_room' || room === 'bedroom';
+    const candidates = nodes.filter(n => n.room === room && !n.archived && !(lineScoped && n.personaKey));
     const summaries = candidates.filter(n => n.isBoxSummary);
     const fresh = candidates
         .filter(n => !n.isBoxSummary && n.createdAt > sinceTs)
@@ -583,16 +587,23 @@ export function markPlateBootstrapDone(charId: string): void {
  * 注入框架是設計核心：這些是 constraint（認知底色，防說錯話），
  * 不是 topic（不要老唸叨）——對應人腦"背景知識常在但低激活"的狀態。
  */
-export function formatRoomPlatesSection(plates: RoomPlate[], userName?: string): string {
+export function formatRoomPlatesSection(plates: RoomPlate[], userName?: string, lineLabels?: MemoryLineLabels): string {
     const userLabel = userName || '用戶';
+    // 關係線：在別條線上時，「關於你」那塊講的是主線那張卡，標題直接寫清楚
+    const offPrimary = !!lineLabels && lineLabels.currentKey !== lineLabels.primaryKey;
+    const userRoomTitle = offPrimary
+        ? `關於「${lineLabels!.names[lineLabels!.primaryKey] || '另一個人'}」（這是你對她／他的認識，跟現在的「${lineLabels!.names[lineLabels!.currentKey] || userLabel}」是不同的人）`
+        : `關於${userLabel}`;
     const byRoom = new Map(plates.map(p => [p.room, p]));
     const sections: string[] = [];
 
     for (const room of PLATE_ROOMS) {
         const plate = byRoom.get(room);
         if (!plate || plate.entries.length === 0) continue;
-        const title = room === 'user_room' ? `關於${userLabel}` : PLATE_TITLES[room];
-        const suffix = room === 'bedroom' ? '（沒有名字，也不需要名字——只有質地）' : '';
+        const title = room === 'user_room' ? userRoomTitle : PLATE_TITLES[room];
+        const suffix = room === 'bedroom'
+            ? (offPrimary ? `（這是你跟「${lineLabels!.names[lineLabels!.primaryKey] || '另一個人'}」之間的質地，不是跟現在這位）` : '（沒有名字，也不需要名字——只有質地）')
+            : '';
         sections.push(
             `**${title}**${suffix}\n` +
             plate.entries.map(e => `- ${e.text}`).join('\n')
@@ -609,10 +620,10 @@ ${sections.join('\n\n')}
 }
 
 /** 加載某角色的全部門牌並格式化（純 IDB 讀，不調 LLM，供 pipeline 每輪注入用） */
-export async function buildRoomPlatesInjection(charId: string, userName?: string): Promise<string> {
+export async function buildRoomPlatesInjection(charId: string, userName?: string, lineLabels?: MemoryLineLabels): Promise<string> {
     try {
         const plates = await RoomPlateDB.getByCharId(charId);
-        return formatRoomPlatesSection(plates, userName);
+        return formatRoomPlatesSection(plates, userName, lineLabels);
     } catch (e: any) {
         console.warn(`🚪 [RoomPlate] 加載門牌失敗: ${e?.message || e}`);
         return '';

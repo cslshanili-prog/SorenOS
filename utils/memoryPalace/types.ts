@@ -67,6 +67,11 @@ export interface MemoryNode {
     /** 可選補註的固定說話日期，不是 createdAt 事件日。原文始終不含系統補註。 */
     relativeTimeAnchor?: { dateKey: string; source: 'message'; messageId?: number };
     id: string;
+    /**
+     * 關係線（plans/persona-line-batch1-2.md 第 6 節）：這條記憶來自角色跟哪張身份卡的那條線。
+     * **沒有＝主線**，舊記憶不用搬。召回時整個角色的記憶一起找，別條線的會標清楚是跟誰的。
+     */
+    personaKey?: string;
     charId: string;
     content: string;            // 記憶內容（提取記憶為第三人稱敘事，消化衍生記憶為第一人稱內心獨白）
     room: MemoryRoom;

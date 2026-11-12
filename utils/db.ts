@@ -802,6 +802,20 @@ export const DB = {
   },
 
   /**
+   * 關係線：這個角色所有線上的私聊（不含群訊息），照 id 排好。只給記憶整理用——
+   * 記憶只有一份，整理時要看到每條線，再按線分開提取（utils/memoryPalace/pipeline.ts）。
+   * 聊天畫面、提示詞的歷史不要用這個，要用照線讀的 getMessagesByCharId。
+   */
+  getPrivateMessagesAllLines: async (charId: string): Promise<Message[]> => {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_MESSAGES, 'readonly').objectStore(STORE_MESSAGES).index('charId').getAll(IDBKeyRange.only(charId));
+      request.onsuccess = () => resolve(((request.result || []) as Message[]).filter(m => !m.groupId).sort((a, b) => a.id - b.id));
+      request.onerror = () => reject(request.error);
+    });
+  },
+
+  /**
    * 某個角色的聊天條數。走 charId 索引的 count()，**一條消息都不會被讀出來**，
    * IndexedDB 只回一個數字。使用統計的規模檔位用它，別拿 getMessagesByCharId
    * 去 length ——那會把整段聊天記錄讀進內存。

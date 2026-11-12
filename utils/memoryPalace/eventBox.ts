@@ -182,7 +182,8 @@ export async function bindMemoriesIntoEventBox(
         const existingNodes: MemoryNode[] = [];
         for (const eId of existingIds) {
             const n = await MemoryNodeDB.getById(eId);
-            if (n) {
+            // 關係線：不同線的記憶不綁進同一個事件盒（盒子的整合回憶會把兩個人的事揉成一段）
+            if (n && (n.personaKey || '') === (newNode.personaKey || '')) {
                 existingNodes.push(n);
                 if (n.eventBoxId) boxIds.add(n.eventBoxId);
             }
