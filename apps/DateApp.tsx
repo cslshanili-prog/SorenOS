@@ -3,7 +3,7 @@ import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { knowsPersona, lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
+import { knowsPersona, lineArgOf, lineMsgFields, lineView, lineViewPersonaKey } from '../utils/chatLine';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
@@ -1186,6 +1186,7 @@ const DateApp: React.FC = () => {
             try {
                 await DB.saveGalleryImage({
                     id: `img-${Date.now()}-${Math.random()}`, charId: char.id, url: stored, timestamp: Date.now(),
+                    ...(lineViewPersonaKey(char) ? { personaKey: lineViewPersonaKey(char) } : {}),
                     sourceMessageId: messageId, sender: 'char', origin: 'date_moment', savedDate: getLocalDateKey(new Date()),
                     ...(normalizeLibraryDescription(result.scene) ? { description: normalizeLibraryDescription(result.scene) } : {}),
                 });

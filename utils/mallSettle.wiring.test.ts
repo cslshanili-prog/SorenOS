@@ -10,8 +10,9 @@ const read = (p: string) => fs.readFileSync(path.resolve(__dirname, '..', p), 'u
 describe('購物中心標籤在每條路上都會結算', () => {
     it('背景路徑：轉帳之後接著結算購物標籤，用同一組錢包回調', () => {
         const src = read('context/OSContext.tsx');
-        const transfer = src.indexOf('ChatParser.settleTransferCommands(aiContent, charId, ledger)');
-        const mall = src.indexOf('ChatParser.settleMallCommands(aiContent, charId,');
+        // 關係線：背景這條路傳的是這一輪的線（lineReadArg），不只是 charId
+        const transfer = src.indexOf('ChatParser.settleTransferCommands(aiContent, lineReadArg, ledger)');
+        const mall = src.indexOf('ChatParser.settleMallCommands(aiContent, lineReadArg,');
         expect(transfer).toBeGreaterThan(-1);
         expect(mall).toBeGreaterThan(transfer);
         expect(src.slice(mall, mall + 300)).toContain('onCharGiftSend: ledger.onCharGiftSend');

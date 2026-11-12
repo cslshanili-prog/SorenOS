@@ -64,3 +64,16 @@ describe('資料庫 · 文件不當照片', () => {
         expect(resolveLibraryPhotoCode([doc], soren, libraryPhotoCode('doc'))).toBeNull();
     });
 });
+
+describe('關係線：別條線拿到的照片標出來', () => {
+    it('在妹妹那條線上，老婆傳的照片標清楚是在哪邊', async () => {
+        const { buildLibraryPhotoBlock } = await import('./libraryPrompt');
+        const photo = (id: string, personaKey?: string) => ({ id, charId: 'c1', url: 'u', timestamp: 1, description: `照片${id}`, sender: 'user', ...(personaKey ? { personaKey } : {}) }) as any;
+        const labels = { currentKey: '__real__', primaryKey: '__real__', names: { __real__: '妹妹', pB: '老婆' } };
+        const out = buildLibraryPhotoBlock([photo('a'), photo('b', 'pB')], 'c1', '妹妹', labels);
+        const lines = out.split('\n');
+        expect(lines.find(l => l.includes('照片b'))).toContain('在你跟「老婆」那邊拿到的，「妹妹」不一定看過');
+        expect(lines.find(l => l.includes('照片a'))).not.toContain('那邊拿到的');
+        expect(buildLibraryPhotoBlock([photo('b', 'pB')], 'c1', '妹妹')).not.toContain('那邊拿到的');
+    });
+});

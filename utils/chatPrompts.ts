@@ -1,4 +1,5 @@
 import { isDateOfflinePaused } from './dateOffline';
+import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
 import { sarPublicContext } from './vrWorld/kanataPublicContext';
 import { kanataTitleContext } from './vrWorld/kanataTitle';
 import { selectCharacterContextMessages } from './chatContextRange';
@@ -721,7 +722,9 @@ ${groupLogStr}\n`;
         if (promptOptions?.libraryPhotos) {
             try {
                 const libraryImages = await DB.getGalleryImages();
-                volatileState += buildLibraryPhotoBlock(pickCharLibraryPhotos(libraryImages, char), char.id, userProfile.name);
+                // 關係線：角色認識好幾張卡時，別條線上拿到的照片標清楚是在哪邊
+                const photoLineLabels = await buildMemoryLineLabels(char).catch(() => undefined);
+                volatileState += buildLibraryPhotoBlock(pickCharLibraryPhotos(libraryImages, char), char.id, userProfile.name, photoLineLabels);
             } catch (error) {
                 console.warn('[ChatPrompts] 讀資料庫照片失敗，這輪不帶', error);
             }

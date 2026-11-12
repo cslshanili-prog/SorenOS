@@ -25,7 +25,7 @@
  */
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, RealtimeConfig, GroupProfile, ImageGenApiConfig } from '../types';
-import { lineArgOf, lineMsgFields } from './chatLine';
+import { lineArgOf, lineMsgFields, lineViewPersonaKey } from './chatLine';
 import { DB } from './db';
 import { ChatParser, type FrozenMusicSong } from './chatParser';
 import { resolveCharTimeZone } from './timezone';
@@ -1287,7 +1287,7 @@ export async function applyAssistantPostProcessing(
         // app 被殺, 內容也不丟. 前台可見才立即寫 (本地路徑 + 前台收到的雲端回覆, fetch 可靠); 後台時不發
         // 這個脆弱的請求 (易被凍結打斷, 甚至服務端寫成功但響應丟失 → 回前台重試會重複寫), 直接留在
         // 隊列, 等 drainPendingDiaries 在回前台時補打. 寫成功就刪掉這條.
-        const pendingDiaryId = enqueuePendingDiary({ kind: 'notion', charId: char.id, charName: char.name, title, content, mood: mood || undefined });
+        const pendingDiaryId = enqueuePendingDiary({ kind: 'notion', charId: char.id, ...(lineViewPersonaKey(char) ? { personaKey: lineViewPersonaKey(char) } : {}), charName: char.name, title, content, mood: mood || undefined });
         const canWriteDiaryNow = typeof document === 'undefined' || document.visibilityState === 'visible';
         if (canWriteDiaryNow) {
             try {
@@ -1498,7 +1498,7 @@ export async function applyAssistantPostProcessing(
         }
 
         // 預寫日誌 + 可見性判斷, 同 Notion.
-        const pendingFsDiaryId = enqueuePendingDiary({ kind: 'feishu', charId: char.id, charName: char.name, title: fsTitle, content: fsContent, mood: fsMood || undefined });
+        const pendingFsDiaryId = enqueuePendingDiary({ kind: 'feishu', charId: char.id, ...(lineViewPersonaKey(char) ? { personaKey: lineViewPersonaKey(char) } : {}), charName: char.name, title: fsTitle, content: fsContent, mood: fsMood || undefined });
         const canWriteFsDiaryNow = typeof document === 'undefined' || document.visibilityState === 'visible';
         if (canWriteFsDiaryNow) {
             try {

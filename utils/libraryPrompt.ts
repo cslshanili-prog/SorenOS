@@ -11,6 +11,7 @@
  */
 
 import type { CharacterProfile, GalleryImage } from '../types';
+import type { MemoryLineLabels } from './memoryPalace/lineLabels';
 import { canCharUseLibraryImage, isLibraryFile, librarySourceOf } from './library';
 
 export const LIBRARY_PROMPT_LIMIT = 20;
@@ -57,10 +58,18 @@ const clip = (text: string, max: number) => {
     return oneLine.length > max ? `${oneLine.slice(0, max)}…` : oneLine;
 };
 
-export const buildLibraryPhotoBlock = (photos: GalleryImage[], charId: string, userName: string): string => {
+/** 關係線：在別條線上拿到的照片，標清楚是在哪邊、現在這位不一定看過 */
+const lineHint = (photo: GalleryImage, charId: string, labels?: MemoryLineLabels): string => {
+    if (!labels || photo.charId !== charId) return '';
+    const own = photo.personaKey || labels.primaryKey;
+    if (own === labels.currentKey) return '';
+    return `在你跟「${labels.names[own] || '另一個人'}」那邊拿到的，「${labels.names[labels.currentKey] || '對方'}」不一定看過`;
+};
+
+export const buildLibraryPhotoBlock = (photos: GalleryImage[], charId: string, userName: string, lineLabels?: MemoryLineLabels): string => {
     if (!photos.length) return '';
     const lines = photos.map(photo => {
-        const hint = sourceHint(photo, charId);
+        const hint = [sourceHint(photo, charId), lineHint(photo, charId, lineLabels)].filter(Boolean).join('，');
         return `- ${libraryPhotoCode(photo.id)}｜${hint ? `${hint}｜` : ''}${clip(photo.description || '', LIBRARY_PROMPT_DESCRIPTION_MAX)}`;
     });
     return `\n### 你手邊的照片

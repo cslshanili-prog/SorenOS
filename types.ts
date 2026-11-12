@@ -4311,6 +4311,11 @@ export interface GalleryImage {
     description?: string;
     /** 誰能用；沒寫＝原本那個角色（charId），舊相簿的圖都是這樣 */
     access?: LibraryAccess;
+    /**
+     * 關係線：從私聊、見面存進來的，記下是角色跟哪張身份卡那條線上拿到的（沒有＝主線）。
+     * 照片還是角色的（記憶只有一份），只是在別條線上列給角色看時會標清楚是在哪邊拿到的。
+     */
+    personaKey?: string;
     review?: string;
     reviewTimestamp?: number;
     savedDate?: string; // YYYY-MM-DD format

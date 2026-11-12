@@ -1,5 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineScheduleId, lineView } from '../utils/chatLine';
+import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineScheduleId, lineView, lineViewPersonaKey } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -1531,6 +1531,7 @@ const Chat: React.FC = () => {
                 await DB.saveGalleryImage({
                     id: `img-${Date.now()}-${Math.random()}`,
                     charId: char.id,
+                    ...(lineViewPersonaKey(char) ? { personaKey: lineViewPersonaKey(char) } : {}),
                     url: storedContent,
                     timestamp: Date.now(),
                     sourceMessageId: savedUserMsgId,

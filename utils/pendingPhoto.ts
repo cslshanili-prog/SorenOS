@@ -135,6 +135,8 @@ export async function fulfillPendingPhoto(messageId: number, config: ImageGenApi
                 await DB.saveGalleryImage({
                     id: `img-${Date.now()}-${Math.random()}`,
                     charId: message.charId, url: storedContent, timestamp: Date.now(),
+                    // 關係線：佔位訊息在哪條線上，照片就記在哪條線
+                    ...(message.personaKey ? { personaKey: message.personaKey } : {}),
                     sourceMessageId: messageId, sender: 'char',
                     // 角色自己寫的畫面描述直接當資料庫描述：之後它「知道」手邊有這張、能再傳（utils/libraryPrompt.ts）
                     ...(normalizeLibraryDescription(meta.description) ? { description: normalizeLibraryDescription(meta.description) } : {}),

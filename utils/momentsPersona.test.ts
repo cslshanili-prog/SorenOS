@@ -109,3 +109,14 @@ describe('NPC 認識的身份（2c）', () => {
         expect(k.mainKeyOf('n3')).toBe(REAL_IDENTITY_PERSONA_ID);
     });
 });
+
+describe('關係線：認識的每張卡都是熟人', () => {
+    it('認識兩張卡的角色，兩張卡發的都算主身份那一級；互動時兩張都能選', async () => {
+        const { buildPersonaKnowledge, interactionPersonaOptions } = await import('./momentsPersona');
+        const base = { name: '妹妹', avatar: '', bio: '', personas: [{ id: 'pB', name: '老婆', avatar: '', bio: '', createdAt: 0, updatedAt: 0 }] } as any;
+        const k = buildPersonaKnowledge(base, [{ id: 'c1', knownPersonaKeys: ['__real__', 'pB'], primaryPersonaKey: '__real__' }], []);
+        expect([...(k.knownKeysOf?.('c1') || [])]).toEqual(['__real__', 'pB']);
+        const opts = interactionPersonaOptions({ author: { kind: 'char', id: 'c1' } } as any, k, '__real__');
+        expect(opts).toEqual(['__real__', 'pB']);
+    });
+});
