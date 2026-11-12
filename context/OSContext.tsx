@@ -4203,6 +4203,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 刪掉的正好是目前生效的身份卡時，回落到真實身份，別讓 activePersonaId 懸空指向不存在的卡。
           activePersonaId: prev.activePersonaId === id ? undefined : prev.activePersonaId,
           ...(goneLinks.size ? { personaLinks: (prev.personaLinks || []).filter(l => !goneLinks.has(l.id)) } : {}),
+          // 群裡在場的身份拿掉這張（plans/persona-line-batch5.md）；整群只剩它的，解析時會回到自動
+          ...(Object.values(prev.groupPresence || {}).some(keys => keys.includes(id)) ? {
+              // 原本是旁觀（[]）的照留；拿掉之後變空的那群刪鍵，回到自動，不會默默變成旁觀
+              groupPresence: Object.fromEntries(Object.entries(prev.groupPresence || {}).flatMap(([g, keys]) => {
+                  const rest = keys.filter(k => k !== id);
+                  return rest.length || !keys.length ? [[g, rest]] : [];
+              })),
+          } : {}),
       }));
       if (goneLinks.size) {
           for (const c of charactersRef.current) {

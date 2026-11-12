@@ -243,7 +243,7 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
         try {
             const nameOf = (id: string) => characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '群友';
             const count = await refreshNpcMemoryFromGroups({
-                npc, groups: memoryGroups, nameOf, userName: userProfile.name, api, force: true,
+                npc, groups: memoryGroups, nameOf, userName: userProfile.name, profileBase: userProfileBase, characters, api, force: true,
                 save: patch => onChange(patch),
             });
             addToast(count > 0 ? `整理了 ${count} 個群的新對話` : '沒有新的群聊可以整理', count > 0 ? 'success' : 'info');

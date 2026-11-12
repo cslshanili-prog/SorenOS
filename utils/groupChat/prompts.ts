@@ -97,9 +97,13 @@ export function buildGroupHistoryBlock(
         useVisionDescriptions?: boolean;
         /** 用戶那一行怎麼稱呼：這則是用別的身份發的（群身份改過）→ 那張卡的名字；不給就是「用戶」 */
         userLabel?: (m: Message) => string;
+        /** 紅包領取者是你的哪張卡（'user:身份鍵'）→ 名字（關係線第 5 批） */
+        userClaimantName?: (id: string) => string | undefined;
     },
 ): GroupHistoryBlock {
-    const nameOf = (id: string) => (id === 'user' ? userName : characters.find(c => c.id === id)?.name || '成員');
+    const nameOf = (id: string) => (id === 'user' || id.startsWith('user:')
+        ? (options?.userClaimantName?.(id) || userName)
+        : characters.find(c => c.id === id)?.name || '成員');
     // 以前漏進群裡、被拆成一則一則氣泡的思考過程，整串認出來拿掉（見 reasoningLeak.ts）
     const leaked = leakedBubbleIds(msgs as any);
     if (leaked.size) msgs = msgs.filter(m => !leaked.has(m.id));
@@ -217,6 +221,22 @@ ${text}
 `;
 };
 
+/**
+ * 群裡好幾張身份卡同時在場（關係線第 5 批，plans/persona-line-batch5.md）：記錄裡的真人群友寫卡名，
+ * 每位成員照自己的角色檔案看認不認識。director/roundRobin 共用。
+ */
+export const buildMultiPresenceNote = (names: string[] | undefined): string => {
+    if (!names || names.length < 2) return '';
+    const list = names.map(n => `「${n}」`).join('');
+    return `### 【群裡有好幾位真人群友】
+- 記錄裡的${list}都是真人群友，是不同的人；下面規則說的「用戶」「U」，指的是他們每一位。
+- 每個角色照自己的角色檔案看：檔案裡寫了你認識誰，那就是你私聊、記憶、印象裡的那個人，關係照舊；檔案沒寫你認識的，就是群友，照群友的熟度相處。
+- 不要把對其中一位的稱呼、默契、私聊內容套到另一位身上；角色檔案裡寫了 TA 們之間關係的，照那個來。
+- 想私下對其中一位說話時寫 \`[[PRIVATE|名字: 內容]]\`，只能給你認識的那一位。
+
+`;
+};
+
 /** 導演模式一輪最多生成幾條消息的默認上限；下限固定 1，"少即是多"不受這個值影響。 */
 export const DEFAULT_MAX_ROUND_MESSAGES = 5;
 
@@ -231,7 +251,7 @@ const buildLeaveGroupNote = (): string => `
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string },
+    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[] },
 ): string {
     const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 導演任務指令 (Director Mode)】
@@ -240,7 +260,7 @@ export function buildDirectorInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(options?.plotDirection)}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
+${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
 請作為導演，接管所有角色，讓群聊**自然地流動起來**。
 
 ### 核心規則 (Strict Rules)
@@ -329,7 +349,7 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string },
+    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[] },
 ): string {
     const asNpc = !!options?.asNpc;
     const privateRule = asNpc
@@ -347,7 +367,7 @@ export function buildRoundRobinInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-${options?.userLurking ? buildLurkModeNote() : ''}${buildPlotDirectionNote(options?.plotDirection)}現在輪到你了。規則：
+${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}現在輪到你了。規則：
 
 1. 你只是群裡的一位普通成員，不是導演。只輸出**你自己**要發的消息內容——不要替任何人說話，不要在開頭加自己的名字或冒號前綴，不要解釋、不要輸出 JSON。如果此刻沒有自然的話可說，只輸出 \`[[SKIP]]\` 保持沉默；不要為了輪到自己就硬湊一句。
 2. 一行 = 一個氣泡。短句多發幾條 > 長句一坨；"嗯""哈哈哈"和單獨一個表情包都是合法回覆。

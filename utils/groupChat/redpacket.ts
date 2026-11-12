@@ -6,7 +6,7 @@ import { Message } from '../../types';
 export type PacketStatus = 'pending' | 'done' | 'returned' | 'expired';
 
 export interface PacketClaim {
-    /** 'user' 或成員 charId */
+    /** 'user:身份鍵'（舊資料是 'user'）或成員 charId */
     claimantId: string;
     amount: number;
     at: number;
@@ -20,7 +20,7 @@ export interface GroupPacketMeta {
     totalAmount: number;
     /** direct 恆為 1 */
     shares: number;
-    /** 僅 direct：charId 或 'user' */
+    /** 僅 direct：charId 或 'user:身份鍵'（舊資料是 'user'） */
     targetId?: string;
     note?: string;
     claims: PacketClaim[];
@@ -38,6 +38,34 @@ export interface PacketReceiptMeta {
     amount?: number;
     claimantName: string;
     senderName: string;
+}
+
+/**
+ * 你在群裡的領取者 id（關係線第 5 批）：在場的每張身份卡各算一個人，各能搶一次、專屬紅包能指定給其中一張。
+ * 錢只是裝飾，不分卡。舊資料裡的 'user' 算 legacyKey 那張（群裡現在的第一張）。
+ */
+export const userClaimantId = (personaKey: string): string => `user:${personaKey}`;
+
+export function isUserClaimant(id: string | undefined): boolean {
+    return id === 'user' || !!id?.startsWith('user:');
+}
+
+/** 領取者 id → 身份鍵；不是你回 undefined。 */
+export function claimantPersonaKey(id: string | undefined, legacyKey: string): string | undefined {
+    if (id === 'user') return legacyKey;
+    return id?.startsWith('user:') ? id.slice(5) : undefined;
+}
+
+/** 舊紅包裡的 'user'（領取紀錄、專屬目標）換成 legacyKey 那張卡的 id；沒有就原樣回傳。 */
+export function normalizeLegacyUserPacket(meta: GroupPacketMeta, legacyKey: string): GroupPacketMeta {
+    const legacy = userClaimantId(legacyKey);
+    const hasLegacy = meta.targetId === 'user' || meta.claims.some(c => c.claimantId === 'user');
+    if (!hasLegacy) return meta;
+    return {
+        ...meta,
+        ...(meta.targetId === 'user' ? { targetId: legacy } : {}),
+        claims: meta.claims.map(c => (c.claimantId === 'user' ? { ...c, claimantId: legacy } : c)),
+    };
 }
 
 export const PACKET_EXPIRY_MS = 24 * 60 * 60 * 1000;

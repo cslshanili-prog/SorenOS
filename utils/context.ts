@@ -596,6 +596,11 @@ export const ContextBuilder = {
         members: CharacterProfile[],
         user: UserProfile,
         worldbookMessages: WorldbookScanMessage[] = [],
+        /**
+         * 群裡在場的身份（關係線第 5 批）：presentUsers 兩位以上時每位各一份對外資料；
+         * userAbsent（旁觀）時不放用戶資料。都不給就照舊一份 user。
+         */
+        presence?: { presentUsers?: UserProfile[]; userAbsent?: boolean },
     ): {
         text: string;
         sharedWorldbookIds: Set<string>;
@@ -638,7 +643,22 @@ export const ContextBuilder = {
         let text = `[System: 群聊場景共享設定 (Group Scene)]\n`;
         text += `（以下是群裡所有角色都共同感知到的"舞台"——用戶是誰、共有的世界設定。每位角色的個人卡、印象、記憶等仍在各自的"角色檔案"塊中保持完整。）\n\n`;
 
-        text += formatUserProfileBlock(user);
+        if (presence?.userAbsent) {
+            text += `### 互動對象 (User)\n（這一輪群裡沒有用戶在場。）\n\n`;
+        } else if ((presence?.presentUsers?.length || 0) >= 2) {
+            const users = presence!.presentUsers!;
+            text += `### 群裡的真人成員（共 ${users.length} 位，是不同的人）\n`;
+            for (const u of users) {
+                text += `#### 「${u.name}」\n`;
+                if (u.gender) text += `- 性別: ${u.gender}\n`;
+                text += `- 設定/備註: ${u.bio || '無'}\n`;
+                if (u.customSetting?.trim()) text += `- 自定義設定: ${u.customSetting.trim()}\n`;
+                if (u.otherDetails?.trim()) text += `- 其他補充: ${u.otherDetails.trim()}\n`;
+            }
+            text += `\n`;
+        } else {
+            text += formatUserProfileBlock(user);
+        }
 
         if (worldviewIsShared) {
             text += `### 共有世界觀 (Shared World Settings)\n${members[0].worldview!.trim()}\n\n`;

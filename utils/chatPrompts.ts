@@ -9,6 +9,9 @@ import { ContextBuilder } from './context';
 import { DB } from './db';
 import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
 import { personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './userPersona';
+import { memberVisibleGroupMessages, presentPersonaKeys } from './groupChat/presence';
+import { knowsPersona } from './chatLine';
+import { sameIdentityKeys } from './personaLinks';
 import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -471,14 +474,21 @@ export const ChatPrompts = {
                 const personaBase = await DB.getUserProfile().catch(() => null);
                 const charPersonaKey = personaBase ? personaKeyForChar(personaBase, char) : undefined;
                 const perGroup = await Promise.all(
-                    memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => ({
-                        groupName: g.name,
-                        groupPersonaKey: personaBase ? personaKeyForGroup(personaBase, g, getCharRefs()) : undefined,
-                        cap: g.privateContextCap ?? 80,
-                        // 已經進入公共話題盒的舊原文不再重複塞進私聊背景；成盒時送達的
-                        // group_topic_card 會沿私聊自身的歷史/歸檔鏈繼續被角色感知。
-                        msgs: msgs.filter(m => m.id > (g.archivedThroughMessageId || 0)),
-                    })))
+                    memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => {
+                        // 在場的身份（關係線第 5 批）：旁觀中你說的話它都看不到；在場時也藏旁觀那陣子打的
+                        const present = personaBase ? presentPersonaKeys(personaBase, g, getCharRefs()) : undefined;
+                        return {
+                            groupName: g.name,
+                            groupPersonaKey: personaBase ? (present?.[0] ?? personaKeyForGroup(personaBase, g, getCharRefs())) : undefined,
+                            cap: g.privateContextCap ?? 80,
+                            // 已經進入公共話題盒的舊原文不再重複塞進私聊背景；成盒時送達的
+                            // group_topic_card 會沿私聊自身的歷史/歸檔鏈繼續被角色感知。
+                            msgs: memberVisibleGroupMessages(
+                                msgs.filter(m => m.id > (g.archivedThroughMessageId || 0)),
+                                !!present && present.length === 0,
+                            ),
+                        };
+                    }))
                 );
                 const allGroupMsgs: (Message & { groupName: string; groupPersonaKey?: string })[] = [];
                 for (const { groupName, groupPersonaKey, cap, msgs } of perGroup) {
@@ -491,11 +501,16 @@ export const ChatPrompts = {
                 // 甚至認不出自己的發言，私聊被問起群裡的事就接不住。
                 // 你說的話標那則訊息當時的群身份（沒記就用群現在的身份）；跟這個角色認識的不同就記下來，後面加提醒
                 const otherPersonaNames: string[] = [];
+                // 它也認識的其他卡（另一條線上的人）不算「不知道關係的別人」；知道是同一個人的小號什麼都不用提
+                const knownOtherNames: string[] = [];
+                const sameIdentity = personaBase && charPersonaKey ? new Set(sameIdentityKeys(char, personaBase, charPersonaKey)) : new Set<string>();
                 const speakerOf = (m: Message & { groupPersonaKey?: string }): string => {
                     if (m.role === 'user') {
                         const key = (m.metadata?.personaKey as string | undefined) || m.groupPersonaKey;
                         const name = userSpeakerName(personaBase, key, userProfile.name);
-                        if (key && charPersonaKey && key !== charPersonaKey) otherPersonaNames.push(name);
+                        if (key && charPersonaKey && key !== charPersonaKey && !sameIdentity.has(key)) {
+                            (knowsPersona(char, key) ? knownOtherNames : otherPersonaNames).push(name);
+                        }
                         return name;
                     }
                     if (m.charId === char.id) return `你（${char.name}）`;
@@ -512,7 +527,11 @@ export const ChatPrompts = {
                     const relativeAge = forFirePack ? '' : ` · ${formatRelativeAge(m.timestamp)}`;
                     return `[${dateStr}${relativeAge}] [群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
                 }).join('\n');
-                const personaNote = distinctPersonaNote(otherPersonaNames, userProfile.name, '群裡');
+                const knownOthers = [...new Set(knownOtherNames)].map(n => `「${n}」`).join('、');
+                const personaNote = [
+                    distinctPersonaNote(otherPersonaNames, userProfile.name, '群裡'),
+                    knownOthers ? `（群裡的${knownOthers}是你也認識的人，你們私下另有一段關係；TA 跟正在跟你私聊的「${userProfile.name}」是不同的人，別把兩邊的話和默契混在一起。）` : '',
+                ].filter(Boolean).join('\n');
                 return `\n### 【群聊背景 · 你親歷的近期群聊】
 （以下是你所在群裡最近的真實聊天記錄，按時間排序，發言人已標註；標「你」的就是你自己說的話。這些事你都親身經歷、記得清楚——私聊裡對方問起或話題相關時，自然地接上就好，不要裝作不知道；也不必刻意逐條彙報群裡的動靜。）${personaNote ? `\n${personaNote}` : ''}
 ${groupLogStr}\n`;

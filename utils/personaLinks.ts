@@ -119,3 +119,34 @@ export function formatPersonaLinksBlock(
     const current = lineViewPersonaKey(char) || char.primaryPersonaKey || '';
     return `### [關於「${personaNameForKey(profileBase, current)}」的其他身份與關係]\n${lines.map(l => `- ${l}`).join('\n')}\n\n`;
 }
+
+/**
+ * 群裡好幾張卡同時在場（plans/persona-line-batch5.md）：在場兩張之間的連結，照這位成員知道的說。
+ * - 同一世界：它認識其中一張就說兩人的關係（沒填稱呼就說「同一個世界的人、互相認識」）。
+ * - 小號：它知道是同一個人才說；不知道就是兩個群友，什麼都不提。
+ */
+export function presentLinkLines(
+    char: LinkChar,
+    profileBase: UserProfile,
+    present: string[],
+): string[] {
+    const name = (key: string) => personaNameForKey(profileBase, key);
+    const lines: string[] = [];
+    for (const link of profileBase.personaLinks || []) {
+        if (!present.includes(link.a) || !present.includes(link.b)) continue;
+        const a = name(link.a);
+        const b = name(link.b);
+        if (link.kind === 'sameWorld') {
+            if (!knowsPersona(char, link.a) && !knowsPersona(char, link.b)) continue;
+            const rel = link.aToB
+                ? `在場的「${a}」是「${b}」的${link.aToB}${link.bToA ? `，「${b}」是「${a}」的${link.bToA}` : ''}。`
+                : `在場的「${a}」跟「${b}」是同一個世界的人，互相認識。`;
+            lines.push(`${rel}TA 們是不同的人。`);
+            continue;
+        }
+        if (knowsSameIdentity(char, link)) {
+            lines.push(`在場的「${a}」和「${b}」其實是同一個人的兩個身份，你知道這件事。群裡其他人不一定知道，要不要點破看你們之間的默契。`);
+        }
+    }
+    return lines;
+}

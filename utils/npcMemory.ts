@@ -46,10 +46,11 @@ export function formatGroupTranscriptForNpc(
     msgs: Message[],
     npcId: string,
     nameOf: (id: string) => string,
-    userName: string,
+    /** 你那一行的名字；給函式就照每則訊息當時用的身份卡寫（群裡好幾張卡在場時） */
+    userName: string | ((m: Message) => string),
 ): string {
     return msgs.map(m => {
-        const speaker = m.role === 'user' ? userName : m.charId === npcId ? '我' : nameOf(m.charId);
+        const speaker = m.role === 'user' ? (typeof userName === 'function' ? userName(m) : userName) : m.charId === npcId ? '我' : nameOf(m.charId);
         return `${speaker}: ${messageLogText(m).slice(0, 200)}`;
     }).join('\n');
 }

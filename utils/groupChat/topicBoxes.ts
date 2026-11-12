@@ -52,9 +52,11 @@ export function buildGroupTopicPrompt(
     userName: string,
     /** 群裡的 NPC 成員（只要名字；NPC 說的話在記錄裡要有名字，不能變成「未知成員」） */
     npcSpeakers: Array<{ id: string; name: string }> = [],
+    /** 你那一行照訊息上記的身份卡寫名字（關係線第 5 批）；不給就一律 userName */
+    userNameOf?: (m: Message) => string,
 ): string {
     const nameOf = (m: Message) => m.role === 'user'
-        ? userName
+        ? (userNameOf ? userNameOf(m) : userName)
         : (characters.find(c => c.id === m.charId)?.name || npcSpeakers.find(n => n.id === m.charId)?.name || '未知成員');
     const participants = [
         ...group.members.map(id => characters.find(c => c.id === id)?.name),
@@ -73,7 +75,7 @@ export function buildGroupTopicPrompt(
 
 群名：${group.name}
 成員：${participants}
-用戶：${userName}
+用戶：${userNameOf ? [...new Set(batch.filter(m => m.role === 'user').map(userNameOf))].join('、') || userName : userName}${userNameOf && new Set(batch.filter(m => m.role === 'user').map(userNameOf)).size > 1 ? '（是不同的人）' : ''}
 
 ## 全體成員資料
 這些資料只用於準確理解每個人的身份、關係和說話含義；總結仍必須保持群體共享的客觀視角。
