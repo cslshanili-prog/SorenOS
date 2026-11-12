@@ -109,7 +109,7 @@ role: 'assistant'
   - 純邏輯在 `utils/castRole.ts`（`isSupporting`、`isBenched`、`isOnStage`、`sortByCast`）。
   - 下戲擋在：主動消息 1.0（`runProactive` 主動那種，延遲回覆你的訊息照回）、主動消息 2.0（自己排程、到點的定時任務在收件那裡不收）、本機定時消息、日程與情緒（`isScheduleFeatureOn`）、朋友圈自動發文／按讚／留言、彼方自己跑（手動照常）。
   - 下戲時把主線排著的雲端任務先停下留底，叫回來照原樣排回去：跟見面「線下故事關閉線上功能」共用同一份留底（`dateOfflinePause`）和判斷（`isOnlinePaused`），OSContext 的 `setCharBenched`。
-  - 神經鏈接：預覽開著時分「主角／配角」兩頁（舊 NPC 分頁在搬家前還在），配角頁新建的就是配角；編輯頁「戲份」一區切主角／配角、下戲／叫回來，列表卡片標「下戲中」。編輯頁自動存檔不再整份寫回 `benchedAt`、`dateOfflinePause`、`activeMsg2Config`（別處在寫的，舊的會蓋掉剛停下的任務）。
+  - 神經鏈接：預覽開著時分「主角／配角」兩頁（舊 NPC 分頁在搬家前還在），配角頁新建的就是配角；編輯頁「戲份」一區「提升為主角」／「改成配角」（只換戲份，記憶、聊天、設定都不動）、下戲／叫回來，列表卡片標「下戲中」。編輯頁自動存檔不再整份寫回 `benchedAt`、`dateOfflinePause`、`activeMsg2Config`（別處在寫的，舊的會蓋掉剛停下的任務）。
   - 選角的地方都走 `filterCharactersByGroup`，順手照戲份排：主角、配角、下戲的。
   - 節日活動是你自己挑角色開的，下戲的配角照樣選得到，不另外擋。
 - **6b 搬家 — 已做**：NPC → 配角、群成員併入、查手機聯繫人、朋友圈作者、劇情劇場的客串。

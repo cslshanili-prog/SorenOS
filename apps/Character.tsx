@@ -1550,16 +1550,19 @@ ${isInitialGeneration ? `
                                <div>
                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">戲份</label>
                                    <div className="flex gap-2 items-center flex-wrap">
-                                       {(['lead', 'supporting'] as const).map(role => {
-                                           const on = (formData.castRole === 'supporting' ? 'supporting' : 'lead') === role;
-                                           return (
-                                               <button key={role} onClick={() => handleChange('castRole', role === 'lead' ? undefined : 'supporting')}
-                                                   aria-pressed={on}
-                                                   className={`px-4 py-2 rounded-2xl text-xs font-bold shadow-sm transition-colors ${on ? 'bg-violet-500 text-white' : 'bg-white text-slate-500'}`}>
-                                                   {role === 'lead' ? '主角' : '配角'}
-                                               </button>
-                                           );
-                                       })}
+                                       <span className={`px-3 py-2 rounded-2xl text-xs font-bold ${formData.castRole === 'supporting' ? 'bg-violet-100 text-violet-600' : 'bg-violet-500 text-white'}`}>
+                                           {formData.castRole === 'supporting' ? '配角' : '主角'}
+                                       </span>
+                                       {/* 配角升主角（劇情需要時）、主角退成配角：只換戲份，記憶、聊天、設定都不動 */}
+                                       <button
+                                           onClick={() => {
+                                               const promote = formData.castRole === 'supporting';
+                                               handleChange('castRole', promote ? undefined : 'supporting');
+                                               addToast(promote ? `${formData.name} 升為主角了，在「主角」那頁` : `${formData.name} 改成配角了，在「配角」那頁`, 'success');
+                                           }}
+                                           className="px-4 py-2 rounded-2xl text-xs font-bold shadow-sm bg-white text-violet-600 active:scale-95 transition-transform">
+                                           {formData.castRole === 'supporting' ? '提升為主角' : '改成配角'}
+                                       </button>
                                        <button
                                            onClick={async () => {
                                                const latest = characters.find(c => c.id === formData.id);
@@ -1574,7 +1577,7 @@ ${isInitialGeneration ? `
                                    <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
                                        {characters.find(c => c.id === formData.id)?.benchedAt
                                            ? '下戲中：主動消息、日程、情緒、自動發朋友圈都停著，你找它照常能聊。叫回來就恢復。'
-                                           : '配角在神經鏈接裡另外一頁，主動消息預設關。下戲會停掉它自己跑的東西（主動消息、日程、情緒、自動發朋友圈），記憶和紀錄都留著。'}
+                                           : '配角在神經鏈接裡另外一頁，主動消息預設關。提升為主角或改成配角只換戲份，記憶、聊天、設定都不動。下戲會停掉它自己跑的東西（主動消息、日程、情緒、自動發朋友圈），記憶和紀錄都留著。'}
                                    </p>
                                </div>
                            )}
