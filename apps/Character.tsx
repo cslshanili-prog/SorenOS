@@ -14,6 +14,7 @@ import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
 import NPCManagerView from '../components/character/NPCManagerView';
 import { isSupporting, sortByCast } from '../utils/castRole';
+import CastGeneratorPage from '../components/character/CastGeneratorPage';
 import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
@@ -114,6 +115,7 @@ const Character: React.FC = () => {
   // 不共用下面這套角色專用的 view/formData 狀態機。
   const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
   // 關係線預覽開著：主角／配角分開列（配角是同一張表的角色，plans/persona-line-batch6.md）；關著照舊全列
+  const [showCastGenerator, setShowCastGenerator] = useState(false);
   const listChars = personaLinesEnabled
       ? sortByCast(characters.filter(c => (topTab === 'supporting') === isSupporting(c)))
       : characters;
@@ -1328,6 +1330,20 @@ ${isInitialGeneration ? `
                        NPC{npcs.length > 0 ? ` (${npcs.length})` : ''}
                    </button>}
                </div>
+               {personaLinesEnabled && topTab === 'supporting' && (
+                   <div className="px-5 pb-3 shrink-0">
+                       <button onClick={() => setShowCastGenerator(true)}
+                           className="w-full py-3 rounded-2xl bg-white/80 border border-violet-200 text-violet-600 text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.99] transition-transform shadow-sm">
+                           ✦ AI 生成配角
+                       </button>
+                   </div>
+               )}
+               {showCastGenerator && (
+                   <CastGeneratorPage
+                       onClose={() => setShowCastGenerator(false)}
+                       onCreated={n => { setShowCastGenerator(false); addToast(`建好 ${n} 個配角了`, 'success'); }}
+                   />
+               )}
                <div className="flex-1 overflow-y-auto px-5 pb-20 no-scrollbar flex flex-col gap-3">
                    {(() => {
                        // 建過分組 → 按組摺疊展開（不再分頁，分組本身就把列表變短了）；

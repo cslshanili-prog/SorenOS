@@ -382,6 +382,8 @@ interface OSContextType {
    * 叫回來（而且沒在線下故事裡）照原樣排回去。主角也能下戲，同一套。
    */
   setCharBenched: (id: string, benched: boolean) => Promise<void>;
+  /** 一次加好幾個已經組好的角色（AI 生成配角用）：不切換正在聊的角色 */
+  addCharacters: (chars: CharacterProfile[]) => Promise<void>;
 
   /** NPC 檔案（神經鏈接「NPC」分頁）。獨立於 characters，不參與日程/情緒/主動消息/記憶宮殿。 */
   npcs: NPCProfile[];
@@ -3819,6 +3821,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // updateCharacter，免得打髒雲端快照時用到第一次渲染時的舊 userProfile。
   const updateCharacterRef = useRef(updateCharacter);
 
+  const addCharacters = async (chars: CharacterProfile[]) => {
+      if (!chars.length) return;
+      for (const c of chars) await DB.saveCharacter(c);
+      setCharacters(prev => [...prev, ...chars.filter(c => !prev.some(p => p.id === c.id))]);
+  };
+
   const setCharBenched = async (id: string, benched: boolean) => {
       const char = charactersRef.current.find(c => c.id === id);
       if (!char || !!char.benchedAt === benched) return;
@@ -6198,6 +6206,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     updateLine,
     deleteCharacter,
     setCharBenched,
+    addCharacters,
     setActiveCharacterId,
     npcs,
     addNPC,
