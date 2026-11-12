@@ -3195,6 +3195,11 @@ export interface CharacterProfile {
    * 沒有這兩個欄位的舊角色，讀取時用 personaKeyForChar 補（utils/chatLine.ts 的 withLineFields）。
    */
   knownPersonaKeys?: string[];
+  /**
+   * 主動消息 1.0 在**非主線**上開沒開（存在 lines[personaKey]）。新線預設關；其餘設定（頻率、睡覺不發…）
+   * 照 proactiveConfig。主線的開關仍是 proactiveConfig.enabled。見 plans/persona-line-batch3.md。
+   */
+  proactiveLineEnabled?: boolean;
   /** 主線：角色升級前那條線的身份鍵。沒標身份的舊資料（訊息、記憶）都算這條。 */
   primaryPersonaKey?: string;
   /** 主線以外各條線的關係欄位（身份鍵 → 那條線的值）；主線用頂層欄位。欄位清單在 utils/chatLine.ts。 */
@@ -4953,7 +4958,7 @@ export type LineStateField =
     | 'acquaintanceStartDate' | 'savedDateState' | 'activeDateStoryId' | 'dateNextStoryTime' | 'dateScenario'
     | 'dateOfflinePause' | 'chatBlock' | 'chatBlockLog' | 'charBlockCooldown' | 'specialMomentRecords'
     | 'affinities' | 'contextUserStartMessageId' | 'hideBeforeMessageId' | 'refinedMemories' | 'activeMemoryMonths'
-    | 'memoryPalaceInjection' | 'roomPlatesInjection';
+    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled';
 /** 聊天設定：這條線沒設就照主線。 */
 export type LineSettingField =
     | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'chatFineTune'

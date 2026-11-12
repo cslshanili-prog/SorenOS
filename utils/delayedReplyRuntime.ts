@@ -1,5 +1,5 @@
 import type { CharacterProfile, Message } from '../types';
-import { lineArgOf } from './chatLine';
+import { lineArgOf, lineOf, lineScheduleId } from './chatLine';
 import { DB } from './db';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { getScheduleWallClock } from './scheduleTime';
@@ -19,7 +19,9 @@ const RECENTLY_ACTIVE_MS = 10 * 60 * 1000;
  */
 export async function scheduleDelayedReplyFor(char: CharacterProfile, recentMessages?: Message[]): Promise<PendingDelayedReply | null> {
     if (!char.delayedReply?.enabled) return null;
-    const existing = getPendingDelayedReply(char.id);
+    // 關係線：待回清單按線記（非主線用 lineScheduleId），到點由 OSContext 拆回是哪條線
+    const replyId = lineScheduleId(lineOf(char));
+    const existing = getPendingDelayedReply(replyId);
     if (existing) return existing;
     const schedule = await getDailyScheduleForChar(char).catch(() => null);
     const slot = getCurrentSlot(schedule, getScheduleWallClock(char));
@@ -28,7 +30,7 @@ export async function scheduleDelayedReplyFor(char: CharacterProfile, recentMess
     const lastAssistant = [...recent].reverse().find(m => m.role === 'assistant');
     const recentlyActive = !!lastAssistant && Date.now() - lastAssistant.timestamp < RECENTLY_ACTIVE_MS;
     const delayMs = computeReplyDelayMs(char.delayedReply, { slotKind, recentlyActive });
-    const entry = scheduleDelayedReply(char.id, delayMs);
+    const entry = scheduleDelayedReply(replyId, delayMs);
     // 開發面板「延遲回覆」：之後有「怎麼又壓線」的反饋，一看就知道是判斷的問題還是剛好抽到尾巴
     const { minMinutes, maxMinutes } = normalizeDelayedReply(char.delayedReply);
     const [lo, hi] = replyDelayBand({ slotKind, recentlyActive });

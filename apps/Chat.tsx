@@ -1,5 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
-import { lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
+import { isPrimaryLine, lineArgOf, lineKey, lineMsgFields, lineOf, lineScheduleId, lineView } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -329,6 +329,13 @@ const Chat: React.FC = () => {
     const chatLineArgRef = useRef(chatLineArg);
     chatLineArgRef.current = chatLineArg;
     const chatLineId = char ? lineKey(lineOf(char)) : activeCharacterId;
+    const chatLineScheduleIdRef = useRef(activeCharacterId);
+    chatLineScheduleIdRef.current = char ? lineScheduleId(lineOf(char)) : activeCharacterId;
+    // 主動消息設定面板看到的角色卡：非主線的「開著沒」換成這條線自己的開關
+    const proactiveChar = useMemo(() => {
+        if (!char || isPrimaryLine(lineOf(char)) || !char.proactiveConfig) return char;
+        return { ...char, proactiveConfig: { ...char.proactiveConfig, enabled: !!char.proactiveLineEnabled } };
+    }, [char]);
     // 關係線預覽開著時，你在任何時候都是某一個人：打開的角色不認識現在這張卡（從通知、神經鏈接進來），
     // 就切成它主線那張卡，跳一句提示。
     useEffect(() => {
@@ -1168,8 +1175,9 @@ const Chat: React.FC = () => {
     const manualTriggerRef = useRef<() => void>(() => {});
     useEffect(() => {
         const onDue = (event: Event) => {
+            // 關係線：事件帶的是待回清單的鍵（主線＝charId，非主線＝lineScheduleId），要對上現在這條線
             const charId = (event as CustomEvent<{ charId: string }>).detail?.charId;
-            if (charId && charId === activeCharIdRef.current) manualTriggerRef.current();
+            if (charId && charId === chatLineScheduleIdRef.current) manualTriggerRef.current();
         };
         window.addEventListener(DELAYED_REPLY_DUE_EVENT, onDue);
         return () => window.removeEventListener(DELAYED_REPLY_DUE_EVENT, onDue);
@@ -1871,7 +1879,7 @@ const Chat: React.FC = () => {
             }),
             metadata: { proactiveHint: true, hidden: true },
         });
-        ProactiveChat.markFired(char.id);
+        ProactiveChat.markFired(lineScheduleId(lineOf(char)));
         triggerAI(messages, undefined, { nudge: true });
     };
 
@@ -2583,7 +2591,7 @@ const Chat: React.FC = () => {
             const patch = startChatBlock(char, 'user', now);
             if (!patch) return;
             autoReply.cancel();
-            cancelDelayedReplyEverywhere(char.id);
+            cancelDelayedReplyEverywhere(lineScheduleId(lineOf(char)));
             await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: blockNotes.userBlocked(userName, char.name) });
             updateCharacter(char.id, patch);
             addToast(`已拉黑 ${char.chatNickname?.trim() || char.name}`, 'info');
@@ -2663,7 +2671,7 @@ const Chat: React.FC = () => {
             ...(pagePatch || {}),
         } as any);
         // 關掉延遲自動回覆：排著的那筆（連同交給雲端的）一起作廢，不然到點還是會回
-        if (pagePatch?.delayedReply && !pagePatch.delayedReply.enabled) cancelDelayedReplyEverywhere(char.id);
+        if (pagePatch?.delayedReply && !pagePatch.delayedReply.enabled) cancelDelayedReplyEverywhere(lineScheduleId(lineOf(char)));
         setInputPreferences(settingsInputPreferences);
         saveChatInputPreferences(settingsInputPreferences);
         setModalType('none');
@@ -4808,11 +4816,20 @@ const Chat: React.FC = () => {
                 <ProactiveSettingsModal
                     isOpen={showProactiveModal}
                     onClose={() => setShowProactiveModal(false)}
-                    char={char}
+                    // 關係線：非主線的開關是這條線自己的（新線預設關），其餘設定照主線
+                    char={proactiveChar}
+                    lineScheduleId={lineScheduleId(lineOf(char))}
                     isProactiveActive={isProactiveActive}
                     apiPresets={apiPresets}
                     onSave={(config) => {
-                        updateCharacter(char.id, { proactiveConfig: config });
+                        if (isPrimaryLine(lineOf(char))) {
+                            updateCharacter(char.id, { proactiveConfig: config });
+                        } else {
+                            updateCharacter(char.id, {
+                                proactiveConfig: { ...config, enabled: !!rawChar?.proactiveConfig?.enabled },
+                                proactiveLineEnabled: config.enabled,
+                            });
+                        }
                         if (config.enabled) {
                             startProactiveChat(config.intervalMinutes, config.maxIntervalMinutes);
                             // 界面是拉桿（44 個刻度），統計只分舊的 7 個檔位，其餘歸 custom；導入的備份、
@@ -4834,7 +4851,8 @@ const Chat: React.FC = () => {
                     }}
                     onStop={() => {
                         stopProactiveChat();
-                        updateCharacter(char.id, { proactiveConfig: { ...char.proactiveConfig!, enabled: false } });
+                        if (isPrimaryLine(lineOf(char))) updateCharacter(char.id, { proactiveConfig: { ...char.proactiveConfig!, enabled: false } });
+                        else updateCharacter(char.id, { proactiveLineEnabled: false });
                         addToast('已停止主動消息', 'info');
                     }}
                 />

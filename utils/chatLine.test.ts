@@ -142,3 +142,14 @@ describe('lineArgOf / lineOf / lineMsgFields', () => {
         expect(lineMsgFields(v)).toEqual({ charId: 'c1', personaKey: 'p2' });
     });
 });
+
+describe('lineScheduleId', () => {
+    it('主線就是 charId，非主線可以拆回來', async () => {
+        const { lineScheduleId, parseLineScheduleId } = await import('./chatLine');
+        expect(lineScheduleId({ charId: 'c1' })).toBe('c1');
+        expect(parseLineScheduleId('c1')).toEqual({ charId: 'c1' });
+        const id = lineScheduleId({ charId: 'c1', personaKey: 'p_123' });
+        expect(id).toBe('c1~line~p_123');
+        expect(parseLineScheduleId(id)).toEqual({ charId: 'c1', personaKey: 'p_123' });
+    });
+});

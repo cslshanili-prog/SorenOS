@@ -17,7 +17,7 @@ export const LINE_STATE_FIELDS = [
     'acquaintanceStartDate', 'savedDateState', 'activeDateStoryId', 'dateNextStoryTime', 'dateScenario',
     'dateOfflinePause', 'chatBlock', 'chatBlockLog', 'charBlockCooldown', 'specialMomentRecords',
     'affinities', 'contextUserStartMessageId', 'hideBeforeMessageId', 'refinedMemories', 'activeMemoryMonths',
-    'memoryPalaceInjection', 'roomPlatesInjection',
+    'memoryPalaceInjection', 'roomPlatesInjection', 'proactiveLineEnabled',
 ] as const satisfies readonly LineStateField[];
 
 export const LINE_SETTING_FIELDS = [
@@ -168,4 +168,22 @@ export function lineMsgFields(char: Pick<CharacterProfile, 'id'>): { charId: str
 export function knowsPersona(char: Pick<CharacterProfile, 'knownPersonaKeys' | 'primaryPersonaKey'>, personaKey: string): boolean {
     const known = char.knownPersonaKeys?.length ? char.knownPersonaKeys : (char.primaryPersonaKey ? [char.primaryPersonaKey] : []);
     return known.includes(personaKey);
+}
+
+/**
+ * 排程用的線 id：主線就是 charId（跟舊資料一樣），非主線是 `${charId}~line~${personaKey}`。
+ * 主動消息 1.0 的排程器、雲端主動消息都只認一個字串 id，非主線就當成另一個 id 排，
+ * 到點時用 parseLineScheduleId 拆回是哪條線。不用 '::'（lineKey 的分隔），免得跟雲端命名空間的冒號混在一起。
+ */
+export const LINE_SCHEDULE_SEPARATOR = '~line~';
+
+export function lineScheduleId(line: ChatLine): string {
+    return line.personaKey ? `${line.charId}${LINE_SCHEDULE_SEPARATOR}${line.personaKey}` : line.charId;
+}
+
+export function parseLineScheduleId(id: string): ChatLine {
+    const at = id.indexOf(LINE_SCHEDULE_SEPARATOR);
+    if (at <= 0) return { charId: id };
+    const personaKey = id.slice(at + LINE_SCHEDULE_SEPARATOR.length);
+    return personaKey ? { charId: id.slice(0, at), personaKey } : { charId: id.slice(0, at) };
 }
