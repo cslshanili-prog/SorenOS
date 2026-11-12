@@ -21,6 +21,7 @@ import {
     Lightning, NotePencil, PaperPlaneTilt, EyeSlash,
 } from '@phosphor-icons/react';
 import { DB } from '../utils/db';
+import { lineMsgFields, lineView } from '../utils/chatLine';
 import { getChibi } from '../utils/vrWorld/chibi';
 import TokenImg from '../components/os/TokenImg';
 import { WorldScheduler, toTickEntries } from '../utils/worldHome/scheduler';
@@ -248,6 +249,7 @@ const PhoneModal: React.FC<{
 }> = ({ ownerId, world, episodes, members, initialTab, onClose, onEditContent }) => {
     const [tab, setTab] = useState<'feed' | 'dm' | 'group' | 'memo'>(initialTab || 'feed');
     const owner = members.find(m => m.id === ownerId);
+    const { activeLineFor } = useOS();
     const ownerName = owner?.name || '?';
     const avatar = owner?.avatar;
     const dmThreads = dmThreadsOf(world, ownerId);
@@ -320,7 +322,8 @@ const PhoneModal: React.FC<{
     const [sharedKeys, setSharedKeys] = useState<Set<string>>(new Set());
     const shareToChat = async (key: string, text: string) => {
         try {
-            await DB.saveMessage({ charId: ownerId, role: 'assistant', type: 'text', content: `【家園 · ${world.name}】${ownerName} 發了條動態：\n${text}` });
+            // 關係線：是你現在轉過去的，落在「現在的我」那條線
+            await DB.saveMessage({ ...(owner ? lineMsgFields(lineView(owner, activeLineFor(owner))) : { charId: ownerId }), role: 'assistant', type: 'text', content: `【家園 · ${world.name}】${ownerName} 發了條動態：\n${text}` });
             setSharedKeys(prev => new Set(prev).add(key));
             trackEvent('转发角色动态到聊天');
         } catch { /* ignore */ }

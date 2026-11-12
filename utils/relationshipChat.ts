@@ -1,5 +1,7 @@
 import { stripLeakedReasoning } from './reasoningLeak';
 import { loadCharacterContextMessages } from './chatContextRange';
+import { lineArgOf } from './chatLine';
+import type { ChatLine } from '../types';
 // 人際關係系統 · 核心引擎
 // 查手機「人際關係」模塊的純邏輯 + LLM 鏈路：真假甄別、好感、雙 LLM 私下對話（A 發 B 回）、AI 玩 AI。
 // UI 層（CheckPhone.tsx）負責把這裡的結果落庫 / 鏡像到對方角色，本文件只產數據，不碰 React。
@@ -297,12 +299,13 @@ async function buildSpeakerContext(
         /* 記憶宮殿失敗不阻塞對話 */
     }
     // 讓角色在和聯繫人對話時，也意識到「距離上次和用戶聯繫多久了」（統一走 buildCoreContext）
-    const lastInteractionTs = await lastUserInteractionTs(speaker.id);
+    // 關係線：speaker 可能是線視圖，讀那條線的最後一則
+    const lastInteractionTs = await lastUserInteractionTs(lineArgOf(speaker));
     return ContextBuilder.buildCoreContext(speaker, user, true, undefined, undefined, { lastInteractionTs });
 }
 
 /** 取該角色與用戶最後一次互動的時間戳（最近一條消息）。失敗/無消息返回 undefined。 */
-async function lastUserInteractionTs(charId: string): Promise<number | undefined> {
+async function lastUserInteractionTs(charId: string | ChatLine): Promise<number | undefined> {
     try {
         const recent = await DB.getRecentMessagesByCharId(charId, 1);
         return recent[recent.length - 1]?.timestamp;
