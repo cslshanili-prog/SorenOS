@@ -1,5 +1,6 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { lineArgOf, lineMsgFields, lineView } from '../utils/chatLine';
+import LinePersonaPicker from '../components/user/LinePersonaPicker';
 
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -1778,6 +1779,10 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
                             {homeTab === 'pixelHome' ? '像素風的家——自由裝修、佈置房間、潛入記憶。' : '走進誰的房間，看看 ta 此刻在做什麼、翻翻屋裡的小物件。'}
                         </p>
 
+                        {/* 關係線：用哪張卡去串門（「你來訪」記在那條線） */}
+                        <div className="relative z-20 flex justify-center mt-3">
+                            <LinePersonaPicker characters={rawCharacters} dark={dark} />
+                        </div>
                         {/* 分組篩選（沒建分組時不渲染）：像素家園=深色底，其餘淺色 */}
                         <CharacterGroupFilterBar characters={characters} groups={characterGroups} dark={dark}
                             value={visitGroupId} onChange={setVisitGroupId} className="relative z-10 px-5 mt-3 shrink-0" />

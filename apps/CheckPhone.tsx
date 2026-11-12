@@ -26,6 +26,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
 import { personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { lineFor, lineMsgFields, linePersonaKey, lineView } from '../utils/chatLine';
+import LinePersonaPicker from '../components/user/LinePersonaPicker';
 import { ensureRealBalanceState } from '../utils/realBalance';
 import { computeNetWorth, formatMoneyDisplay } from '../utils/finance';
 import RealBalancePanel from '../components/bank/RealBalancePanel';
@@ -4035,6 +4036,10 @@ ${olderText}
                         <GearSix size={17} weight={phoneApiFollowsDefault ? 'regular' : 'fill'} />
                         {!phoneApiFollowsDefault && <span className="absolute right-1.5 bottom-1.5 h-1.5 w-1.5 rounded-full bg-violet-400 shadow-[0_0_6px_#a78bfa]" />}
                     </button>
+                </div>
+                {/* 關係線：用哪張卡去看。被 TA 發現（刪好友、拉黑）時，算是這張卡做的 */}
+                <div className="flex justify-center shrink-0 pb-2">
+                    <LinePersonaPicker characters={characters} dark accent="#a78bfa" />
                 </div>
                 {(() => {
                     const PER_PAGE = 6;
