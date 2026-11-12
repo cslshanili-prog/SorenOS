@@ -29,6 +29,8 @@ export interface GenerateImageOptions {
   feature?: ImageFeature;
   /** 畫的是哪個角色（看角色、世界的畫風；小號跟本人） */
   char?: Pick<CharacterProfile, 'groupId' | 'altOf' | 'imageGenCharConfig'> | null;
+  /** 這一次指定的 API（臨時下拉）：蓋過畫風偏好的那組；失敗一樣退回全域那組 */
+  apiId?: string;
   /** 畫面裡有沒有人（決定加不加畫風的人像段）；不給就看提示詞 */
   hasPerson?: boolean;
 }
@@ -263,7 +265,10 @@ export async function generateImage(
   });
   if (resolved.off) throw new Error('這裡的生圖在「設置 → 生圖API → 各處畫風」關掉了');
   const style = pickStyle(config, resolved.styleId);
-  const { preferred, global } = apiForStyle(config, style);
+  const picked = apiForStyle(config, style);
+  const global = picked.global;
+  const forced = options?.apiId ? config.apiPresets?.find(a => a.id === options.apiId) : undefined;
+  const preferred = forced ? (forced.id !== global?.id ? forced : undefined) : picked.preferred;
   const hasPerson = options?.hasPerson ?? looksLikeSelfieDescription(prompt);
   const run = (api: ImageApiTarget) => {
     const styled = applyStyleToPrompt(prompt, style, { hasPerson, negativeAsField: !!api.negativePromptField });

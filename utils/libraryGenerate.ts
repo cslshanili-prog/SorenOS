@@ -108,6 +108,8 @@ export const generateLibraryImage = async (input: {
     imageConfig: ImageGenApiConfig;
     /** 這一次的畫風（臨時下拉）；不給照「各處畫風」的資料庫那格、再跟全域 */
     styleId?: string;
+    /** 這一次的 API（臨時下拉）；不給照畫風偏好的那組／全域 */
+    apiId?: string;
 }): Promise<LibraryGenResult> => {
     const people = isPeopleKind(input.kind) ? input.subjects : [];
     const subjectError = isPeopleKind(input.kind) ? libraryGenSubjectError(input.kind, people.length) : null;
@@ -128,7 +130,7 @@ export const generateLibraryImage = async (input: {
         })),
     });
     const blobs = refs.filter((blob): blob is Blob => !!blob);
-    const result = await generateImage(input.imageConfig, prompt, blobs.length ? (blobs.length === 1 ? blobs[0] : blobs) : undefined, { feature: 'library', styleId: input.styleId, hasPerson: people.length > 0 });
+    const result = await generateImage(input.imageConfig, prompt, blobs.length ? (blobs.length === 1 ? blobs[0] : blobs) : undefined, { feature: 'library', styleId: input.styleId, apiId: input.apiId, hasPerson: people.length > 0 });
     const lockedCount = result.referenceUsed ? Math.min(blobs.length, result.referenceCount ?? 1) : 0;
     return {
         dataUrl: result.dataUrl,

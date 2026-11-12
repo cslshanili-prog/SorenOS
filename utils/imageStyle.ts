@@ -234,3 +234,13 @@ export function styleLabel(cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefi
     if (id === FEATURE_OFF) return '關閉';
     return cfg?.stylePresets?.find(s => s.id === id)?.name || fallback;
 }
+
+/** 「照設定」那個選項要寫的：不給這一次時，會用到哪一套（名字），哪一組 API */
+export function describeDefaultPick(cfg: ImageGenApiConfig | undefined, args: Omit<Parameters<typeof resolveImageStyle>[1], 'override'>): { styleName: string; apiName?: string; off: boolean } {
+    const r = resolveImageStyle(cfg, args);
+    if (r.off) return { styleName: '關閉', off: true };
+    const style = pickStyle(cfg, r.styleId);
+    const { preferred, global } = apiForStyle(cfg, style);
+    const api = preferred || global;
+    return { styleName: style?.name || '不套畫風', off: false, ...(api ? { apiName: api.name || api.model } : {}) };
+}

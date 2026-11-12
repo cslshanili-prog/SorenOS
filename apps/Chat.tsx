@@ -3040,7 +3040,7 @@ const Chat: React.FC = () => {
     // 畫面描述可重跑。複用當時存下的 imagePrompt，保證新圖還是同一個場景描述，不會圖文不符。
     // overrides 來自圖片預覽的「✎ 改提示詞」：改過的描述會存回 imagePrompt，之後 ⟳ 就照新的跑；
     // forceReference 是「這次一定帶參考圖」，跳過非自拍判斷。
-    const handleRegenerateImage = async (msg: Message, overrides?: { description?: string; forceReference?: boolean }) => {
+    const handleRegenerateImage = async (msg: Message, overrides?: { description?: string; forceReference?: boolean; styleId?: string; apiId?: string }) => {
         if (!char) return;
         const description = (overrides?.description ?? (typeof msg.metadata?.imagePrompt === 'string' ? msg.metadata.imagePrompt : '')).trim();
         if (!description) { addToast('這張圖片沒有可重新生成的描述', 'error'); return; }
@@ -3053,7 +3053,7 @@ const Chat: React.FC = () => {
         try {
             const prompt = buildCharacterImagePrompt(char, description);
             const referenceBlob = await resolveCharacterReferenceImage(char, { description, forceReference: overrides?.forceReference });
-            const result = await generateImage(imageGenConfig, prompt, referenceBlob || undefined, { feature: 'chatPhoto', char, hasPerson: looksLikeSelfieDescription(description) });
+            const result = await generateImage(imageGenConfig, prompt, referenceBlob || undefined, { feature: 'chatPhoto', char, hasPerson: looksLikeSelfieDescription(description), styleId: overrides?.styleId, apiId: overrides?.apiId });
             if (result.apiFallbackFrom) addToast(`「${result.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             const nextContent = await migrateDataUrlToRef(result.dataUrl);
             const oldContent = msg.content;
@@ -4210,6 +4210,7 @@ const Chat: React.FC = () => {
                 onToggleMessageFavorite={selectedMessage ? () => handleToggleContentFavorite(selectedMessage) : undefined}
                 onDownloadImage={handleDownloadImage}
                 onRegenerateImage={handleRegenerateImage}
+                imageGenConfig={apiConfig.imageGenConfig}
                 regeneratingImageId={regeneratingImageId}
                 onDeleteEmoji={handleDeleteEmoji} onDeleteCategory={handleDeleteCategory} onRenameCategory={handleRenameCategory} onDownloadCategory={handleDownloadCategory}
                 allCharacters={characters} onSaveCategoryVisibility={handleSaveCategoryVisibility}

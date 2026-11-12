@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ImageStylePicker, { EMPTY_PICK, pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
 import { isImageFeatureOff } from '../../utils/imageStyle';
 import { useOS } from '../../context/OSContext';
 import type { GalleryImage, LibraryAccess, LibraryGenKind } from '../../types';
@@ -43,6 +44,18 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void }> 
     const [description, setDescription] = useState('');
     const [access, setAccess] = useState<LibraryAccess>({ mode: 'all' });
     const [saving, setSaving] = useState(false);
+    const [stylePick, setStylePick] = useState<ImageStylePick>(EMPTY_PICK);
+    // 生成要等幾十秒：預覽框先出來、讀秒，不然看起來像當掉（2026-11-12 Liora 回報）
+    const [elapsed, setElapsed] = useState(0);
+    const previewRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!busy) return;
+        setElapsed(0);
+        const started = Date.now();
+        const t = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+        window.setTimeout(() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return () => window.clearInterval(t);
+    }, [busy]);
 
     const people = isPeopleKind(kind);
     const firstChar = characters.find(c => picked.includes(c.id));
@@ -76,7 +89,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void }> 
         if (busy || !canGenerateInLibrary(imageConfig)) return;
         setBusy(true);
         try {
-            const next = await generateLibraryImage({ kind, prompt, subjects: people ? subjects : [], imageConfig });
+            const next = await generateLibraryImage({ kind, prompt, subjects: people ? subjects : [], imageConfig, ...pickOptions(stylePick) });
             setResult(next);
             if (next.apiFallbackFrom) addToast(`「${next.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
             if (!description.trim()) setDescription(prompt.trim().slice(0, LIBRARY_DESCRIPTION_MAX));
@@ -190,16 +203,33 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void }> 
                 {people && <p className="text-[11px] leading-relaxed text-slate-400">寫地點、動作、表情、光線就好，長相會照每個人自己的設定和參考圖。</p>}
             </section>
 
+            <ImageStylePicker config={imageConfig} feature="library" value={stylePick} onChange={setStylePick} />
+
             <button onClick={run} disabled={busy || !!subjectError || !prompt.trim()}
                 className={`w-full rounded-2xl py-3 text-[14px] font-bold transition active:scale-[0.98] disabled:opacity-40 ${result ? 'border border-slate-300 bg-white text-slate-700' : 'bg-slate-800 text-white shadow-sm'}`}>
                 {busy ? '生成中，可能要等一下…' : result ? '重新生成' : '生成'}
             </button>
 
+            {busy && !result && (
+                <div ref={previewRef} role="status" aria-live="polite"
+                    className="flex aspect-square w-full flex-col items-center justify-center gap-3 rounded-2xl bg-slate-900 text-slate-300 animate-pulse">
+                    <span className="h-8 w-8 rounded-full border-2 border-slate-500 border-t-white animate-spin" aria-hidden />
+                    <span className="text-[13px] font-bold">正在畫…</span>
+                    <span className="text-[11px] text-slate-400">已經 {elapsed} 秒，通常要 20～60 秒</span>
+                </div>
+            )}
+
             {result && (
                 <>
-                    <div className="space-y-1.5">
-                        <div className="flex max-h-[50vh] items-center justify-center overflow-hidden rounded-2xl bg-slate-900">
+                    <div className="space-y-1.5" ref={previewRef}>
+                        <div className="relative flex max-h-[50vh] items-center justify-center overflow-hidden rounded-2xl bg-slate-900">
                             <img src={result.dataUrl} alt="生成的照片" className={`max-h-[50vh] max-w-full object-contain transition-opacity ${busy ? 'opacity-40' : ''}`} />
+                            {busy && (
+                                <div role="status" aria-live="polite" className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white">
+                                    <span className="h-8 w-8 rounded-full border-2 border-white/40 border-t-white animate-spin" aria-hidden />
+                                    <span className="text-[12px] font-bold drop-shadow">重新畫一張…已經 {elapsed} 秒</span>
+                                </div>
+                            )}
                         </div>
                         {people && <p className="text-center text-[11px] text-slate-400">{describeLibraryGenLock(result.lockedCount, result.wantedLocks, result.lockError, result.peopleCount)}</p>}
                     </div>

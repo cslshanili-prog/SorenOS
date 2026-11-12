@@ -113,7 +113,7 @@ export function parseCastDrafts(raw: string): CastDraft[] {
     return drafts;
 }
 
-/** 頭像的畫圖提示詞（畫風照生圖設定的補充提示詞，這裡可以再加一句） */
+/** 頭像的畫圖提示詞（畫風照畫風庫解析：角色、世界、各處畫風的頭像那格；style 是舊的「這次的風格」，還收著） */
 export function castAvatarPrompt(draft: Pick<CastDraft, 'name' | 'appearance' | 'brief'>, style?: string): string {
     return `角色頭像，胸像，正面或微側，乾淨的背景。${draft.appearance || draft.brief}${style?.trim() ? `\n風格：${style.trim()}` : ''}`;
 }
