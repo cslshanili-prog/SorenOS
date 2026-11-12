@@ -9,6 +9,7 @@
  */
 
 import type { CharacterProfile, DateStory, Message } from '../types';
+import { lineViewPersonaKey } from './userPersona';
 import { DB } from './db';
 import { startStoryTime } from './dateStoryTime';
 
@@ -55,6 +56,8 @@ export const loadActiveDateStory = async (char: CharacterProfile | null | undefi
 export const buildNewDateStory = (char: CharacterProfile, now = Date.now(), extra: Partial<DateStory> = {}): DateStory => ({
     id: makeId(),
     charId: char.id,
+    // 關係線：char 是非主線的視圖時，故事記在那條線上
+    ...(lineViewPersonaKey(char) ? { personaKey: lineViewPersonaKey(char) } : {}),
     status: 'ongoing',
     ...(char.dateScenario?.trim() ? { scenario: char.dateScenario.trim() } : {}),
     ...(startStoryTime(char.dateNextStoryTime, now) ? { time: startStoryTime(char.dateNextStoryTime, now) } : {}),

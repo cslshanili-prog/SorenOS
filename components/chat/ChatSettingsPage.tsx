@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { lineArgOf } from '../../utils/chatLine';
 import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
 import { Row, Toggle } from './ChatSettingsControls';
@@ -117,7 +118,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setReplyDrafts(!!char.replyDrafts?.enabled);
         setDraftActions(!!char.replyDrafts?.withActions);
         let cancelled = false;
-        DB.getFirstMessageTimestamp(char.id)
+        DB.getFirstMessageTimestamp(lineArgOf(char))
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
             .catch(() => { if (!cancelled) setFirstMessageKey(null); });
         return () => { cancelled = true; };

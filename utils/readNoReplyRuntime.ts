@@ -1,4 +1,5 @@
 import type { CharacterProfile, Message } from '../types';
+import { lineMsgFields } from './chatLine';
 import { DB } from './db';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { getScheduleWallClock } from './scheduleTime';
@@ -78,10 +79,10 @@ export async function applyForcedReadNoReply(
     const text = (char.readNoReply?.aiGenerated ? await generateAutoReply(char, api, decision, recentMessages) : null)
         ?? pickAutoReplyText(char.readNoReply, decision.state);
     await DB.saveMessage({
-        charId: char.id, role: 'assistant', type: 'text', content: text,
+        ...lineMsgFields(char), role: 'assistant', type: 'text', content: text,
         metadata: { readNoReply: { state: decision.state, reason: decision.reason } },
     } as Parameters<typeof DB.saveMessage>[0]);
-    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, decision) });
+    await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, decision) });
     return 'sent';
 }
 
@@ -95,9 +96,9 @@ export async function persistCharChoseNoReply(char: CharacterProfile, autoReply?
     const reason = decision?.reason ?? '';
     const text = (char.readNoReply?.aiGenerated ? autoReply : undefined) ?? pickAutoReplyText(char.readNoReply, state);
     await DB.saveMessage({
-        charId: char.id, role: 'assistant', type: 'text', content: text,
+        ...lineMsgFields(char), role: 'assistant', type: 'text', content: text,
         metadata: { readNoReply: { state, reason } },
     } as Parameters<typeof DB.saveMessage>[0]);
-    await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, { state, reason }) });
+    await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, { state, reason }) });
     return text;
 }

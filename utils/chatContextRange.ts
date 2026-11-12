@@ -1,4 +1,5 @@
 import type { CharacterProfile, Message } from '../types';
+import { lineArgOf } from './chatLine';
 import { DB } from './db';
 
 export const CONTEXT_RANGE_POLICY_VERSION = 1;
@@ -151,9 +152,8 @@ export const loadCharacterContextRange = async (
     const hwm = getMemoryPalaceHighWaterMarkForContext(char.id);
     const mode = resolveContextRangeMode(char);
     const sourceMessages = mode === 'adaptive'
-        ? (await DB.getMessagesFromId(char.id, hwm + 1)).messages
-        : await DB.getRecentMessagesByCharId(
-            char.id,
+        ? (await DB.getMessagesFromId(lineArgOf(char), hwm + 1)).messages
+        : await DB.getRecentMessagesByCharId(lineArgOf(char),
             clampManualContextLimit(char.contextLimit),
             true,
         );

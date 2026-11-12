@@ -25,6 +25,7 @@
  */
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, RealtimeConfig, GroupProfile, ImageGenApiConfig } from '../types';
+import { lineArgOf, lineMsgFields } from './chatLine';
 import { DB } from './db';
 import { ChatParser, type FrozenMusicSong } from './chatParser';
 import { resolveCharTimeZone } from './timezone';
@@ -805,13 +806,13 @@ export async function applyAssistantPostProcessing(
         if (relationship && char.allowCharChangeRelationship && relationship !== lastAppliedRelationship) {
             lastAppliedRelationship = relationship;
             await persistMessage({
-                charId: char.id, role: 'system', type: 'text',
+                ...lineMsgFields(char), role: 'system', type: 'text',
                 content: `[系統: ${char.name} 把你們的關係改成了「${relationship}」]`,
                 ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
             });
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent<CharRelationshipChangeDetail>(CHAR_RELATIONSHIP_CHANGE_EVENT, {
-                    detail: { charId: char.id, relationship },
+                    detail: { ...lineMsgFields(char), relationship },
                 }));
             }
         }
@@ -833,9 +834,9 @@ export async function applyAssistantPostProcessing(
         const reason = decision?.reason ?? '';
         const text = (char.readNoReply.aiGenerated ? autoReply : undefined) ?? pickAutoReplyText(char.readNoReply, state);
         const meta = { ...(mcdInheritMeta || {}), readNoReply: { state, reason } };
-        await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: text, metadata: meta } as any);
+        await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: text, metadata: meta } as any);
         await persistMessage({
-            charId: char.id, role: 'system', type: 'text',
+            ...lineMsgFields(char), role: 'system', type: 'text',
             content: buildNoReplyNarration(char.chatNickname?.trim() || char.name, { state, reason }),
             ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
         });
@@ -964,12 +965,12 @@ export async function applyAssistantPostProcessing(
             await typingPause(Math.random() * 500 + 300);
             const foundEmoji = resolveEmojiForSend(name, emojis, ctx.categories);
             if (foundEmoji) {
-                await persistMessage({ charId: char.id, role: 'assistant', type: 'emoji', content: foundEmoji.url, metadata: takeMeta(mcdInheritMeta) } as any);
+                await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'emoji', content: foundEmoji.url, metadata: takeMeta(mcdInheritMeta) } as any);
             } else {
                 console.warn('[emoji] 表情庫裡沒有這個名字，落降級文本氣泡', { name, charId: char.id });
-                await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: `[表情：${name}]`, metadata: takeMeta(mcdInheritMeta) } as any);
+                await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: `[表情：${name}]`, metadata: takeMeta(mcdInheritMeta) } as any);
             }
-            setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         };
 
         // 把 [[QUOTE: ...]] / [回覆 "..."] 的引用文本解析成"被回覆的那條用戶消息"。
@@ -1033,8 +1034,8 @@ export async function applyAssistantPostProcessing(
                         if (!chunk) continue;
                         const replyData = globalMsgIndex === 0 ? aiReplyTarget : undefined;
                         await typingPause(Math.min(Math.max(chunk.length * 50, 500), 2000));
-                        await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: chunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, chunk) } as any);
-                        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                        await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: chunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, chunk) } as any);
+                        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                         globalMsgIndex++;
                     }
                 }
@@ -1059,8 +1060,8 @@ export async function applyAssistantPostProcessing(
                         : (originalText || translatedText);
                     const replyData = globalMsgIndex === 0 ? aiReplyTarget : undefined;
                     await typingPause(Math.min(Math.max(biContent.length * 30, 400), 2000));
-                    await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: biContent, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, biContent) } as any);
-                    setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                    await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: biContent, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, biContent) } as any);
+                    setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                     globalMsgIndex++;
                 }
                 for (const name of inlineEmojis) await sendEmojiBubble(name);
@@ -1108,8 +1109,8 @@ export async function applyAssistantPostProcessing(
                         if (ChatParser.hasDisplayContent(chunk)) {
                             const cleanChunk = ChatParser.sanitize(chunk);
                             if (cleanChunk) {
-                                await persistMessage({ charId: char.id, role: 'assistant', type: 'text', content: cleanChunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, cleanChunk) } as any);
-                                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                                await persistMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: cleanChunk, replyTo: replyData, metadata: takeMeta(mcdInheritMeta, cleanChunk) } as any);
+                                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                                 globalMsgIndex++;
                                 chunkSaved = true;
                             }
@@ -1300,7 +1301,7 @@ export async function applyAssistantPostProcessing(
                     removePendingDiary(pendingDiaryId);
                     console.log('📔 [Diary] 寫入成功:', result.url);
                     await persistMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'system',
                         type: 'text',
                         content: `📔 ${char.name}寫了一篇日記「${title}」`
@@ -1326,7 +1327,7 @@ export async function applyAssistantPostProcessing(
         // 角色那句「我去寫日記了」已經說滿，日記卻靜默蒸發——留一條系統提示說明為什麼沒寫成。
         console.log('📔 [Diary] 檢測到日記意圖但未配置Notion');
         await persistMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'system',
             type: 'text',
             content: `📔 ${char.name}想寫日記，但日記服務沒連上（未配置或已斷開），這篇沒寫成`,
@@ -1513,7 +1514,7 @@ export async function applyAssistantPostProcessing(
                     removePendingDiary(pendingFsDiaryId);
                     console.log('📒 [Feishu] 寫入成功:', result.recordId);
                     await persistMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'system',
                         type: 'text',
                         content: `📒 ${char.name}寫了一篇日記「${fsTitle}」(飛書)`
@@ -1537,7 +1538,7 @@ export async function applyAssistantPostProcessing(
         // 同 Notion：配置在打包之後被關掉時，別讓這篇日記無聲無息地消失。
         console.log('📒 [Feishu] 檢測到日記意圖但未配置飛書');
         await persistMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'system',
             type: 'text',
             content: `📒 ${char.name}想寫日記，但日記服務沒連上（未配置或已斷開），這篇沒寫成`,
@@ -1731,7 +1732,7 @@ export async function applyAssistantPostProcessing(
                 aiContent = data.choices?.[0]?.message?.content || '';
                 aiContent = normalizeAiContent(aiContent);
                 await persistMessage({
-                    charId: char.id,
+                    ...lineMsgFields(char),
                     role: 'system',
                     type: 'text',
                     content: `📕 ${char.name}在小紅書搜索了「${keyword}」，看了 ${xsr.notes.length} 條筆記`
@@ -1808,14 +1809,14 @@ export async function applyAssistantPostProcessing(
             sharedXhsCardKeys.add(normalizeXhsCardKey(note.title));
             console.log('📕 [XHS] AI分享筆記卡片:', note.title);
             await persistMessage({
-                charId: char.id,
+                ...lineMsgFields(char),
                 role: 'assistant',
                 type: 'xhs_card',
                 content: note.title || '小紅書筆記',
                 // 跟正文氣泡帶同一個標記 (mcdInheritMeta): 主動消息重試時靠它認出"這張卡上一趟已經發過了"
                 metadata: { xhsNote: note, ...(mcdInheritMeta || {}) }
             });
-            setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         } else {
             // 筆記緩衝為空 / 越界 → 卡片發不出來. 雲端回覆靠 saveXhsSessionNotes 持久化恢復,
             // 走到這裡說明恢復也沒命中 (TTL 過期 / 跨 session), 留日誌便於排查, 不再靜默吞掉.
@@ -1856,7 +1857,7 @@ export async function applyAssistantPostProcessing(
         } : parsedNote;
         console.warn('📕 [XHS] 檢測到仿卡片文本，已恢復為 xhs_card:', note.title, cachedNote ? '(命中緩存)' : '(文本兜底)');
         await persistMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'assistant',
             type: 'xhs_card',
             content: note.title || '小紅書筆記',
@@ -1865,7 +1866,7 @@ export async function applyAssistantPostProcessing(
         if (parsedKey) sharedXhsCardKeys.add(parsedKey);
     }
     if (mimickedXhsShares.shares.length > 0) {
-        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
     }
     // [[XHS_POST: 標題 | 內容 | #標籤1 #標籤2]]
     const xhsPostMatch = aiContent.match(/\[\[XHS_POST:\s*(.+?)\]\]/s);
@@ -1885,7 +1886,7 @@ export async function applyAssistantPostProcessing(
                 console.log('📕 [XHS] 發佈成功:', result.noteId);
                 const tagsStr = postTags.length > 0 ? ` #${postTags.join(' #')}` : '';
                 await persistMessage({
-                    charId: char.id,
+                    ...lineMsgFields(char),
                     role: 'system',
                     type: 'text',
                     content: `📕 ${char.name}發了一條小紅書「${postTitle}」\n${postContent.slice(0, 200)}${postContent.length > 200 ? '...' : ''}${tagsStr}`
@@ -1921,7 +1922,7 @@ export async function applyAssistantPostProcessing(
                 const result = await xhsComment(xhsConf, noteId, commentContent, xsecToken);
                 if (result.success) {
                     await persistMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'system',
                         type: 'text',
                         content: `📕 ${char.name}在小紅書評論了: "${commentContent.slice(0, 100)}${commentContent.length > 100 ? '...' : ''}"`
@@ -2221,7 +2222,7 @@ export async function applyAssistantPostProcessing(
                 const result = await xhsComment(xhsConf, noteId, commentContent, xsecToken);
                 if (result.success) {
                     await persistMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'system',
                         type: 'text',
                         content: `📕 ${char.name}在小紅書評論了: "${commentContent.slice(0, 100)}${commentContent.length > 100 ? '...' : ''}"`
@@ -2351,7 +2352,7 @@ export async function applyAssistantPostProcessing(
                 console.log('📕 [XHS] 發佈成功(profile後):', result.noteId);
                 const tagsStr = postTags.length > 0 ? ` #${postTags.join(' #')}` : '';
                 await persistMessage({
-                    charId: char.id,
+                    ...lineMsgFields(char),
                     role: 'system',
                     type: 'text',
                     content: `📕 ${char.name}發了一條小紅書「${postTitle}」\n${postContent.slice(0, 200)}${postContent.length > 200 ? '...' : ''}${tagsStr}`
@@ -2391,7 +2392,7 @@ export async function applyAssistantPostProcessing(
         (d): d is Extract<PostProcessDirective, { type: 'music_action' }> =>
             d.type === 'music_action' && !!d.song,
     )?.song;
-    aiContent = await ChatParser.parseAndExecuteActions(aiContent, char.id, char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend, onCharDaifuAccept, onCharGiftSend);
+    aiContent = await ChatParser.parseAndExecuteActions(aiContent, lineArgOf(char), char.name, addToast, musicHooks, resolveCharTimeZone(char), messageTimestamp, mcdInheritMeta, frozenMusicSong, imageGenConfig, onUserTransferReturned, onUserTransferAccepted, onCharTransferSend, onCharDaifuAccept, onCharGiftSend);
 
     // ─── Step 4: thinking chain 抽取 (本輪末尾展示用) ───
     // 跑過二輪 (data !== initialData) → 取二輪 data 的 reasoning; 沒跑二輪 → 取一輪 (round1ThinkingChain,
@@ -2410,7 +2411,7 @@ export async function applyAssistantPostProcessing(
         for (const blk of blocks) {
             try {
                 await persistMessage({
-                    charId: char.id,
+                    ...lineMsgFields(char),
                     role: 'assistant',
                     type: 'html_card',
                     content: blk.textPreview ? `[HTML卡片] ${blk.textPreview}` : '[HTML卡片]',
@@ -2420,7 +2421,7 @@ export async function applyAssistantPostProcessing(
                         ...(mcdInheritMeta || {}),
                     }),
                 } as any);
-                setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+                setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
                 await new Promise(r => setTimeout(r, 300));
             } catch (e) {
                 console.error('[HTML] 落庫 html_card 失敗', e);
@@ -2440,7 +2441,7 @@ export async function applyAssistantPostProcessing(
     // - 有重生指令但沒真正發起二輪 (data 不變: 未配置/無結果/無日誌/已激活/二輪異常 等): A 已展示, 跳過避免重複。
     // - 沒有重生 (普通回覆 / 雲端回覆): leadInRendered 必為 false, 正常展示本輪唯一回復。
     if (leadInRendered && data === initialData) {
-        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
     } else {
         const sanitizedBody = ChatParser.sanitize(aiContent, { keepCitations: true })
             .replace(/\[\[INNER_STATE:\s*[\s\S]*?\]\]/g, '')
@@ -2451,7 +2452,7 @@ export async function applyAssistantPostProcessing(
             // 跑過二輪卻吐空, 且本輪還沒展示過任何內容 → 至少補一句, 避免整輪靜默。
             await renderAndPersist('嗯...', pendingThinkingChain);
         } else {
-            setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         }
     }
 
@@ -2467,11 +2468,11 @@ export async function applyAssistantPostProcessing(
         });
         const call: CharCallMeta = { ...(pendingCharCall as { mode: CharCallMode; reason: string }), status: ring ? 'ringing' : 'missed', at: now };
         const messageId = await persistMessage({
-            charId: char.id, role: 'assistant', type: 'char_call',
+            ...lineMsgFields(char), role: 'assistant', type: 'char_call',
             content: describeCharCall(call),
             metadata: { ...(mcdInheritMeta || {}), charCall: call },
         } as Parameters<typeof DB.saveMessage>[0]);
-        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         if (ring && typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent<IncomingCharCallDetail>(INCOMING_CHAR_CALL_EVENT, {
                 detail: { charId: char.id, messageId, mode: call.mode, reason: call.reason },
@@ -2483,14 +2484,14 @@ export async function applyAssistantPostProcessing(
     if (pendingBlockUser) {
         const block = pendingBlockUser as { reason: string };
         await persistMessage({
-            charId: char.id, role: 'system', type: 'text',
+            ...lineMsgFields(char), role: 'system', type: 'text',
             content: blockNotes.charBlocked(char.name, userProfile?.name || '你'),
             ...(mcdInheritMeta ? { metadata: mcdInheritMeta } : {}),
         });
-        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent<ChatBlockChangeDetail>(CHAT_BLOCK_CHANGE_EVENT, {
-                detail: { charId: char.id, action: 'charBlock', reason: block.reason },
+                detail: { ...lineMsgFields(char), action: 'charBlock', reason: block.reason },
             }));
         }
     }
@@ -2499,10 +2500,10 @@ export async function applyAssistantPostProcessing(
     if (pendingDateInvite) {
         const invite: DateInviteMeta = { ...(pendingDateInvite as { place: string; plan: string }), status: 'pending' };
         await persistMessage({
-            charId: char.id, role: 'assistant', type: 'date_invite',
+            ...lineMsgFields(char), role: 'assistant', type: 'date_invite',
             content: describeDateInvite(invite),
             metadata: { ...(mcdInheritMeta || {}), dateInvite: invite },
         } as Parameters<typeof DB.saveMessage>[0]);
-        setMessages(await DB.getRecentMessagesByCharId(char.id, 200));
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
     }
 }

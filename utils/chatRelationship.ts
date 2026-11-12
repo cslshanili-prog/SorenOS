@@ -28,6 +28,8 @@ export function extractRelationshipChange(text: string): { cleanedText: string; 
 export const CHAR_RELATIONSHIP_CHANGE_EVENT = 'char-relationship-change';
 export interface CharRelationshipChangeDetail {
     charId: string;
+    /** 關係線：哪條線上改的；沒有＝主線（utils/chatLine.ts） */
+    personaKey?: string;
     relationship: string;
 }
 

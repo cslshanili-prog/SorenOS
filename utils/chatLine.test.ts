@@ -110,3 +110,35 @@ describe('splitLinePatch / linePatchForChar', () => {
         expect(linePatchForChar(c, lineFor(c, 'p2'), { name: 'x' })).toEqual({ name: 'x' });
     });
 });
+
+describe('身份解析認得線視圖', () => {
+    it('非主線的視圖用那條線的身份卡；主線照原本的指定', async () => {
+        const { resolveUserProfileForChar, personaKeyForChar } = await import('./userPersona');
+        const base = profile({
+            personas: [
+                { id: 'pA', name: '妹妹', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+                { id: 'pB', name: '老婆', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+            ],
+            perCharPersonaIds: { c1: 'pA' },
+        });
+        const c = withLineFields(base, char());
+        expect(resolveUserProfileForChar(base, c).name).toBe('妹妹');
+        const v = lineView(c, lineFor(c, 'pB'));
+        expect(resolveUserProfileForChar(base, v).name).toBe('老婆');
+        expect(personaKeyForChar(base, v)).toBe('pB');
+    });
+});
+
+describe('lineArgOf / lineOf / lineMsgFields', () => {
+    it('主線跟舊呼叫一模一樣，非主線帶身份', async () => {
+        const { lineArgOf, lineOf, lineMsgFields } = await import('./chatLine');
+        const c = char({ primaryPersonaKey: 'p1' });
+        expect(lineArgOf(c)).toBe('c1');
+        expect(lineOf(c)).toEqual({ charId: 'c1' });
+        expect(lineMsgFields(c)).toEqual({ charId: 'c1' });
+        const v = lineView(c, lineFor(c, 'p2'));
+        expect(lineArgOf(v)).toEqual({ charId: 'c1', personaKey: 'p2' });
+        expect(lineOf(v)).toEqual({ charId: 'c1', personaKey: 'p2' });
+        expect(lineMsgFields(v)).toEqual({ charId: 'c1', personaKey: 'p2' });
+    });
+});

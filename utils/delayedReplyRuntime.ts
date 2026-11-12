@@ -1,4 +1,5 @@
 import type { CharacterProfile, Message } from '../types';
+import { lineArgOf } from './chatLine';
 import { DB } from './db';
 import { getDailyScheduleForChar } from './dailySchedule';
 import { getScheduleWallClock } from './scheduleTime';
@@ -23,7 +24,7 @@ export async function scheduleDelayedReplyFor(char: CharacterProfile, recentMess
     const schedule = await getDailyScheduleForChar(char).catch(() => null);
     const slot = getCurrentSlot(schedule, getScheduleWallClock(char));
     const slotKind = classifyScheduleSlot(slot);
-    const recent = recentMessages ?? await DB.getRecentMessagesByCharId(char.id, 30, true).catch(() => [] as Message[]);
+    const recent = recentMessages ?? await DB.getRecentMessagesByCharId(lineArgOf(char), 30, true).catch(() => [] as Message[]);
     const lastAssistant = [...recent].reverse().find(m => m.role === 'assistant');
     const recentlyActive = !!lastAssistant && Date.now() - lastAssistant.timestamp < RECENTLY_ACTIVE_MS;
     const delayMs = computeReplyDelayMs(char.delayedReply, { slotKind, recentlyActive });

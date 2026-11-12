@@ -1,5 +1,6 @@
 
 import { DB } from './db';
+import { lineMsgFields } from './chatLine';
 import {
     BankTransaction, CharacterProfile, LifeRecord, LifeRecordModule,
     LifeRecordSettings, MedPlan, Message,
@@ -575,7 +576,7 @@ export const executeLifeDirectives = async (
         try {
             await DB.saveMessage({
                 ...stamp,
-                charId: char.id, role: 'system', type: 'text',
+                ...lineMsgFields(char), role: 'system', type: 'text',
                 content: `[系統: ${char.name}想幫你記「${summary}」，但${reason}，這次沒記成]`,
                 metadata: withInherited({ lifeRecordSkipped: true }),
             });
@@ -614,7 +615,7 @@ export const executeLifeDirectives = async (
             if (dup) {
                 await DB.saveMessage({
                     ...stamp,
-                    charId: char.id, role: 'assistant', type: 'life_card',
+                    ...lineMsgFields(char), role: 'assistant', type: 'life_card',
                     content: `[生活記錄：${summary}（已有記錄，未重複添加）]`,
                     metadata: withInherited({
                         module: d.module, kind: d.kind, summary, dateStr: today,
@@ -652,7 +653,7 @@ export const executeLifeDirectives = async (
 
             await DB.saveMessage({
                 ...stamp,
-                charId: char.id, role: 'assistant', type: 'life_card',
+                ...lineMsgFields(char), role: 'assistant', type: 'life_card',
                 content: `[生活記錄：${summary}]`,
                 metadata: withInherited({
                     recordId: record.id, module: d.module, kind: d.kind, summary,

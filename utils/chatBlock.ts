@@ -16,6 +16,8 @@ export const CHAT_BLOCK_LOG_MAX = 20;
 export const CHAT_BLOCK_CHANGE_EVENT = 'chat-block-change';
 export interface ChatBlockChangeDetail {
     charId: string;
+    /** 關係線：哪條線上拉黑的；沒有＝主線（utils/chatLine.ts） */
+    personaKey?: string;
     action: 'charBlock';
     reason: string;
 }

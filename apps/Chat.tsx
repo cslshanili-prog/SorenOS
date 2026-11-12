@@ -1,4 +1,5 @@
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
+import { lineArgOf, lineKey, lineMsgFields, lineOf, lineView } from '../utils/chatLine';
 import { CalendarBlank, GearSix } from '@phosphor-icons/react';
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -157,7 +158,7 @@ const HISTORY_WINDOW_BATCH_SIZE = 30;
 const INSTANT_VOICE_SCAN_WINDOW_MS = 30_000;
 
 const Chat: React.FC = () => {
-    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateUserProfile, apiConfig, apiPresets, availableModels, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
+    const { activeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter: updateCharacterRaw, activeLineFor, updateLine, updateUserProfile, apiConfig, apiPresets, availableModels, closeApp, customThemes, addCustomTheme, removeCustomTheme, addWorldbook, updateTheme, saveAppearancePreset, addToast, showError, userProfile, userProfileBase, lastMsgTimestamp, groups, characterGroups, clearUnread, unreadMessages, realtimeConfig, memoryPalaceConfig, updateMemoryPalaceConfig, remoteVectorConfig, syncEmotionApiToAllCharacters, theme: baseOsTheme, proactiveComposingChars, openDateWithChar, openCallWithChar } = useOS();
     const osTheme = useMemo(()=>resolveDecorationTheme(baseOsTheme,characters.find(c=>c.id===activeCharacterId)||characters[0]),[baseOsTheme,characters,activeCharacterId]);
     // 從 Chat 主頁（消息/聯繫人 tab）點進來的私聊，返回鍵回 Chat 主頁而不是無腦回桌面；
     // 別的入口（角色卡「發消息」、伴侶桌面皮膚的「對話」按鈕等）沒設這個，行為不變。
@@ -319,7 +320,20 @@ const Chat: React.FC = () => {
     // Which messages are currently showing "譯" version (toggle state only, no API calls)
     const [showingTargetIds, setShowingTargetIds] = useState<Set<number>>(new Set());
 
-    const char = characters.find(c => c.id === activeCharacterId) || characters[0];
+    const rawChar = characters.find(c => c.id === activeCharacterId) || characters[0];
+    // 關係線（plans/persona-line-batch1-2.md）：這個私聊是「現在的我」跟這個角色的那條線。
+    // 下面的 char 一律是那條線的視圖：讀到的關係欄位是那條線的，讀寫聊天用 lineArgOf(char) /
+    // lineMsgFields(char)，改角色卡走下面的 updateCharacter（這個角色的改動會寫到那條線上）。
+    const char = useMemo(() => (rawChar ? lineView(rawChar, activeLineFor(rawChar)) : rawChar), [rawChar, activeLineFor]);
+    const chatLineArg = char ? lineArgOf(char) : activeCharacterId;
+    const chatLineArgRef = useRef(chatLineArg);
+    chatLineArgRef.current = chatLineArg;
+    const chatLineId = char ? lineKey(lineOf(char)) : activeCharacterId;
+    const updateCharacter = useCallback(
+        (id: string, updates: Parameters<typeof updateCharacterRaw>[1]) =>
+            (char && id === char.id ? updateLine(char, updates) : updateCharacterRaw(id, updates)),
+        [char, updateLine, updateCharacterRaw],
+    );
     // 分角色身份指定：這個私聊裡「你」該是哪張身份卡，按 char.id 單獨解析——不看全域默認，
     // 除非這個角色沒有單獨指定。下面所有原本讀 userProfile 的地方（AI 提示詞/氣泡頭像/
     // 主動消息打髒快照……）只要是「這個聊天窗口裡的你」，都改吃這份，而不是全域 userProfile。
@@ -1023,7 +1037,7 @@ const Chat: React.FC = () => {
             setMessages(chatScopeMsgs.slice(-requestedVisibleCount));
         };
         try {
-            const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
+            const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(chatLineArgRef.current, fetchLimit, accept);
             // Guard against stale async results: if the user switched characters
             // while the DB query was in flight, discard this result.
             if (activeCharIdRef.current !== charIdAtStart) return;
@@ -1034,12 +1048,14 @@ const Chat: React.FC = () => {
             await new Promise(r => setTimeout(r, 200));
             if (activeCharIdRef.current !== charIdAtStart) return;
             try {
-                const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(activeCharacterId, fetchLimit, accept);
+                const { messages: recent, totalCount } = await DB.getRecentMessagesWithCount(chatLineArgRef.current, fetchLimit, accept);
                 if (activeCharIdRef.current !== charIdAtStart) return;
                 applyResult(recent, totalCount);
             } catch { /* give up silently */ }
         }
-    }, [activeCharacterId]);
+        // chatLineId：換了線（切身份）也要重讀
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeCharacterId, chatLineId]);
 
     useEffect(() => {
         if (activeCharacterId) {
@@ -1191,7 +1207,7 @@ const Chat: React.FC = () => {
     // Load all messages when history-manager modal opens
     useEffect(() => {
         if (modalType === 'history-manager' && activeCharacterId) {
-            DB.getMessagesByCharId(activeCharacterId, true).then(allMsgs => {
+            DB.getMessagesByCharId(chatLineArgRef.current, true).then(allMsgs => {
                 // 範圍管理必須使用 AI 可能讀取的完整私聊序列，不能先按聊天界面顯示偏好
                 // 隱掉系統/約會/通話消息，否則「最近 N 條」起點會與真實 prompt 發生偏移。
                 setAllHistoryMessages(allMsgs);
@@ -1470,7 +1486,7 @@ const Chat: React.FC = () => {
             })
             : null;
 
-        const msgPayload: any = { charId: char.id, role: 'user', type, content: storedContent, metadata };
+        const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
         
         if (replyTarget) {
             msgPayload.replyTo = {
@@ -1571,7 +1587,7 @@ const Chat: React.FC = () => {
                     }
 
                     await DB.saveMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'user',
                         type: 'xhs_card',
                         content: note.title || '小紅書筆記',
@@ -1617,7 +1633,7 @@ const Chat: React.FC = () => {
                 }
                 if (webpage) {
                     await DB.saveMessage({
-                        charId: char.id,
+                        ...lineMsgFields(char),
                         role: 'user',
                         type: 'webpage_card',
                         content: webpage.title,
@@ -1680,7 +1696,7 @@ const Chat: React.FC = () => {
         if (msg.metadata?.status && msg.metadata.status !== 'pending') return;
         await DB.updateMessageMetadata(msg.id, (prev) => ({ ...(prev || {}), status: action, resolvedAt: Date.now() }));
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'transfer',
             content: action === 'accepted' ? '[已收款]' : '[已退回]',
@@ -1743,7 +1759,7 @@ const Chat: React.FC = () => {
             status: order.mode === 'daifu' ? 'pending' as const : 'sent' as const,
         };
         if (order.mode === 'manual') {
-            await DB.saveMessage({ charId: char.id, role: 'assistant', type: 'mall_order', content: '[購物中心卡片]', metadata });
+            await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'mall_order', content: '[購物中心卡片]', metadata });
             await reloadMessages(visibleCountRef.current);
             trackEvent('购物中心手动模拟卡', { mallKind: order.mallKind });
             return true;
@@ -1786,7 +1802,7 @@ const Chat: React.FC = () => {
             dateInvite: { ...(prev?.dateInvite || {}), status: action, respondedAt: Date.now() },
         }));
         await DB.saveMessage({
-            charId: char.id, role: 'system', type: 'text',
+            ...lineMsgFields(char), role: 'system', type: 'text',
             content: buildDateInviteResponseNote(action === 'accepted', chatUserProfile.name || '你', char.chatNickname?.trim() || char.name),
         });
         markAmsgStateDirty({ char, userProfile: chatUserProfile, groups, realtimeConfig });
@@ -1831,7 +1847,7 @@ const Chat: React.FC = () => {
         autoReply.cancel();
         const now = Date.now();
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'text',
             content: buildManualNudgeHint({
@@ -2041,7 +2057,7 @@ const Chat: React.FC = () => {
         const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'mcd_card',
             content,
@@ -2056,7 +2072,7 @@ const Chat: React.FC = () => {
         const priceStr = typeof item.price === 'number' ? ` ${MONEY_SYMBOL}${item.price}` : (typeof item.price === 'string' && item.price ? ` ${MONEY_SYMBOL}${item.price}` : '');
         const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'mcd_card',
             content,
@@ -2072,13 +2088,13 @@ const Chat: React.FC = () => {
         if (!char || !text.trim() || isTyping) return;
         const trimmed = text.trim();
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'text',
             content: trimmed,
             metadata: { fromMcdMiniApp: true },
         } as any);
-        const recent = await DB.getRecentMessagesByCharId(char.id, 200);
+        const recent = await DB.getRecentMessagesByCharId(lineArgOf(char), 200);
         setMessages(recent);
         triggerAI(recent);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2113,7 +2129,7 @@ const Chat: React.FC = () => {
             : `到店取餐 (${ctx.storeName || ctx.storeCode})`;
         const content = `${where} · ${summary}${totalStr}`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'mcd_card',
             content,
@@ -2137,7 +2153,7 @@ const Chat: React.FC = () => {
         const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `想要下單：${summary}${totalStr}`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'luckin_card',
             content,
@@ -2151,7 +2167,7 @@ const Chat: React.FC = () => {
         const priceStr = (typeof item.price === 'number' || (typeof item.price === 'string' && item.price)) ? ` ${MONEY_SYMBOL}${item.price}` : '';
         const content = `「${item.name}」${priceStr}—— 這個怎麼樣？`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'luckin_card',
             content,
@@ -2164,13 +2180,13 @@ const Chat: React.FC = () => {
         if (!char || !text.trim() || isTyping) return;
         const trimmed = text.trim();
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'text',
             content: trimmed,
             metadata: { fromLuckinMiniApp: true },
         } as any);
-        const recent = await DB.getRecentMessagesByCharId(char.id, 200);
+        const recent = await DB.getRecentMessagesByCharId(lineArgOf(char), 200);
         setMessages(recent);
         triggerAI(recent);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2200,7 +2216,7 @@ const Chat: React.FC = () => {
         const totalStr = total > 0 ? ` 共${formatMoney(total)}` : '';
         const content = `到店自提 (${ctx.storeName || ctx.deptId}) · ${summary}${totalStr}`;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'luckin_card',
             content,
@@ -2296,7 +2312,7 @@ const Chat: React.FC = () => {
         const slot = scheduleData.slots[index];
         if (!slot?.theater || slot.theater.lines.length === 0) return;
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'theater_card',
             content: `${slot.startTime} · ${slot.activity}`,
@@ -2554,7 +2570,7 @@ const Chat: React.FC = () => {
             if (!patch) return;
             autoReply.cancel();
             cancelDelayedReplyEverywhere(char.id);
-            await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: blockNotes.userBlocked(userName, char.name) });
+            await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: blockNotes.userBlocked(userName, char.name) });
             updateCharacter(char.id, patch);
             addToast(`已拉黑 ${char.chatNickname?.trim() || char.name}`, 'info');
         } else {
@@ -2564,7 +2580,7 @@ const Chat: React.FC = () => {
             const note = action === 'forceUnblock'
                 ? blockNotes.forcedUnblock(char.name, userName, since, now)
                 : blockNotes.userUnblocked(userName, char.name, since, now);
-            await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: note });
+            await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: note });
             // 你主動解除：角色馬上回一句（等角色資料真的變成沒拉黑才觸發，見下面的 effect）。
             // 強制解除（角色拉黑你、你按救援）不算——那是劇情卡住時用的，不替角色接話。
             if (action === 'unblock') unblockReactionRef.current = char.id;
@@ -2583,7 +2599,7 @@ const Chat: React.FC = () => {
         if (!char || char.chatBlock || unblockReactionRef.current !== char.id) return;
         unblockReactionRef.current = null;
         if (isTyping) return;
-        void DB.getRecentMessagesByCharId(char.id, 200).then(msgs => triggerAI(msgs));
+        void DB.getRecentMessagesByCharId(lineArgOf(char), 200).then(msgs => triggerAI(msgs));
     }, [char?.id, char?.chatBlock]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /** 角色（拉黑的那方）在臨時會話裡決定解除。 */
@@ -2593,7 +2609,7 @@ const Chat: React.FC = () => {
         const since = char.chatBlock.since;
         const patch = endChatBlock(char, now);
         if (!patch) return;
-        await DB.saveMessage({ charId: char.id, role: 'system', type: 'text', content: blockNotes.charUnblocked(char.name, chatUserProfile.name || '你', since, now) });
+        await DB.saveMessage({ ...lineMsgFields(char), role: 'system', type: 'text', content: blockNotes.charUnblocked(char.name, chatUserProfile.name || '你', since, now) });
         updateCharacter(char.id, patch);
         setShowTempChat(false);
         addToast(`${char.chatNickname?.trim() || char.name} 解除了對你的拉黑`, 'success');
@@ -2777,7 +2793,7 @@ const Chat: React.FC = () => {
                 throw new Error(`第 ${failedBatches.map(batch => batch.index).join('、')} 批處理失敗，水位線未移動`);
             }
 
-            const rangeMessages = (await DB.getMessagesByCharId(char.id, true))
+            const rangeMessages = (await DB.getMessagesByCharId(lineArgOf(char), true))
                 .filter(message => !message.groupId)
                 .sort((a, b) => a.id - b.id);
             const expectedRetained = Math.min(retainedCount, rangeMessages.length);
@@ -2883,7 +2899,7 @@ const Chat: React.FC = () => {
         const LARGE = 999999;
         visibleCountRef.current = LARGE;
         setVisibleCount(LARGE);
-        const allMsgs = await DB.getMessagesByCharId(requestCharId, true);
+        const allMsgs = await DB.getMessagesByCharId(chatLineArgRef.current, true);
         if (activeCharIdRef.current !== requestCharId) return;
         const browseableMessages = allMsgs.filter(message => isVisibleChatMessage(message, !!char?.hideSystemLogs));
         const targetIndex = browseableMessages.findIndex(message => message.id === messageId);
@@ -3060,7 +3076,7 @@ const Chat: React.FC = () => {
             addToast('請先配置 API Key', 'error');
             return;
         }
-        const allMessages = await DB.getMessagesByCharId(char.id, true);
+        const allMessages = await DB.getMessagesByCharId(lineArgOf(char), true);
         const msgsByDate: Record<string, Message[]> = {};
         allMessages
         .filter(m => !char.hideBeforeMessageId || m.id >= char.hideBeforeMessageId)
@@ -3436,7 +3452,7 @@ const Chat: React.FC = () => {
         const targetChar = characters.find(c => c.id === targetCharId);
         if (char.id !== targetCharId) {
             await DB.saveMessage({
-                charId: char.id,
+                ...lineMsgFields(char),
                 role: 'system',
                 type: 'text' as MessageType,
                 content: `[轉發了 ${selectedMsgs.length} 條聊天記錄給 ${targetChar?.name || ''}]`,
@@ -3509,7 +3525,7 @@ const Chat: React.FC = () => {
             collaborationTitle: sessionTitle,
         };
         await DB.saveMessage({
-            charId: char.id,
+            ...lineMsgFields(char),
             role: 'user',
             type: 'chat_forward' as MessageType,
             content: JSON.stringify(forwardData),
