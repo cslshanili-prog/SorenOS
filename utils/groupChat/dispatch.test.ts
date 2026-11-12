@@ -163,3 +163,25 @@ describe('PRIVATE 落在哪條線（關係線第 5 批）', () => {
         expect(calls()[0][0].personaKey).toBeUndefined();
     });
 });
+
+describe('成員私訊成員（關係線第 6 批 6d）', () => {
+    beforeEach(() => saveMessage.mockClear());
+    const calls = () => saveMessage.mock.calls as unknown as any[][];
+
+    it('[[DM|名字: 內容]] 剝掉、交給 handler，公開的話照常', async () => {
+        const onMemberDm = vi.fn();
+        await dispatchMemberActions([{ charId: 'c1', content: '大家晚安\n[[DM|阿方: 明天早點到]]' }], baseCtx({ onMemberDm }));
+        expect(onMemberDm).toHaveBeenCalledWith('c1', '阿方', '明天早點到');
+        expect(calls().map(c => c[0].content)).toEqual(['大家晚安']);
+    });
+    it('中文別名也認；整則只有私訊就不落群', async () => {
+        const onMemberDm = vi.fn();
+        await dispatchMemberActions([{ charId: 'c1', content: '[[私訊｜阿方：在嗎]]' }], baseCtx({ onMemberDm }));
+        expect(onMemberDm).toHaveBeenCalledWith('c1', '阿方', '在嗎');
+        expect(calls()).toHaveLength(0);
+    });
+    it('沒傳 handler：只剝掉標記', async () => {
+        await dispatchMemberActions([{ charId: 'c1', content: '嗯\n[[DM|阿方: 偷偷說]]' }], baseCtx());
+        expect(calls().map(c => c[0].content)).toEqual(['嗯']);
+    });
+});

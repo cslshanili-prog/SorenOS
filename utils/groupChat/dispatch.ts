@@ -59,6 +59,11 @@ export interface DispatchContext {
      * 不傳照舊落成員的主線。label 是吐司上「悄悄對誰說」的名字（在場好幾張時才有）。
      */
     privateTarget?: (charId: string, name?: string) => { charId: string; personaKey?: string; label?: string } | null;
+    /**
+     * 成員私訊另一個成員（[[DM|名字: 內容]]，關係線第 6 批 6d）：群裡不顯示，進兩人的角色私聊線，
+     * 對方馬上回一句。不傳就只剝掉標記（沒教這個語法的時候）。
+     */
+    onMemberDm?: (fromId: string, toName: string, content: string) => Promise<void> | void;
 }
 
 /**
@@ -126,6 +131,22 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
             publicContent = publicContent.trim();
 
             // If content is empty after stripping (pure private message), skip public rendering
+            if (!publicContent) { await fireLeaveIfWanted(); continue; }
+        }
+
+        // 0.3 成員私訊成員：[[DM|名字: 內容]]（也認中文「私訊／私信」），剝掉；有 handler 才真的送
+        const dmRegex = /\[\[\s*(?:DM|私訊|私讯|私信)\s*[|｜]\s*([^:：\]\n]+?)\s*[:：]\s*([\s\S]*?)\]\]/gi;
+        let dm: RegExpExecArray | null;
+        const dms: Array<{ to: string; content: string }> = [];
+        while ((dm = dmRegex.exec(publicContent)) !== null) {
+            const content = (dm[2] || '').trim();
+            if (dm[1]?.trim() && content) dms.push({ to: dm[1].trim(), content });
+        }
+        if (dms.length) {
+            publicContent = publicContent.replace(dmRegex, '').trim();
+            if (ctx.onMemberDm && !ctx.npcIds?.has(targetId)) {
+                for (const d of dms) await ctx.onMemberDm(targetId, d.to, d.content);
+            }
             if (!publicContent) { await fireLeaveIfWanted(); continue; }
         }
 

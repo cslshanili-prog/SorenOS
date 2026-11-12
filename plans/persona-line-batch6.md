@@ -1,6 +1,6 @@
 # 關係線 · 第 6 批：NPC 改成配角、角色私聊、群聊觸發私聊
 
-> 狀態：**設計定案**（2026-11-12，第 5 節 Liora 已決定；第 6 節 AI 批量生成配角是新加的，細節待定）。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 7 節，前一批見 [`persona-line-batch5.md`](./persona-line-batch5.md)。
+> 狀態：**6a、6b、6e、6c、6d 都已做**（2026-11-12～13）。上層見 [`persona-bond-redesign.md`](./persona-bond-redesign.md) 第 7 節，前一批見 [`persona-line-batch5.md`](./persona-line-batch5.md)。
 > 已定案（上層 7.1、7.2、9 節）：
 > - NPC 改成角色的一種（**配角**），跟主角同一張表、同一套能力；差別只在神經鏈接有自己的「配角」分頁、可以**下戲**、主動消息預設關。
 > - 角色私聊從查手機獨立成自己的對話線，查手機改成讀這條線；你在列表裡看得到（上帝視角，它們不知道）。
@@ -132,7 +132,10 @@ role: 'assistant'
   - 訊息列表的「角色私聊」篩選（只在這個篩選裡出現，不混進「全部」）、「＋ → 讓兩個角色聊聊」先挑兩個人，對話頁 `components/chat/PairChatPage.tsx`：唯讀、讓他們聊一輪、以某某身份說一句。
   - 查手機真角色的對話讀寫同一條線，紀錄和私聊卡片照舊從線算出來；舊的對話在預覽開著、資料載入完時搬一次（`utils/pairLineMigration.ts`，每對只搬一次，線上已經有的不碰）。
   - 埋點 `让他们聊一轮`（方式：聊一轮／冒充）。
-- **6d 角色記得**：私聊提示詞的「私下跟別人聊的」、記憶宮殿整理角色私聊、群聊 `[[DM]]`（被私訊的人馬上回一句）。
+- **6d 角色記得 — 已做**：私聊提示詞的「私下跟別人聊的」、記憶宮殿整理角色私聊、群聊 `[[DM]]`（被私訊的人馬上回一句）。
+  - 私聊提示詞：`utils/pairContext.ts`，每條角色私聊線最近 12 則、全部最多 40 則，按時間排、標「跟某某私聊」，接在「近期群聊」後面（`chatPrompts`）。所有線都帶（記憶只有一份）；fire_pack 不帶「多久之前」。見面、通話各有自己的提示詞組法，這次沒接。
+  - 記憶宮殿：角色私聊聊滿 100 條濃縮成兩邊各自的話題記憶時，順便送進兩邊各自的記憶宮殿（開了記憶宮殿、設了 Embedding 的才送），內容前面標「這是你跟某某私下聊的，用戶不在場」，標籤「角色私聊」＋對方名字；沿用見面總結的匯入（`importDateStorySummary` 多一個 `baseTags`）。
+  - 群聊私訊：群裡兩個以上角色成員、預覽開著才教 `[[DM|名字: 內容]]`（`buildMemberDmNote`，也認「私訊／私信」）；`dispatch.ts` 剝掉、交給 `onMemberDm`。GroupChat 落一行只給你看的小字（`metadata.userOnly`，`memberVisibleGroupMessages` 一律濾掉，話題盒也不收），私訊那句和對方馬上回的一句進兩人的角色私聊線（`runPairRound` 的 `asBImpersonated: false`、`asBMeta.fromGroupId`）。
 
 順序：6a → 6b → 6e → 6c → 6d。每一步做完都跑一次完整驗證、提交一次。
 

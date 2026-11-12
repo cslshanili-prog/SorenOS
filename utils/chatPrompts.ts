@@ -12,6 +12,7 @@ import { personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './user
 import { memberVisibleGroupMessages, presentPersonaKeys } from './groupChat/presence';
 import { knowsPersona } from './chatLine';
 import { sameIdentityKeys } from './personaLinks';
+import { formatPairContext, loadPairContextSources } from './pairContext';
 import { distinctPersonaNote, userSpeakerName } from './personaSpeaker';
 import { formatLifeSimResetCardForContext } from './lifeSimChatCard';
 import { formatQixiEventCardForContext, tryParseQixiEventChatCard } from './qixiChatCard';
@@ -541,6 +542,21 @@ ${groupLogStr}\n`;
             }
         })();
 
+        // 3b. 角色私聊（關係線第 6 批 6d，utils/pairContext.ts）：它私下跟別人聊過什麼自己記得，用戶不在場
+        const pairContextPromise: Promise<string> = (async () => {
+            try {
+                const sources = await loadPairContextSources(char.id);
+                return formatPairContext({
+                    selfId: char.id, selfName: char.name, sources,
+                    formatDate: ts => ChatPrompts.formatDate(ts, charTz),
+                    relativeAge: forFirePack ? undefined : formatRelativeAge,
+                });
+            } catch (e) {
+                console.error('Failed to load pair chat context', e);
+                return '';
+            }
+        })();
+
         // 4. Notion 日記標題
         const notionDiaryPromise: Promise<string> = (async () => {
             try {
@@ -630,7 +646,7 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText] =
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText, pairContextText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -642,6 +658,7 @@ ${groupLogStr}\n`;
                 timed('anniversary', anniversaryPromise),
                 timed('moments', momentsPromise),
                 timed('mallPicks', mallPromise),
+                timed('pairCtx', pairContextPromise),
             ]);
 
         // ── 拼接：易變的進 volatileState，穩定的進 baseSystemPrompt ──
@@ -733,6 +750,7 @@ ${groupLogStr}\n`;
         // 群聊背景帶時間戳、隨群消息實時滾動 → 易變；日記標題/生活記錄變化很慢 → 穩定。
         // 紀念日每天都在變（今天／明天／幾天後），放易變段，別弄髒穩定段的快取。
         volatileState += groupContextText;
+        volatileState += pairContextText;
         volatileState += momentsText;
         // 你的錢包（utils/realBalancePrompt.ts）：餘額會隨轉帳變，放易變段；從沒建過錢包的角色是空字串
         volatileState += buildRealBalanceBlock(char.phoneState?.realBalance);

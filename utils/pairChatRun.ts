@@ -48,6 +48,12 @@ export async function runPairRound(args: {
     samePersona: boolean;
     api: MiniApiConfig;
     asB?: string;
+    /**
+     * asB 是不是你冒充的（預設是）。群聊裡成員真的私訊了對方（[[DM]]）時傳 false，
+     * 另外可以給那幾行加上 metadata（例如是從哪個群私訊的）。
+     */
+    asBImpersonated?: boolean;
+    asBMeta?: Record<string, unknown>;
     now?: number;
 }): Promise<PairRoundResult> {
     const { a, b } = args;
@@ -74,7 +80,9 @@ export async function runPairRound(args: {
         const speaker = m.metadata?.pairSpeakerId;
         if (speaker === a.id) seenA = true;
         // 你冒充 B 說的那幾行：標起來（頁面上看得出來；B 也會記得「自己說過」）
-        if (args.asB && !seenA && speaker === b.id) m.metadata = { ...m.metadata, impersonated: true };
+        if (args.asB && !seenA && speaker === b.id) {
+            m.metadata = { ...m.metadata, ...(args.asBImpersonated === false ? {} : { impersonated: true }), ...(args.asBMeta || {}) };
+        }
         await DB.saveMessage(m as any);
     }
     const aFull = serializeTurns([...aAll.slice(0, archived), ...parseTranscript(result.aDetail)]);
@@ -140,5 +148,39 @@ export async function archivePairIfNeeded(args: {
     }));
     push(a, b, aTopics);
     push(b, a, bTopics);
+    // 也送進兩邊各自的記憶宮殿（開了記憶宮殿、設了 Embedding 的才送），之後跟你聊到相關的事召回得到
+    void sendPairTopicsToPalace(a, b, aTopics, api);
+    void sendPairTopicsToPalace(b, a, bTopics, api);
     return mark;
+}
+
+/** 全局記憶宮殿設定（跟 OSContext 的 memoryPalaceConfig 同一份 localStorage） */
+function readPalaceConfig(): { embedding?: any; lightLLM?: any } {
+    try {
+        const cfg = JSON.parse(localStorage.getItem('os_memory_palace_config') || '{}');
+        return { embedding: cfg?.embedding, lightLLM: cfg?.lightLLM };
+    } catch { return {}; }
+}
+
+/** 角色私聊的話題記憶送進記憶宮殿（關係線第 6 批 6d），標成「你跟某某私下聊的，用戶不在場」。失敗只記日誌。 */
+async function sendPairTopicsToPalace(owner: CharacterProfile, partner: CharacterProfile, topics: ConvTopic[], api: MiniApiConfig): Promise<void> {
+    if (!topics.length || !owner.memoryPalaceEnabled) return;
+    try {
+        const [{ resolveDatePalaceConfig }, { importDateStorySummary }] = await Promise.all([
+            import('./dateSummaryPalace'), import('./memoryPalace/pipeline'),
+        ]);
+        const config = resolveDatePalaceConfig(owner, readPalaceConfig(), api);
+        if (!config) return;
+        for (const t of topics) {
+            await importDateStorySummary({
+                charId: owner.id,
+                content: `〔這是你跟「${partner.name}」私下聊的，用戶不在場〕${t.text}`,
+                happenedAt: t.createdAt,
+                baseTags: ['角色私聊'],
+                tags: [partner.name],
+            }, config.embedding, config.llm);
+        }
+    } catch (e) {
+        console.warn(`[角色私聊] ${owner.name} 的話題記憶沒送進記憶宮殿`, e);
+    }
 }
