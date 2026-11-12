@@ -6,7 +6,7 @@ import type { DateStory, DateSummaryPreset } from '../types';
 
 
 import {
-    CharacterProfile, ChatTheme, Message, UserProfile,
+    CharacterProfile, ChatLine, ChatTheme, Message, UserProfile,
     Task, Anniversary, DiaryEntry, RoomTodo, RoomNote, DailySchedule,
     GalleryImage, FullBackupData, GroupProfile, SocialPost, StudyCourse, GameSession, Worldbook, NovelBook, Emoji, EmojiCategory,
     BankTransaction, SavingsGoal, BankFullState, DollhouseState, XhsStockImage, XhsActivityRecord, XhsOwnedPost, SongSheet, QuizSession, GuidebookSession,
@@ -39,7 +39,7 @@ const DB_NAME = 'AetherOS_Data';
 //      不進 exportSettings/importSettings 的打包範圍（見 utils/shoppingMall.ts）。
 // v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
 // v75：購物中心訂單 mall_orders（配送狀態照付款時間算，不存，見 plans/mall-redesign.md）。
-const DB_VERSION = 78;
+const DB_VERSION = 79;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
@@ -279,6 +279,15 @@ export const openDB = (): Promise<IDBDatabase> => {
               msgStore.createIndex('charId_type', ['charId', 'type'], { unique: false });
           }
       } catch (e) { console.log('charId_type index migration skipped', e); }
+
+      // v79: 關係線（plans/persona-line-batch1-2.md）。主線以外的私聊訊息帶 personaKey，
+      // 走 [charId, personaKey] 直取；主線訊息沒有 personaKey，不進這個索引，照舊走 charId。
+      try {
+          const msgStore = (event.target as IDBOpenDBRequest).transaction?.objectStore(STORE_MESSAGES);
+          if (msgStore && !msgStore.indexNames.contains('charId_persona')) {
+              msgStore.createIndex('charId_persona', ['charId', 'personaKey'], { unique: false });
+          }
+      } catch (e) { console.log('charId_persona index migration skipped', e); }
 
       createStore(STORE_EMOJIS, { keyPath: 'name' });
       createStore(STORE_EMOJI_CATEGORIES, { keyPath: 'id' });
@@ -545,6 +554,24 @@ const normalizeWorldRelationships = (world: WorldProfile): WorldProfile => {
     return { ...world, relationships: out };
 };
 
+
+// ── 關係線（plans/persona-line-batch1-2.md）────────────────────────────────
+// 讀私聊的函式收一條線，也收 charId（＝主線）。主線只回沒標 personaKey 的訊息，
+// 其他線只回標了那張卡的，所以一條線永遠讀不到另一條線的聊天。
+type LineArg = ChatLine | string;
+const primaryLineOf = (charId: string): ChatLine => ({ charId });
+const asLine = (l: LineArg): ChatLine => (typeof l === 'string' ? { charId: l } : l);
+/** 這則訊息是不是這條線上的私聊。 */
+const onLine = (m: Message, line: ChatLine): boolean =>
+    !m.groupId && (line.personaKey ? m.personaKey === line.personaKey : !m.personaKey);
+/** 掃一條線用哪個索引：其他線走 [charId, personaKey]，主線（或索引還沒建好）走 charId。 */
+const lineIndexRange = (store: IDBObjectStore, line: ChatLine): { index: IDBIndex; range: IDBKeyRange } => {
+    if (line.personaKey && store.indexNames.contains('charId_persona')) {
+        return { index: store.index('charId_persona'), range: IDBKeyRange.only([line.charId, line.personaKey]) };
+    }
+    return { index: store.index('charId'), range: IDBKeyRange.only(line.charId) };
+};
+
 export const DB = {
   deleteDB: async (): Promise<void> => {
       // 刪庫前先關掉單例連接, 否則這條還開著的連接會 block 掉 deleteDatabase。
@@ -741,15 +768,17 @@ export const DB = {
    * @param includeProcessed 是否包含已被記憶宮殿處理的消息（默認 false，即自動過濾）。
    *                         記憶歸檔、批量總結等需要完整歷史的場景應傳 true。
    */
-  getMessagesByCharId: async (charId: string, includeProcessed: boolean = false): Promise<Message[]> => {
+  getMessagesByCharId: async (lineArg: LineArg, includeProcessed: boolean = false): Promise<Message[]> => {
+    const line = asLine(lineArg);
+    const charId = line.charId;
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
-      const request = index.getAll(IDBKeyRange.only(charId));
+      const { index, range } = lineIndexRange(store, line);
+      const request = index.getAll(range);
       request.onsuccess = () => {
-          let results = (request.result || []).filter((m: Message) => !m.groupId);
+          let results = (request.result || []).filter((m: Message) => onLine(m, line));
           // 記憶宮殿：過濾已處理的消息（高水位標記之前的），用向量記憶替代
           if (!includeProcessed) {
               try {
@@ -781,7 +810,9 @@ export const DB = {
   },
 
   // Performance: Load only the most recent N messages for a character
-  getRecentMessagesByCharId: async (charId: string, limit: number, includeProcessed: boolean = false): Promise<Message[]> => {
+  getRecentMessagesByCharId: async (lineArg: LineArg, limit: number, includeProcessed: boolean = false): Promise<Message[]> => {
+    const line = asLine(lineArg);
+    const charId = line.charId;
     const db = await openDB();
     const hwm = includeProcessed ? 0 : (() => {
         try { return parseInt(localStorage.getItem(`mp_lastMsgId_${charId}`) || '0', 10) || 0; } catch { return 0; }
@@ -789,14 +820,14 @@ export const DB = {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
+      const { index, range } = lineIndexRange(store, line);
       const collected: Message[] = [];
-      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+      const cursorReq = index.openCursor(range, 'prev');
       cursorReq.onsuccess = () => {
           const cursor = cursorReq.result;
           if (cursor && collected.length < limit) {
               const m = cursor.value as Message;
-              if (!m.groupId && (includeProcessed || m.id > hwm)) collected.push(m);
+              if (onLine(m, line) && (includeProcessed || m.id > hwm)) collected.push(m);
               cursor.continue();
           } else {
               resolve(collected.reverse());
@@ -807,17 +838,18 @@ export const DB = {
   },
 
   /** 這個角色最早一則私聊訊息的時間；沒有訊息回 null。聊天設定頁「相識 N 天」沒自訂起點時用它。 */
-  getFirstMessageTimestamp: async (charId: string): Promise<number | null> => {
+  getFirstMessageTimestamp: async (lineArg: LineArg): Promise<number | null> => {
+    const line = asLine(lineArg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
-      const index = transaction.objectStore(STORE_MESSAGES).index('charId');
-      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'next');
+      const { index, range } = lineIndexRange(transaction.objectStore(STORE_MESSAGES), line);
+      const cursorReq = index.openCursor(range, 'next');
       cursorReq.onsuccess = () => {
           const cursor = cursorReq.result;
           if (!cursor) { resolve(null); return; }
           const m = cursor.value as Message;
-          if (!m.groupId && typeof m.timestamp === 'number') { resolve(m.timestamp); return; }
+          if (onLine(m, line) && typeof m.timestamp === 'number') { resolve(m.timestamp); return; }
           cursor.continue();
       };
       cursorReq.onerror = () => reject(cursorReq.error);
@@ -826,19 +858,20 @@ export const DB = {
 
   // DateApp 等按來源展示的輕量歷史讀取：用 charId 索引倒序掃，只收集目標 source 的最近 N 條。
   // 這樣不會為了渲染見面閱讀模式，把該角色全量聊天（含圖片/base64消息）一次性 getAll 進內存。
-  getRecentMessagesByCharIdAndSource: async (charId: string, source: string, limit: number): Promise<Message[]> => {
+  getRecentMessagesByCharIdAndSource: async (lineArg: LineArg, source: string, limit: number): Promise<Message[]> => {
+    const line = asLine(lineArg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
+      const { index, range } = lineIndexRange(store, line);
       const collected: Message[] = [];
-      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+      const cursorReq = index.openCursor(range, 'prev');
       cursorReq.onsuccess = () => {
           const cursor = cursorReq.result;
           if (cursor && collected.length < limit) {
               const m = cursor.value as Message;
-              if (!m.groupId && m.metadata?.source === source) collected.push(m);
+              if (onLine(m, line) && m.metadata?.source === source) collected.push(m);
               cursor.continue();
           } else {
               resolve(collected.reverse());
@@ -865,7 +898,7 @@ export const DB = {
           const idx = store.index('charId_type');
           const req = idx.getAll(IDBKeyRange.only([charId, 'vr_card']));
           req.onsuccess = () => {
-              const results = (req.result || []).filter((m: Message) => !m.groupId && (m as any).metadata?.vrCard);
+              const results = (req.result || []).filter((m: Message) => onLine(m, primaryLineOf(charId)) && (m as any).metadata?.vrCard);
               resolve(results);
           };
           req.onerror = () => reject(req.error);
@@ -880,7 +913,7 @@ export const DB = {
           const cursor = cursorReq.result;
           if (cursor && collected.length < 80) {
               const m = cursor.value as Message;
-              if (!m.groupId && m.type === 'vr_card' && (m as any).metadata?.vrCard) collected.push(m);
+              if (onLine(m, primaryLineOf(charId)) && m.type === 'vr_card' && (m as any).metadata?.vrCard) collected.push(m);
               cursor.continue();
           } else {
               resolve(collected);
@@ -892,23 +925,24 @@ export const DB = {
 
   // UI 讀取不受記憶水位影響。先按展示範圍篩選，再湊滿 N 條，避免見面/通話佔滿窗口。
   // totalCount 仍是廉價的索引計數上限；游標已取盡時，調用方用實際展示條數替代它。
-  getRecentMessagesWithCount: async (charId: string, limit: number, accept?: (message: Message) => boolean): Promise<{ messages: Message[], totalCount: number }> => {
+  getRecentMessagesWithCount: async (lineArg: LineArg, limit: number, accept?: (message: Message) => boolean): Promise<{ messages: Message[], totalCount: number }> => {
+    const line = asLine(lineArg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
-      const countReq = index.count(IDBKeyRange.only(charId));
+      const { index, range } = lineIndexRange(store, line);
+      const countReq = index.count(range);
       countReq.onsuccess = () => {
           const totalCount = countReq.result;
           // Use reverse cursor to only collect the last N messages
           const collected: Message[] = [];
-          const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+          const cursorReq = index.openCursor(range, 'prev');
           cursorReq.onsuccess = () => {
               const cursor = cursorReq.result;
               if (cursor && collected.length < limit) {
                   const m = cursor.value as Message;
-                  if (!m.groupId && (!accept || accept(m))) collected.push(m);
+                  if (onLine(m, line) && (!accept || accept(m))) collected.push(m);
                   cursor.continue();
               } else {
                   resolve({ messages: collected.reverse(), totalCount });
@@ -921,19 +955,20 @@ export const DB = {
   },
 
   // Get all messages for a character from a given message ID onward (for hideBeforeMessageId)
-  getMessagesFromId: async (charId: string, fromId: number): Promise<{ messages: Message[], totalCount: number }> => {
+  getMessagesFromId: async (lineArg: LineArg, fromId: number): Promise<{ messages: Message[], totalCount: number }> => {
+    const line = asLine(lineArg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
+      const { index, range } = lineIndexRange(store, line);
       const collected: Message[] = [];
-      const cursorReq = index.openCursor(IDBKeyRange.only(charId), 'prev');
+      const cursorReq = index.openCursor(range, 'prev');
       cursorReq.onsuccess = () => {
           const cursor = cursorReq.result;
           if (cursor && Number(cursor.primaryKey) >= fromId) {
               const m = cursor.value as Message;
-              if (!m.groupId && m.id >= fromId) {
+              if (onLine(m, line) && m.id >= fromId) {
                   collected.push(m);
               }
               cursor.continue();
@@ -1068,11 +1103,13 @@ export const DB = {
     });
   },
 
-  findImageMessageByUrl: async (charId: string, url: string): Promise<Message | null> => {
+  findImageMessageByUrl: async (lineArg: LineArg, url: string): Promise<Message | null> => {
+    const line = asLine(lineArg);
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readonly');
-      const request = transaction.objectStore(STORE_MESSAGES).index('charId').openCursor(IDBKeyRange.only(charId));
+      const { index, range } = lineIndexRange(transaction.objectStore(STORE_MESSAGES), line);
+      const request = index.openCursor(range);
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor) {
@@ -1080,7 +1117,7 @@ export const DB = {
           return;
         }
         const message = cursor.value as Message;
-        if (!message.groupId && message.type === 'image' && message.content === url) {
+        if (onLine(message, line) && message.type === 'image' && message.content === url) {
           resolve(message);
           return;
         }
@@ -1137,21 +1174,23 @@ export const DB = {
       });
   },
 
-  clearMessages: async (charId: string): Promise<void> => {
+  clearMessages: async (lineArg: LineArg): Promise<void> => {
+    const line = asLine(lineArg);
+    const charId = line.charId;
     const { preserveContentFavoritesBeforeMessageDeletion } = await import('./contentFavorites');
     await preserveContentFavoritesBeforeMessageDeletion({ charId });
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_MESSAGES, 'readwrite');
       const store = transaction.objectStore(STORE_MESSAGES);
-      const index = store.index('charId');
-      const request = index.openCursor(IDBKeyRange.only(charId));
+      const { index, range } = lineIndexRange(store, line);
+      const request = index.openCursor(range);
 
       request.onsuccess = () => {
         const cursor = request.result;
         if (cursor) {
             const m = cursor.value as Message;
-            if (!m.groupId) {
+            if (onLine(m, line)) {
                 store.delete(cursor.primaryKey);
             }
             cursor.continue();

@@ -3184,6 +3184,15 @@ export interface CharacterProfile {
   worldview?: string;
   /** 角色分組：指向 CharacterGroup.id；空或指向已刪分組 = 未分組。僅本地組織用，不隨角色卡導出 */
   groupId?: string;
+  /**
+   * 關係線（plans/persona-line-batch1-2.md）：角色認識的身份鍵，每張一條線。
+   * 沒有這兩個欄位的舊角色，讀取時用 personaKeyForChar 補（utils/chatLine.ts 的 withLineFields）。
+   */
+  knownPersonaKeys?: string[];
+  /** 主線：角色升級前那條線的身份鍵。沒標身份的舊資料（訊息、記憶）都算這條。 */
+  primaryPersonaKey?: string;
+  /** 主線以外各條線的關係欄位（身份鍵 → 那條線的值）；主線用頂層欄位。欄位清單在 utils/chatLine.ts。 */
+  lines?: Record<string, CharLineFields>;
   memories: MemoryFragment[];
   refinedMemories?: Record<string, string>;
   activeMemoryMonths?: string[];
@@ -4915,12 +4924,48 @@ export interface Message {
     type: MessageType;
     content: string;
     timestamp: number;
+    /**
+     * 私聊訊息屬於角色的哪一條關係線（身份鍵）。**沒有＝主線**（角色的 primaryPersonaKey），
+     * 所以舊訊息不用搬；主線的訊息也一律不寫。群訊息不用這個（身份記在 metadata.personaKey）。
+     * 見 plans/persona-line-batch1-2.md、utils/chatLine.ts。
+     */
+    personaKey?: string;
     metadata?: any; 
     replyTo?: {
         id: number;
         content: string;
         name: string;
     };
+}
+
+/**
+ * 角色卡上跟著關係線走的欄位（plans/persona-line-batch1-2.md 2.3）。
+ * 關係狀態：新開一條線時空白，從頭開始。
+ */
+export type LineStateField =
+    | 'impression' | 'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
+    | 'acquaintanceStartDate' | 'savedDateState' | 'activeDateStoryId' | 'dateNextStoryTime' | 'dateScenario'
+    | 'dateOfflinePause' | 'chatBlock' | 'chatBlockLog' | 'charBlockCooldown' | 'specialMomentRecords'
+    | 'affinities' | 'contextUserStartMessageId' | 'hideBeforeMessageId' | 'refinedMemories' | 'activeMemoryMonths'
+    | 'memoryPalaceInjection' | 'roomPlatesInjection';
+/** 聊天設定：這條線沒設就照主線。 */
+export type LineSettingField =
+    | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'chatFineTune'
+    | 'chromeCustomCss' | 'chatSound' | 'chatSoundBound' | 'dateBackground' | 'dateAppearance' | 'dateOfflineMode'
+    | 'contextLimit' | 'contextRangeMode' | 'contextFollowsMemoryPalaceHwm' | 'contextRangePolicyVersion' | 'hideSystemLogs'
+    | 'readNoReply' | 'delayedReply' | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser'
+    | 'allowCharChangeRelationship' | 'tempChatLimits' | 'replyDrafts'
+    | 'chatVoiceEnabled' | 'chatVoiceAutoPlay' | 'chatVoiceLang' | 'dateVoiceEnabled' | 'dateVoiceLang' | 'callVoiceLang'
+    | 'showThinkingChain' | 'thinkingChainStyle' | 'thinkingChainCustomColors' | 'thinkingChainCustomPrompt' | 'thinkingChainCustomCss'
+    | 'htmlModeEnabled' | 'htmlModeCustomPrompt' | 'chatCollaborationEnabled';
+export type LineField = LineStateField | LineSettingField;
+/** 主線以外一條線存的值（CharacterProfile.lines[personaKey]）。 */
+export type CharLineFields = Partial<Pick<CharacterProfile, LineField>>;
+
+/** 一條關係線：角色 × 身份卡。personaKey 沒有＝主線。建立一律走 utils/chatLine.ts 的 primaryLine / lineFor。 */
+export interface ChatLine {
+    charId: string;
+    personaKey?: string;
 }
 
 export interface EmojiCategory {

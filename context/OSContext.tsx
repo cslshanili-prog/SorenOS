@@ -1,5 +1,6 @@
 
 import { isDateOfflinePaused } from '../utils/dateOffline';
+import { withLineFields } from '../utils/chatLine';
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
@@ -1784,12 +1785,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         let resetAutoContextCount = 0;
         let migratedContextCount = 0;
+        // 關係線：舊角色補上主線（認識的身份），見 utils/chatLine.ts
+        const lineProfileBase = dbUser || ({} as UserProfile);
         finalChars = finalChars.map(c => {
           const normalized = normalizeCharacterDefaults(normalizeCharacterImpression(c));
           const migration = migrateCharacterContextRange(normalized);
           if (migration.migrated) migratedContextCount++;
           if (migration.resetAutoContext) resetAutoContextCount++;
-          return migration.character;
+          const withLines = withLineFields(lineProfileBase, migration.character);
+          if (withLines !== migration.character) migratedContextCount++;
+          return withLines;
         });
         if (migratedContextCount > 0) {
           await Promise.all(finalChars.map(c => DB.saveCharacter(c)));
@@ -5754,12 +5759,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (chars.length > 0) {
               let importedAutoContextCount = 0;
               let importedContextMigrated = false;
+              const importedLineBase = user || ({} as UserProfile);
               const normalizedChars = chars.map(c => {
                   const normalized = normalizeCharacterDefaults(normalizeCharacterImpression(c));
                   const migration = migrateCharacterContextRange(normalized);
                   if (migration.migrated) importedContextMigrated = true;
                   if (migration.resetAutoContext) importedAutoContextCount++;
-                  return migration.character;
+                  const withLines = withLineFields(importedLineBase, migration.character);
+                  if (withLines !== migration.character) importedContextMigrated = true;
+                  return withLines;
               });
               if (importedContextMigrated) {
                   await Promise.all(normalizedChars.map(c => DB.saveCharacter(c)));
