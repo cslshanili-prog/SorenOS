@@ -285,9 +285,12 @@ export function isPromptBuildSkipped(): boolean {
     return readDevDebugFlags().skipPromptBuild;
 }
 
-/** 關係線預覽開著沒（面板看得見才算，正式版用戶永遠是關的）。 */
+/**
+ * 關係線開著沒：2026-11-13 起開給所有人，永遠是開的。
+ * 先留著這個函式（呼叫的地方很多、測試用它切開關）；`personaLines` 旗標只剩舊資料裡的欄位，不再讀。
+ */
 export function isPersonaLinesEnabled(): boolean {
-    return isDevDebugAvailable() && readDevDebugFlags().personaLines;
+    return true;
 }
 
 export function isEmotionEvalSkipped(): boolean {

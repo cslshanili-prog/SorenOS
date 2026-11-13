@@ -4325,6 +4325,8 @@ const Chat: React.FC = () => {
                 onClose={handleChatClose}
                 onTriggerAI={handleLightning}
                 hideTrigger={inputPreferences.sendButtonGenerates}
+                // 聊天設置放右上角（跟群聊的「群組設置」一樣）；「＋」裡那格拿掉了
+                extraAction={{ label: '聊天設置', icon: <GearSix className="w-5 h-5" weight="bold" />, onClick: () => handlePanelAction('settings') }}
                 onShowCharsPanel={() => setShowPanel('chars')}
                 onDeleteBuff={(buffId) => {
                     // 只拿掉這一條：當下情緒總結留著，提示詞那行「此刻還在的情緒」會跟著少掉它（utils/emotionDecay.ts）

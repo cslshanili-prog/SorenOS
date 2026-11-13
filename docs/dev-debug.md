@@ -60,7 +60,7 @@ isDevDebugAvailable()  // utils/devDebug.ts
 | `skipPromptBuild` | `utils/chatRequestPayload.ts:266` |
 | `skipEmotionEval` | `context/OSContext.tsx`（`isEmotionEvalSkipped()`）、`hooks/useChatAI.ts`（`emotionEvalEnabled`） |
 | `mergeSystemMessages` | `utils/chatRequestPayload.ts`（fullMessages 組裝末尾）+ `utils/systemMessageMerge.ts` |
-| `personaLines`（關係線預覽，`isPersonaLinesEnabled()`，面板看得見才算） | `utils/userPersona.ts`（開著時主線固定是 `primaryPersonaKey`）、`context/OSContext.tsx`（`activeLineFor`、讀取時對齊主線、`personaLinesEnabled`）、`apps/ChatHub.tsx` + `components/user/IdentitySwitcher.tsx`（分空間、全部身份）、`apps/Chat.tsx`（自動切身份、未讀只清主線）、`apps/DateApp.tsx` / `apps/CallApp.tsx`（選角色頁）、`components/chat/KnownPersonasSection.tsx`（認識的你）。見 `plans/persona-line-batch1-2.md` |
+| `personaLines`（關係線預覽；**2026-11-13 起開給所有人**，`isPersonaLinesEnabled()` 永遠回 true、面板拿掉了這個開關，欄位只剩舊資料） | `utils/userPersona.ts`（開著時主線固定是 `primaryPersonaKey`）、`context/OSContext.tsx`（`activeLineFor`、讀取時對齊主線、`personaLinesEnabled`）、`apps/ChatHub.tsx` + `components/user/IdentitySwitcher.tsx`（分空間、全部身份）、`apps/Chat.tsx`（自動切身份、未讀只清主線）、`apps/DateApp.tsx` / `apps/CallApp.tsx`（選角色頁）、`components/chat/KnownPersonasSection.tsx`（認識的你）。見 `plans/persona-line-batch1-2.md` |
 | 捕獲類 `api` | `utils/safeApi.ts`（調 `appendDevDebugApiLog`，普通聊天直發 + Character 的記憶精煉/歸檔/導入/批量總結/印象生成，凡走 `safeFetchJson` 的 chat completions 都算） |
 | 捕獲類 `amsg` | `utils/activeMsgRuntime.ts`（模塊頂 `makeDebugLogger('amsg', …)` + `activeMsgTrace` 鏡像） |
 | 捕獲類 `lifecycle` | `utils/devDebug.ts` 自帶的 `installDevDebugLifecycleCapture()`（`App.tsx` 啟動時掛一次，監聽器常駐、抓不抓走門禁） |

@@ -126,7 +126,7 @@ export default function FirstUseGuide() {
             {step === 1 && <>
                 <p className="text-xs leading-relaxed mt-2 text-amber-800">全自動記憶需要副 API 整理文字、Embedding API 檢索記憶，兩者缺一不可。副 API 可選擇「我想暫時只用主 API」；向量記憶可暫時跳過。硅基流動需要先在<a className="underline" href="https://cloud.siliconflow.cn" target="_blank" rel="noreferrer">網頁版完成實名認證</a>才能使用。</p>
             </>}
-            {step === 6 && <p className="text-xs leading-relaxed mt-2">聊天「＋」→ 設置裡的「一鍵存進記憶宮殿」等是進階手動工具。全自動用戶大部分時候不需要操作，只有明確知道用途和影響時才使用。</p>}
+            {step === 6 && <p className="text-xs leading-relaxed mt-2">聊天右上角齒輪「聊天設置」裡的「一鍵存進記憶宮殿」等是進階手動工具。全自動用戶大部分時候不需要操作，只有明確知道用途和影響時才使用。</p>}
             <div className="flex items-center gap-3 mt-3 text-xs">
                 {step > 0 && <button onClick={() => setGuideStep(step === 3 && skippedVector ? 1 : step - 1)}>上一步</button>}
                 <button onClick={() => navigate(step)} className="text-violet-700">回到本步頁面</button>

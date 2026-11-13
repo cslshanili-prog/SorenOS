@@ -59,7 +59,7 @@ export function SARUpdatePopup({ onDone, onVisit, onGuide }: {
                         <div className="sar-release-copy sar-release-copy-top">
                             <p className="sar-release-kicker">02 / 回覆，就在手邊</p>
                             <h2 id="sar-release-title">不用再夠<br/>右上角的閃電。</h2>
-                            <p>任意私聊 → 輸入框旁「＋」→「設置」<br/>在頂部「輸入與發送」裡調整，點「保存設置」。<br/>一次設置，所有私聊一起生效。</p>
+                            <p>任意私聊 → 右上角齒輪「聊天設置」<br/>在頂部「輸入與發送」裡調整，點「保存設置」。<br/>一次設置，所有私聊一起生效。</p>
                         </div>
                         <div className="sar-release-chat-art" aria-hidden="true">
                             <div className="sar-release-demo-bubble">還有一張表情包，等我一下。</div>
