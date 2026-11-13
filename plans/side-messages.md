@@ -1,6 +1,6 @@
 # 聊天中私下找人（PRIVATE／DM 全面開放）
 
-> 狀態：**設計稿，等 Liora 定第 6 節**（2026-11-13）。起因：群聊的 PRIVATE 只在你在場時教、只能給在場的卡；成員互私訊只在群裡、只能給群成員；兩個都沒有開關，拉黑中的角色還能用 PRIVATE 把訊息塞進私聊。
+> 狀態：**已做**（2026-11-13，第 6 節照建議定案）。起因：群聊的 PRIVATE 只在你在場時教、只能給在場的卡；成員互私訊只在群裡、只能給群成員；兩個都沒有開關，拉黑中的角色還能用 PRIVATE 把訊息塞進私聊。
 
 ## 1. 要做到什麼
 
@@ -45,14 +45,19 @@
 
 你跟角色的私聊走主動消息 2.0／即時對話時，Worker 直通名單要放行這兩個標記，`AMSG_BUNDLE_VERSION` 升版；沒更新 Worker 的照舊被剝掉、不生效。主動消息 1.0 不接。
 
-## 6. 等 Liora 定
+## 6. 定案（Liora 2026-11-13：照建議）
 
-1. 角色私聊、你的私聊那兩處的開關放哪：每個角色的聊天設定各一個「允許 TA 私下找別人」？還是設置裡一個全域開關？
-2. DM 能找誰：同世界＋關係清單上的人（建議），還是任何角色都可以？
-3. 不連鎖（深度 1）可以嗎？
-4. 一輪上限 PRIVATE 1、DM 1 可以嗎？
+1. 群聊在群設定兩個開關；角色私聊、你的私聊放每個角色的聊天設定「允許 TA 私下找別人」（`sideMessagesOff`，預設開）。
+2. DM 找同一個世界的、關係清單上的角色（不含小號、下戲中的）。
+3. 不連鎖（深度 1）。
+4. 一輪 PRIVATE 1、DM 1。
 
-## 7. 實作拆法（草稿）
+## 7. 實況
 
-- **a**：純邏輯（名單、上限、拉黑擋、標記解析共用一份）、群聊放開（旁觀也教、任何認識的卡、兩個開關）、拉黑修正。
-- **b**：角色私聊、你的私聊接上；雲端直通。
+- 純邏輯 `utils/sideMessage.ts`：`sideTargets`（名單；關係線開關關著只認主線那張、不能 DM）、`buildSideMessagePrompt`（一個人的那段）、`buildGroupSideMessageNote`（群聊導演模式每位成員一行）、`extractSideMessages`、`resolvePrivateTarget`（照名字；沒名字用群裡在場那張、再不行只認識一張時那張；拉黑中那條回 null）、`resolveDmTarget`、`newSideBudget`。
+- 遞送 `utils/sideMessageRun.ts`：`deliverSidePrivate`（寫進那條線、發 `SIDE_MESSAGE_EVENT`，OSContext 加那條線的未讀、提示「X 悄悄對「卡名」說」）、`deliverSideDm`（`runPairRound`，不給 side 提示＝深度 1）、`deliverSideBatch`（照額度送一位說話的人寫的全部）。
+- 群聊：`GroupProfile.sidePrivateOff`／`sideDmOff`（群設定兩個開關，第二個要開關係線預覽）。旁觀不再禁 PRIVATE；導演模式「六、私下找人」換成每位成員的名單，輪流模式每位成員自己的那段；`dispatch` 的 PRIVATE 交給 `onPrivate`。額度 `sideBudgetRef` 每輪重設、成員共用。DM 照舊在群裡落一行只有你看得到的小字。
+- 角色私聊：`runRealConversation` 收 `sideNoteA/B`、回 `sideA/B`（標記一律剝掉），`PairChatPage` 按「讓他們聊一輪」才給；對面那位不列。
+- 你的私聊：`chatPrompts` 教（正在說話的那張卡不列），`applyAssistantPostProcessing` 剝掉收下、發 `SIDE_ACTION_EVENT`，OSContext 用 `deliverSideBatch` 送。
+- 雲端：Worker `SOREN_SIDE_MESSAGE_TAG_RE` 原樣送回 PRIVATE／DM，`AMSG_BUNDLE_VERSION` 升到 2026-11-13。主動消息 1.0 不接（標記被剝乾淨）。
+- 埋點：`角色私下找人`（方式、场合）、`切换群聊成员私下找你`、`切换群聊成员互相私讯`。

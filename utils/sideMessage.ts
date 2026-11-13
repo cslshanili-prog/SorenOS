@@ -23,6 +23,15 @@ export interface SideMessageDetail {
     content: string;
 }
 
+/** 你的私聊裡角色寫了 PRIVATE／DM：後處理發這個，OSContext 送出去（後處理拿不到 updateCharacter） */
+export const SIDE_ACTION_EVENT = 'soren-side-action';
+export interface SideActionDetail {
+    speakerId: string;
+    /** 現在這條私聊線的你（不算「私下找」） */
+    personaKey?: string;
+    side: Pick<SideMessages, 'privates' | 'dms'>;
+}
+
 export const SIDE_PRIVATE_PER_ROUND = 1;
 export const SIDE_DM_PER_ROUND = 1;
 /** 提示詞裡各列幾個 */

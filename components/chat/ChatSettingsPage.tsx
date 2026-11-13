@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { isPersonaLinesEnabled } from '../../utils/devDebug';
 import { lineArgOf } from '../../utils/chatLine';
 import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
@@ -20,7 +21,7 @@ export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
     | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
-    | 'replyDrafts'>;
+    | 'replyDrafts' | 'sideMessagesOff'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -91,6 +92,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [onlineActions, setOnlineActions] = useState(false);
     const [charCall, setCharCall] = useState(false);
     const [allowBlock, setAllowBlock] = useState(false);
+    const [sideOn, setSideOn] = useState(true);
     const [blockCooldown, setBlockCooldown] = useState<CharBlockCooldown>('normal');
     const [confirmBlock, setConfirmBlock] = useState(false);
     const [tempLimits, setTempLimits] = useState<TempChatLimits>(DEFAULT_TEMP_CHAT_LIMITS);
@@ -113,6 +115,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setOnlineActions(!!char.onlineActions);
         setCharCall(!!char.charCall);
         setAllowBlock(!!char.allowCharBlockUser);
+        setSideOn(!char.sideMessagesOff);
         setBlockCooldown(char.charBlockCooldown || 'normal');
         setConfirmBlock(false);
         setTempLimits(normalizeTempChatLimits(char.tempChatLimits));
@@ -147,6 +150,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             onlineActions: onlineActions || undefined,
             charCall: charCall || undefined,
             allowCharBlockUser: allowBlock || undefined,
+            sideMessagesOff: sideOn ? undefined : true,
             charBlockCooldown: allowBlock && blockCooldown !== 'normal' ? blockCooldown : undefined,
             tempChatLimits: tempLimits.daily === DEFAULT_TEMP_CHAT_LIMITS.daily && tempLimits.maxChars === DEFAULT_TEMP_CHAT_LIMITS.maxChars
                 ? undefined : tempLimits,
@@ -277,6 +281,13 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                                     </>
                                 )}
                             </div>
+                            {isPersonaLinesEnabled() && (
+                                <div>
+                                    <Row label="允許 TA 私下找別人" hint="聊到某件事，TA 覺得該私下問問你的其他身份、或去問別的角色（同一個世界的、關係清單上的），就會自己去私聊；一次最多各一條。群聊裡的在群設定另外開關">
+                                        <Toggle on={sideOn} onToggle={() => setSideOn(v => !v)} label="允許 TA 私下找別人" />
+                                    </Row>
+                                </div>
+                            )}
                             <div>
                                 <Row label="允許角色拉黑你" hint="開啟後，角色真的被你氣到時可以把你拉黑：你的訊息會被拒收、不送給模型。冷靜期過了角色會自己想要不要解除">
                                     <Toggle on={allowBlock} onToggle={() => setAllowBlock(v => !v)} label="允許角色拉黑你" />

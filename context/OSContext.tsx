@@ -116,7 +116,8 @@ import { formatBytes } from '../utils/format';
 import { isEmotionEvalSkipped, isPersonaLinesEnabled, subscribeDevDebugAvailability, subscribeDevDebugFlags } from '../utils/devDebug';
 import { ALT_ACTION_EVENT, canOpenAlt, dueAltRequests, planAltRequest, resolveAltAdd, type AltActionDetail } from '../utils/altFriend';
 import { altDefaultAvatar, buildAltCharacter } from '../utils/charAltGenerate';
-import { SIDE_MESSAGE_EVENT, type SideMessageDetail } from '../utils/sideMessage';
+import { newSideBudget, SIDE_ACTION_EVENT, SIDE_MESSAGE_EVENT, type SideActionDetail, type SideMessageDetail } from '../utils/sideMessage';
+import { deliverSideBatch } from '../utils/sideMessageRun';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror } from '../utils/lsMirror';
@@ -3947,6 +3948,23 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       window.addEventListener(ALT_ACTION_EVENT, onAltAction);
       return () => window.removeEventListener(ALT_ACTION_EVENT, onAltAction);
+  }, []);
+
+  // 私下找人：你的私聊裡角色寫了 PRIVATE／DM（後處理發來的）→ 照額度送出去；DM 對方回一句（深度 1）
+  useEffect(() => {
+      const onSideAction = (event: Event) => {
+          const d = (event as CustomEvent<SideActionDetail>).detail;
+          const speaker = d && charactersRef.current.find(c => c.id === d.speakerId);
+          if (!speaker || !isPersonaLinesEnabled()) return;
+          void deliverSideBatch({
+              speaker, side: d.side, budget: newSideBudget(), characters: charactersRef.current,
+              profileBase: userProfileBaseRef.current, multiPersona: true, apiConfig: apiConfigRef.current,
+              updateCharacter: (id, updates) => updateCharacterRef.current(id, updates),
+              from: { chatOf: speaker.id }, excludePersonaKey: d.personaKey,
+          }).catch(e => console.warn('[私下找人] 沒送成', e));
+      };
+      window.addEventListener(SIDE_ACTION_EVENT, onSideAction);
+      return () => window.removeEventListener(SIDE_ACTION_EVENT, onSideAction);
   }, []);
 
   // 私下找人（plans/side-messages.md）：群聊、角色私聊、私聊裡有人私下傳給你的某張卡 → 那條線未讀＋1、提一聲

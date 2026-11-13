@@ -3101,6 +3101,8 @@ export interface CharacterProfile {
   altUserFriend?: boolean;
   /** 小號：加你好友的申請（第 7 批 7c，utils/altFriend.ts）。到了 at 才出現在訊息列表「新的朋友」 */
   altFriendRequest?: AltFriendRequest;
+  /** 聊天設定「允許 TA 私下找別人」關掉（預設開；plans/side-messages.md）：私聊、角色私聊裡不教 PRIVATE／DM */
+  sideMessagesOff?: boolean;
   /** 小號被認出來了（第 7 批 7d，utils/altReveal.ts）：你猜中它認了（admitted），或它自己說出來（told） */
   altRevealed?: { at: number; how: 'admitted' | 'told' };
   /** 你懷疑過這個小號就是本人、它沒認 */
