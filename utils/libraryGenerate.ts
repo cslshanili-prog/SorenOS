@@ -67,7 +67,10 @@ export const buildLibraryImagePrompt = (input: {
         people.length > 1 ? `畫面裡有 ${people.length} 個人，每個人都要在畫面裡：` : '',
         ...lines,
         withRef > 0 && withRef < people.length ? '沒寫參考圖的人別套用參考圖的長相。' : '',
-        '風格：像一張真實拍下的照片，構圖自然，畫面裡沒有文字。',
+        // 畫風一律交給畫風庫那段（generateImage 接在後面）；這裡寫「像照片」會蓋掉二次元、厚塗那幾套。
+        // 參考圖也只拿來對長相，不然生圖服務會連參考圖的畫法、質感一起照抄。
+        withRef > 0 ? '參考圖只用來對長相（臉型、五官、髮型髮色），畫法、質感、光線照下面寫的風格，不要照抄參考圖的畫風。' : '',
+        '構圖自然，畫面裡沒有文字。',
     ].filter(Boolean).join('\n');
 };
 
