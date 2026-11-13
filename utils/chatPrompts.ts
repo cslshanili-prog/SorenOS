@@ -38,6 +38,7 @@ import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById, getCharRefs, getRegisteredCharacters } from './charNameRegistry';
 import { buildAltSelfRevealPrompt, buildOwnerAltPrompt } from './altFriend';
+import { buildSideMessagePrompt, sideTargets } from './sideMessage';
 import { isPersonaLinesEnabled } from './devDebug';
 import { getMomentsContextForChar } from './momentsContext';
 import { buildRealBalanceBlock } from './realBalancePrompt';
@@ -402,6 +403,13 @@ export const ChatPrompts = {
         // 關係線第 7 批 · 本人私聊教「你的小號」：小號加你好友（ALT_ADD）、自己開小號（OPEN_ALT），見 utils/altFriend.ts
         if (isPersonaLinesEnabled() && !char.altOf) baseSystemPrompt += buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name);
         if (isPersonaLinesEnabled() && char.altOf) baseSystemPrompt += buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name);
+        // 私下找人（plans/side-messages.md）：聊到某件事想私下問你別的身份、或去問別的角色；正在跟你說話的這張卡不列
+        if (isPersonaLinesEnabled() && !char.sideMessagesOff) {
+            baseSystemPrompt += buildSideMessagePrompt({
+                targets: sideTargets(char, { characters: getRegisteredCharacters<CharacterProfile>(), profileBase: userProfile, multiPersona: true }),
+                allowPrivate: true, allowDm: true, excludePersonaKey: lineViewPersonaKey(char) || char.primaryPersonaKey,
+            });
+        }
 
         // ── 易變狀態段（volatileState）──
         // 開頭一行框定，讓模型明白這條出現在歷史之後的 system 消息是"此刻的狀態"，

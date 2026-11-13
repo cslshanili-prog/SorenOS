@@ -458,6 +458,16 @@ describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
     ]);
   });
 
+  it('私下找人的 PRIVATE／DM 原樣送回', () => {
+    const r = classifyLLMOutput(['好喔', '[[PRIVATE|身份B: 你要出國？]]', '[[DM｜老陳：她生病了嗎]]'].join('\n'));
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('好喔');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[PRIVATE|身份B: 你要出國？]]' },
+      { type: 'soren_tag', raw: '[[DM｜老陳：她生病了嗎]]' },
+    ]);
+  });
+
   it('角色拉黑你、關係線小號的懷疑也原樣送回（雲端生成時不被剝掉）', () => {
     const r = classifyLLMOutput([
       '我不想再看到你的訊息了',

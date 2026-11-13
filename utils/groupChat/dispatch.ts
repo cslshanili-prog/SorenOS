@@ -58,7 +58,12 @@ export interface DispatchContext {
      * [[PRIVATE:]]／[[PRIVATE|名字:]] 落在哪條私聊線（關係線第 5 批）：回 null 就丟掉。
      * 不傳照舊落成員的主線。label 是吐司上「悄悄對誰說」的名字（在場好幾張時才有）。
      */
-    privateTarget?: (charId: string, name?: string) => { charId: string; personaKey?: string; label?: string } | null;
+    privateTarget?: (charId: string, name?: string) => { charId: string; personaKey?: string; label?: string; key?: string } | null;
+    /**
+     * PRIVATE 真的要落了（私下找人，plans/side-messages.md）：給了就交給它（寫庫、未讀、提示一聲），
+     * 不給照舊在這裡寫庫、跳吐司。
+     */
+    onPrivate?: (charId: string, target: { charId: string; personaKey?: string; label?: string; key?: string }, content: string) => Promise<void>;
     /**
      * 成員私訊另一個成員（[[DM|名字: 內容]]，關係線第 6 批 6d）：群裡不顯示，進兩人的角色私聊線，
      * 對方馬上回一句。不傳就只剝掉標記（沒教這個語法的時候）。
@@ -114,7 +119,9 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
                 const line = privateContent && !isNpc
                     ? (ctx.privateTarget ? ctx.privateTarget(targetId, m[1]?.trim() || undefined) : { charId: targetId })
                     : null;
-                if (line) {
+                if (line && ctx.onPrivate) {
+                    await ctx.onPrivate(targetId, line, privateContent);
+                } else if (line) {
                     // Save to private chat (no groupId)
                     await DB.saveMessage({
                         charId: line.charId,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatPairContext } from './pairContext';
 import { memberVisibleGroupMessages } from './groupChat/presence';
-import { buildMemberDmNote } from './groupChat/prompts';
+import { buildSideMessagePrompt } from './sideMessage';
 
 const m = (ts: number, speaker: string, content: string) => ({ timestamp: ts, content, charId: 'pair~c1~c3', metadata: { pairSpeakerId: speaker } });
 
@@ -33,7 +33,8 @@ describe('群裡只給你看的那行', () => {
         expect(memberVisibleGroupMessages(msgs, false)).toHaveLength(1);
     });
     it('私訊的規則只在開著時教', () => {
-        expect(buildMemberDmNote(false)).toBe('');
-        expect(buildMemberDmNote(true)).toContain('[[DM|對方名字: 內容]]');
+        const targets = { personas: [], chars: [{ id: 'b', name: '小雨' }] };
+        expect(buildSideMessagePrompt({ targets, allowPrivate: true, allowDm: false })).toBe('');
+        expect(buildSideMessagePrompt({ targets, allowPrivate: true, allowDm: true })).toContain('[[DM|名字: 內容]]');
     });
 });

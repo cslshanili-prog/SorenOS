@@ -25,6 +25,7 @@
  */
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, RealtimeConfig, GroupProfile, ImageGenApiConfig } from '../types';
+import { isPersonaLinesEnabled } from './devDebug';
 import { lineArgOf, lineMsgFields, lineViewPersonaKey } from './chatLine';
 import { DB } from './db';
 import { ChatParser, type FrozenMusicSong } from './chatParser';
@@ -58,6 +59,7 @@ import { blockNotes, CHAT_BLOCK_CHANGE_EVENT, extractBlockUser, type ChatBlockCh
 import { describeDateInvite, extractDateInvite, type DateInviteMeta } from './dateInvite';
 import { extractSuspicion, resolveSuspicion, type PersonaRevealMeta } from './personaReveal';
 import { ALT_ACTION_EVENT, extractAltTags, type AltActionDetail } from './altFriend';
+import { extractSideMessages, SIDE_ACTION_EVENT, type SideActionDetail, type SideMessages } from './sideMessage';
 import { writeAltRevealNotes } from './altRevealActions';
 import { getRegisteredCharacter, getRegisteredCharacters } from './charNameRegistry';
 import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
@@ -902,6 +904,14 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    // 私下找人（plans/side-messages.md）：PRIVATE／DM 一律剝掉；開關開著才收下，這一輪話都落完再交給 OSContext 送
+    const pendingSide: Pick<SideMessages, 'privates' | 'dms'> = { privates: [], dms: [] };
+    const consumeSide = (content: string): string => {
+        const r = extractSideMessages(content);
+        if (isPersonaLinesEnabled() && !char.sideMessagesOff) { pendingSide.privates.push(...r.privates); pendingSide.dms.push(...r.dms); }
+        return r.cleanedText;
+    };
+
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
         const { cleanedText, block } = extractBlockUser(content);
@@ -921,6 +931,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeBlockUser(aiContent);
     aiContent = consumeSuspicion(aiContent);
     aiContent = consumeAltTags(aiContent);
+    aiContent = consumeSide(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2417,6 +2428,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeBlockUser(aiContent);
     aiContent = consumeSuspicion(aiContent);
     aiContent = consumeAltTags(aiContent);
+    aiContent = consumeSide(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2531,6 +2543,12 @@ export async function applyAssistantPostProcessing(
                 detail: { ...lineMsgFields(char), action: 'charBlock', reason: block.reason },
             }));
         }
+    }
+
+    if ((pendingSide.privates.length || pendingSide.dms.length) && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent<SideActionDetail>(SIDE_ACTION_EVENT, {
+            detail: { speakerId: char.id, personaKey: lineViewPersonaKey(char) || char.primaryPersonaKey, side: pendingSide },
+        }));
     }
 
     if (pendingAltTags && typeof window !== 'undefined') {

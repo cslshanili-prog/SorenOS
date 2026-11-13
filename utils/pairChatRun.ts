@@ -54,6 +54,9 @@ export async function runPairRound(args: {
      */
     asBImpersonated?: boolean;
     asBMeta?: Record<string, unknown>;
+    /** 私下找人那段（只在你按「讓他們聊一輪」時給；被私訊後回的那句不給＝不連鎖） */
+    sideNoteA?: string;
+    sideNoteB?: string;
     now?: number;
 }): Promise<PairRoundResult> {
     const { a, b } = args;
@@ -72,6 +75,8 @@ export async function runPairRound(args: {
         bLearned: aToB?.learned, aLearned: bToA?.learned,
         aSummary: topicText(aToB?.topicBox), bSummary: topicText(bToA?.topicBox),
         aReplyTo: args.asB,
+        sideNoteA: args.sideNoteA,
+        sideNoteB: args.sideNoteB,
     });
     const now = args.now ?? Date.now();
     const fresh = newPairMessages({ pairId, aId: a.id, bId: b.id, aDetail: result.aDetail, existingLines: recent.length, now });

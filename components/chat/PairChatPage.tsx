@@ -9,6 +9,8 @@ import { pairLineId, pairSpeakerOf, parsePairLineId } from '../../utils/pairLine
 import { archivePairIfNeeded, commitPairToPhones, loadPairMessages, nextOpener, runPairRound } from '../../utils/pairChatRun';
 import { personaKeyForChar, resolveUserProfileForChar } from '../../utils/userPersona';
 import { trackEvent } from '../../utils/analytics';
+import { buildSideMessagePrompt, newSideBudget, sideTargets } from '../../utils/sideMessage';
+import { deliverSideBatch } from '../../utils/sideMessageRun';
 
 /**
  * 角色私聊（plans/persona-line-batch6.md 第 2 節）：兩個角色之間的那條線。你只能看、按「讓他們聊一輪」、
@@ -44,14 +46,25 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
         const b = charOf(bId) as CharacterProfile;
         setBusy(true);
         try {
+            // 私下找人（plans/side-messages.md）：兩邊各自看自己的開關；對面那位不算
+            const noteFor = (self: CharacterProfile, other: CharacterProfile) => self.sideMessagesOff ? '' : buildSideMessagePrompt({
+                targets: sideTargets(self, { characters, profileBase: userProfileBase, multiPersona: true }),
+                allowPrivate: true, allowDm: true, excludeCharId: other.id,
+            });
             const round = await runPairRound({
                 a, b, api: apiConfig as any,
                 userA: resolveUserProfileForChar(userProfileBase, a), userB: resolveUserProfileForChar(userProfileBase, b),
                 samePersona: personaKeyForChar(userProfileBase, a) === personaKeyForChar(userProfileBase, b),
                 asB: asText,
+                sideNoteA: noteFor(a, b),
+                sideNoteB: asText ? '' : noteFor(b, a),
             });
             if (!round.added) { addToast('他們沒說話，再試一次', 'error'); return; }
             commitPairToPhones({ a, b, round, updateCharacter });
+            const budget = newSideBudget();
+            const common = { budget, characters, profileBase: userProfileBase, multiPersona: true, apiConfig, updateCharacter, from: { pairId: pairLineId(a.id, b.id) }, onDmReplied: (to: CharacterProfile) => addToast(`${to.name} 回了私訊`, 'info') };
+            await deliverSideBatch({ ...common, speaker: a, side: round.result.sideA, excludeCharId: b.id });
+            await deliverSideBatch({ ...common, speaker: b, side: round.result.sideB, excludeCharId: a.id });
             void archivePairIfNeeded({ a, b, aFull: round.aFull, api: apiConfig as any, updateCharacter })
                 .then(mark => { if (mark) addToast(`更早的 ${mark} 條已經整理成兩邊的話題記憶`, 'info'); });
             trackEvent('让他们聊一轮', { 方式: asText ? '冒充' : '聊一轮' });

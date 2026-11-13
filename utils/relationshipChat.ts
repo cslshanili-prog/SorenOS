@@ -1,4 +1,5 @@
 import { stripLeakedReasoning } from './reasoningLeak';
+import { extractSideMessages, type SideMessages } from './sideMessage';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { lineArgOf } from './chatLine';
 import type { ChatLine } from '../types';
@@ -349,6 +350,9 @@ export interface RealConversationResult {
     aLearnedNew: string;
     /** B 這次新瞭解到的關於 A 的認識；無則空串 */
     bLearnedNew: string;
+    /** 私下找人（plans/side-messages.md）：A、B 這次寫的 PRIVATE／DM（已從正文剝掉；給了 side 提示才會有） */
+    sideA?: Pick<SideMessages, 'privates' | 'dms'>;
+    sideB?: Pick<SideMessages, 'privates' | 'dms'>;
 }
 
 interface RunRealConversationParams {
@@ -379,6 +383,9 @@ interface RunRealConversationParams {
     aSummary?: string;
     /** B 的聊天話題盒 */
     bSummary?: string;
+    /** 私下找人那段（utils/sideMessage.ts 的 buildSideMessagePrompt）：給了才教，寫了的從正文剝掉回傳 */
+    sideNoteA?: string;
+    sideNoteB?: string;
     /**
      * 用戶冒充 B 說的話（查手機「以對方身份回 TA」）。給了就先把這句記成 B 說的，
      * 然後只跑 A 回這一句（1 次 LLM），B 那一步不跑。
@@ -427,10 +434,15 @@ export async function runRealConversation(
             : '';
 
     // 從一段回覆裡抽出 [[Δ:+N]] 好感變化 + [[瞭解:…]] 新認識，剝掉這些標記，再去掉可能的「名字:」前綴
-    const extract = (raw: string, selfName: string): { text: string; delta: number; learned: string } => {
+    const sideA: Pick<SideMessages, 'privates' | 'dms'> = { privates: [], dms: [] };
+    const sideB: Pick<SideMessages, 'privates' | 'dms'> = { privates: [], dms: [] };
+    const extract = (raw: string, selfName: string, side?: Pick<SideMessages, 'privates' | 'dms'>): { text: string; delta: number; learned: string } => {
         let delta = 0;
         const learnedParts: string[] = [];
-        let text = raw.replace(/\[\[\s*Δ?\s*[:：]?\s*([+-]?\d+)\s*\]\]/g, (_m, n) => {
+        // 私下找人的標記一律剝掉（沒教的時候寫了也不會出現在對話裡）；有教才收下來
+        const sm = extractSideMessages(raw);
+        if (side) { side.privates.push(...sm.privates); side.dms.push(...sm.dms); }
+        let text = sm.cleanedText.replace(/\[\[\s*Δ?\s*[:：]?\s*([+-]?\d+)\s*\]\]/g, (_m, n) => {
             delta += parseInt(n, 10) || 0;
             return '';
         });
@@ -501,14 +513,14 @@ ${replyTo ? `- 你是一個**完整、獨立的人格**，有自己的生活、�
 任務：以「${a.name}」的身份，${replyTo ? `回覆「${b.name}」剛說的話` : `發給「${b.name}」接下來的消息`}（3-6 句、可連發幾條，IM 風格，信息量夠）。
 只輸出消息正文，不要加「${a.name}:」之類前綴，不要解釋、不要旁白。
 然後另起一行，用 [[Δ:+N]] 標註說完這段後你對 TA 的好感變化（N 為 -20~20 的整數，沒變化寫 [[Δ:0]]）。
-如果這次交流讓你對「${b.name}」**有了新的認識**（TA 是誰、什麼身份、在意什麼、透露了什麼關鍵信息——記住這些只是 TA 自己說的、**未必是真的**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有新認識就別寫這一行。`;
+如果這次交流讓你對「${b.name}」**有了新的認識**（TA 是誰、什麼身份、在意什麼、透露了什麼關鍵信息——記住這些只是 TA 自己說的、**未必是真的**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有新認識就別寫這一行。${p.sideNoteA || ''}`;
         let aRaw = '';
         try {
             aRaw = await chatCompletion(api, aPrompt);
         } catch {
             break;
         }
-        const aParsed = extract(aRaw, a.name);
+        const aParsed = extract(aRaw, a.name, p.sideNoteA ? sideA : undefined);
         aDelta += aParsed.delta;
         if (aParsed.learned) aLearnedNew = appendLearned(aLearnedNew, aParsed.learned);
         if (aParsed.text) turns.push({ speaker: 'A', text: aParsed.text });
@@ -556,14 +568,14 @@ ${labeled()}
 任務：以「${b.name}」的身份回覆「${a.name}」（3-6 句、可連發幾條，IM 風格，信息量夠）。
 只輸出回覆正文，不要前綴，不要解釋、不要旁白。
 然後另起一行，用 [[Δ:+N]] 標註回完這段後你對 TA 的好感變化（N 為 -20~20 的整數，沒變化寫 [[Δ:0]]）。
-如果這次交流讓你對「${a.name}」**有了新的認識**（TA 是誰、身份、在意什麼、透露了什麼——記住只是 TA 自己說的、**未必為真**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有就別寫。`;
+如果這次交流讓你對「${a.name}」**有了新的認識**（TA 是誰、身份、在意什麼、透露了什麼——記住只是 TA 自己說的、**未必為真**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有就別寫。${p.sideNoteB || ''}`;
         let bRaw = '';
         try {
             bRaw = await chatCompletion(api, bPrompt);
         } catch {
             break;
         }
-        const bParsed = extract(bRaw, b.name);
+        const bParsed = extract(bRaw, b.name, p.sideNoteB ? sideB : undefined);
         bDelta += bParsed.delta;
         if (bParsed.learned) bLearnedNew = appendLearned(bLearnedNew, bParsed.learned);
         if (bParsed.text) turns.push({ speaker: 'B', text: bParsed.text });
@@ -586,6 +598,8 @@ ${labeled()}
         bDelta: Math.max(-20, Math.min(20, bDelta)),
         aLearnedNew,
         bLearnedNew,
+        ...(p.sideNoteA ? { sideA } : {}),
+        ...(p.sideNoteB ? { sideB } : {}),
     };
 }
 

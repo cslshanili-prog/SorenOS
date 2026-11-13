@@ -1,4 +1,6 @@
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniversaryGifts';
+import { buildGroupSideMessageNote, buildSideMessagePrompt, newSideBudget, resolveDmTarget, resolvePrivateTarget, sideTargets, type SideBudget } from '../utils/sideMessage';
+import { deliverSideDm, deliverSidePrivate } from '../utils/sideMessageRun';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
@@ -607,6 +609,8 @@ const GroupChat: React.FC = () => {
     // 同理 ref 出最新 messages：派發循環裡逐條落庫時要按"當前窗口大小"刷新，
     // 閉包裡的 messages 是觸發那一刻的舊值，長度會越算越小
     const messagesRef = useRef<Message[]>([]);
+    /** 私下找人：這一輪還能落幾條 PRIVATE／DM（每輪開始時重設，好幾位成員共用） */
+    const sideBudgetRef = useRef<SideBudget>(newSideBudget());
     messagesRef.current = messages;
 
     // 群裡的動靜會進每個成員私聊 prompt 的【群聊背景】塊，話題盒成盒時還直接往成員私聊
@@ -1692,27 +1696,25 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         .map(k => ({ id: userClaimantId(k), name: personaNameForKey(userProfileBase, k) }));
     // 成員私訊成員（關係線第 6 批 6d）：群裡兩個以上角色成員才教；落進兩人的角色私聊線，對方馬上回一句，
     // 群裡只留一行你看得到的小字（userOnly，角色看不到）
-    const memberDmEnabled = personaLinesEnabled && (activeGroup?.members || []).filter(id => characters.some(c => c.id === id)).length >= 2;
+    // 私下找人（plans/side-messages.md）：旁觀也教；找你任何一張它認識的卡、找同世界／關係清單上的角色
+    const sidePrivateOn = !activeGroup?.sidePrivateOff;
+    const memberDmEnabled = personaLinesEnabled && !activeGroup?.sideDmOff;
+    const sideTargetsFor = (c: CharacterProfile) => sideTargets(c, { characters: charactersRef.current, profileBase: userProfileBase, multiPersona: personaLinesEnabled });
     const memberDmHandler = async (fromId: string, toName: string, content: string) => {
-        if (!activeGroup) return;
+        if (!activeGroup || !memberDmEnabled) return;
         const group = activeGroup;
-        const norm = (v: string) => v.normalize('NFKC').replace(/\s+/g, '').replace(/^[「『"“]|[」』"”]$/g, '').toLowerCase();
         const from = charactersRef.current.find(c => c.id === fromId);
-        const to = charactersRef.current.find(c => group.members.includes(c.id) && c.id !== fromId && norm(c.name) === norm(toName));
-        if (!from || !to) return;
+        const toId = from ? resolveDmTarget(sideTargetsFor(from), toName) : null;
+        const to = toId ? charactersRef.current.find(c => c.id === toId) : undefined;
+        if (!from || !to || sideBudgetRef.current.dm <= 0) return;
+        sideBudgetRef.current.dm -= 1;
         await DB.saveMessage({ charId: from.id, groupId: group.id, role: 'system', type: 'system', content: `${from.name} 私訊了 ${to.name}`, metadata: { userOnly: true, pairDm: { from: from.id, to: to.id } } });
         void refreshMessages(group.id);
         // 對方馬上回一句（用它自己的檔案）；私訊那句記成發的人真的說的，不是你冒充的
         void (async () => {
             try {
-                const round = await runPairRound({
-                    a: to, b: from, api: apiConfig as any,
-                    userA: resolveUserProfileForChar(userProfileBase, to), userB: resolveUserProfileForChar(userProfileBase, from),
-                    samePersona: personaKeyForChar(userProfileBase, to) === personaKeyForChar(userProfileBase, from),
-                    asB: content, asBImpersonated: false, asBMeta: { fromGroupId: group.id },
-                });
-                commitPairToPhones({ a: to, b: from, round, updateCharacter });
-                if (round.aReplied) addToast(`${to.name} 回了 ${from.name} 的私訊`, 'info');
+                const replied = await deliverSideDm({ from, to, content, apiConfig, profileBase: userProfileBase, updateCharacter, meta: { fromGroupId: group.id } });
+                if (replied) addToast(`${to.name} 回了 ${from.name} 的私訊`, 'info');
             } catch (e) {
                 console.warn('[GroupChat] 私訊回覆失敗', e);
             }
@@ -1723,16 +1725,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     // 成員的 [[PRIVATE:]] 落在哪條線：它認識的在場卡；指定了名字就照名字，否則最近在群裡說話、它認識的那張。
     // 旁觀中、或在場的它一張都不認識 → 丟掉（群裡沒有它能私下說話的人）
     const privateTargetFor = (charId: string, name?: string) => {
-        if (lurking) return null;
+        if (!sidePrivateOn || sideBudgetRef.current.private <= 0) return null;
         const c = charactersRef.current.find(ch => ch.id === charId);
         if (!c) return null;
+        // 沒寫名字：群裡在場、它認識的那張；你旁觀或它都不認識，只認識一張時就是那張
         const { known } = memberPresence(c, presentKeys);
-        if (!known.length) return null;
-        const norm = (v: string) => v.normalize('NFKC').replace(/\s+/g, '').replace(/^[「『"“]|[」』"”]$/g, '').toLowerCase();
-        const named = name ? known.find(k => norm(personaNameForKey(userProfileBase, k)) === norm(name)) : undefined;
-        const key = named || focalKnownKey(c, known, messagesRef.current, groupPersonaKey)!;
-        const line = lineFor(c, key);
-        return { ...line, label: presentKeys.length >= 2 ? personaNameForKey(userProfileBase, key) : undefined };
+        const fallbackKey = !lurking && known.length ? focalKnownKey(c, known, messagesRef.current, groupPersonaKey) : undefined;
+        const key = resolvePrivateTarget(c, { name, targets: sideTargetsFor(c), fallbackKey });
+        if (!key) return null;
+        sideBudgetRef.current.private -= 1;
+        return { ...lineFor(c, key), key, label: personaNameForKey(userProfileBase, key) };
+    };
+    const privateHandler = async (charId: string, target: { key?: string; label?: string }, content: string) => {
+        const c = charactersRef.current.find(ch => ch.id === charId);
+        if (!c || !target.key) return;
+        await deliverSidePrivate({ speaker: c, personaKey: target.key, toName: target.label || userProfileBase.name, content, from: { groupId: activeGroup?.id } });
     };
 
     const buildUserMessageContent = (prompt: string, history: GroupHistoryBlock): any =>
@@ -1905,6 +1912,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
     const triggerDirector = async (rawMsgs: Message[], plotDirection?: string) => {
         if (!activeGroup) return;
+        sideBudgetRef.current = newSideBudget();
         if (!apiConfig.apiKey) {
             addToast('請先在設置裡填好 API', 'error');
             return;
@@ -1950,7 +1958,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, memberDm: memberDmEnabled })}${htmlPromptExt}\n`;
+            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) })}${htmlPromptExt}\n`;
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             const data = await completeGroupChatWithMcp({
@@ -2010,6 +2018,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 htmlMode: !!activeGroup.htmlModeEnabled,
                 onMemberLeave: memberLeaveHandler,
                 privateTarget: privateTargetFor,
+                onPrivate: privateHandler,
                 userTargets: packetUserTargets,
                 onMemberDm: memberDmEnabled ? memberDmHandler : undefined,
             });
@@ -2037,6 +2046,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     // （utils/groupChat/waves.ts）。單成員失敗只跳過該成員，不殺整輪。
     const triggerRoundRobin = async (currentMsgs: Message[], plotDirection?: string) => {
         if (!activeGroup) return;
+        sideBudgetRef.current = newSideBudget();
         if (!apiConfig.apiKey) {
             addToast('請先在設置裡填好 API', 'error');
             return;
@@ -2101,7 +2111,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         const memberBlock = turn.kind === 'char'
                             ? await buildMemberBlock(turn.member, promptMsgs, sharedScene)
                             : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers);
-                        const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, memberDm: memberDmEnabled })}${htmlPromptExt}\n`;
+                        const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' })}${htmlPromptExt}\n`;
 
                         // 每個人用自己的模型：角色走聊天設定的「對話模型」，NPC 走 NPC 自己配的，沒配就是全域
                         const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : resolveCharacterChatApi(turn.member, apiConfig);
@@ -2164,6 +2174,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                     htmlMode: !!activeGroup.htmlModeEnabled,
                                     onMemberLeave: memberLeaveHandler,
                                     privateTarget: privateTargetFor,
+                onPrivate: privateHandler,
                                     userTargets: packetUserTargets,
                                     onMemberDm: memberDmEnabled ? memberDmHandler : undefined,
                                 });
@@ -3014,6 +3025,50 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </div>
                     </div>
 
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">成員可以私下找你</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">群裡聊到你（或你的其他身份）時，成員覺得該私下問問，就直接私聊你——你旁觀、那張卡不在群裡也一樣。只能找它認識的那張卡；一輪最多一條，拉黑中的不會來。</p>
+                            </div>
+                            <div
+                                role="switch" aria-checked={!activeGroup?.sidePrivateOff} aria-label="成員可以私下找你"
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const off = !activeGroup.sidePrivateOff;
+                                    await updateGroup(activeGroup.id, { sidePrivateOff: off });
+                                    setActiveGroup({ ...activeGroup, sidePrivateOff: off });
+                                    trackEvent('切换群聊成员私下找你', { enabled: !off });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${!activeGroup?.sidePrivateOff ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${!activeGroup?.sidePrivateOff ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
+                    </div>
+                    {personaLinesEnabled && (<>
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <div className="flex-1 pr-3">
+                                <div className="text-xs font-bold text-slate-700">成員之間可以私訊</div>
+                                <p className="text-[9px] text-slate-500 mt-0.5 leading-tight">成員可以私訊同一個世界、或關係清單上的角色（不一定在這個群），對方會回一句；群裡只有你看得到一行小字。一輪最多一條。</p>
+                            </div>
+                            <div
+                                role="switch" aria-checked={!activeGroup?.sideDmOff} aria-label="成員之間可以私訊"
+                                onClick={async () => {
+                                    if (!activeGroup) return;
+                                    const off = !activeGroup.sideDmOff;
+                                    await updateGroup(activeGroup.id, { sideDmOff: off });
+                                    setActiveGroup({ ...activeGroup, sideDmOff: off });
+                                    trackEvent('切换群聊成员互相私讯', { enabled: !off });
+                                }}
+                                className={`w-11 h-6 rounded-full cursor-pointer transition-colors relative shrink-0 ${!activeGroup?.sideDmOff ? 'bg-violet-500' : 'bg-slate-200'}`}
+                            >
+                                <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${!activeGroup?.sideDmOff ? 'left-[22px]' : 'left-0.5'}`} />
+                            </div>
+                        </div>
+                    </div>
+                    </>)}
                     <div className="pt-2 border-t border-slate-100">
                         <h3 className="mb-2 text-xs font-bold text-slate-600">輸入與發送</h3>
                         <ChatInputSettings value={settingsInputPreferences} onChange={setSettingsInputPreferences} scope="group" />
