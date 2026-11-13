@@ -13,6 +13,7 @@
  * 本組件只負責觸發與觀察——用戶點完"觀測"就算切去和別人私聊，演繹照樣完成。
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import {
     ArrowLeft, Plus, GearSix, Trash, House, UsersThree,
@@ -707,7 +708,7 @@ const WorldEditor: React.FC<{
                 <div className={labelCls}>世界名字</div>
                 <input className={inputCls} value={w.name} onChange={e => upd({ name: e.target.value })} placeholder="比如：栗子鎮" />
                 <div className={labelCls}>世界觀（這個世界是什麼樣的、大家以什麼身份生活）</div>
-                <textarea className={`${inputCls} h-28 resize-none`} value={w.worldview} onChange={e => upd({ worldview: e.target.value })}
+                <ExpandableTextarea title="世界觀" className={`${inputCls} h-28 resize-none`} value={w.worldview} onChange={v => upd({ worldview: v })}
                     placeholder="一個海邊小鎮，大家是多年的老鄰居。鎮上有一家麵包店和一座舊燈塔……" />
             </div>
 
@@ -812,8 +813,8 @@ const WorldEditor: React.FC<{
                 </button>
                 {w.narrativeStyle === 'custom' && (
                     <div className="space-y-2">
-                        <textarea className={`${inputCls} h-20 resize-none`} value={w.narrativeStyleCustom || ''}
-                            onChange={e => upd({ narrativeStyleCustom: e.target.value })}
+                        <ExpandableTextarea title="自訂文風" className={`${inputCls} h-20 resize-none`} value={w.narrativeStyleCustom || ''}
+                            onChange={v => upd({ narrativeStyleCustom: v })}
                             placeholder="描述你想要的文風：比如「古早港風言情，對白多，畫面感強，帶一點宿命感」" />
                         <div className="flex items-center justify-between">
                             <span className="text-[10px] text-stone-400">收藏後下次創建世界能直接選用</span>

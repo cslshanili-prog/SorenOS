@@ -1,5 +1,6 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { testChatModel } from '../utils/apiConnectionTest';
@@ -3481,7 +3482,7 @@ ${olderText}
                                 </div>
                                 {editingNote ? (
                                     <div className="space-y-2">
-                                        <textarea value={noteDraft} onChange={e => setNoteDraft(e.target.value)} placeholder="機主對 TA 的備註（事實/關係）…"
+                                        <ExpandableTextarea title="備註" tone="dark" value={noteDraft} onChange={v => setNoteDraft(v)} placeholder="機主對 TA 的備註（事實/關係）…"
                                             className="w-full h-16 bg-white/[0.05] border border-white/[0.08] rounded-xl p-2.5 text-[12px] text-white/90 resize-none" />
                                         <button onClick={() => handleSaveNote(c)} className="w-full py-2 rounded-xl text-[12px] font-semibold text-white" style={{ background: accent }}>保存</button>
                                     </div>
@@ -4380,11 +4381,11 @@ ${olderText}
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">人設 / 設定</label>
-                            <textarea value={aiEdit.persona || ''} onChange={e => setAiEdit({ ...aiEdit, persona: e.target.value })} className="w-full h-20 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
+                            <ExpandableTextarea title="對聊人設" value={aiEdit.persona || ''} onChange={v => setAiEdit({ ...aiEdit, persona: v })} className="w-full h-20 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">場景</label>
-                            <textarea value={aiEdit.scenario || ''} onChange={e => setAiEdit({ ...aiEdit, scenario: e.target.value })} className="w-full h-16 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
+                            <ExpandableTextarea title="情境" value={aiEdit.scenario || ''} onChange={v => setAiEdit({ ...aiEdit, scenario: v })} className="w-full h-16 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                     </div>
                 ))}
@@ -4448,9 +4449,9 @@ ${olderText}
                     </div>
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">功能指令 (AI Prompt)</label>
-                        <textarea
+                        <ExpandableTextarea title="App 生成指令"
                             value={newAppPrompt}
-                            onChange={e => setNewAppPrompt(e.target.value)}
+                            onChange={v => setNewAppPrompt(v)}
                             placeholder="例如: 顯示該用戶的存款餘額、近期的轉帳記錄以及理財收益。"
                             className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none"
                         />
@@ -4472,9 +4473,9 @@ ${olderText}
                         </div>
                         {newAppHtmlEnabled && (
                             <>
-                                <textarea
+                                <ExpandableTextarea title="HTML 卡片指令"
                                     value={newAppHtmlPrompt}
-                                    onChange={e => setNewAppHtmlPrompt(e.target.value)}
+                                    onChange={v => setNewAppHtmlPrompt(v)}
                                     placeholder="可以寫自然語言卡片指令，也可以粘貼固定 HTML 模板；模板可用 {{title}}、{{detail}}、{{value}} 或自定義佔位符。"
                                     className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs resize-none mt-3"
                                 />
@@ -4497,9 +4498,9 @@ ${olderText}
                         </div>
                         {newAppCssEnabled && (
                             <>
-                                <textarea
+                                <ExpandableTextarea title="CSS 樣式" mono
                                     value={newAppCss}
-                                    onChange={e => setNewAppCss(e.target.value)}
+                                    onChange={v => setNewAppCss(v)}
                                     placeholder={'例如：\n.phone-card { padding: 16px; border-radius: 20px; background: rgba(15,23,42,.88); color: white; }\n.phone-card-title { font-size: 18px; font-weight: 800; }'}
                                     className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono resize-none mt-3"
                                 />
