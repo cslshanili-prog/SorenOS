@@ -1,5 +1,6 @@
 import { lineArgOf } from '../../utils/chatLine';
 import React, { useEffect, useMemo, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { CharacterProfile, DateStory, DateSummaryConfig, DateSummaryPreset, Message } from '../../types';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
@@ -43,8 +44,8 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
         setRoundsDraft(String(resolveDateSummaryConfig(char).rounds));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [char.id]);
-    const savePrompt = () => {
-        const next = promptDraft.trim();
+    const savePrompt = (value: string = promptDraft) => {
+        const next = value.trim();
         if (next === (char.dateSummaryConfig?.prompt || '')) return;
         patchConfig({ prompt: next || undefined });
         addToast(next ? '總結要求已保存' : '已改回內建的總結要求', 'success');
@@ -140,9 +141,9 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
     };
 
     const [editing, setEditing] = useState<Record<string, string>>({});
-    const saveEdit = async (summaryId: string) => {
+    const saveEdit = async (summaryId: string, value?: string) => {
         if (!story) return;
-        const text = editing[summaryId]?.trim();
+        const text = (value ?? editing[summaryId])?.trim();
         const current = story.summaries?.find(item => item.id === summaryId)?.text;
         setEditing(map => { const next = { ...map }; delete next[summaryId]; return next; });
         if (!text || text === current) return;
@@ -223,7 +224,7 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
                             ))}
                         </div>
                     )}
-                    <textarea value={promptDraft} onChange={e => setPromptDraft(e.target.value)} onBlur={savePrompt} rows={4} placeholder={DEFAULT_DATE_SUMMARY_PROMPT}
+                    <ExpandableTextarea title="總結要求" onCommit={v => savePrompt(v)} value={promptDraft} onChange={v => setPromptDraft(v)} onBlur={() => savePrompt()} rows={4} placeholder={DEFAULT_DATE_SUMMARY_PROMPT}
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-700 leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y" />
                     <p className="text-[10px] text-slate-300 mt-1">文風、人稱、長度都可以寫。空著就用灰字那份。</p>
                 </div>
@@ -261,8 +262,8 @@ const DateSummarySettings: React.FC<Props> = ({ char, story, Section }) => {
                                                 <span>{from && to ? `第 ${from}–${to} 則` : `${summary.messageCount} 則`} · {KIND_LABEL[summary.kind]} · {formatDateHistoryTime(summary.createdAt, true)}</span>
                                                 <button onClick={() => void removeSummary(summary.id)} className="text-slate-300 hover:text-red-400">刪除</button>
                                             </div>
-                                            <textarea value={draft ?? summary.text} rows={Math.min(8, Math.max(3, Math.ceil(summary.text.length / 28)))}
-                                                onChange={e => setEditing(map => ({ ...map, [summary.id]: e.target.value }))} onBlur={() => void saveEdit(summary.id)}
+                                            <ExpandableTextarea title="總結內容" onCommit={v => void saveEdit(summary.id, v)} value={draft ?? summary.text} rows={Math.min(8, Math.max(3, Math.ceil(summary.text.length / 28)))}
+                                                onChange={v => setEditing(map => ({ ...map, [summary.id]: v }))} onBlur={() => void saveEdit(summary.id)}
                                                 className="w-full bg-transparent text-xs text-slate-700 leading-relaxed resize-y focus:outline-none" />
                                             <div className="flex justify-end mt-1">
                                                 {summary.palaceAt

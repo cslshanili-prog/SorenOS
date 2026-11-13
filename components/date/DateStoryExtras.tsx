@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { CharacterProfile, DateStory } from '../../types';
 import { patchDateStory } from '../../utils/dateStory';
 import { describeLength } from '../../utils/dateExtras';
@@ -38,8 +39,8 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
     // 換了故事（開新的、完結）就跟著換
     useEffect(() => { setScenario(savedScenario); }, [char.id, story?.id]);
 
-    const saveScenario = () => {
-        const trimmed = scenario.trim();
+    const saveScenario = (value: string = scenario) => {
+        const trimmed = value.trim();
         if (trimmed === savedScenario) return;
         if (story) void patchDateStory(story.id, { scenario: trimmed || undefined });
         else updateCharacter(char.id, { dateScenario: trimmed || undefined });
@@ -82,10 +83,10 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
                     {story ? '這場故事' : '下一場故事'}想往哪走：地點、背景、正在發生的事。角色會照著方向寫，細節自己發揮。用自訂預設時填進預設的「場景」位置。
                     {!story && ' 開新故事時會帶進那場故事裡。'}
                 </p>
-                <textarea
+                <ExpandableTextarea title="劇情大綱" onCommit={v => saveScenario(v)}
                     value={scenario}
-                    onChange={e => setScenario(e.target.value)}
-                    onBlur={saveScenario}
+                    onChange={v => setScenario(v)}
+                    onBlur={() => saveScenario()}
                     rows={5}
                     placeholder="例：雨夜，兩人被困在打烊的書店裡，{{char}}其實早就認出了{{user}}……"
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y"
@@ -102,9 +103,9 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
                                 <span className="text-[11px] font-bold text-slate-500">開場白 {i + 1}</span>
                                 <button onClick={() => removeGreeting(g.id)} aria-label={`刪除開場白 ${i + 1}`} className="text-[11px] text-slate-300 hover:text-red-400">刪除</button>
                             </div>
-                            <textarea
+                            <ExpandableTextarea title="開場白" onCommit={v => saveGreetings(greetings.map(x => (x.id === g.id ? { ...x, text: v } : x)))}
                                 value={g.text}
-                                onChange={e => editGreeting(g.id, e.target.value)}
+                                onChange={v => editGreeting(g.id, v)}
                                 onBlur={() => saveGreetings(greetings)}
                                 rows={4}
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y"

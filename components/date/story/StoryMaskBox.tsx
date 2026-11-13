@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import ExpandableTextarea from '../../common/ExpandableTextarea';
 import { ArrowLeft, FloppyDisk, Plus, Trash, UserCircle } from '@phosphor-icons/react';
 import type { CharacterProfile, StoryTheaterMask, StoryTheaterMaskSelection, UserProfile } from '../../../types';
 import { createStoryTheaterMaskDraft } from '../../../utils/storyTheater';
@@ -78,8 +79,8 @@ const StoryMaskBox: React.FC<Props> = ({ user, characters, masks, selected, onSe
                         <div className='space-y-3'><input value={draft.name} onChange={event => patch({ name: event.target.value })} placeholder='人物名字' className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm outline-none' /><input value={draft.description} onChange={event => patch({ description: event.target.value })} placeholder='身份、外貌、與其他人的關係' className='w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs outline-none' /></div>
                     </div>
                     <input ref={imageInput} type='file' accept='image/*' className='hidden' onChange={event => { const file = event.target.files?.[0]; event.currentTarget.value = ''; if (!file) return; const reader = new FileReader(); reader.onload = () => patch({ avatar: String(reader.result || '') }); reader.readAsDataURL(file); }} />
-                    <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>核心性格與行動邊界</span><textarea value={draft.coreInstruction || ''} onChange={event => patch({ coreInstruction: event.target.value })} className='mt-1 w-full min-h-28 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='這個人通常怎樣判斷、說話和行動？' /></label>
-                    <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>所屬世界觀</span><textarea value={draft.worldview || ''} onChange={event => patch({ worldview: event.target.value })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='時代、身份背景、特殊規則……' /></label>
+                    <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>核心性格與行動邊界</span><ExpandableTextarea title="核心性格與行動邊界" value={draft.coreInstruction || ''} onChange={v => patch({ coreInstruction: v })} className='mt-1 w-full min-h-28 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='這個人通常怎樣判斷、說話和行動？' /></label>
+                    <label className='block mt-4'><span className='text-[10px] font-bold text-slate-500'>所屬世界觀</span><ExpandableTextarea title="所屬世界觀" value={draft.worldview || ''} onChange={v => patch({ worldview: v })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 text-xs leading-6 resize-y outline-none' placeholder='時代、身份背景、特殊規則……' /></label>
                     <button onClick={save} disabled={saving || !draft.name.trim()} className='mt-5 w-full py-3.5 rounded-2xl bg-slate-900 text-white text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-30'><FloppyDisk size={15} />{saving ? '保存中' : '保存並佩戴'}</button>
                 </section>}
             </div>
