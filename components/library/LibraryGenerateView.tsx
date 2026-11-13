@@ -221,12 +221,13 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
         persist([]);
         setSelectedId(null);
     };
-    // 下載走統一的分享／存檔（原生 App 也存得下來，見 utils/shareExport.ts）
+    // 下載走統一的分享／存檔（見 utils/shareExport.ts）：手機拉起分享面板，選「儲存影像」直接進相簿；
+    // 不能 preferDownloadOnWeb——iOS 會跳去一頁檔案預覽，還要再點「更多」才存得下來。
     const download = async (d: LibraryGenDraft) => {
         try {
             const blob = await getBlobForRef(d.ref);
             if (!blob) throw new Error('找不到這張圖');
-            await shareOrDownloadBlob({ blob, fileName: `soren-${new Date(d.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`, preferDownloadOnWeb: true });
+            await shareOrDownloadBlob({ blob, fileName: `soren-${new Date(d.createdAt).toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png` });
         } catch { addToast('下載失敗', 'error'); }
     };
 
@@ -314,7 +315,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
     return (
         <div className="relative flex min-h-0 flex-1 flex-col bg-[#17161c] text-white">
             {header(onBack)}
-            <div className="min-h-0 flex-1 overflow-y-auto pb-28">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-28">
                 {/* 預覽 */}
                 <div ref={topRef} className="px-4 pt-3">
                     <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#2a2733] to-[#231a33]">
@@ -472,8 +473,9 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                     <button type="button" onClick={() => setShowSent(v => !v)} aria-expanded={showSent} className="flex items-center gap-1.5 text-[11px] font-bold text-white/80">
                         {showSent ? <CaretDown size={12} weight="bold" /> : <CaretRight size={12} weight="bold" />}這次送出的提示詞
                     </button>
+                    {/* 不做內層捲動：框裡一捲，手指放在這塊上整頁就滑不動（它佔了大半個螢幕）；要收起來按上面那行 */}
                     {showSent && (
-                        <div className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white/5 p-3 text-[11px] leading-relaxed text-white/60">
+                        <div className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-white/5 p-3 text-[11px] leading-relaxed text-white/60">
                             {selected?.sentPrompt || selected?.scenePrompt || '生成之後這裡會顯示真的送出去的那段（AI 寫的、加了畫風的都看得到）。'}
                             {selected?.sentNegativePrompt && <div className="mt-2 text-white/40">負面：{selected.sentNegativePrompt}</div>}
                         </div>
