@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { THINKING_CHAIN_PRESETS, resolveThinkingChainStyle, PsycheDecor, ThinkingChainStyleId } from './MessageItem';
 import { validateScopedCss } from '../../utils/scopedCss';
 
@@ -290,9 +291,9 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                             <code className="text-indigo-400">.sully-psyche-body</code>（展開正文）。
                             想覆蓋風格自帶的顏色時記得加 <code className="text-indigo-400">!important</code>。
                         </p>
-                        <textarea
+                        <ExpandableTextarea title="思考鏈 CSS" mono buttonCorner="bottom" onCommit={v => { if (validateScopedCss(v, PSYCHE_SELECTOR_REGEX, PSYCHE_SCOPE_HINT).isValid) onChange({ customCss: v }); }}
                             value={draftCss}
-                            onChange={e => setDraftCss(e.target.value)}
+                            onChange={v => setDraftCss(v)}
                             onBlur={commitCss}
                             spellCheck={false}
                             placeholder={'.sully-psyche-card {\n  border-radius: 16px !important;\n}'}
@@ -331,9 +332,9 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
                         <p className="text-[10.5px] text-slate-400 mb-2 leading-relaxed">
                             原生提示詞（讓模型用角色第一人稱、中文意識流思考）保持不變；這裡寫的內容**追加在最後**作為「用戶對內心獨白的額外要求」。
                         </p>
-                        <textarea
+                        <ExpandableTextarea title="思考鏈提示詞" onCommit={v => onChange({ customPrompt: v })}
                             value={draftPrompt}
-                            onChange={e => setDraftPrompt(e.target.value)}
+                            onChange={v => setDraftPrompt(v)}
                             onBlur={commitPrompt}
                             placeholder="比如：思考時偶爾切到日語 / 多寫一些感官細節 / 想到用戶時用暱稱…"
                             className="w-full h-28 bg-slate-50 rounded-xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-indigo-300"

@@ -4,6 +4,7 @@ import { deliverSideDm, deliverSidePrivate } from '../utils/sideMessageRun';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import ChatDateDivider from '../components/chat/ChatDateDivider';
 import { isSameLocalDay } from '../utils/chatListTime';
 import { createPortal } from 'react-dom';
@@ -2772,9 +2773,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">群公告</label>
-                        <textarea
+                        <ExpandableTextarea title="群公告"
                             value={tempAnnouncement}
-                            onChange={e => setTempAnnouncement(e.target.value)}
+                            onChange={v => setTempAnnouncement(v)}
                             placeholder="留空則不顯示公告橫幅；填寫后角色也會知道公告內容"
                             rows={3}
                             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:bg-white focus:border-violet-300 transition-all resize-none placeholder:text-slate-300"
@@ -3249,7 +3250,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                         {editing ? (
                                             <div className="space-y-2">
                                                 <input value={topicTitleDraft} onChange={e => setTopicTitleDraft(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold" placeholder="話題盒標題" />
-                                                <textarea value={topicSummaryDraft} onChange={e => setTopicSummaryDraft(e.target.value)} className="w-full min-h-28 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs leading-5 resize-y" placeholder="共同回憶總結" />
+                                                <ExpandableTextarea title="話題整理" value={topicSummaryDraft} onChange={v => setTopicSummaryDraft(v)} className="w-full min-h-28 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs leading-5 resize-y" placeholder="共同回憶總結" />
                                                 <div className="flex gap-2">
                                                     <button onClick={() => setEditingTopicBoxId(null)} className="flex-1 py-2 rounded-xl bg-slate-100 text-slate-500 text-[11px] font-bold">取消</button>
                                                     <button onClick={() => void saveTopicBoxEdit(box.id)} className="flex-1 py-2 rounded-xl bg-violet-500 text-white text-[11px] font-bold">保存並同步卡片</button>
@@ -3584,9 +3585,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             >
                 <div className="space-y-3">
                     <p className="text-[10px] text-slate-400 leading-relaxed">追加在內置 HTML 提示詞之後（不覆蓋）。可以寫卡片風格偏好、常用配色、想要的卡片類型等。</p>
-                    <textarea
+                    <ExpandableTextarea title="HTML 卡片偏好"
                         value={tempHtmlPrompt}
-                        onChange={e => setTempHtmlPrompt(e.target.value)}
+                        onChange={v => setTempHtmlPrompt(v)}
                         placeholder="例如：卡片統一用暖色系、圓角 16px；多用進度條和標籤組……"
                         className="w-full h-36 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-fuchsia-300 transition-all text-sm leading-relaxed"
                     />

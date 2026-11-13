@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { DB } from '../../utils/db';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import { readShareText } from '../../utils/pngShare';
@@ -451,9 +452,9 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
                         {value && <button onClick={() => onChange('')} className="rounded-lg px-2 py-1 text-[10px] font-semibold text-rose-400 hover:bg-rose-50 hover:text-rose-500">清空</button>}
                     </div>
                 </div>
-                <textarea
+                <ExpandableTextarea title="自訂 CSS" mono tone="dark"
                     value={value}
-                    onChange={(e) => onChange(e.target.value)}
+                    onChange={v => onChange(v)}
                     placeholder={'/* 點上面任一套，或在這裡直接寫 / 粘貼 CSS */\n.sully-chat-header{\n  background: linear-gradient(135deg,#ffe3ef,#f1e7ff) !important;\n  border-bottom: none !important;\n}'}
                     spellCheck={false}
                     rows={8}
