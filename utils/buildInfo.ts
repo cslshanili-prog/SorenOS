@@ -17,9 +17,9 @@ export const BUILD_TIME_LABEL = __BUILD_TIME__;
  * 設置頁底部的產品版本名（手工維護），跟構建 hash 是兩碼事——發版前改這裡。
  *
  * Soren 自己一條線，S 開頭（2026-11-10 起，之前是上游的 v3.10）：大功能才升小版本（S1.1、S1.2…），
- * 底層大翻修才升 S2.0。不接上游的 v3.x，免得兩邊放一起比對不上。
+ * 一整批大改才升大版本（S2.0 Constellation，2026-11-14：桌面自由排版＋關係線）。不接上游的 v3.x，免得兩邊放一起比對不上。
  */
-export const APP_VERSION = 'S1.0 (First Light)';
+export const APP_VERSION = 'S2.0 (Constellation)';
 
 /**
  * 版本號那半截（`S1.0`）。統計給每條記錄打的標籤用它，面板裡按版本切分數據時

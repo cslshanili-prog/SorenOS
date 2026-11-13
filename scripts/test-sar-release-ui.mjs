@@ -29,7 +29,7 @@ try {
         await page.evaluate(() => {
             localStorage.setItem('sullyos_notice_2026_08_network_transit_seen','1');
             localStorage.setItem('sullyos_update_2026_08_10_live2d_seen','1');
-            localStorage.setItem('soren_update_2026_11_10_seen','1');
+            localStorage.setItem('soren_update_2026_11_10_seen','1'); localStorage.setItem('soren_update_2026_11_14_v2_seen','1');
             localStorage.removeItem('sullyos_update_2026_08_03_amsg2_seen');
             localStorage.removeItem('sullyos_update_2026_08_30_collaboration_seen');
         });
