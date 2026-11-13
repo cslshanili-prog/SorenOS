@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { CharacterProfile, ImageFeature, ImageGenApiConfig } from '../../types';
 import ImageStylePicker, { EMPTY_PICK, type ImageStylePick } from '../image/ImageStylePicker';
 
@@ -37,7 +38,7 @@ const ImagePromptEditor: React.FC<Props> = ({ initialDescription, referenceAvail
             <p className="text-[11px] text-slate-400 leading-relaxed mb-2">
                 {hint || '角色發這張圖時寫的描述。生成時還會自動加上：專屬生圖設定的人物特徵、畫風，帶參考圖時再加一段鎖臉要求。'}
             </p>
-            <textarea value={text} onChange={e => setText(e.target.value)} rows={5} autoFocus
+            <ExpandableTextarea title="照片描述" value={text} onChange={v => setText(v)} rows={5} autoFocus
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[13px] leading-relaxed resize-none focus:bg-white" />
             {styleContext && (
                 <ImageStylePicker config={styleContext.config} feature={styleContext.feature} char={styleContext.char} value={pick} onChange={setPick} className="mt-2" />

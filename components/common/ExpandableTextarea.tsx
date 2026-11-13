@@ -66,7 +66,7 @@ const ExpandableTextarea: React.FC<NativeProps & {
                 ⤢
             </button>
             {open && createPortal(
-                <div role="dialog" aria-label={title} className={`fixed inset-0 z-[200] flex flex-col ${dark ? 'bg-[#17161c] text-white' : 'bg-slate-50 text-slate-800'}`}>
+                <div role="dialog" aria-label={title} className={`fixed inset-0 z-[10050] flex flex-col ${dark ? 'bg-[#17161c] text-white' : 'bg-slate-50 text-slate-800'}`}>
                     <div className={`flex items-center gap-2 px-4 border-b ${dark ? 'border-white/10' : 'border-slate-200'}`} style={{ paddingTop: 'calc(0.75rem + var(--safe-top, 0px))', paddingBottom: '0.75rem' }}>
                         {!locked && <button type="button" onClick={() => setOpen(false)} className={`px-2 py-1 text-sm ${dark ? 'text-white/60' : 'text-slate-500'}`}>取消</button>}
                         <div className="min-w-0 flex-1 truncate text-center text-sm font-bold">{title}</div>

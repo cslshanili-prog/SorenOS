@@ -1,5 +1,6 @@
 
 import React, { useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { pickOptions } from '../image/ImageStylePicker';
 import { ArrowsClockwise, DownloadSimple, PencilSimple, X } from '@phosphor-icons/react';
 import ImagePromptEditor from './ImagePromptEditor';
@@ -709,9 +710,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             {htmlModeEnabled && (
                                 <div className="mt-3">
                                     <label className="text-[10px] font-bold text-slate-400 mb-1.5 block">自定義提示詞補充（追加在內置提示詞之後，不會覆蓋）</label>
-                                    <textarea
+                                    <ExpandableTextarea title="HTML 模式偏好"
                                         value={htmlModeCustomPrompt || ''}
-                                        onChange={e => setHtmlModeCustomPrompt?.(e.target.value)}
+                                        onChange={v => setHtmlModeCustomPrompt?.(v)}
                                         placeholder="比如：偏好暖色調 / 默認風格走 minimal 雜誌感 / 票據類必須含二維碼佔位…"
                                         className="w-full h-28 bg-slate-50 rounded-2xl p-3 text-[12px] resize-none border border-slate-200 focus:outline-none focus:border-fuchsia-300"
                                     />
@@ -863,9 +864,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                         placeholder="預設名稱"
                         className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
                     />
-                    <textarea 
+                    <ExpandableTextarea title="提示詞內容" mono 
                         value={editingPrompt?.content || ''} 
-                        onChange={e => setEditingPrompt((prev: any) => prev ? {...prev, content: e.target.value} : null)}
+                        onChange={v => setEditingPrompt((prev: any) => prev ? {...prev, content: v} : null)}
                         className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
                         placeholder="輸入提示詞內容..."
                     />

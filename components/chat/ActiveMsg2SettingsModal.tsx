@@ -1,5 +1,6 @@
 import { isDateOfflinePaused } from '../../utils/dateOffline';
 import React, { useEffect, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import Modal from '../os/Modal';
 import {
   ActiveMsg2CharacterConfig,
@@ -921,9 +922,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
             {mode === 'fixed' ? (
               <div>
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">固定消息內容</label>
-                <textarea
+                <ExpandableTextarea title="要發的那段"
                   value={userMessage}
-                  onChange={(event) => setUserMessage(event.target.value)}
+                  onChange={v => setUserMessage(v)}
                   placeholder="到點後直接推送這段消息"
                   className="w-full h-28 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm resize-none"
                 />
@@ -934,9 +935,9 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">
                     {mode === 'prompted' ? '額外提示詞' : '補充靈感 (可選)'}
                   </label>
-                  <textarea
+                  <ExpandableTextarea title="提示"
                     value={promptHint}
-                    onChange={(event) => setPromptHint(event.target.value)}
+                    onChange={v => setPromptHint(v)}
                     placeholder={mode === 'prompted' ? '例如：晚安前撒嬌一下，但別太油' : '例如：今天下雨、想找我聊一點輕鬆的'}
                     className="w-full h-24 bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm resize-none"
                   />

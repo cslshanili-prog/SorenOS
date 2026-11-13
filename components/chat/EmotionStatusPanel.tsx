@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { CharacterProfile, CharacterBuff } from '../../types';
 import { isScheduleFeatureOn } from '../../utils/scheduleGenerator';
 import { useOS } from '../../context/OSContext';
@@ -34,8 +35,8 @@ const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBu
 
     const [summaryDraft, setSummaryDraft] = useState(char.buffInjection || '');
     useEffect(() => { setSummaryDraft(char.buffInjection || ''); }, [char.id, char.buffInjection]);
-    const saveSummary = () => {
-        const next = summaryDraft.trim();
+    const saveSummary = (value: string = summaryDraft) => {
+        const next = value.trim();
         if (next === (char.buffInjection || '').trim()) return;
         apply({ buffInjection: next, buffInjectionAt: Date.now() });
         addToast(next ? '當下情緒總結已修改' : '當下情緒總結已清空', 'success');
@@ -87,7 +88,7 @@ const EmotionStatusPanel: React.FC<EmotionStatusPanelProps> = ({ char, onClearBu
             {(char.buffInjection || stored.length > 0) && (
                 <div className="mt-3">
                     <label className="text-[10px] font-bold text-slate-400 pl-1">當下情緒總結</label>
-                    <textarea value={summaryDraft} onChange={e => setSummaryDraft(e.target.value)} onBlur={saveSummary} rows={4}
+                    <ExpandableTextarea title="當下情緒總結" onCommit={v => saveSummary(v)} value={summaryDraft} onChange={v => setSummaryDraft(v)} onBlur={() => saveSummary()} rows={4}
                         className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-600 leading-relaxed focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y" />
                     <p className="text-[10px] text-slate-300 mt-0.5">情緒評估寫的，會帶進提示詞；可以直接改，點別處就保存。下一次評估有變化時會重寫。</p>
                 </div>
