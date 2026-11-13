@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { createPortal } from 'react-dom';
 import { useOS } from '../../context/OSContext';
 import { processImage } from '../../utils/file';
@@ -183,9 +184,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">簡介 (Bio)</label>
-                        <textarea
+                        <ExpandableTextarea title="簡介"
                             value={draftBio}
-                            onChange={(e) => setDraftBio(e.target.value)}
+                            onChange={v => setDraftBio(v)}
                             placeholder={editingId === 'real' ? '關於我 / 設定：會發給 AI，讓它更瞭解你（例如：大學生、喜歡吃辣、性格內向）' : '這個身份的簡介，會發給 AI（可留空）'}
                             className="w-full h-28 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
@@ -193,9 +194,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">自定義設定 (Custom Setting)</label>
-                        <textarea
+                        <ExpandableTextarea title="自定義設定"
                             value={draftCustomSetting}
-                            onChange={(e) => setDraftCustomSetting(e.target.value)}
+                            onChange={v => setDraftCustomSetting(v)}
                             placeholder="比簡介更深度的補充，會發給 AI（可留空）"
                             className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
@@ -203,9 +204,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
 
                     <div>
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">其他補充 (Other Details)</label>
-                        <textarea
+                        <ExpandableTextarea title="其他補充"
                             value={draftOtherDetails}
-                            onChange={(e) => setDraftOtherDetails(e.target.value)}
+                            onChange={v => setDraftOtherDetails(v)}
                             placeholder="任何想讓 AI 知道的其他信息（可留空）"
                             className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />

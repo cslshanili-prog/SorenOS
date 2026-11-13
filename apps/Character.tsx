@@ -17,6 +17,7 @@ import NPCManagerView from '../components/character/NPCManagerView';
 import { isSupporting, sortByCast } from '../utils/castRole';
 import CastGeneratorPage from '../components/character/CastGeneratorPage';
 import AltAccountsSection from '../components/character/AltAccountsSection';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
@@ -1626,7 +1627,7 @@ ${isInitialGeneration ? `
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>
-                               <textarea value={formData.systemPrompt} onChange={(e) => handleChange('systemPrompt', e.target.value)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="設定..." />
+                               <ExpandableTextarea title="核心指令（System Prompt）" value={formData.systemPrompt} onChange={v => handleChange('systemPrompt', v)} className="w-full h-40 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll" placeholder="設定..." />
                            </div>
 
                            <DialogueExamplesField
@@ -1639,9 +1640,10 @@ ${isInitialGeneration ? `
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界觀 / 設定補充 (Worldview & Lore)</label>
-                               <textarea
+                               <ExpandableTextarea
+                                    title="世界觀／設定補充"
                                     value={formData.worldview || ''}
-                                    onChange={(e) => handleChange('worldview', e.target.value)}
+                                    onChange={v => handleChange('worldview', v)}
                                     className="w-full h-24 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
                                     placeholder="在這個世界裡，魔法是存在的..."
                                 />
@@ -2111,9 +2113,10 @@ ${isInitialGeneration ? `
                    適合從其它應用“搬家”。最多 5 萬字，字數只在本地統計；AI 只整理時間與事件結構，不摘要、不合並、不省略原有細節。5 萬字以內會自動分批，無需手動切。
                </div>
                {importStatus && <div className="text-xs text-primary font-medium">{importStatus}</div>}
-               <textarea
+               <ExpandableTextarea
+                   title="記憶導入"
                    value={importText}
-                   onChange={e => setImportText(e.target.value)}
+                   onChange={setImportText}
                    placeholder="在此粘貼從別處帶來的記憶文本…"
                    className="w-full h-40 bg-slate-100 border-none rounded-2xl px-4 py-3 text-sm text-slate-700 resize-none focus:ring-2 focus:ring-primary/20 transition-all"
                />
@@ -2184,9 +2187,11 @@ ${isInitialGeneration ? `
                    className="w-full px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
                    readOnly={editingPrompt?.id.startsWith('preset_')}
                />
-               <textarea
+               <ExpandableTextarea
+                   title={editingPrompt?.name || '提示詞內容'}
+                   mono
                    value={editingPrompt?.content || ''}
-                   onChange={e => setEditingPrompt(prev => prev ? {...prev, content: e.target.value} : null)}
+                   onChange={v => setEditingPrompt(prev => prev ? {...prev, content: v} : null)}
                    className="w-full h-64 bg-slate-100 rounded-xl p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
                    placeholder="輸入提示詞內容..."
                    readOnly={editingPrompt?.id.startsWith('preset_')}
