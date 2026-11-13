@@ -312,6 +312,18 @@ export interface ImageGenApiConfig {
   builtinStylesSeeded?: boolean;
   /** 各處畫風（設置頁那張表）：沒有＝跟全域；'off'＝這裡不生圖；其他＝畫風 id */
   featureStyles?: Partial<Record<ImageFeature, string>>;
+  /** 生圖預設：一組 API＋畫風＋尺寸＋畫質（資料庫生圖的參數分頁一鍵套用） */
+  genPresets?: ImageGenPreset[];
+}
+
+export interface ImageGenPreset {
+  id: string;
+  name: string;
+  apiId?: string;
+  /** 畫風 id 或 'none' */
+  styleId?: string;
+  size?: string;
+  quality?: string;
 }
 
 /** 會生圖的地方（各處畫風那張表的每一列，utils/imageStyle.ts 的 IMAGE_FEATURES） */
@@ -4437,6 +4449,8 @@ export type LibraryGenKind = 'solo' | 'group' | 'object' | 'scenery';
 
 export type LibraryAccess =
     | { mode: 'all' }
+    /** 只有我：角色都不能用、不列給角色（plans/library-generate-redesign.md） */
+    | { mode: 'none' }
     | { mode: 'worlds'; worldIds: string[] }
     | { mode: 'chars'; charIds: string[] };
 

@@ -2,7 +2,7 @@
  * 生圖：調用 OpenAI 兼容的 /images/generations（純文字）或 /images/edits（帶參考圖）接口，
  * 產出一張圖的 data URL。用於「系統設置 → 生圖API」的測試生圖，以及角色/用戶手動觸發的生圖。
  */
-import { CharacterProfile, ImageApiPreset, ImageFeature, ImageGenApiConfig } from '../types';
+import { CharacterProfile, ImageApiPreset, ImageFeature, ImageGenApiConfig, ImageStylePreset } from '../types';
 import { apiForStyle, applyStyleToPrompt, pickStyle, resolveImageStyle } from './imageStyle';
 import { getRegisteredCharacter, getWorldStyleId } from './charNameRegistry';
 import { safeResponseJson } from './safeApi';
@@ -20,6 +20,9 @@ export interface GeneratedImage {
   apiFallbackFrom?: string;
   /** 這次套的畫風名字（沒套就沒有） */
   styleName?: string;
+  /** 真的送出去的正文提示詞（套了畫風、補充提示詞之後；資料庫生圖「這次送出的提示詞」） */
+  sentPrompt?: string;
+  sentNegativePrompt?: string;
 }
 
 export interface GenerateImageOptions {
@@ -31,6 +34,11 @@ export interface GenerateImageOptions {
   char?: Pick<CharacterProfile, 'groupId' | 'altOf' | 'imageGenCharConfig'> | null;
   /** 這一次指定的 API（臨時下拉）：蓋過畫風偏好的那組；失敗一樣退回全域那組 */
   apiId?: string;
+  /** 這一次用改過、還沒存的畫風內容（資料庫生圖的參數分頁）；給了就不照 styleId 解析 */
+  styleOverride?: ImageStylePreset | null;
+  /** 這一次的尺寸、畫質（蓋過那組 API 的設定） */
+  size?: string;
+  quality?: string;
   /** 畫面裡有沒有人（決定加不加畫風的人像段）；不給就看提示詞 */
   hasPerson?: boolean;
 }
@@ -264,17 +272,20 @@ export async function generateImage(
     worldStyleOf: getWorldStyleId,
   });
   if (resolved.off) throw new Error('這裡的生圖在「設置 → 生圖API → 各處畫風」關掉了');
-  const style = pickStyle(config, resolved.styleId);
+  const style = options?.styleOverride !== undefined ? (options.styleOverride || undefined) : pickStyle(config, resolved.styleId);
   const picked = apiForStyle(config, style);
   const global = picked.global;
   const forced = options?.apiId ? config.apiPresets?.find(a => a.id === options.apiId) : undefined;
   const preferred = forced ? (forced.id !== global?.id ? forced : undefined) : picked.preferred;
   const hasPerson = options?.hasPerson ?? looksLikeSelfieDescription(prompt);
-  const run = (api: ImageApiTarget) => {
+  const run = async (apiBase: ImageApiTarget) => {
+    const api = { ...apiBase, ...(options?.size ? { size: options.size } : {}), ...(options?.quality ? { quality: options.quality } : {}) };
     const styled = applyStyleToPrompt(prompt, style, { hasPerson, negativeAsField: !!api.negativePromptField });
     // 還沒搬進畫風庫的舊設定：照舊拼補充提示詞
     const legacy = config.extraPrompt?.trim();
-    return generateImageWith(api, legacy ? `${styled.prompt}\n${legacy}` : styled.prompt, referenceImageBlob, styled.negativePrompt);
+    const sent = legacy ? `${styled.prompt}\n${legacy}` : styled.prompt;
+    const r = await generateImageWith(api, sent, referenceImageBlob, styled.negativePrompt);
+    return { ...r, sentPrompt: sent, ...(styled.negativePrompt ? { sentNegativePrompt: styled.negativePrompt } : {}) };
   };
   const withStyle = (r: GeneratedImage): GeneratedImage => (style ? { ...r, styleName: style.name } : r);
   const fallbackApi = global || config;

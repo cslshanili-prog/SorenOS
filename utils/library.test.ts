@@ -66,3 +66,13 @@ describe('資料庫 · 誰能用', () => {
         expect(normalizeLibraryDescription('字'.repeat(600))!.length).toBe(500);
     });
 });
+
+describe('只有我', () => {
+    it('角色都不能用、說明寫清楚', async () => {
+        const { canCharUseLibraryImage, describeLibraryAccess, resolveLibraryAccess } = await import('./library');
+        const img = { id: 'i', charId: '', url: 'u', timestamp: 1, access: { mode: 'none' } } as any;
+        expect(resolveLibraryAccess(img)).toEqual({ mode: 'none' });
+        expect(canCharUseLibraryImage(img, { id: 'c1', groupId: 'w1' })).toBe(false);
+        expect(describeLibraryAccess({ mode: 'none' }, [], [])).toBe('只有我（角色都不能用）');
+    });
+});

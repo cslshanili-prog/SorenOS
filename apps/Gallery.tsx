@@ -276,7 +276,7 @@ const Gallery: React.FC = () => {
             };
             await DB.saveGalleryImage(image);
             markLibraryChanged();
-            trackEvent('上传到资料库', { 分配: upload.access.mode === 'all' ? '共用' : upload.access.mode === 'worlds' ? '按世界' : '指定角色', 描述: image.description ? '有' : '没有' });
+            trackEvent('上传到资料库', { 分配: upload.access.mode === 'all' ? '共用' : upload.access.mode === 'worlds' ? '按世界' : upload.access.mode === 'none' ? '只有我' : '指定角色', 描述: image.description ? '有' : '没有' });
             setUpload(null);
             setFilter({ source: 'all' });
             await reload();
@@ -689,13 +689,13 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             <ConfirmDialog isOpen={!!confirmDialog} title={confirmDialog?.title || ''} message={confirmDialog?.message || ''} variant={confirmDialog?.variant} confirmText="確認" onConfirm={confirmDialog?.onConfirm || (() => setConfirmDialog(null))} onCancel={() => setConfirmDialog(null)} />
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickFile} />
 
-            {view !== 'detail' && (
+            {view !== 'detail' && view !== 'generate' && (
                 <div className="sticky top-0 z-10 shrink-0 border-b border-slate-100/60 bg-white/80 backdrop-blur-xl" style={{ paddingTop: 'var(--safe-top)' }}>
                     <div className="flex h-16 items-center px-4">
                         <button onClick={handleBack} aria-label="返回" className="-ml-2 rounded-full p-2 transition-transform hover:bg-black/5 active:scale-90">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-6 w-6 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
                         </button>
-                        <h1 className="ml-2 text-lg font-semibold tracking-tight text-slate-800">{view === 'upload' ? '上傳到資料庫' : view === 'generate' ? '在資料庫生成' : '資料庫'}</h1>
+                        <h1 className="ml-2 text-lg font-semibold tracking-tight text-slate-800">{view === 'upload' ? '上傳到資料庫' : '資料庫'}</h1>
                         {view === 'grid' && <span className="ml-2 font-mono text-xs text-slate-400">{images.length}</span>}
                         {view === 'grid' && (
                             <div className="ml-auto flex items-center gap-1.5">
@@ -724,7 +724,8 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
             )}
             {view === 'detail' && renderDetail()}
             {view === 'upload' && renderUpload()}
-            {view === 'generate' && <LibraryGenerateView onSaved={() => { markLibraryChanged(); setFilter({ source: 'all' }); void reload(); setView('grid'); }} />}
+            {/* 生圖頁自己有深色標題列；存完留在原頁（暫存的圖還在），回資料庫才看得到新存的 */}
+            {view === 'generate' && <LibraryGenerateView onBack={() => setView('grid')} onSaved={() => { markLibraryChanged(); setFilter({ source: 'all' }); void reload(); }} />}
         </div>
     );
 };
