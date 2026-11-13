@@ -201,7 +201,7 @@ const buildLurkModeNote = (): string => `### 【隱身圍觀模式：這一刻�
 - 用戶沒有出現在上面的聊天記錄裡，也聽不到你們說話——把這當成角色們私下的場合，不用顧忌"會不會被用戶看到"，不用維持平時那種隨時可能被聽到的分寸。
 - 不要主動提起、彙報、等待或呼喚用戶；可以聊平時不會讓用戶知道的事、對用戶的真實評價、瞞著用戶的計劃。
 - 只有某個話題本來就會自然帶到這個人時，才像提起"不在場的第三者"一樣簡單帶一句，不要表現出"知道 ta 在偷聽"，也不要專門講給 ta 聽。
-- **本輪禁止使用 PRIVATE 私聊語法**——用戶不在場，沒有"私下悄悄說給 ta 聽"這回事。
+- 群裡聊到某個不在場的人、覺得該私下問問 TA，照下面「私下找人」的規則來（對方不用在群裡）。
 - 關係記憶依然成立——你還是記得和這個人之間的一切，只是這一刻沒把 ta 算進這場對話。
 
 `;
@@ -232,7 +232,6 @@ export const buildMultiPresenceNote = (names: string[] | undefined): string => {
 - 記錄裡的${list}都是真人群友，是不同的人；下面規則說的「用戶」「U」，指的是他們每一位。
 - 每個角色照自己的角色檔案看：檔案裡寫了你認識誰，那就是你私聊、記憶、印象裡的那個人，關係照舊；檔案沒寫你認識的，就是群友，照群友的熟度相處。
 - 不要把對其中一位的稱呼、默契、私聊內容套到另一位身上；角色檔案裡寫了 TA 們之間關係的，照那個來。
-- 想私下對其中一位說話時寫 \`[[PRIVATE|名字: 內容]]\`，只能給你認識的那一位。
 
 `;
 };
@@ -240,9 +239,6 @@ export const buildMultiPresenceNote = (names: string[] | undefined): string => {
 /**
  * 成員私訊成員（關係線第 6 批 6d）：群裡看不到，只進兩人的私聊，對方會回。群裡有兩個以上角色成員才教。
  */
-export const buildMemberDmNote = (enabled: boolean | undefined): string => (enabled ? `
-- **私訊其他成員（可選，罕見）**：真的有不想讓群裡其他人看到、只想對某個成員說的話，在你的內容裡單獨寫一行 \`[[DM|對方名字: 內容]]\`——群裡不顯示，只進你們倆的私聊，對方會回你。用在約人、八卦、提醒、不方便公開的關心；**不要**拿來代替正常的群聊，也不要每輪都用。` : '');
-
 /** 導演模式一輪最多生成幾條消息的默認上限；下限固定 1，"少即是多"不受這個值影響。 */
 export const DEFAULT_MAX_ROUND_MESSAGES = 5;
 
@@ -257,7 +253,11 @@ const buildLeaveGroupNote = (): string => `
 export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[]; memberDm?: boolean },
+    options?: {
+        userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
+        /** 私下找人那段（utils/sideMessage.ts 的 buildGroupSideMessageNote）；空＝這個群不私下找人 */
+        sideNote?: string;
+    },
 ): string {
     const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
     return `### 【AI 導演任務指令 (Director Mode)】
@@ -312,16 +312,9 @@ ${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.p
 - **回應用戶但不齊聲表態**：用戶剛說了值得回應的內容時，讓最合適的一位角色自然接住；其他人可以回應彼此、補充不同角度或保持沉默。不要讓所有人重複同一種態度。
 - **多輪對話**: 請一次性生成 **1 到 ${maxRoundMessages} 條** 消息。**少即是多**——如果本輪氛圍是"安靜摸魚"，1-2 條就夠。
 
-#### 六、私聊（PRIVATE）—— 罕見特例，默認 0 條
-- **絕大多數輪次本輪 PRIVATE 數量 = 0**。這是默認值。不要每輪都給 PRIVATE 找藉口。
-- 只有以下情況才考慮發 1 條 PRIVATE（**整輪全員加起來最多 1 條**）：
-  · 角色真的有重大、不便公開的事要單獨告訴用戶（涉及隱私、涉及群裡某人但不能當面說的關切）
-  · 用戶剛才在群裡明顯狀態不對，某個最關心ta的角色想私下確認一下
-  · 角色想給用戶一個獨處空間（比如約去某地、說一句私下的話）
-- **嚴禁**把 PRIVATE 當"吐槽群友"的工具——這是低成本製造修羅場的來源，禁止。
-- **嚴禁**多個角色同一輪都發 PRIVATE。最多一個。
-- 格式: \`[[PRIVATE: 私聊內容]]\`。這條消息只進私聊頻道，不在群裡顯示。
-${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildMemberDmNote(options?.memberDm)}${buildNpcDirectorNote(options?.npcNames || [])}
+#### 六、私下找人
+${options?.sideNote?.trim() ? options.sideNote.trim() : '- 這個群不私下找人：不要寫 PRIVATE、DM。'}
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
 #### 七、只寫台詞，不寫思考
 - content 裡只放角色真的會發在群裡的話。**不要**輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白——要想就在心裡想完，直接寫結果。
 - 也不要寫成報告：不要 markdown 標題（# …）、粗體小標（**時間認知**：…）、發言策略清單、「---」分隔線，更不要先寫分析再寫「最終發言／最終輸出」。第一行就是角色要發的第一句話。
@@ -355,12 +348,18 @@ export function buildRoundRobinInstruction(
     memberName: string,
     history: GroupHistoryBlock,
     emojiContextStr: string,
-    options?: { userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[]; memberDm?: boolean },
+    options?: {
+        userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[];
+        /** 這位成員的私下找人那段（utils/sideMessage.ts 的 buildSideMessagePrompt）；空＝不用 */
+        sideNote?: string;
+    },
 ): string {
     const asNpc = !!options?.asNpc;
     const privateRule = asNpc
         ? `4. **私聊**: 你是 NPC，沒有和用戶的一對一私聊——不要用 PRIVATE。`
-        : `4. **私聊**: 罕見特例，默認不用。只有真的有重大、不便公開的話要單獨對用戶說時，才輸出一條 \`[[PRIVATE: 內容]]\`（只進你和用戶的私聊，群裡不顯示）。**嚴禁**把 PRIVATE 當"吐槽群友"的工具。`;
+        : options?.sideNote?.trim()
+            ? `4. **私下找人**: 見最後「私下找人」那段；默認不用，群裡的話照常在群裡說。`
+            : `4. **私下找人**: 這個群不用，不要寫 PRIVATE、DM。`;
     const userRule = asNpc
         ? `5. **你和用戶的關係**：以你 NPC 成員檔案裡寫的為準；沒寫就是普通群友，不要自己編出親密關係或共同回憶。你記得的事（檔案裡的記憶）要前後一致。`
         : `5. **U 還是 U**：群聊裡的用戶，就是你在私聊、記憶和印象裡認識的同一個人。檢查 [私聊空窗期] 與互動時間線，延續已經建立的關係、承諾、熟悉感和相處方式；公開場合可以換一種表達，但不能因進入群聊就重置關係。如果你和用戶剛私聊過，哪怕群裡很久沒人說話，也**嚴禁**說"好久不見"或表現出疏離感。`;
@@ -384,5 +383,5 @@ ${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。群裡可能有人跟你同時在打字，他們這一刻要發的話你看不到——所以別只是把用戶的話原樣再回一遍，說你自己的角度。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
 9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話，第一行就是你要發的第一句。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白，也不要寫成報告（# 標題、**粗體小標**、發言策略清單、「---」、先分析再寫「最終發言／最終輸出」）。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
-10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}${!asNpc ? buildMemberDmNote(options?.memberDm) : ''}`;
+10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}${!asNpc && options?.sideNote?.trim() ? `\n${options.sideNote.trim()}` : ''}`;
 }

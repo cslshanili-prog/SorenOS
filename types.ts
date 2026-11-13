@@ -3904,6 +3904,10 @@ export interface GroupProfile {
      * 群裡至少留 2 位成員，跟手動移除成員的下限一致。
      */
     allowMemberLeave?: boolean;
+    /** 私下找人（plans/side-messages.md）：關掉「成員可以私下找你」（預設開） */
+    sidePrivateOff?: boolean;
+    /** 關掉「成員之間可以私訊」（預設開；要開關係線預覽才有角色私聊） */
+    sideDmOff?: boolean;
     /**
      * 群主：純標記/人設頭銜，不帶任何實際權限——不會門控任何功能開關或操作。
      * 會寫進群聊 system 提示詞讓角色知道"這位是群主"，添一點角色扮演的真實感。

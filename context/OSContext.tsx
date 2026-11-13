@@ -116,6 +116,7 @@ import { formatBytes } from '../utils/format';
 import { isEmotionEvalSkipped, isPersonaLinesEnabled, subscribeDevDebugAvailability, subscribeDevDebugFlags } from '../utils/devDebug';
 import { ALT_ACTION_EVENT, canOpenAlt, dueAltRequests, planAltRequest, resolveAltAdd, type AltActionDetail } from '../utils/altFriend';
 import { altDefaultAvatar, buildAltCharacter } from '../utils/charAltGenerate';
+import { SIDE_MESSAGE_EVENT, type SideMessageDetail } from '../utils/sideMessage';
 import { isBenignApplicationConsoleMessage } from '../utils/applicationConsole';
 
 import { initLocalStorageMirror } from '../utils/lsMirror';
@@ -3946,6 +3947,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       window.addEventListener(ALT_ACTION_EVENT, onAltAction);
       return () => window.removeEventListener(ALT_ACTION_EVENT, onAltAction);
+  }, []);
+
+  // 私下找人（plans/side-messages.md）：群聊、角色私聊、私聊裡有人私下傳給你的某張卡 → 那條線未讀＋1、提一聲
+  useEffect(() => {
+      const onSide = (event: Event) => {
+          const d = (event as CustomEvent<SideMessageDetail>).detail;
+          if (!d?.charId) return;
+          setLastMsgTimestamp(Date.now());
+          const key = lineKey(d.personaKey ? { charId: d.charId, personaKey: d.personaKey } : { charId: d.charId });
+          const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === d.charId && !d.personaKey;
+          if (!viewing) setUnreadMessages(prev => ({ ...prev, [key]: (prev[key] || 0) + 1 }));
+          const id = `side-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+          const text = d.content.replace(/\s+/g, ' ');
+          setToasts(prev => [...prev, { id, message: `${d.charName} 悄悄對「${d.toName}」說：${text.length > 18 ? `${text.slice(0, 18)}…` : text}`, type: 'info' }]);
+          window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3000);
+      };
+      window.addEventListener(SIDE_MESSAGE_EVENT, onSide);
+      return () => window.removeEventListener(SIDE_MESSAGE_EVENT, onSide);
   }, []);
 
   // 小號的好友申請到了：提一聲（訊息列表頂端「新的朋友」那裡回）。同一份申請只提一次

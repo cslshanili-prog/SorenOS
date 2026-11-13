@@ -144,15 +144,18 @@ describe('隱身圍觀模式：userLurking 選項', () => {
         expect(buildRoundRobinInstruction('小夏', history, '無')).not.toContain('隱身圍觀模式');
     });
 
-    it('userLurking: true 時導演/輪詢模式都注入"用戶不在場"說明，且禁用 PRIVATE', () => {
+    it('userLurking: true 時導演/輪詢模式都注入"用戶不在場"說明；私下找人照規則（旁觀也教）', () => {
         const directorPrompt = buildDirectorInstruction(history, '無', { userLurking: true });
         expect(directorPrompt).toContain('隱身圍觀模式');
         expect(directorPrompt).toContain('用戶沒有出現在上面的聊天記錄裡');
-        expect(directorPrompt).toContain('本輪禁止使用 PRIVATE 私聊語法');
+        expect(directorPrompt).not.toContain('本輪禁止使用 PRIVATE');
+        expect(directorPrompt).toContain('照下面「私下找人」的規則來');
+        expect(buildDirectorInstruction(history, '無', { userLurking: true, sideNote: '#### 私下找人\n- X' })).toContain('- X');
 
         const roundRobinPrompt = buildRoundRobinInstruction('小夏', history, '無', { userLurking: true });
         expect(roundRobinPrompt).toContain('隱身圍觀模式');
-        expect(roundRobinPrompt).toContain('本輪禁止使用 PRIVATE 私聊語法');
+        expect(roundRobinPrompt).not.toContain('本輪禁止使用 PRIVATE');
+        expect(roundRobinPrompt).toContain('這個群不用，不要寫 PRIVATE、DM');
     });
 
     it('userLurking: false 等價於不傳', () => {
@@ -175,8 +178,9 @@ describe('NPC 成員與旁觀劇情方向', () => {
         expect(prompt).not.toContain('LEAVE_GROUP');
         expect(prompt).toContain('以你 NPC 成員檔案裡寫的為準');
         expect(prompt).not.toContain('私聊空窗期');
-        // 角色照舊
-        expect(buildRoundRobinInstruction('小夏', history, '無')).toContain('[[PRIVATE: 內容]]');
+        // 角色：有私下找人那段才教
+        expect(buildRoundRobinInstruction('小夏', history, '無', { sideNote: '### 私下找人\n`[[PRIVATE|名字: 內容]]`' })).toContain('[[PRIVATE|名字: 內容]]');
+        expect(buildRoundRobinInstruction('小夏', history, '無')).toContain('這個群不用');
     });
 
     it('劇情方向：有才注入，兩種模式都帶，並提醒不要照抄', () => {
