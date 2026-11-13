@@ -5,6 +5,7 @@ import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from '
 import { extractModelIds, isLikelyImageModel } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { generateImage } from '../../utils/imageGeneration';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { BUILTIN_STYLES, FEATURE_OFF, IMAGE_FEATURES, newImageApiId, newStyleId, normalizeImageGenConfig, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE } from '../../utils/imageStyle';
 
 interface ImageGenSettingsPanelProps {
@@ -88,9 +89,32 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
         stylePresets: styles.map(st => ({ ...st, name: st.name.trim() || '未命名畫風' })),
         globalStyleId,
         builtinStylesSeeded: true,
+        // 生圖預設在資料庫生圖那頁存的：這裡只顯示、刪，存 API 時照舊帶上
+        ...(apiConfig.imageGenConfig?.genPresets ? { genPresets: apiConfig.imageGenConfig.genPresets } : {}),
         // 指到刪掉的畫風就當跟全域
         featureStyles: Object.fromEntries(Object.entries(featureStyles).filter(([, v]) => v && (v === FEATURE_OFF || v === STYLE_NONE || styles.some(st => st.id === v)))),
     })!;
+
+    // 畫風庫、全域畫風、各處畫風：改了就存（只寫這幾欄，API 草稿照舊等「保存 API 設定」）
+    const savedCfgRef = React.useRef(apiConfig.imageGenConfig);
+    savedCfgRef.current = apiConfig.imageGenConfig;
+    const updateRef = React.useRef(updateApiConfig);
+    updateRef.current = updateApiConfig;
+    const firstStyleRun = React.useRef(true);
+    useEffect(() => {
+        if (firstStyleRun.current) { firstStyleRun.current = false; return; }
+        const t = window.setTimeout(() => {
+            const base = savedCfgRef.current || {};
+            updateRef.current({ imageGenConfig: normalizeImageGenConfig({
+                ...base,
+                stylePresets: styles.map(st => ({ ...st, name: st.name.trim() || '未命名畫風' })),
+                globalStyleId,
+                builtinStylesSeeded: true,
+                featureStyles: Object.fromEntries(Object.entries(featureStyles).filter(([, v]) => v && (v === FEATURE_OFF || v === STYLE_NONE || styles.some(st => st.id === v)))),
+            })! });
+        }, 500);
+        return () => window.clearTimeout(t);
+    }, [styles, globalStyleId, featureStyles]);
 
     const handleSave = () => {
         updateApiConfig({ imageGenConfig: buildConfig() });
@@ -402,6 +426,11 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                 )}
             </div>
 
+            <button onClick={handleSave} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-primary/20 bg-primary active:scale-95 transition-all">
+                {statusMsg || '保存 API 設定'}
+            </button>
+            <p className="text-[10px] text-slate-400 -mt-2 pl-1">上面的開關和 API 按這顆存；下面的畫風庫、各處畫風改了就存。</p>
+
             <div className="pt-2 border-t border-slate-100 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">畫風庫</label>
                 <p className="text-[10px] text-slate-400 pl-1 leading-relaxed">存好幾套畫風，挑一套當全域。「畫面有人時才加」那段只在畫面裡有人時拼上去（臉、皮膚、構圖），拍咖啡、風景時不會硬塞一張臉。</p>
@@ -428,17 +457,17 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                                         className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs" />
                                     <div>
                                         <div className="text-[10px] font-bold text-slate-400 mb-1">每次都加（畫風、質感、光影、色調）</div>
-                                        <textarea value={st.prompt} onChange={e => patchStyle(st.id, { prompt: e.target.value })} rows={4}
+                                        <ExpandableTextarea title={`${st.name}・每次都加`} value={st.prompt} onChange={v => patchStyle(st.id, { prompt: v })} rows={4}
                                             className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold text-slate-400 mb-1">畫面有人時才加（臉、皮膚、構圖）</div>
-                                        <textarea value={st.portraitPrompt || ''} onChange={e => patchStyle(st.id, { portraitPrompt: e.target.value || undefined })} rows={3}
+                                        <ExpandableTextarea title={`${st.name}・畫面有人時才加`} value={st.portraitPrompt || ''} onChange={v => patchStyle(st.id, { portraitPrompt: v || undefined })} rows={3}
                                             className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
                                     </div>
                                     <div>
                                         <div className="text-[10px] font-bold text-slate-400 mb-1">避免（負面提示詞，選填）</div>
-                                        <textarea value={st.negativePrompt || ''} onChange={e => patchStyle(st.id, { negativePrompt: e.target.value || undefined })} rows={2}
+                                        <ExpandableTextarea title={`${st.name}・避免`} value={st.negativePrompt || ''} onChange={v => patchStyle(st.id, { negativePrompt: v || undefined })} rows={2}
                                             className="w-full bg-white border border-slate-200/60 rounded-lg px-3 py-2 text-xs resize-y" />
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -495,9 +524,28 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
                 </div>
             </div>
 
-            <button onClick={handleSave} className="sticky bottom-2 z-10 w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-primary/20 bg-primary active:scale-95 transition-all">
-                {statusMsg || '保存配置'}
-            </button>
+
+            {(apiConfig.imageGenConfig?.genPresets || []).length > 0 && (
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block pl-1">生圖預設</label>
+                    <p className="text-[10px] text-slate-400 pl-1">在資料庫生圖的「參數」存的組合（API＋畫風＋尺寸＋畫質）。</p>
+                    {(apiConfig.imageGenConfig?.genPresets || []).map(p => (
+                        <div key={p.id} className="flex items-center gap-2 bg-white/60 border border-slate-200/60 rounded-xl px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-xs font-bold text-slate-700 truncate">{p.name}</div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                    {[apis.find(a => a.id === p.apiId)?.name || (p.apiId ? '（刪掉的 API）' : '跟設定的 API'), p.styleId === STYLE_NONE ? '不套畫風' : styles.find(st => st.id === p.styleId)?.name || '跟設定的畫風', p.size, p.quality].filter(Boolean).join(' · ')}
+                                </div>
+                            </div>
+                            <button onClick={() => {
+                                if (!window.confirm(`刪掉生圖預設「${p.name}」？`)) return;
+                                const cfg = apiConfig.imageGenConfig || {};
+                                updateApiConfig({ imageGenConfig: { ...cfg, genPresets: (cfg.genPresets || []).filter(x => x.id !== p.id) } });
+                            }} className="shrink-0 px-2 py-1 rounded-lg text-[11px] font-bold text-rose-400 bg-white border border-slate-200">刪除</button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <button
                 onClick={handleTestConnection}

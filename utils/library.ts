@@ -37,6 +37,7 @@ export const isLibraryFile = (image: GalleryImage): boolean => image.kind === 'f
 export const resolveLibraryAccess = (image: GalleryImage): LibraryAccess => {
     const access = image.access;
     if (access?.mode === 'all') return { mode: 'all' };
+    if (access?.mode === 'none') return { mode: 'none' };
     if (access?.mode === 'worlds') return { mode: 'worlds', worldIds: [...new Set(access.worldIds.filter(Boolean))] };
     if (access?.mode === 'chars') return { mode: 'chars', charIds: [...new Set(access.charIds.filter(Boolean))] };
     return { mode: 'chars', charIds: image.charId ? [image.charId] : [] };
@@ -45,6 +46,7 @@ export const resolveLibraryAccess = (image: GalleryImage): LibraryAccess => {
 export const canCharUseLibraryImage = (image: GalleryImage, char: Pick<CharacterProfile, 'id' | 'groupId'>): boolean => {
     const access = resolveLibraryAccess(image);
     if (access.mode === 'all') return true;
+    if (access.mode === 'none') return false;
     if (access.mode === 'worlds') return !!char.groupId && access.worldIds.includes(char.groupId);
     return access.charIds.includes(char.id);
 };
@@ -59,6 +61,7 @@ export const describeLibraryAccess = (
     worlds: Pick<CharacterGroup, 'id' | 'name'>[],
 ): string => {
     if (access.mode === 'all') return '所有角色共用';
+    if (access.mode === 'none') return '只有我（角色都不能用）';
     const names = access.mode === 'worlds'
         ? access.worldIds.map(id => worlds.find(world => world.id === id)?.name).filter(Boolean)
         : access.charIds.map(id => chars.find(char => char.id === id)?.name).filter(Boolean);

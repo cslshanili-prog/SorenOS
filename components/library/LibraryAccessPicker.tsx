@@ -6,6 +6,7 @@ const MODES: { mode: LibraryAccess['mode']; label: string }[] = [
     { mode: 'all', label: '所有角色共用' },
     { mode: 'worlds', label: '照世界' },
     { mode: 'chars', label: '指定角色' },
+    { mode: 'none', label: '只有我' },
 ];
 
 /** 資料庫：這張圖給誰用（上傳和單張詳情共用） */
@@ -18,6 +19,7 @@ const LibraryAccessPicker: React.FC<{
     const switchMode = (mode: LibraryAccess['mode']) => {
         if (mode === value.mode) return;
         if (mode === 'all') onChange({ mode: 'all' });
+        else if (mode === 'none') onChange({ mode: 'none' });
         else if (mode === 'worlds') onChange({ mode: 'worlds', worldIds: [] });
         else onChange({ mode: 'chars', charIds: [] });
     };
@@ -33,7 +35,7 @@ const LibraryAccessPicker: React.FC<{
 
     return (
         <div className="space-y-2.5">
-            <div role="radiogroup" aria-label="誰能用" className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+            <div role="radiogroup" aria-label="誰能用" className="grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
                 {MODES.map(({ mode, label }) => (
                     <button key={mode} type="button" role="radio" aria-checked={value.mode === mode} onClick={() => switchMode(mode)}
                         className={`rounded-lg py-1.5 text-[12px] font-bold transition ${value.mode === mode ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}>
@@ -42,6 +44,7 @@ const LibraryAccessPicker: React.FC<{
                 ))}
             </div>
             {value.mode === 'all' && <p className="text-[11px] leading-relaxed text-slate-400">每個角色都能用，之後新加的角色也算。</p>}
+            {value.mode === 'none' && <p className="text-[11px] leading-relaxed text-slate-400">只留給你自己：角色看不到、也不會在聊天裡傳這張。</p>}
             {value.mode === 'worlds' && (
                 worlds.length === 0
                     ? <p className="text-[11px] leading-relaxed text-slate-400">神經鏈接裡還沒有分組。分組就是世界，先去那邊建一個。</p>

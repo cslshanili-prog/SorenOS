@@ -8,7 +8,8 @@
  * 結果先給預覽，存不存由畫面決定；存的是 origin: 'generated'。
  */
 
-import type { CharacterProfile, ImageGenApiConfig, LibraryAccess, LibraryGenKind, UserProfile } from '../types';
+import type { CharacterProfile, ImageGenApiConfig, ImageStylePreset, LibraryAccess, LibraryGenKind, UserProfile } from '../types';
+import { extractContent, safeResponseJson } from './safeApi';
 import { isImageFeatureOff } from './imageStyle';
 import { generateImage, resolveCharacterReferenceImage } from './imageGeneration';
 
@@ -24,9 +25,10 @@ export const LIBRARY_GEN_PROMPT_MAX = 800;
 /** 照片裡的一個人：角色或你 */
 export type LibraryGenSubject =
     | { type: 'char'; char: CharacterProfile }
-    | { type: 'user'; profile: UserProfile };
+    /** personaKey：開著關係線時是哪張身份卡（合照可以有好幾張） */
+    | { type: 'user'; profile: UserProfile; personaKey?: string };
 
-export const subjectKey = (subject: LibraryGenSubject) => (subject.type === 'char' ? subject.char.id : 'user');
+export const subjectKey = (subject: LibraryGenSubject) => (subject.type === 'char' ? subject.char.id : subject.personaKey ? `user:${subject.personaKey}` : 'user');
 
 const genderWord = (gender?: string) => (gender === '男' ? '男性' : gender === '女' ? '女性' : '');
 const NUMBERS = ['一', '二', '三', '四', '五', '六', '七', '八'];
@@ -99,6 +101,9 @@ export interface LibraryGenResult {
     /** 照片裡有幾個人 */
     peopleCount: number;
     lockError?: string;
+    /** 真的送出去的提示詞（套了畫風之後） */
+    sentPrompt?: string;
+    sentNegativePrompt?: string;
 }
 
 export const generateLibraryImage = async (input: {
@@ -110,6 +115,10 @@ export const generateLibraryImage = async (input: {
     styleId?: string;
     /** 這一次的 API（臨時下拉）；不給照畫風偏好的那組／全域 */
     apiId?: string;
+    /** 參數分頁改過、還沒存的畫風；尺寸、畫質 */
+    styleOverride?: ImageStylePreset | null;
+    size?: string;
+    quality?: string;
 }): Promise<LibraryGenResult> => {
     const people = isPeopleKind(input.kind) ? input.subjects : [];
     const subjectError = isPeopleKind(input.kind) ? libraryGenSubjectError(input.kind, people.length) : null;
@@ -130,7 +139,11 @@ export const generateLibraryImage = async (input: {
         })),
     });
     const blobs = refs.filter((blob): blob is Blob => !!blob);
-    const result = await generateImage(input.imageConfig, prompt, blobs.length ? (blobs.length === 1 ? blobs[0] : blobs) : undefined, { feature: 'library', styleId: input.styleId, apiId: input.apiId, hasPerson: people.length > 0 });
+    const result = await generateImage(input.imageConfig, prompt, blobs.length ? (blobs.length === 1 ? blobs[0] : blobs) : undefined, {
+        feature: 'library', styleId: input.styleId, apiId: input.apiId, hasPerson: people.length > 0,
+        ...(input.styleOverride !== undefined ? { styleOverride: input.styleOverride } : {}),
+        ...(input.size ? { size: input.size } : {}), ...(input.quality ? { quality: input.quality } : {}),
+    });
     const lockedCount = result.referenceUsed ? Math.min(blobs.length, result.referenceCount ?? 1) : 0;
     return {
         dataUrl: result.dataUrl,
@@ -140,5 +153,37 @@ export const generateLibraryImage = async (input: {
         peopleCount: people.length,
         ...(result.referenceError ? { lockError: result.referenceError } : {}),
         ...(result.apiFallbackFrom ? { apiFallbackFrom: result.apiFallbackFrom } : {}),
+        ...(result.sentPrompt ? { sentPrompt: result.sentPrompt } : {}),
+        ...(result.sentNegativePrompt ? { sentNegativePrompt: result.sentNegativePrompt } : {}),
     };
+};
+
+/** 「AI 幫我寫提示詞」：把幾個關鍵字擴寫成完整的畫面描述（多一次 API，用主對話 API） */
+export const buildLibraryPromptWriterPrompt = (input: { kind: LibraryGenKind; text: string; names: string[] }): string => {
+    const people = isPeopleKind(input.kind);
+    return [
+        '你是幫人寫生圖提示詞的助手。把下面的關鍵字擴寫成一段畫面描述，給生圖模型用。',
+        `類型：${LIBRARY_GEN_KINDS.find(k => k.kind === input.kind)?.label || ''}${people && input.names.length ? `（畫面裡的人：${input.names.join('、')}）` : ''}`,
+        `關鍵字：${input.text.trim()}`,
+        '',
+        '要求：',
+        '- 寫地點、時間、光線、動作、表情、構圖、鏡頭距離和氛圍，具體、有畫面感，80～200 字。',
+        people ? '- 不要寫人物的長相、五官、髮色、身材（長相另外會照每個人的設定和參考圖加上去）；用「人物一」「人物二」或名字稱呼。' : '- 畫面裡沒有人。',
+        '- 不要寫畫風、畫質、鏡頭參數之類的詞（畫風另外會加），也不要寫任何文字或標語。',
+        '- 照關鍵字的意思寫，不要自己加劇情。',
+        '只輸出描述本身，不要標題、不要解釋、不要引號。',
+    ].join('\n');
+};
+
+export const writeLibraryPromptWithAI = async (input: { kind: LibraryGenKind; text: string; names: string[]; api: { baseUrl: string; apiKey: string; model: string } }): Promise<string> => {
+    if (!input.api.baseUrl || !input.api.apiKey) throw new Error('先在設置裡填好對話 API');
+    const response = await fetch(`${input.api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${input.api.apiKey}` },
+        body: JSON.stringify({ model: input.api.model, messages: [{ role: 'user', content: buildLibraryPromptWriterPrompt(input) }], temperature: 0.8 }),
+    });
+    if (!response.ok) throw new Error(`API 返回 ${response.status}`);
+    const text = extractContent(await safeResponseJson(response)).replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '').trim().replace(/^["「]|["」]$/g, '');
+    if (!text) throw new Error('AI 沒寫出東西，再試一次');
+    return text.slice(0, LIBRARY_GEN_PROMPT_MAX);
 };

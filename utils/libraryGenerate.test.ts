@@ -50,6 +50,17 @@ describe('資料庫 · 在這裡生成', () => {
         expect(defaultLibraryGenAccess('solo', [{ type: 'user', profile: { name: '你' } } as any])).toEqual({ mode: 'all' });
     });
 
+    it('身份卡各自一個 key；AI 寫提示詞的說明不寫長相、畫風', async () => {
+        const { subjectKey, buildLibraryPromptWriterPrompt } = await import('./libraryGenerate');
+        expect(subjectKey({ type: 'user', profile: { name: '你' } as any })).toBe('user');
+        expect(subjectKey({ type: 'user', profile: { name: '妹妹' } as any, personaKey: 'pB' })).toBe('user:pB');
+        const p = buildLibraryPromptWriterPrompt({ kind: 'group', text: '海邊 黃昏', names: ['阿澈', '你'] });
+        expect(p).toContain('關鍵字：海邊 黃昏');
+        expect(p).toContain('畫面裡的人：阿澈、你');
+        expect(p).toContain('不要寫人物的長相');
+        expect(buildLibraryPromptWriterPrompt({ kind: 'scenery', text: '雨夜', names: [] })).toContain('畫面裡沒有人');
+    });
+
     it('鎖臉說明', () => {
         expect(describeLibraryGenLock(0, 0)).toBe('沒鎖臉（沒有參考圖）');
         expect(describeLibraryGenLock(1, 1)).toBe('鎖了臉');
