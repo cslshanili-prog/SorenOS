@@ -310,6 +310,8 @@ export interface ImageGenApiConfig {
   globalStyleId?: string;
   /** 內建畫風放過了（之後刪了就不再自動補，要補按「恢復內建畫風」） */
   builtinStylesSeeded?: boolean;
+  /** 2026-11-14 換過內建（舊的三套退役，見 utils/imageStyle.ts 的 RETIRED_BUILTIN_STYLES） */
+  builtinStylesV2?: boolean;
   /** 各處畫風（設置頁那張表）：沒有＝跟全域；'off'＝這裡不生圖；其他＝畫風 id */
   featureStyles?: Partial<Record<ImageFeature, string>>;
   /** 生圖預設：一組 API＋畫風＋尺寸＋畫質（資料庫生圖的參數分頁一鍵套用） */

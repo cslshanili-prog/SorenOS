@@ -1,7 +1,7 @@
 
 import React, { useRef, useState } from 'react';
 import { CharacterProfile, ImageStylePreset } from '../../types';
-import { STYLE_NONE } from '../../utils/imageStyle';
+import { liveStyleId, STYLE_NONE } from '../../utils/imageStyle';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import FaceCropModal, { FaceBox } from './FaceCropModal';
@@ -109,7 +109,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                         {styleLockedNote ? (
                             <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5">{styleLockedNote}</p>
                         ) : (
-                            <select aria-label="這個角色的畫風" value={value?.styleId || ''} onChange={e => patch({ styleId: e.target.value || undefined })}
+                            <select aria-label="這個角色的畫風" value={value?.styleId && value.styleId !== STYLE_NONE ? (liveStyleId({ stylePresets }, value.styleId) || '') : (value?.styleId || '')} onChange={e => patch({ styleId: e.target.value || undefined })}
                                 className="w-full bg-slate-50 border border-slate-200/60 rounded-xl px-3 py-2.5 text-xs text-slate-700">
                                 <option value="">{styleFallbackLabel || '跟世界／全域'}</option>
                                 <option value={STYLE_NONE}>不套畫風</option>

@@ -1,5 +1,5 @@
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
-import { STYLE_NONE, styleLabel } from '../utils/imageStyle';
+import { liveStyleId, STYLE_NONE, styleLabel } from '../utils/imageStyle';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
@@ -2343,7 +2343,7 @@ ${isInitialGeneration ? `
                             {/* 世界的畫風（plans/image-style-presets.md）：這個世界的人生圖都用這套，角色自己指定的優先 */}
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-slate-400 shrink-0">畫風</span>
-                                <select aria-label={`${g.name}的畫風`} value={g.imageStyleId || ''} onChange={e => { void setCharacterGroupStyle(g.id, e.target.value || undefined); }}
+                                <select aria-label={`${g.name}的畫風`} value={g.imageStyleId && g.imageStyleId !== STYLE_NONE ? (liveStyleId(apiConfig.imageGenConfig, g.imageStyleId) || '') : (g.imageStyleId || '')} onChange={e => { void setCharacterGroupStyle(g.id, e.target.value || undefined); }}
                                     className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1 text-[11px] text-slate-600">
                                     <option value="">跟全域</option>
                                     <option value={STYLE_NONE}>不套畫風</option>
