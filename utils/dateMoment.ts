@@ -7,6 +7,7 @@
  * 結果存進見面記錄（插在這一輪後面）和相簿（origin: 'date_moment'）。只有用戶自己按，角色不會主動拍。
  */
 
+import { faceLockOf, strongestFaceLock } from './faceLock';
 import type { CharacterProfile, DateStory, ImageGenApiConfig, Message, UserProfile } from '../types';
 import { canGenerateFor } from './imageStyle';
 import type { ApiMessage } from './datePrompts';
@@ -120,7 +121,7 @@ export const captureDateMoment = async (input: {
         refs: { char: !!charRef, user: !!userRef },
     });
     const refs = [charRef, userRef].filter((blob): blob is Blob => !!blob);
-    const result = await generateImage(input.imageConfig, prompt, refs.length ? refs : undefined, { feature: 'dateMoment', char: input.char, hasPerson: true });
+    const result = await generateImage(input.imageConfig, prompt, refs.length ? refs : undefined, { feature: 'dateMoment', char: input.char, hasPerson: true, faceLock: strongestFaceLock([faceLockOf(input.char.imageGenCharConfig), faceLockOf(input.user.imageGenConfig)]) });
     let lock: MomentLock = 'none';
     if (result.referenceUsed) {
         if (charRef && userRef) lock = (result.referenceCount ?? 1) >= 2 ? 'both' : 'char';

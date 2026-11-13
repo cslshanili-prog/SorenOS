@@ -41,7 +41,6 @@ describe('資料庫 · 在這裡生成', () => {
         expect(prompt).toContain('沒寫參考圖的人別套用');
         // 畫風交給畫風庫：不能自己寫死「像照片」
         expect(prompt).not.toContain('照片');
-        expect(prompt).toContain('不要照抄參考圖的畫風');
         expect(buildLibraryImagePrompt({ kind: 'solo', prompt: '健身', people: [{ hasRef: false }] })).not.toContain('參考圖');
         expect(buildLibraryImagePrompt({ kind: 'scenery', prompt: '雨後夜景' })).toContain('畫面裡沒有人');
         expect(buildLibraryImagePrompt({ kind: 'object', prompt: '一杯拿鐵' })).toContain('物品照');

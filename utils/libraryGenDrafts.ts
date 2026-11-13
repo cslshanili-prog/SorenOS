@@ -22,6 +22,8 @@ export interface LibraryGenDraft {
     wanted: number;
     peopleCount: number;
     lockError?: string;
+    /** 鎖了臉時：用哪檔、有沒有送強度參數 */
+    faceLockNote?: string;
     createdAt: number;
     savedImageId?: string;
 }

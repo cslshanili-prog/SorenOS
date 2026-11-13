@@ -8,6 +8,7 @@
  * 結果先給預覽，存不存由畫面決定；存的是 origin: 'generated'。
  */
 
+import { describeFaceLock, faceLockOf, strongestFaceLock, type FaceLockLevel } from './faceLock';
 import type { CharacterProfile, ImageGenApiConfig, ImageStylePreset, LibraryAccess, LibraryGenKind, UserProfile } from '../types';
 import { extractContent, safeResponseJson } from './safeApi';
 import { isImageFeatureOff } from './imageStyle';
@@ -68,8 +69,7 @@ export const buildLibraryImagePrompt = (input: {
         ...lines,
         withRef > 0 && withRef < people.length ? '沒寫參考圖的人別套用參考圖的長相。' : '',
         // 畫風一律交給畫風庫那段（generateImage 接在後面）；這裡寫「像照片」會蓋掉二次元、厚塗那幾套。
-        // 參考圖也只拿來對長相，不然生圖服務會連參考圖的畫法、質感一起照抄。
-        withRef > 0 ? '參考圖只用來對長相（臉型、五官、髮型髮色），畫法、質感、光線照下面寫的風格，不要照抄參考圖的畫風。' : '',
+        // 參考圖要多像（只對長相還是整個照抄）交給鎖臉強度，generateImage 在最後接 [參考圖約束]（utils/faceLock.ts）。
         '構圖自然，畫面裡沒有文字。',
     ].filter(Boolean).join('\n');
 };
@@ -107,6 +107,8 @@ export interface LibraryGenResult {
     /** 真的送出去的提示詞（套了畫風之後） */
     sentPrompt?: string;
     sentNegativePrompt?: string;
+    /** 鎖了臉時：用哪檔、有沒有送強度參數（「這次送出的提示詞」那塊顯示） */
+    faceLockNote?: string;
 }
 
 export const generateLibraryImage = async (input: {
@@ -122,6 +124,8 @@ export const generateLibraryImage = async (input: {
     styleOverride?: ImageStylePreset | null;
     size?: string;
     quality?: string;
+    /** 這一次的鎖臉強度；不給就照這次拍的人裡最強的那個 */
+    faceLock?: FaceLockLevel;
 }): Promise<LibraryGenResult> => {
     const people = isPeopleKind(input.kind) ? input.subjects : [];
     const subjectError = isPeopleKind(input.kind) ? libraryGenSubjectError(input.kind, people.length) : null;
@@ -142,8 +146,9 @@ export const generateLibraryImage = async (input: {
         })),
     });
     const blobs = refs.filter((blob): blob is Blob => !!blob);
+    const faceLock = input.faceLock ?? strongestFaceLock(people.map(subject => faceLockOf(subject.type === 'char' ? subject.char.imageGenCharConfig : subject.profile.imageGenConfig)));
     const result = await generateImage(input.imageConfig, prompt, blobs.length ? (blobs.length === 1 ? blobs[0] : blobs) : undefined, {
-        feature: 'library', styleId: input.styleId, apiId: input.apiId, hasPerson: people.length > 0,
+        feature: 'library', styleId: input.styleId, apiId: input.apiId, hasPerson: people.length > 0, faceLock,
         ...(input.styleOverride !== undefined ? { styleOverride: input.styleOverride } : {}),
         ...(input.size ? { size: input.size } : {}), ...(input.quality ? { quality: input.quality } : {}),
     });
@@ -158,6 +163,7 @@ export const generateLibraryImage = async (input: {
         ...(result.apiFallbackFrom ? { apiFallbackFrom: result.apiFallbackFrom } : {}),
         ...(result.sentPrompt ? { sentPrompt: result.sentPrompt } : {}),
         ...(result.sentNegativePrompt ? { sentNegativePrompt: result.sentNegativePrompt } : {}),
+        ...(result.referenceUsed ? { faceLockNote: describeFaceLock(faceLock, result.fidelitySent) } : {}),
     };
 };
 

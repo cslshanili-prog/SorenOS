@@ -6,6 +6,7 @@ import { extractModelIds, isLikelyImageModel } from '../../utils/modelList';
 import { safeResponseJson } from '../../utils/safeApi';
 import { generateImage } from '../../utils/imageGeneration';
 import ExpandableTextarea from '../common/ExpandableTextarea';
+import { clearInputFidelityUnsupported, isInputFidelityUnsupported, modelTakesInputFidelity } from '../../utils/faceLock';
 import { BUILTIN_STYLES, FEATURE_OFF, IMAGE_FEATURES, newImageApiId, newStyleId, normalizeImageGenConfig, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE } from '../../utils/imageStyle';
 
 interface ImageGenSettingsPanelProps {
@@ -32,6 +33,11 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
     const [activeApiId, setActiveApiId] = useState<string>(() => cfg?.activeApiId || apis[0].id);
     const [editingApiId, setEditingApiId] = useState<string>(() => activeApiId);
     const editingApi = apis.find(a => a.id === editingApiId) || apis[0];
+    // 「這組不收 input_fidelity」記在裝置上（utils/faceLock.ts）；按重新試試後靠 tick 重讀
+    const [fidelityTick, setFidelityTick] = useState(0);
+    const fidelityUnsupported = React.useMemo(() => !!editingApi && isInputFidelityUnsupported(editingApi.baseUrl, editingApi.model),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [editingApi?.baseUrl, editingApi?.model, fidelityTick]);
     const patchApi = (patch: Partial<ImageApiPreset>) => setApis(list => list.map(a => (a.id === editingApi.id ? { ...a, ...patch } : a)));
     const url = editingApi.baseUrl;
     const key = editingApi.apiKey;
@@ -408,6 +414,21 @@ const ImageGenSettingsPanel: React.FC<ImageGenSettingsPanelProps> = ({ apiConfig
             <label className="flex items-start gap-2 text-[11px] text-slate-600 pl-1">
                 <input type="checkbox" checked={!!editingApi.negativePromptField} onChange={e => patchApi({ negativePromptField: e.target.checked })} className="mt-0.5 accent-primary" />
                 <span>這家支援 <code className="font-mono">negative_prompt</code> 欄位<span className="block text-[10px] text-slate-400">不確定就不要勾：沒勾時負面提示詞寫成「避免：…」接在正文後面；勾了才另外送欄位，不收的接口可能直接報錯。</span></span>
+            </label>
+
+            <label className="flex items-start gap-2 text-[11px] text-slate-600 pl-1">
+                <input type="checkbox" checked={editingApi.inputFidelity !== 'off'} onChange={e => patchApi({ inputFidelity: e.target.checked ? undefined : 'off' })} className="mt-0.5 accent-primary" />
+                <span>鎖臉「還原」時送強度參數 <code className="font-mono">input_fidelity</code>
+                    <span className="block text-[10px] text-slate-400">
+                        {modelTakesInputFidelity(editingApi.model) ? '只有 GPT-Image 系列有這個參數。中轉站不收（報錯）會自動拿掉重送一次，並記住之後不再送；收了卻沒傳下去的看不出來。' : '這組的模型不是 GPT-Image，不會送，只用提示詞控制鎖臉強度。'}
+                    </span>
+                    {modelTakesInputFidelity(editingApi.model) && fidelityUnsupported && (
+                        <span className="mt-1 flex items-center gap-2 text-[10px] text-amber-600">
+                            這台裝置記得這組不收（之前送了報錯）
+                            <button type="button" onClick={e => { e.preventDefault(); clearInputFidelityUnsupported(editingApi.baseUrl, editingApi.model); setFidelityTick(t => t + 1); }} className="font-bold underline">重新試試</button>
+                        </span>
+                    )}
+                </span>
             </label>
 
             <div className="flex gap-2">
