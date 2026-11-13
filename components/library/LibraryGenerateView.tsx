@@ -18,6 +18,7 @@ import {
     LIBRARY_GEN_KINDS, LIBRARY_GEN_PROMPT_MAX, LibraryGenSubject, canGenerateInLibrary, defaultLibraryGenAccess,
     describeLibraryGenLock, generateLibraryImage, libraryGenSubjectError, subjectKey, writeLibraryPromptWithAI,
 } from '../../utils/libraryGenerate';
+import { FACE_LOCK_LEVELS, faceLockLabel, faceLockOf, strongestFaceLock, type FaceLockLevel } from '../../utils/faceLock';
 import { addLibraryGenDrafts, loadLibraryGenDrafts, newLibraryGenDraftId, saveLibraryGenDrafts, type LibraryGenDraft } from '../../utils/libraryGenDrafts';
 
 const MAX_COUNT = 4;
@@ -65,6 +66,8 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
     const [size, setSize] = useState('');
     const [quality, setQuality] = useState('');
     const [presetName, setPresetName] = useState('');
+    /** 這次的鎖臉強度；空＝照每個人自己的設定（合照取最強） */
+    const [faceLockPick, setFaceLockPick] = useState<'' | FaceLockLevel>('');
     // 存進資料庫
     const [saving, setSaving] = useState<LibraryGenDraft | null>(null);
     const [description, setDescription] = useState('');
@@ -177,6 +180,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         ...(apiId ? { apiId } : {}),
                         ...(styleDirty ? { styleOverride: styleDraft } : styleId ? { styleId } : {}),
                         ...(size ? { size } : {}), ...(quality ? { quality } : {}),
+                        ...(faceLockPick ? { faceLock: faceLockPick } : {}),
                     });
                     if (r.apiFallbackFrom) addToast(`「${r.apiFallbackFrom}」沒回應，這張改用全域那組 API`, 'info');
                     const ref = await migrateDataUrlToRef(r.dataUrl);
@@ -185,7 +189,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         ...(r.sentPrompt ? { sentPrompt: r.sentPrompt } : {}), ...(r.sentNegativePrompt ? { sentNegativePrompt: r.sentNegativePrompt } : {}),
                         subjects: mode === 'people' ? subjects.map(subjectKey) : [],
                         locked: r.lockedCount, wanted: r.wantedLocks, peopleCount: r.peopleCount,
-                        ...(r.lockError ? { lockError: r.lockError } : {}), createdAt: Date.now(),
+                        ...(r.lockError ? { lockError: r.lockError } : {}), ...(r.faceLockNote ? { faceLockNote: r.faceLockNote } : {}), createdAt: Date.now(),
                     };
                     setDrafts(prev => {
                         const { next, dropped } = addLibraryGenDrafts(prev, [draft]);
@@ -430,9 +434,15 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                                     {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                                 </select>
                             </label>
-                            {mode === 'people' && subjects.some(sub => hasRef(sub.type === 'char' ? sub.char.imageGenCharConfig : sub.profile.imageGenConfig)) && (
-                                <p className="text-[10px] leading-relaxed text-amber-300/80">這次有人鎖臉：生圖服務常連參考圖的畫法、質感一起照抄，換畫風可能不太明顯。想要這套畫風，參考圖最好也是這套畫風的。</p>
-                            )}
+                            {mode === 'people' && subjects.some(sub => hasRef(sub.type === 'char' ? sub.char.imageGenCharConfig : sub.profile.imageGenConfig)) && (<>
+                                <label className="flex items-center gap-2"><span className="w-14 shrink-0 text-white/50">鎖臉</span>
+                                    <select value={faceLockPick} onChange={e => setFaceLockPick(e.target.value as '' | FaceLockLevel)} className={darkSelect} aria-label="這次的鎖臉強度">
+                                        <option value="">照每個人的設定（{faceLockLabel(strongestFaceLock(subjects.map(sub => faceLockOf(sub.type === 'char' ? sub.char.imageGenCharConfig : sub.profile.imageGenConfig))))}）</option>
+                                        {FACE_LOCK_LEVELS.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
+                                    </select>
+                                </label>
+                                <p className="text-[10px] leading-relaxed text-amber-300/80">這次有人鎖臉：平衡只對長相、畫法照畫風；還原盡量像參考圖，畫風很容易被帶走。不管哪檔，參考圖跟畫風同一種風格效果最好。</p>
+                            </>)}
                             {styleDraft && (
                                 <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3">
                                     <div className="text-[10px] text-white/50">改這次用的畫風（不存也照改過的生）</div>
@@ -482,6 +492,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         <div className="mt-2 whitespace-pre-wrap break-words rounded-xl bg-white/5 p-3 text-[11px] leading-relaxed text-white/60">
                             {selected?.sentPrompt || selected?.scenePrompt || '生成之後這裡會顯示真的送出去的那段（AI 寫的、加了畫風的都看得到）。'}
                             {selected?.sentNegativePrompt && <div className="mt-2 text-white/40">負面：{selected.sentNegativePrompt}</div>}
+                            {selected?.faceLockNote && <div className="mt-2 text-white/40">{selected.faceLockNote}</div>}
                         </div>
                     )}
                 </div>

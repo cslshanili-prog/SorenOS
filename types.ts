@@ -340,7 +340,12 @@ export interface ImageApiPreset {
   quality?: string;
   /** 這家收 `negative_prompt` 欄位：勾了才用欄位送負面提示詞，不勾就寫成「避免：…」接在正文後面 */
   negativePromptField?: boolean;
+  /** 鎖臉「還原」時要不要送 `input_fidelity`（GPT-Image）：沒設＝照模型名自動；off＝不送 */
+  inputFidelity?: 'off';
 }
+
+/** 鎖臉強度：balanced＝平衡（預設），exact＝還原（plans/face-lock-strength.md） */
+export type FaceLockLevel = 'balanced' | 'exact';
 
 /** 畫風庫裡的一套 */
 export interface ImageStylePreset {
@@ -3607,6 +3612,8 @@ export interface CharacterProfile {
      * 判斷口徑留給調用方（比如根據生成請求裡的場景描述），這裡只存開關狀態。
      */
     nonSelfieSkipsReference?: boolean;
+    /** 鎖臉強度（plans/face-lock-strength.md）：沒設＝平衡（只對長相、畫法照畫風）；exact＝還原 */
+    faceLock?: FaceLockLevel;
     /** 參考圖上鎖定的臉部區域（相對參考圖寬高的比例），發送參考圖時按此裁切，減少服裝/背景干擾。 */
     referenceFaceBox?: {
       x: number;

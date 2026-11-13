@@ -1,6 +1,6 @@
 # 鎖臉強度
 
-> 狀態：**設計稿，等 Liora 定第 5 節**（2026-11-13）。起因：鎖臉一開，畫風常被參考圖帶走（寫實參考圖配二次元畫風，出來還是寫實）。Liora 想要能調「多像參考圖」。
+> 狀態：第 5 節照建議定案（Liora 2026-11-13），**已做**（見第 7 節）。起因：鎖臉一開，畫風常被參考圖帶走（寫實參考圖配二次元畫風，出來還是寫實）。Liora 想要能調「多像參考圖」。
 
 ## 1. 現在怎麼鎖臉
 
@@ -46,3 +46,13 @@ Liora 看的數據：GPT-Image 系列約七成，Google 約兩成，其他約一
 - **a**：三段提示詞、角色檔位欄位、`generateImage` 收 `faceLock`、合照取最強。
 - **b**：`input_fidelity`（模型名判斷、報錯重送、記在那組 API、設定頁開關）。先用 Liora 的 API 實測。
 - **c**：UI：專屬生圖設定的檔位、資料庫生圖參數分頁、鎖臉說明那行帶上「有送參數／只用提示詞」。
+
+## 7. 實況
+
+定案：每個角色／身份卡一個檔位（專屬生圖設定，參考圖開著才出現）；**預設平衡**（舊角色也是）；合照取最強；先只做**還原／平衡**兩檔。
+
+- 純邏輯 `utils/faceLock.ts`：`FACE_LOCK_LEVELS`、`faceLockOf`（沒設＝平衡）、`strongestFaceLock`、`faceLockReferencePrompt`（換掉 `[參考圖約束]`，單張／合照兩種）、`inputFidelityFor`、「這組不收」記在裝置上（localStorage `soren-input-fidelity-unsupported-v1`，照網址＋模型）、`describeFaceLock`。
+- `generateImage` 收 `faceLock`（不給就照 `char.imageGenCharConfig.faceLock`）。還原＋模型名有 `gpt-image`＋那組沒關＋沒被記成不收 → `/images/edits` 多帶 `input_fidelity=high`。報 4xx（401、403、408、429 除外）就拿掉重送；重送成功才記成不收。回傳 `faceLock`、`fidelitySent`。
+- 合照：見面拍下這一刻（角色＋你那張卡）、資料庫生圖（這次拍的人）取最強。
+- 資料庫生圖：拿掉 #172 那句「參考圖只對長相」（交給檔位）；參數分頁有人鎖臉時多一格「鎖臉」（照每個人的設定／平衡／還原）；「這次送出的提示詞」底下多一行「鎖臉：還原（有送強度參數／只用提示詞）」。
+- 設置 → 生圖API：每組 API 一個勾選「鎖臉還原時送 input_fidelity」（`ImageApiPreset.inputFidelity: 'off'`＝不送），非 GPT-Image 的模型註明不會送；被記成不收時顯示出來，可以「重新試試」。

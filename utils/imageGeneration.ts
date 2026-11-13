@@ -7,6 +7,7 @@ import { apiForStyle, applyStyleToPrompt, pickStyle, resolveImageStyle } from '.
 import { getRegisteredCharacter, getWorldStyleId } from './charNameRegistry';
 import { safeResponseJson } from './safeApi';
 import { getBlobForRef } from './blobRef';
+import { faceLockOf, faceLockReferencePrompt, inputFidelityFor, markInputFidelityUnsupported, type FaceLockLevel } from './faceLock';
 
 export interface GeneratedImage {
   dataUrl: string;
@@ -23,6 +24,9 @@ export interface GeneratedImage {
   /** 真的送出去的正文提示詞（套了畫風、補充提示詞之後；資料庫生圖「這次送出的提示詞」） */
   sentPrompt?: string;
   sentNegativePrompt?: string;
+  /** 帶參考圖時用的鎖臉檔位、有沒有真的送出 input_fidelity（中轉收了但沒傳下去的看不出來） */
+  faceLock?: FaceLockLevel;
+  fidelitySent?: boolean;
 }
 
 export interface GenerateImageOptions {
@@ -41,6 +45,8 @@ export interface GenerateImageOptions {
   quality?: string;
   /** 畫面裡有沒有人（決定加不加畫風的人像段）；不給就看提示詞 */
   hasPerson?: boolean;
+  /** 這一次的鎖臉強度；不給就照 char 的設定（沒設＝平衡）。合照由調用方取最強的那個人 */
+  faceLock?: FaceLockLevel;
 }
 
 /**
@@ -278,13 +284,14 @@ export async function generateImage(
   const forced = options?.apiId ? config.apiPresets?.find(a => a.id === options.apiId) : undefined;
   const preferred = forced ? (forced.id !== global?.id ? forced : undefined) : picked.preferred;
   const hasPerson = options?.hasPerson ?? looksLikeSelfieDescription(prompt);
+  const faceLock = options?.faceLock ?? faceLockOf(options?.char?.imageGenCharConfig);
   const run = async (apiBase: ImageApiTarget) => {
     const api = { ...apiBase, ...(options?.size ? { size: options.size } : {}), ...(options?.quality ? { quality: options.quality } : {}) };
     const styled = applyStyleToPrompt(prompt, style, { hasPerson, negativeAsField: !!api.negativePromptField });
     // 還沒搬進畫風庫的舊設定：照舊拼補充提示詞
     const legacy = config.extraPrompt?.trim();
     const sent = legacy ? `${styled.prompt}\n${legacy}` : styled.prompt;
-    const r = await generateImageWith(api, sent, referenceImageBlob, styled.negativePrompt);
+    const r = await generateImageWith(api, sent, referenceImageBlob, styled.negativePrompt, faceLock);
     return { ...r, sentPrompt: sent, ...(styled.negativePrompt ? { sentNegativePrompt: styled.negativePrompt } : {}) };
   };
   const withStyle = (r: GeneratedImage): GeneratedImage => (style ? { ...r, styleName: style.name } : r);
@@ -300,13 +307,14 @@ export async function generateImage(
   return withStyle(await run(fallbackApi));
 }
 
-type ImageApiTarget = Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality'> & Pick<Partial<ImageApiPreset>, 'negativePromptField'>;
+type ImageApiTarget = Pick<ImageGenApiConfig, 'baseUrl' | 'apiKey' | 'model' | 'size' | 'quality'> & Pick<Partial<ImageApiPreset>, 'negativePromptField' | 'inputFidelity'>;
 
 async function generateImageWith(
   config: ImageApiTarget,
   fullPrompt: string,
   referenceImageBlob: Blob | Blob[] | undefined,
   negativePrompt: string | undefined,
+  faceLock: FaceLockLevel = 'balanced',
 ): Promise<GeneratedImage> {
   const baseUrl = (config.baseUrl || '').replace(/\/+$/, '');
   if (!baseUrl || !config.model) throw new Error('生圖 API 未配置完整（URL / Model 缺失）');
@@ -329,16 +337,19 @@ async function generateImageWith(
 
   // 光傳參考圖很多生圖引擎只當成弱風格參考，臉型/五官比例照樣會飄；顯式用文字提要求
   // 「照著參考圖的臉」，實測能明顯收緊一致性。只加在帶參考圖這條路，不影響純文字生成。
-  const referencePrompt = `${fullPrompt}\n\n[參考圖約束] 人物的臉型、五官比例、膚色、髮型需與所附參考圖保持高度一致，不要更改容貌特徵；只按提示詞調整場景、姿勢、服裝、表情等其餘部分。`;
+  // 寫多死照鎖臉強度（utils/faceLock.ts）：平衡只對長相、畫法照畫風；還原才要求高度一致（畫風容易被帶走）。
+  const referencePrompt = `${fullPrompt}\n\n${faceLockReferencePrompt(faceLock, 1)}`;
+  const fidelity = inputFidelityFor(faceLock, config);
 
   const model = config.model;
-  const postEdits = async (blobs: Blob[], prompt: string): Promise<GeneratedImage> => {
+  const postEditsOnce = async (blobs: Blob[], prompt: string, withFidelity: boolean): Promise<GeneratedImage> => {
     const form = new FormData();
     form.append('model', model);
     form.append('prompt', prompt);
     form.append('n', '1');
     if (negativePrompt) form.append('negative_prompt', negativePrompt);
     if (config.size) form.append('size', config.size);
+    if (withFidelity && fidelity) form.append('input_fidelity', fidelity);
     // 多張照 OpenAI 的寫法用 image[]；只有一張時保持原本的 image（老的中轉站只認這個）
     if (blobs.length === 1) form.append('image', blobs[0], 'reference.png');
     else blobs.forEach((blob, i) => form.append('image[]', blob, `reference-${i + 1}.png`));
@@ -347,13 +358,28 @@ async function generateImageWith(
       headers: { 'Authorization': `Bearer ${config.apiKey || 'sk-none'}` },
       body: form,
     });
-    return { ...(await parseImageResponse(response)), referenceUsed: true, referenceCount: blobs.length };
+    return { ...(await parseImageResponse(response)), referenceUsed: true, referenceCount: blobs.length, faceLock, fidelitySent: withFidelity && !!fidelity };
+  };
+  // 送了 input_fidelity 報錯：拿掉再送一次；這樣成功就記成這組不收，之後不再白打一次
+  const postEdits = async (blobs: Blob[], prompt: string): Promise<GeneratedImage> => {
+    if (!fidelity) return postEditsOnce(blobs, prompt, false);
+    try {
+      return await postEditsOnce(blobs, prompt, true);
+    } catch (e) {
+      // 只有「請求被拒」（400、422 這類）才可能是參數不認；網路、額度、權限的錯照原樣往下退
+      const status = Number(/^HTTP (\d{3})/.exec(e instanceof Error ? e.message : '')?.[1]);
+      if (!(status >= 400 && status < 500) || [401, 403, 408, 429].includes(status)) throw e;
+      console.warn('[ImageGeneration] 帶 input_fidelity 失敗，拿掉再送一次:', e);
+      const r = await postEditsOnce(blobs, prompt, false);
+      markInputFidelityUnsupported(baseUrl, model);
+      return r;
+    }
   };
 
   // 多張：先一起送；這家不收多張（欄位名不認、模型不支援都算）就退成只送第一張，再不行才純文字
   let multiError: string | undefined;
   if (references.length > 1) {
-    const multiPrompt = `${fullPrompt}\n\n[參考圖約束] 畫面裡的人依序對應所附的參考圖（第 1 張、第 2 張……），每個人的臉型、五官比例、膚色、髮型都要與自己那張參考圖保持高度一致，不要互換、不要更改容貌特徵；只按提示詞調整場景、姿勢、服裝、表情等其餘部分。`;
+    const multiPrompt = `${fullPrompt}\n\n${faceLockReferencePrompt(faceLock, references.length)}`;
     try {
       return await postEdits(references, multiPrompt);
     } catch (e) {

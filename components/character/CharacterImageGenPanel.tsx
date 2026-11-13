@@ -6,6 +6,7 @@ import { processImageToBlob } from '../../utils/file';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import FaceCropModal, { FaceBox } from './FaceCropModal';
 import { referenceCropHints } from '../../utils/imageGeneration';
+import { FACE_LOCK_LEVELS, faceLockOf } from '../../utils/faceLock';
 
 interface CharacterImageGenPanelProps {
     charName: string;
@@ -33,6 +34,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
     const refHints = refSize ? referenceCropHints(refSize.w, refSize.h, value?.referenceFaceBox ?? { size: 1 }) : null;
     const referenceEnabled = value?.referenceEnabled ?? false;
     const nonSelfieSkipsReference = value?.nonSelfieSkipsReference ?? true;
+    const faceLock = faceLockOf(value);
 
     const patch = (updates: Partial<NonNullable<CharacterProfile['imageGenCharConfig']>>) => {
         onChange({ ...(value || {}), ...updates });
@@ -75,8 +77,23 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                 </div>
 
                 {referenceEnabled && (
-                    <div className="mb-4 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-[11px] text-violet-700 leading-relaxed">
-                        鎖臉時畫風可能被參考圖帶走：生圖服務常連參考圖的畫法、膚質、光線一起照抄，換了畫風也不太明顯（寫實的參考圖配二次元畫風，出來還是偏寫實）。想要哪套畫風，參考圖最好也用那套畫風的；或者這次先把參考圖關掉。
+                    <div className="mb-4 space-y-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">鎖臉強度</label>
+                        <div role="radiogroup" aria-label="鎖臉強度" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+                            {FACE_LOCK_LEVELS.map(level => (
+                                <button key={level.key} type="button" role="radio" aria-checked={faceLock === level.key}
+                                    onClick={() => patch({ faceLock: level.key === 'balanced' ? undefined : level.key })}
+                                    className={`rounded-lg py-1.5 text-xs font-bold transition-colors ${faceLock === level.key ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500'}`}>
+                                    {level.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-slate-500 leading-relaxed">{FACE_LOCK_LEVELS.find(l => l.key === faceLock)?.hint}。</p>
+                        <div className="bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-[11px] text-violet-700 leading-relaxed">
+                            {faceLock === 'exact'
+                                ? '還原時畫風很容易被參考圖帶走：生圖服務會連參考圖的畫法、膚質、光線一起照抄（寫實的參考圖配二次元畫風，出來還是偏寫實）。GPT-Image 會多送一個強度參數，你的中轉站不收的話會自動拿掉、只用提示詞。'
+                                : '平衡還是可能被參考圖帶走一些畫風，尤其參考圖是寫實照片、畫風是二次元時。想要哪套畫風，參考圖最好也用那套畫風的。'}
+                        </div>
                     </div>
                 )}
 
