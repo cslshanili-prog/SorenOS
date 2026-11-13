@@ -15,7 +15,7 @@ const base = {
 const char = (extra: Partial<CharacterProfile> = {}): CharacterProfile =>
     ({ id: 'c1', name: '阿澈', avatar: '', description: '', systemPrompt: '', memories: [], primaryPersonaKey: 'pA', knownPersonaKeys: ['pA', 'pB'], ...extra } as CharacterProfile);
 
-describe('同一世界', () => {
+describe('互相認識', () => {
     it('角色認識其中一張：告訴他稱呼，另一張只是知道有這個人', () => {
         const lines = personaLinkLines(char(), base);
         expect(lines.some(l => l.includes('「小星」是「小雨」的姊姊') && l.includes('「小雨」是TA的妹妹') && l.includes('還沒跟TA來往過'))).toBe(true);

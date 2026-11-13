@@ -1575,7 +1575,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
                 return name;
             },
         });
-        // 在場的卡之間的連結（同一世界、它知道的小號）
+        // 在場的卡之間的連結（互相認識、它知道的小號）
         const linkLines = lurking ? [] : presentLinkLines(member, userProfileBase, presentKeys);
         const linkNote = linkLines.length ? `\n[在場的人之間]:\n${linkLines.map(l => `- ${l}`).join('\n')}` : '';
 

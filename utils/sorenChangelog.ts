@@ -18,6 +18,7 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_14 = 'changelog-soren-2026-11-14';
 export const CHANGELOG_SOREN_2026_11_11 = 'changelog-soren-2026-11-11';
 export const CHANGELOG_SOREN_2026_11_10 = 'changelog-soren-2026-11-10';
 export const CHANGELOG_SOREN_2026_11_09 = 'changelog-soren-2026-11-09';
@@ -26,6 +27,14 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_14,
+        title: '2026 年 11 月 14 日 · S2.0 關係線',
+        subtitle: '一個角色認識好幾張身份卡、每張一條線 · 互相認識與小號 · 群聊裡好幾個你 · NPC 變配角、角色私聊、AI 生成配角 · 角色自己開小號 · 私下找人 · 畫風庫與鎖臉強度 · 資料庫生圖改版 · 編輯框全螢幕',
+        date: '2026-11-14',
+        src: 'changelogs/2026-11-14.html',
+        accent: 'from-indigo-50 to-violet-50 border-indigo-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_11,
         title: '2026 年 11 月 11 日 · 桌面',

@@ -2597,6 +2597,20 @@ const Settings: React.FC = () => {
             </div>
         </SettingsSection>
 
+        {/* 生圖 API 區域：放在 API 配置正下方（Liora 2026-11-14） */}
+        <SettingsSection
+            title="生圖API"
+            icon={
+                <div className="p-2 bg-pink-100/50 rounded-xl text-pink-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 22.5H6a2.25 2.25 0 0 1-2.25-2.25V3.75A2.25 2.25 0 0 1 6 1.5h12a2.25 2.25 0 0 1 2.25 2.25v16.5A2.25 2.25 0 0 1 18 22.5ZM10.5 8.25a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
+                    </svg>
+                </div>
+            }
+        >
+            <ImageGenSettingsPanel apiConfig={apiConfig} updateApiConfig={updateApiConfig} />
+        </SettingsSection>
+
         {/* 獨立識圖 API：給不支持 image_url 的主模型補視覺能力；可手動從通用模型預設載入。 */}
         <SettingsSection
             title="識圖 API"
@@ -3127,20 +3141,6 @@ const Settings: React.FC = () => {
                     {otherStatusMsg || '保存其他 API'}
                 </button>
             </div>
-        </SettingsSection>
-
-        {/* 生圖 API 區域 */}
-        <SettingsSection
-            title="生圖API"
-            icon={
-                <div className="p-2 bg-pink-100/50 rounded-xl text-pink-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 22.5H6a2.25 2.25 0 0 1-2.25-2.25V3.75A2.25 2.25 0 0 1 6 1.5h12a2.25 2.25 0 0 1 2.25 2.25v16.5A2.25 2.25 0 0 1 18 22.5ZM10.5 8.25a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
-                    </svg>
-                </div>
-            }
-        >
-            <ImageGenSettingsPanel apiConfig={apiConfig} updateApiConfig={updateApiConfig} />
         </SettingsSection>
 
         {/* 實時感知配置區域 */}

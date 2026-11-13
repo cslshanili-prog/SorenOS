@@ -13,8 +13,63 @@ export const LEGACY_STYLE_ID = 'style-legacy';
 /** 「這次不套畫風」 */
 export const STYLE_NONE = 'none';
 
-/** 內建四套。群友提供的原文只拆成「每次都加」和「畫面有人時才加」，字面不改。 */
+/** 內建四套（2026-11-14 Liora 換成三套英文的＋韓系手繪）。原文照給的放，字面不改；第一行是「這套優先什麼」。 */
 export const BUILTIN_STYLES: ImageStylePreset[] = [
+    {
+        id: 'style-builtin-photo',
+        builtinKey: 'photo',
+        name: 'Photographic Realism',
+        prompt: [
+            'Prioritize authentic photographic realism over digital stylization.',
+            'High-end professional photography with a natural, believable, real-world appearance. Authentic surface textures, realistic material properties, delicate microdetails, natural color variation, subtle imperfections, and physically plausible reflections.',
+            'Soft natural lighting or professionally diffused studio lighting, realistic highlights and shadow transitions, natural light falloff, and subtle atmospheric depth.',
+            'Clean, elegant color grading with balanced neutral tones, restrained saturation, gentle contrast, and natural color reproduction.',
+            'Authentic optical depth of field, realistic lens behavior, soft background bokeh, and subtle professional retouching without excessive smoothing.',
+            'The final image must look convincingly photographic rather than digitally illustrated or rendered.',
+        ].join('\n'),
+        negativePrompt: 'CGI, 3D render, digital human render, game rendering, unreal engine look, sculpted surfaces, doll-like skin, overly smooth texture, synthetic facial structure, artificial lighting, plastic material response, stylized CG aesthetics',
+    },
+    {
+        id: 'style-builtin-digital-human',
+        builtinKey: 'digital-human',
+        name: 'Digital Human Render',
+        prompt: [
+            'Prioritize premium 3D rendering, not photography.',
+            'Create a polished semi-realistic 3D render with a clearly digital, three-dimensional appearance. The image should visibly feel computer-rendered rather than camera-captured. Emphasize sculpted forms, clean dimensional contours, idealized facial or subject structure, smooth refined surfaces, uniform skin or fur texture, controlled material response, and subtle subsurface scattering. Lighting should feel studio-rendered and precisely controlled, with soft global illumination, clean form separation, gentle rim shaping, and a luminous digital finish. The image should look polished, dimensional, and aesthetically rendered, with elegant muted tones. The final result must not be mistaken for a real photograph.',
+        ].join('\n'),
+        negativePrompt: 'real photo, documentary photography, natural camera texture, realistic skin pores, casual photographic look, lens-based realism, authentic raw material texture, real-world micro-imperfections, painterly illustration, hand-drawn style',
+    },
+    {
+        id: 'style-builtin-illustrated-cg',
+        builtinKey: 'illustrated-cg',
+        name: 'Illustrated CG Artwork',
+        prompt: [
+            'Prioritize illustrated CG aesthetics over 3D rendering and photography.',
+            'Create a premium semi-realistic CG illustration with a distinctly digital-art feel. The image should look like polished commercial character artwork rather than a real photo or a 3D render. Emphasize softly painted surfaces, gentle tonal blending, selectively softened edges, slightly simplified material detail, and an idealized, refined finish. Forms should be shaped through color and value design rather than physically realistic rendering. Lighting should be diffuse, hazy, and atmospheric, with soft bloom, low contrast, lifted shadows, and a calm misty glow. Use a cool, desaturated palette with gray, smoky violet, pale lavender, muted blue-gray, or similar subdued tones. Fine detail should be concentrated in the focal area, while peripheral areas remain softly blended and artistically simplified. The final image must clearly read as high-end stylized CG artwork, not as photography and not as realistic 3D rendering.',
+        ].join('\n'),
+        negativePrompt: 'photorealistic, real-photo look, realistic camera texture, physically based 3D rendering, digital human render, unreal engine look, hyperreal material response, realistic skin pores, strong subsurface scattering, sculpted 3D facial structure, hard CGI reflections, overly realistic lighting, raw photography, documentary realism, plastic doll realism, cel shading, cartoon line art, rough painterly brush strokes, high contrast, oversaturated colors',
+    },
+    {
+        id: 'style-builtin-korean-handdrawn',
+        builtinKey: 'korean-handdrawn',
+        name: '韓系手繪插畫',
+        prompt: [
+            '畫風：韓系手繪插畫，像韓國插畫師的繪本或 IG 插畫，看得出手繪痕跡。',
+            '筆觸與質感：鉛筆／色鉛筆線稿可見，線條有粗細變化、略帶抖動；上色用水彩或不透明水彩平塗加輕微疊色，留白多，淡淡透出紙張紋理。',
+            '色彩：溫暖柔和的低彩度色調，奶油白、霧粉、淺橄欖綠、淡藍；陰影用同色系加深，不加黑。',
+            '光影：自然日光感，明暗層次少而清楚。',
+            '氛圍：日常、溫柔，像隨手畫下的一個片刻。',
+        ].join('\n'),
+        portraitPrompt: '人物比例自然，帶插畫式的簡化；五官線條乾淨，眼睛不做動漫高光，臉頰淡淡腮紅。構圖留白，人物可以只佔畫面一部分。',
+        negativePrompt: '3D render, photorealistic, glossy skin, bloom, heavy bokeh, anime eye highlights, thick impasto, hard black shadows',
+    },
+];
+
+/**
+ * 退役的三套（2026-11-14 之前的內建）。讀到沒改過的就拿掉、改過的留著變成自己的；
+ * 角色、世界、各處、全域指著舊 id 的，照 RETIRED_STYLE_ALIASES 換到最接近的新內建。
+ */
+export const RETIRED_BUILTIN_STYLES: ImageStylePreset[] = [
     {
         id: 'style-builtin-cg',
         builtinKey: 'cg',
@@ -61,21 +116,13 @@ export const BUILTIN_STYLES: ImageStylePreset[] = [
             '構圖：拍攝人物時借鑒雜誌人像攝影構圖，有近景、遠景、遮擋物等細節',
         ].join('\n'),
     },
-    {
-        id: 'style-builtin-korean-handdrawn',
-        builtinKey: 'korean-handdrawn',
-        name: '韓系手繪插畫',
-        prompt: [
-            '畫風：韓系手繪插畫，像韓國插畫師的繪本或 IG 插畫，看得出手繪痕跡。',
-            '筆觸與質感：鉛筆／色鉛筆線稿可見，線條有粗細變化、略帶抖動；上色用水彩或不透明水彩平塗加輕微疊色，留白多，淡淡透出紙張紋理。',
-            '色彩：溫暖柔和的低彩度色調，奶油白、霧粉、淺橄欖綠、淡藍；陰影用同色系加深，不加黑。',
-            '光影：自然日光感，明暗層次少而清楚。',
-            '氛圍：日常、溫柔，像隨手畫下的一個片刻。',
-        ].join('\n'),
-        portraitPrompt: '人物比例自然，帶插畫式的簡化；五官線條乾淨，眼睛不做動漫高光，臉頰淡淡腮紅。構圖留白，人物可以只佔畫面一部分。',
-        negativePrompt: '3D render, photorealistic, glossy skin, bloom, heavy bokeh, anime eye highlights, thick impasto, hard black shadows',
-    },
 ];
+
+export const RETIRED_STYLE_ALIASES: Record<string, string> = {
+    'style-builtin-cg': 'style-builtin-digital-human',
+    'style-builtin-anime': 'style-builtin-illustrated-cg',
+    'style-builtin-semi-impasto': 'style-builtin-illustrated-cg',
+};
 
 /** 看不見的字元（零寬、方向控制）：從群裡複製來的提示詞常夾著，送出去只會干擾 */
 const INVISIBLE_RE = /[​-‏‪-‮⁠-⁤⁦-⁩﻿]/g;
@@ -83,6 +130,21 @@ export const stripInvisible = (s: string): string => s.replace(INVISIBLE_RE, '')
 
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 export const newStyleId = () => newId('style');
+
+const sameStyleText = (a: ImageStylePreset, b: ImageStylePreset) => ['prompt', 'portraitPrompt', 'negativePrompt'].every(k =>
+    stripInvisible(((a as any)[k] || '') as string).trim() === stripInvisible(((b as any)[k] || '') as string).trim());
+
+/**
+ * 這個 id 現在指的是哪一套：找得到就是它；找不到但是退役的舊內建，就換成接手的那套
+ * （角色卡、世界存的舊 id 不用回頭改資料庫）。都沒有回 undefined。
+ */
+export function liveStyleId(cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefined, id: string | undefined | null): string | undefined {
+    if (!id) return undefined;
+    const styles = cfg?.stylePresets || [];
+    if (styles.some(s => s.id === id)) return id;
+    const alias = RETIRED_STYLE_ALIASES[id];
+    return alias && styles.some(s => s.id === alias) ? alias : undefined;
+}
 export const newImageApiId = () => newId('img-api');
 
 /** 讀進來就跑；冪等。 */
@@ -113,6 +175,23 @@ export function normalizeImageGenConfig(cfg: ImageGenApiConfig | undefined): Ima
     if (!next.builtinStylesSeeded) {
         styles = [...styles, ...BUILTIN_STYLES.filter(b => !styles.some(s => s.id === b.id)).map(b => ({ ...b }))];
         next.builtinStylesSeeded = true;
+        next.builtinStylesV2 = true;
+    } else if (!next.builtinStylesV2) {
+        // 換內建：舊的三套沒改過就拿掉，改過的留著變成自己的（拿掉 builtinKey）；新的補上；指著舊 id 的換過去
+        const removed = new Set<string>();
+        styles = styles.flatMap(st => {
+            const old = RETIRED_BUILTIN_STYLES.find(r => r.builtinKey && r.builtinKey === st.builtinKey);
+            if (!old) return [st];
+            if (sameStyleText(st, old)) { removed.add(st.id); return []; }
+            const { builtinKey: _drop, ...own } = st;
+            return [own];
+        });
+        styles = [...styles, ...BUILTIN_STYLES.filter(b => !styles.some(s => s.id === b.id || s.builtinKey === b.builtinKey)).map(b => ({ ...b }))];
+        const remap = (id: string | undefined) => (id && removed.has(id) ? RETIRED_STYLE_ALIASES[id] : id);
+        if (next.globalStyleId) next.globalStyleId = remap(next.globalStyleId);
+        if (next.featureStyles) next.featureStyles = Object.fromEntries(Object.entries(next.featureStyles).map(([k, v]) => [k, remap(v)])) as typeof next.featureStyles;
+        if (next.genPresets) next.genPresets = next.genPresets.map(g => (g.styleId ? { ...g, styleId: remap(g.styleId) } : g));
+        next.builtinStylesV2 = true;
     }
     const legacy = next.extraPrompt?.trim();
     if (legacy) {
@@ -143,7 +222,8 @@ export function pickStyle(cfg: Pick<ImageGenApiConfig, 'stylePresets' | 'globalS
     if (!cfg) return undefined;
     if (override === STYLE_NONE) return undefined;
     const styles = cfg.stylePresets || [];
-    return (override && styles.find(s => s.id === override)) || styles.find(s => s.id === cfg.globalStyleId);
+    const want = override ? liveStyleId(cfg, override) : undefined;
+    return (want && styles.find(s => s.id === want)) || styles.find(s => s.id === cfg.globalStyleId);
 }
 
 /** 把畫風拼進提示詞。負面提示詞：asField 時另外回傳（送 negative_prompt 欄位），不然寫成「避免：…」接在後面。 */
@@ -184,7 +264,7 @@ export const IMAGE_FEATURES: Array<{ key: ImageFeature; label: string; hint: str
 const validStyle = (cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefined, id: string | undefined | null): string | undefined => {
     if (!id) return undefined;
     if (id === STYLE_NONE) return id;
-    return cfg?.stylePresets?.some(s => s.id === id) ? id : undefined;
+    return liveStyleId(cfg, id);
 };
 
 export function isImageFeatureOff(cfg: Pick<ImageGenApiConfig, 'featureStyles'> | undefined, feature: ImageFeature | undefined): boolean {
@@ -232,7 +312,8 @@ export function styleLabel(cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefi
     if (!id) return fallback;
     if (id === STYLE_NONE) return '不套畫風';
     if (id === FEATURE_OFF) return '關閉';
-    return cfg?.stylePresets?.find(s => s.id === id)?.name || fallback;
+    const live = liveStyleId(cfg, id);
+    return cfg?.stylePresets?.find(s => s.id === live)?.name || fallback;
 }
 
 /** 「照設定」那個選項要寫的：不給這一次時，會用到哪一套（名字），哪一組 API */

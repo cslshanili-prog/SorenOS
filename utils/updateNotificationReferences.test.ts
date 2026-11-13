@@ -10,10 +10,11 @@ describe('Live2D update notification references', () => {
     expect(source).toContain('點輸入框左側的 <b>＋</b>');
   });
 
-  it('2026-11-10 起只彈 Soren 自己那則，上游的舊提醒都拿下來；點了打開更新日誌清單', () => {
+  it('只彈 Soren 自己那則（2026-11-14 起是 S2.0，取代 S1.0 那則），上游的舊提醒都拿下來；點了打開更新日誌清單', () => {
     const source = readFileSync(path.resolve(__dirname, '../components/UpdateNotificationEvent.tsx'), 'utf8');
     const queue = source.slice(source.indexOf('const UPDATE_QUEUE'), source.indexOf('];', source.indexOf('const UPDATE_QUEUE')));
-    expect(queue).toContain('UPDATE_NOTIFICATION_KEY_SOREN_2026_11_10, render');
+    expect(queue).toContain('UPDATE_NOTIFICATION_KEY_SOREN_2026_11_14, render');
+    expect(queue).not.toContain('UPDATE_NOTIFICATION_KEY_SOREN_2026_11_10, render');
     for (const old of ['SAR_UPDATE_KEY, render', 'NETWORK_TRANSIT_NOTICE_KEY_2026_08, render', 'UPDATE_NOTIFICATION_KEY_2026_08_10, render', 'UPDATE_NOTIFICATION_KEY_2026_08_30, render']) {
       expect(queue).not.toContain(old);
     }

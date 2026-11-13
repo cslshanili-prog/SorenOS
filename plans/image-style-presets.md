@@ -65,7 +65,7 @@ interface ImageStylePreset {
 
 1. **已定**：解析順序照第 5 節（這一次 > 角色 > 世界 > 功能那格 > 全域，「關閉」最大）。
 2. **已定**：拆「有人時才加」。內建的幾套都是針對人像寫的，臉、皮膚、構圖那幾句放進 `portraitPrompt`。
-3. **已定**：內建四套：
+3. **已定**：內建四套（**2026-11-14 換過**：Liora 換成 Photographic Realism、Digital Human Render、Illustrated CG Artwork 三套英文的，加上韓系手繪插畫。舊的三套放在 `RETIRED_BUILTIN_STYLES`：讀進來時沒改過的拿掉、改過的留著變成自己的；指著舊 id 的照 `RETIRED_STYLE_ALIASES` 換——半寫實 CG→Digital Human Render、精緻二次元與偽厚塗→Illustrated CG Artwork；角色卡、世界存的舊 id 不回頭改，解析時經 `liveStyleId` 換。旗標 `builtinStylesV2`。下面是最早那版）：
    - 半寫實 CG：3D、真人膚質、寫真感（群友 1）。
    - 精緻二次元：2D 數位插畫、動漫式眼睛高光、霧面瓷肌（群友 3；跟群友 2 幾乎同一套，留一個）。
    - 偽厚塗 CG：韓系乙女 CG、言情小說封面感，描邊清楚、明暗極低、近白灰、啞光（群友提供）。

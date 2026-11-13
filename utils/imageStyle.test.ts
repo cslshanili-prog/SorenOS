@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apiForStyle, applyStyleToPrompt, BUILTIN_STYLES, canGenerateFor, isImageFeatureOff, resolveImageStyle, LEGACY_STYLE_ID, normalizeImageGenConfig, pickStyle, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE, stripInvisible } from './imageStyle';
+import { apiForStyle, applyStyleToPrompt, BUILTIN_STYLES, canGenerateFor, isImageFeatureOff, resolveImageStyle, LEGACY_STYLE_ID, normalizeImageGenConfig, pickStyle, resetBuiltinStyle, restoreBuiltinStyles, STYLE_NONE, stripInvisible, RETIRED_BUILTIN_STYLES, liveStyleId } from './imageStyle';
 
 describe('搬遷', () => {
     const old = { charImageGenEnabled: true, baseUrl: 'https://a', apiKey: 'k', model: 'm1', size: '1024x1024', extraPrompt: '水彩風' };
@@ -34,12 +34,14 @@ describe('搬遷', () => {
 });
 
 describe('套用', () => {
-    const cfg = normalizeImageGenConfig({ baseUrl: 'https://a', model: 'm', apiKey: 'k', globalStyleId: 'style-builtin-anime' })!;
+    const cfg = normalizeImageGenConfig({ baseUrl: 'https://a', model: 'm', apiKey: 'k', globalStyleId: 'style-builtin-illustrated-cg' })!;
     it('跟全域、指定、不套', () => {
-        expect(pickStyle(cfg)?.name).toBe('精緻二次元');
-        expect(pickStyle(cfg, 'style-builtin-cg')?.name).toBe('半寫實 CG');
+        expect(pickStyle(cfg)?.name).toBe('Illustrated CG Artwork');
+        expect(pickStyle(cfg, 'style-builtin-photo')?.name).toBe('Photographic Realism');
         expect(pickStyle(cfg, STYLE_NONE)).toBeUndefined();
-        expect(pickStyle(cfg, 'gone')?.name).toBe('精緻二次元');
+        expect(pickStyle(cfg, 'gone')?.name).toBe('Illustrated CG Artwork');
+        // 角色卡、世界存的舊內建 id 換到接手的那套
+        expect(pickStyle(cfg, 'style-builtin-cg')?.name).toBe('Digital Human Render');
     });
     it('有人才加人像段；負面寫成文字或欄位', () => {
         const style = { id: 's', name: 's', prompt: '畫風A', portraitPrompt: '臉部特寫', negativePrompt: 'blurry' };
@@ -82,5 +84,37 @@ describe('誰用哪一套（b）', () => {
         expect(isImageFeatureOff(cfg, 'ootd')).toBe(true);
         expect(canGenerateFor({ charImageGenEnabled: true, baseUrl: 'x', model: 'm', featureStyles: { ootd: 'off' } }, 'ootd')).toBe(false);
         expect(canGenerateFor({ charImageGenEnabled: true, baseUrl: 'x', model: 'm' }, 'ootd')).toBe(true);
+    });
+});
+
+describe('2026-11-14 換內建畫風', () => {
+    it('內建是三套英文的＋韓系手繪', () => {
+        expect(BUILTIN_STYLES.map(b => b.name)).toEqual(['Photographic Realism', 'Digital Human Render', 'Illustrated CG Artwork', '韓系手繪插畫']);
+    });
+    it('舊的沒改過就拿掉，改過的留著變自己的；指著舊 id 的換過去', () => {
+        const [cg, anime, impasto] = RETIRED_BUILTIN_STYLES;
+        const korean = BUILTIN_STYLES.find(b => b.builtinKey === 'korean-handdrawn')!;
+        const before: any = {
+            baseUrl: 'https://a', model: 'm', apiKey: 'k', builtinStylesSeeded: true,
+            stylePresets: [{ ...cg }, { ...anime, prompt: '我改過的二次元' }, { ...impasto }, { ...korean }, { id: 'mine', name: '我的', prompt: 'x' }],
+            globalStyleId: 'style-builtin-cg',
+            featureStyles: { chatPhoto: 'style-builtin-semi-impasto', moments: 'off', avatar: 'style-builtin-anime' },
+            genPresets: [{ id: 'g', name: 'g', styleId: 'style-builtin-cg' }],
+        };
+        const cfg = normalizeImageGenConfig(before)!;
+        const ids = cfg.stylePresets!.map(s => s.id);
+        expect(ids).not.toContain('style-builtin-cg');
+        expect(ids).not.toContain('style-builtin-semi-impasto');
+        const kept = cfg.stylePresets!.find(s => s.id === 'style-builtin-anime')!;
+        expect(kept.prompt).toBe('我改過的二次元');
+        expect(kept.builtinKey).toBeUndefined();
+        expect(ids).toEqual(expect.arrayContaining(['mine', 'style-builtin-korean-handdrawn', 'style-builtin-photo', 'style-builtin-digital-human', 'style-builtin-illustrated-cg']));
+        expect(cfg.globalStyleId).toBe('style-builtin-digital-human');
+        expect(cfg.featureStyles).toEqual({ chatPhoto: 'style-builtin-illustrated-cg', moments: 'off', avatar: 'style-builtin-anime' });
+        expect(cfg.genPresets![0].styleId).toBe('style-builtin-digital-human');
+        // 冪等
+        expect(normalizeImageGenConfig(cfg)).toEqual(cfg);
+        // 改過留著的那套照舊找得到，不會被換掉
+        expect(liveStyleId(cfg, 'style-builtin-anime')).toBe('style-builtin-anime');
     });
 });

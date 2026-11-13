@@ -77,8 +77,8 @@ const PersonaLinksSection: React.FC<{ personaKey: string }> = ({ personaKey }) =
         if (link.kind === 'alt') return link.a === personaKey ? `「${them}」是我的小號` : `我是「${them}」的小號`;
         const m = link.a === personaKey ? link.aToB : link.bToA;
         const t = link.a === personaKey ? link.bToA : link.aToB;
-        if (!m && !t) return `跟「${them}」是同一個世界的人`;
-        return `同一世界：${m ? `我是「${them}」的${m}` : ''}${m && t ? '，' : ''}${t ? `「${them}」是我的${t}` : ''}`;
+        if (!m && !t) return `跟「${them}」互相認識`;
+        return `互相認識：${m ? `我是「${them}」的${m}` : ''}${m && t ? '，' : ''}${t ? `「${them}」是我的${t}` : ''}`;
     };
     const knownBy = (link: PersonaLink) => characters.filter(c => {
         const k = c.altKnowledge?.[link.id];
@@ -92,7 +92,7 @@ const PersonaLinksSection: React.FC<{ personaKey: string }> = ({ personaKey }) =
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">跟其他身份的關係</label>
             <div className="space-y-2">
                 {links.length === 0 && !adding && (
-                    <p className="text-[11px] text-slate-400 leading-relaxed">還沒有連結。可以設「同一世界」（例如姊妹）或「小號」——角色只會知道你讓他知道的。</p>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">還沒有連結。可以設「互相認識」（例如姊妹、同事）或「小號」——角色只會知道你讓他知道的。</p>
                 )}
                 {links.map(link => (
                     <div key={link.id} className="flex items-start gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
@@ -118,7 +118,7 @@ const PersonaLinksSection: React.FC<{ personaKey: string }> = ({ personaKey }) =
                             {candidates.map(k => <option key={k} value={k}>{name(k)}</option>)}
                         </select>
                         <div className="flex flex-wrap gap-1.5">
-                            {([['sameWorld', '同一世界'], ['altOther', '對方是我的小號'], ['altMe', '我是對方的小號']] as [NewKind, string][]).map(([k, label]) => (
+                            {([['sameWorld', '互相認識'], ['altOther', '對方是我的小號'], ['altMe', '我是對方的小號']] as [NewKind, string][]).map(([k, label]) => (
                                 <button key={k} onClick={() => setKind(k)}
                                     className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition ${kind === k ? 'bg-primary text-white border-primary' : 'bg-white text-slate-500 border-slate-200'}`}>
                                     {label}
