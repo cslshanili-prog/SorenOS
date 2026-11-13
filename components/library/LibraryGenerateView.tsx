@@ -382,6 +382,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         <ExpandableTextarea tone="dark" title="想拍什麼" value={sceneText} onChange={setSceneText} maxLength={LIBRARY_GEN_PROMPT_MAX} rows={4}
                             placeholder={LIBRARY_GEN_KINDS[subjects.length > 1 ? 1 : 0].placeholder} className={`${field} resize-none`} />
                         <p className="text-center text-[10px] text-white/40">寫地點、動作、表情、光線就好，長相會照每個人自己的設定和參考圖。{subjects.length ? `（這次：${subjects.length > 1 ? `合照 ${subjects.length} 人` : '獨照'}）` : '（先到「人物」選這次拍誰）'}</p>
+                        <p className="text-center text-[10px] text-white/30">這格是拍人用的。只拍物品或風景的話不用填，直接到「物品／風景」分頁寫。</p>
                         {aiToggle}
                     </>)}
 
@@ -402,7 +403,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         </div>
                         <ExpandableTextarea tone="dark" title={`想拍什麼（${KIND_LABEL[thingKind]}）`} value={thingText} onChange={setThingText} maxLength={LIBRARY_GEN_PROMPT_MAX} rows={4}
                             placeholder={LIBRARY_GEN_KINDS.find(k => k.kind === thingKind)!.placeholder} className={`${field} resize-none`} />
-                        <p className="text-center text-[10px] text-white/40">畫面裡不會有人。</p>
+                        <p className="text-center text-[10px] text-white/40">畫面裡不會有人。這頁只看上面這格，「想拍什麼」和「人物」分頁不用填，在這頁按生成就是拍{KIND_LABEL[thingKind]}。</p>
                         {aiToggle}
                     </>)}
 
