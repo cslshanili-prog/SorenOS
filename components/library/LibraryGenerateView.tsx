@@ -429,6 +429,9 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                                     {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                                 </select>
                             </label>
+                            {mode === 'people' && subjects.some(sub => hasRef(sub.type === 'char' ? sub.char.imageGenCharConfig : sub.profile.imageGenConfig)) && (
+                                <p className="text-[10px] leading-relaxed text-amber-300/80">這次有人鎖臉：生圖服務常連參考圖的畫法、質感一起照抄，換畫風可能不太明顯。想要這套畫風，參考圖最好也是這套畫風的。</p>
+                            )}
                             {styleDraft && (
                                 <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3">
                                     <div className="text-[10px] text-white/50">改這次用的畫風（不存也照改過的生）</div>

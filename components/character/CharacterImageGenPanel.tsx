@@ -74,6 +74,12 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                     </button>
                 </div>
 
+                {referenceEnabled && (
+                    <div className="mb-4 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5 text-[11px] text-violet-700 leading-relaxed">
+                        鎖臉時畫風可能被參考圖帶走：生圖服務常連參考圖的畫法、膚質、光線一起照抄，換了畫風也不太明顯（寫實的參考圖配二次元畫風，出來還是偏寫實）。想要哪套畫風，參考圖最好也用那套畫風的；或者這次先把參考圖關掉。
+                    </div>
+                )}
+
                 {!globalImageGenEnabled && (
                     <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">
                         「系統設置 → 生圖API」的總開關「開啟角色生圖」目前是關閉的，這裡可以先設定，但要等總開關打開才會真的生效。
