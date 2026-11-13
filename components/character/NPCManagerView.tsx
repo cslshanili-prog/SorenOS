@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { CharacterProfile, NPCProfile, NPCRelationship, Worldbook, ApiPreset, APIConfig } from '../../types';
 import TokenImg from '../os/TokenImg';
 import { processImageToBlob } from '../../utils/file';
@@ -425,9 +426,9 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
 
                 <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">性格與背景描述</label>
-                    <textarea
+                    <ExpandableTextarea title="描述"
                         value={description}
-                        onChange={e => setDescription(e.target.value)}
+                        onChange={v => setDescription(v)}
                         onBlur={() => onChange({ description })}
                         placeholder="ta 是什麼樣的人，會怎麼出現在群聊/查手機聯繫人/見面劇情裡"
                         rows={4}
@@ -503,9 +504,9 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
 
                 <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1">世界觀 / 設定補充</label>
-                    <textarea
+                    <ExpandableTextarea title="世界觀"
                         value={worldview}
-                        onChange={e => setWorldview(e.target.value)}
+                        onChange={v => setWorldview(v)}
                         onBlur={() => onChange({ worldview })}
                         placeholder="在這個世界裡，魔法是存在的..."
                         rows={3}
@@ -522,9 +523,9 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                             {memoryBusy ? '整理中…' : '從群聊整理'}
                         </button>
                     </div>
-                    <textarea
+                    <ExpandableTextarea title="記憶"
                         value={memory}
-                        onChange={e => setMemory(e.target.value)}
+                        onChange={v => setMemory(v)}
                         onFocus={() => { memoryFocusedRef.current = true; }}
                         onBlur={() => {
                             memoryFocusedRef.current = false;

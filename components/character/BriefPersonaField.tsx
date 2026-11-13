@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, CharacterProfile } from '../../types';
 import { BRIEF_PERSONA_MAX, generateBriefPersona, isBriefPersonaStale } from '../../utils/briefPersona';
@@ -57,10 +58,11 @@ const BriefPersonaField: React.FC<Props> = ({ char, apiConfig, onChange, addToas
                     上面的人設改過了，這段可能跟不上，要不要按「重新生成」？
                 </div>
             )}
-            <textarea
+            <ExpandableTextarea
+                title="精簡人設"
                 value={value}
                 // 手寫或手改過：不再照舊版人設判斷過期
-                onChange={e => onChange({ briefPersona: e.target.value, briefPersonaSource: undefined })}
+                onChange={v => onChange({ briefPersona: v, briefPersonaSource: undefined })}
                 maxLength={BRIEF_PERSONA_MAX + 50}
                 className="w-full h-28 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
                 placeholder="按「AI 生成」從上面的人設自動壓縮，或自己寫 100～200 字：一句身份、性格、說話方式、話量、對熟人和生人的差別…"

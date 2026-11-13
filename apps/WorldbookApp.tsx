@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import { Worldbook, WorldbookDepthRole, WorldbookPosition, WorldbookSelectiveLogic } from '../types';
 import Modal from '../components/os/Modal';
@@ -590,9 +591,9 @@ const WorldbookApp: React.FC = () => {
                         <div className="bg-white rounded-[1.5rem] border border-slate-200/70 p-5 shadow-sm shadow-slate-200/40">
                             <div className="text-[11px] font-bold tracking-[0.14em] text-indigo-500 uppercase">設定內容</div>
                             <p className="text-[10px] text-slate-400 mt-1 mb-3">支持 Markdown；這裡只填寫實際需要注入模型的內容。</p>
-                            <textarea 
+                            <ExpandableTextarea title="條目內容" 
                                 value={tempContent}
-                                onChange={e => setTempContent(e.target.value)}
+                                onChange={v => setTempContent(v)}
                                 placeholder="在此輸入詳細的設定內容，支持 Markdown 格式..." 
                                 className="w-full h-80 bg-slate-50/80 border border-slate-200 rounded-2xl p-4 text-sm text-slate-700 leading-relaxed resize-none outline-none focus:bg-white focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all font-mono"
                             />

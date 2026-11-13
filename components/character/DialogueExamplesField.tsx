@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { Plus, Scissors, X } from '@phosphor-icons/react';
 import type { APIConfig, CharacterProfile, FixedLine } from '../../types';
 import {
@@ -90,9 +91,10 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
             <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
                 寫幾段 TA 說話的示範，可以用 {'{{char}}'}、{'{{user}}'}。送給 AI 時會標成「口吻示範、不是發生過的事」，AI 就不會照抄句子或當成真的記憶。
             </p>
-            <textarea
+            <ExpandableTextarea
+                title="對話範例"
                 value={value}
-                onChange={e => onChange({ dialogueExamples: e.target.value })}
+                onChange={v => onChange({ dialogueExamples: v })}
                 className="w-full h-32 bg-white rounded-3xl p-5 text-sm shadow-sm resize-none focus:ring-1 focus:ring-primary/20 transition-all vr-reader-scroll"
                 placeholder={'{{user}}：週末要不要去看電影？\n{{char}}：……看什麼。'}
             />

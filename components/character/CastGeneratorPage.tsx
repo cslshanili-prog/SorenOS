@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import ImageStylePicker, { EMPTY_PICK, pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
 import { createPortal } from 'react-dom';
 import { ArrowsClockwise, CaretLeft, Sparkle } from '@phosphor-icons/react';
@@ -199,7 +200,7 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                                     </button>
                                 </div>
                                 <input value={r.brief} onChange={e => patchRow(r.key, { brief: e.target.value.slice(0, 80) })} className={`${field} text-xs`} placeholder="一句話" />
-                                <textarea value={r.persona} onChange={e => patchRow(r.key, { persona: e.target.value.slice(0, 3000) })} rows={5} className={`${field} text-xs resize-none leading-relaxed`} placeholder="人設" />
+                                <ExpandableTextarea title="人設" value={r.persona} onChange={v => patchRow(r.key, { persona: v.slice(0, 3000) })} rows={5} className={`${field} text-xs resize-none leading-relaxed`} placeholder="人設" />
                                 <input value={r.appearance} onChange={e => patchRow(r.key, { appearance: e.target.value.slice(0, 300) })} className={`${field} text-xs`} placeholder="外觀（畫頭像用）" />
                                 {r.relations.length > 0 && (
                                     <div className="space-y-1">
