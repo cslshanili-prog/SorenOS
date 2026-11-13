@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { CharacterProfile } from '../../types';
 import { INSTALLED_APPS } from '../../constants';
 import TokenImg from '../os/TokenImg';
@@ -193,11 +194,11 @@ const CustomWidgetEditor: React.FC<{
 
             <div className="px-4 pb-6 pt-1" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.5rem)' }}>
                 {tab === 'html' && (
-                    <textarea value={draft.html} onChange={e => patch({ html: e.target.value })} className={code}
+                    <ExpandableTextarea title="小組件 HTML" mono value={draft.html} onChange={v => patch({ html: v })} className={code}
                         spellCheck={false} autoCapitalize="off" autoCorrect="off" aria-label="HTML" placeholder={'<div class="card">{{time}}</div>'} />
                 )}
                 {tab === 'css' && (
-                    <textarea value={draft.css} onChange={e => patch({ css: e.target.value })} className={code}
+                    <ExpandableTextarea title="小組件 CSS" mono value={draft.css} onChange={v => patch({ css: v })} className={code}
                         spellCheck={false} autoCapitalize="off" autoCorrect="off" aria-label="CSS" placeholder=".card { height: 100%; }" />
                 )}
 

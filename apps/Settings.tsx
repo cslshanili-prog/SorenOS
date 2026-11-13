@@ -1,6 +1,7 @@
 
 import { useFirstUseGuideStep } from '../utils/firstUseGuide';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import { Capacitor } from '@capacitor/core';
 import { extractContent, safeResponseJson } from '../utils/safeApi';
@@ -3012,9 +3013,9 @@ const Settings: React.FC = () => {
                                             </span>
                                         </div>
                                         <p className="text-[10px] text-slate-400 mb-1.5 pl-0.5">{hint}</p>
-                                        <textarea
+                                        <ExpandableTextarea title="提示詞模板" mono
                                             value={value}
-                                            onChange={(e) => setValue(e.target.value)}
+                                            onChange={v => setValue(v)}
                                             placeholder="留空 → 使用內置默認。點下方「載入默認模板」可把內置文案填進來再改。"
                                             rows={6}
                                             spellCheck={false}

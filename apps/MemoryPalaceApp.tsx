@@ -10,6 +10,7 @@ import { loadRangeMessagePage, formatRangeTimestamp } from '../utils/memoryPalac
 import { MainApiMemoryChoice, SkipVectorMemoryChoice } from '../components/MemoryGuideActions';
 import { useFirstUseGuideStep, GUIDE_SULLY_ID } from '../utils/firstUseGuide';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import {
     MemoryRoom, MemoryNode, ROOM_CONFIGS, ROOM_LABELS, getRoomLabel,
@@ -4720,9 +4721,9 @@ create table if not exists memory_vectors (
                             <b>【{char?.name || '當前角色'}】的神經鏈接記憶檔案</b>。
                             5 萬字以內會自動按自然段分批，不需要手動切。
                         </div>
-                        <textarea
+                        <ExpandableTextarea title="匯入記憶"
                             value={externalMemoryText}
-                            onChange={event => setExternalMemoryText(event.target.value)}
+                            onChange={v => setExternalMemoryText(v)}
                             disabled={externalImporting}
                             placeholder="粘貼從其它應用、設備或記憶系統帶來的原始文字…"
                             style={{
@@ -5298,10 +5299,10 @@ create table if not exists memory_vectors (
                             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 3, marginBottom: 12 }}>
                                 只修改便利貼正文；狀態與創建時間保持不變
                             </div>
-                            <textarea
+                            <ExpandableTextarea title="窗台期盼"
                                 autoFocus
                                 value={anticipationDraft}
-                                onChange={e => setAnticipationDraft(e.target.value)}
+                                onChange={v => setAnticipationDraft(v)}
                                 rows={5}
                                 maxLength={2000}
                                 style={{
