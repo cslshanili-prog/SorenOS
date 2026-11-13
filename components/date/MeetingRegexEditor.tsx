@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { MeetingRegexScript } from '../../utils/meetingPreset/types';
 import { parseStRegex, REGEX_PLACEMENT, runRegexScript } from '../../utils/meetingPreset/regex';
 
@@ -75,13 +76,13 @@ const MeetingRegexEditor: React.FC<{
                 <div className="p-4 space-y-4 overflow-y-auto">
                     <label className="block">
                         {label('查找（/正則/旗標，或直接寫要找的字）')}
-                        <textarea value={script.findRegex} rows={3} onChange={e => patch({ findRegex: e.target.value })}
+                        <ExpandableTextarea title="尋找（正則）" mono value={script.findRegex} rows={3} onChange={v => patch({ findRegex: v })}
                             placeholder="/<thinking>[\s\S]*?<\/thinking>/g" className={`${fieldClass} resize-y ${invalid ? 'border-red-300' : ''}`} />
                         {invalid && <span className="text-[11px] text-red-500">這條正則寫法有錯，現在不會生效。</span>}
                     </label>
                     <label className="block">
                         {label('替換成（$1 是第一個括號、{{match}} 是整段；可以寫 HTML）')}
-                        <textarea value={script.replaceString} rows={6} onChange={e => patch({ replaceString: e.target.value })}
+                        <ExpandableTextarea title="替換成" mono value={script.replaceString} rows={6} onChange={v => patch({ replaceString: v })}
                             className={`${fieldClass} resize-y`} />
                     </label>
                     <label className="block">

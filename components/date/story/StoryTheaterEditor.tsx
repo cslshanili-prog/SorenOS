@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import ExpandableTextarea from '../../common/ExpandableTextarea';
 import { ArrowLeft, DownloadSimple, LockSimple, UploadSimple, UserCircle } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, NPCProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, UserProfile } from '../../../types';
@@ -92,7 +93,7 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, user, 
             <section>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>01 / Story</div>
                 <label className='block mt-2'><span className='text-[10px] font-bold text-slate-500'>標題 · 必填</span><input value={draft.title} onChange={event => update('title', event.target.value)} placeholder='劇情名稱' className='mt-1 w-full bg-transparent text-3xl font-serif font-semibold outline-none placeholder:text-slate-300' /></label>
-                <label className='block mt-5'><span className='text-[10px] font-bold text-slate-500'>劇情介紹 · 可選</span><textarea value={draft.premise} onChange={event => update('premise', event.target.value)} placeholder='不填寫也能直接開場；也可以寫地點、衝突或必須守住的設定……' className='mt-2 w-full min-h-28 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none' /></label>
+                <label className='block mt-5'><span className='text-[10px] font-bold text-slate-500'>劇情介紹 · 可選</span><ExpandableTextarea title="劇情介紹" value={draft.premise} onChange={v => update('premise', v)} placeholder='不填寫也能直接開場；也可以寫地點、衝突或必須守住的設定……' className='mt-2 w-full min-h-28 p-4 rounded-2xl bg-white border border-slate-200 text-sm leading-7 resize-y outline-none' /></label>
                 <div className='mt-5'><div className='text-[10px] font-bold text-slate-500'>誰先落筆</div><div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-slate-200'><button disabled={maskLocked} onClick={() => update('openingMode', 'user')} className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${(draft.openingMode || 'user') === 'user' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>我先寫</button><button disabled={maskLocked} onClick={() => update('openingMode', 'assistant')} className={`py-2.5 rounded-lg text-[11px] font-bold disabled:opacity-60 ${draft.openingMode === 'assistant' ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>故事先寫</button></div><p className='mt-2 text-[10px] text-slate-400'>{draft.openingMode === 'assistant' ? '進入後可直接讓故事根據標題與介紹寫出第一幕。' : '進入後由你用當前身份寫下第一句話。'}</p></div>
             </section>
             <section className='pt-6 border-t border-slate-200'>

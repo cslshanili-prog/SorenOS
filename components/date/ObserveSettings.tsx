@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { useOS } from '../../context/OSContext';
 import { CharacterProfile, DateObservation, DateObserveConfig, DateObserveStyleId } from '../../types';
 import { OBSERVE_DIMENSIONS } from '../../utils/dateObserve';
@@ -65,8 +66,8 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char, usingCustomPres
     // —— 默認維度 ——
     const patchField = (key: keyof DateObservation, partial: Record<string, unknown>) =>
         patchObserve({ fields: { ...fields, [key]: { ...(fields[key] || {}), ...partial } } });
-    const commitField = (key: keyof DateObservation, which: 'label' | 'hint') => {
-        const v = (draft[key]?.[which] || '').trim();
+    const commitField = (key: keyof DateObservation, which: 'label' | 'hint', value?: string) => {
+        const v = (value ?? draft[key]?.[which] ?? '').trim();
         if (v === (fields[key]?.[which] || '')) return;
         patchField(key, { [which]: v || undefined });
     };
@@ -80,10 +81,10 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char, usingCustomPres
     };
     const delCustom = (id: string) => patchObserve({ custom: customs.filter(c => c.id !== id) });
     const toggleCustom = (id: string, on: boolean) => patchObserve({ custom: customs.map(c => c.id === id ? { ...c, enabled: on } : c) });
-    const commitCustom = (id: string, which: 'label' | 'hint') => {
+    const commitCustom = (id: string, which: 'label' | 'hint', value?: string) => {
         const cur = customs.find(c => c.id === id);
         if (!cur) return;
-        const v = (customDraft[id]?.[which] || '').trim();
+        const v = (value ?? customDraft[id]?.[which] ?? '').trim();
         if (v === (cur[which] || '')) return;
         patchObserve({ custom: customs.map(c => c.id === id ? { ...c, [which]: which === 'label' ? v : (v || undefined) } : c) });
     };
@@ -195,9 +196,9 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char, usingCustomPres
                                                     placeholder={`顯示標籤（默認「${dim.label}」）`}
                                                     className="w-full text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-200 focus:border-primary focus:outline-none bg-white"
                                                 />
-                                                <textarea
+                                                <ExpandableTextarea title="觀測生成提示" onCommit={v => commitField(dim.key, 'hint', v)}
                                                     value={draft[dim.key]?.hint || ''}
-                                                    onChange={e => setDraft(d => ({ ...d, [dim.key]: { ...d[dim.key], hint: e.target.value } }))}
+                                                    onChange={v => setDraft(d => ({ ...d, [dim.key]: { ...d[dim.key], hint: v } }))}
                                                     onBlur={() => commitField(dim.key, 'hint')}
                                                     placeholder={`生成提示（默認：${defHint}）`}
                                                     rows={2}
@@ -249,9 +250,9 @@ const ObserveSettings: React.FC<ObserveSettingsProps> = ({ char, usingCustomPres
                                                 </button>
                                             </div>
                                             {on && (
-                                                <textarea
+                                                <ExpandableTextarea title="自訂觀測生成提示" onCommit={v => commitCustom(c.id, 'hint', v)}
                                                     value={customDraft[c.id]?.hint || ''}
-                                                    onChange={e => setCustomDraft(d => ({ ...d, [c.id]: { ...d[c.id], hint: e.target.value } }))}
+                                                    onChange={v => setCustomDraft(d => ({ ...d, [c.id]: { ...d[c.id], hint: v } }))}
                                                     onBlur={() => commitCustom(c.id, 'hint')}
                                                     placeholder="生成提示：這一格讓 AI 寫什麼（留空給個通用默認）"
                                                     rows={2}

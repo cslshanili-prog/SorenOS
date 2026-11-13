@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ExpandableTextarea from '../common/ExpandableTextarea';
 import { useOS } from '../../context/OSContext';
 import { DB } from '../../utils/db';
 import { saveMeetingPresetDoc } from '../../utils/meetingPreset/store';
@@ -249,8 +250,8 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                         {genField('maxTokens', '最大回應長度（token）', '100')}
                         <label className="block py-3">
                             <span className="text-sm text-slate-600">助手預填（prefill）</span>
-                            <textarea value={doc.assistantPrefill || ''} rows={2} placeholder="留空不送"
-                                onChange={e => update({ ...doc, assistantPrefill: e.target.value || undefined })}
+                            <ExpandableTextarea title="正文起筆（預填）" value={doc.assistantPrefill || ''} rows={2} placeholder="留空不送"
+                                onChange={v => update({ ...doc, assistantPrefill: v || undefined })}
                                 className="mt-2 w-full px-3 py-2 bg-slate-100 rounded-lg text-sm outline-none resize-y focus:ring-1 focus:ring-primary/30" />
                             <span className="text-[10px] text-slate-400">只有部分模型／中轉接受最後一則是助手訊息，不確定就留空。</span>
                         </label>
@@ -309,8 +310,8 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                                             </label>
                                         )}
                                     </div>
-                                    <textarea value={editing.content} rows={14}
-                                        onChange={e => { setEditing({ ...editing, content: e.target.value }); patchPrompt(editing.id, { content: e.target.value }); }}
+                                    <ExpandableTextarea title="預設條目" value={editing.content} rows={14}
+                                        onChange={v => { setEditing({ ...editing, content: v }); patchPrompt(editing.id, { content: v }); }}
                                         className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[13px] font-mono leading-relaxed outline-none resize-y select-text" />
                                 </>
                             )}

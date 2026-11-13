@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import ExpandableTextarea from '../../common/ExpandableTextarea';
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
@@ -183,7 +184,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
         <div className='text-[9px] uppercase tracking-[.22em] font-bold text-violet-500'>Professional</div><h2 className='mt-1 text-2xl font-serif font-semibold'>續寫參數</h2>
         <p className='mt-2 text-[10px] leading-5 text-slate-500'>這些值會跟著預設保存。一般保持原值；接口報參數錯誤時再按提示調整。</p>
         {renderGenerationFields()}
-        <label className='block mt-4'><span className='text-[10px] text-slate-500'>正文起筆</span><textarea disabled={readOnly} value={draft.document.assistantPrefill || ''} onChange={event => patchDocument({ assistantPrefill: event.target.value })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 font-mono text-[11px] disabled:opacity-50' /></label>
+        <label className='block mt-4'><span className='text-[10px] text-slate-500'>正文起筆</span><ExpandableTextarea title="正文起筆" mono disabled={readOnly} value={draft.document.assistantPrefill || ''} onChange={v => patchDocument({ assistantPrefill: v })} className='mt-1 w-full min-h-24 p-3 rounded-xl bg-white border border-slate-200 font-mono text-[11px] disabled:opacity-50' /></label>
     </section>;
 
     const renderGroupDetails = () => {
@@ -207,7 +208,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
             {selected && <div className='mt-7 pt-6 border-t border-slate-200'>
                 {activeGroup.protected || isProtectedStoryPrompt(selected) ? <div className='py-8 text-center'><LockSimple size={28} className='mx-auto text-amber-400' /><div className='mt-2 text-xs font-bold'>系統連接內容已鎖定</div><p className='mt-1 text-[10px] text-slate-400'>你仍可以在上方調整它與其他連接位的順序。</p></div> : <>
                     <div className='grid grid-cols-2 gap-3'><label><span className='text-[10px] text-slate-500'>名稱</span><input disabled={readOnly} value={selected.name} onChange={event => patchPrompt(selected.id, { name: event.target.value })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs' /></label><label><span className='text-[10px] text-slate-500'>消息位置</span><select disabled={readOnly} value={selected.role} onChange={event => patchPrompt(selected.id, { role: event.target.value as StoryTheaterPresetPrompt['role'] })} className='mt-1 w-full px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-xs'><option value='system'>規則</option><option value='user'>你</option><option value='assistant'>正文</option></select></label></div>
-                    <textarea disabled={readOnly} value={selected.content} onChange={event => patchPrompt(selected.id, { content: event.target.value })} className='mt-3 w-full min-h-64 p-4 rounded-2xl bg-white border border-slate-200 font-mono text-[11px] leading-6 resize-y' placeholder='支持 {{user}} / {{char}} / {{group}}' />
+                    <ExpandableTextarea title="預設條目" disabled={readOnly} value={selected.content} onChange={v => patchPrompt(selected.id, { content: v })} className='mt-3 w-full min-h-64 p-4 rounded-2xl bg-white border border-slate-200 font-mono text-[11px] leading-6 resize-y' placeholder='支持 {{user}} / {{char}} / {{group}}' />
                     {!readOnly && <label className='mt-3 block text-xs text-slate-500'>移動到分組<select aria-label='移動到分組' value='' onChange={event => { const target = event.target.value; if (!target) return; replaceDocument(moveStoryPresetPromptToGroup(draft.document, selected.id, target)); setActiveGroupKey(target); }} className='mt-2 w-full p-3 rounded-xl bg-white border border-slate-200'><option value=''>選擇目標分組</option>{groups.filter(group => !group.protected && group.key !== activeGroup.key).map(group => <option key={group.key} value={group.key}>{group.label}</option>)}</select></label>}
                 </>}
             </div>}
