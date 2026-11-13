@@ -382,6 +382,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         <ExpandableTextarea tone="dark" title="想拍什麼" value={sceneText} onChange={setSceneText} maxLength={LIBRARY_GEN_PROMPT_MAX} rows={4}
                             placeholder={LIBRARY_GEN_KINDS[subjects.length > 1 ? 1 : 0].placeholder} className={`${field} resize-none`} />
                         <p className="text-center text-[10px] text-white/40">寫地點、動作、表情、光線就好，長相會照每個人自己的設定和參考圖。{subjects.length ? `（這次：${subjects.length > 1 ? `合照 ${subjects.length} 人` : '獨照'}）` : '（先到「人物」選這次拍誰）'}</p>
+                        <p className="text-center text-[10px] text-white/30">這格是拍人用的。只拍物品或風景的話不用填，直接到「物品／風景」分頁寫。</p>
                         {aiToggle}
                     </>)}
 
@@ -402,7 +403,7 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                         </div>
                         <ExpandableTextarea tone="dark" title={`想拍什麼（${KIND_LABEL[thingKind]}）`} value={thingText} onChange={setThingText} maxLength={LIBRARY_GEN_PROMPT_MAX} rows={4}
                             placeholder={LIBRARY_GEN_KINDS.find(k => k.kind === thingKind)!.placeholder} className={`${field} resize-none`} />
-                        <p className="text-center text-[10px] text-white/40">畫面裡不會有人。</p>
+                        <p className="text-center text-[10px] text-white/40">畫面裡不會有人。這頁只看上面這格，「想拍什麼」和「人物」分頁不用填，在這頁按生成就是拍{KIND_LABEL[thingKind]}。</p>
                         {aiToggle}
                     </>)}
 
@@ -429,6 +430,9 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                                     {styles.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                                 </select>
                             </label>
+                            {mode === 'people' && subjects.some(sub => hasRef(sub.type === 'char' ? sub.char.imageGenCharConfig : sub.profile.imageGenConfig)) && (
+                                <p className="text-[10px] leading-relaxed text-amber-300/80">這次有人鎖臉：生圖服務常連參考圖的畫法、質感一起照抄，換畫風可能不太明顯。想要這套畫風，參考圖最好也是這套畫風的。</p>
+                            )}
                             {styleDraft && (
                                 <div className="space-y-2 rounded-2xl border border-white/10 bg-white/5 p-3">
                                     <div className="text-[10px] text-white/50">改這次用的畫風（不存也照改過的生）</div>
