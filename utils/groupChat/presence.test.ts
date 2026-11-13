@@ -98,11 +98,11 @@ describe('在場的人之間的連結', () => {
     const alt: PersonaLink = { id: 'L2', kind: 'alt', a: 'pA', b: 'pC', createdAt: 0 };
     const p = base({ personaLinks: [sis, alt] });
 
-    it('同一世界：認識其中一張就說', () => {
+    it('互相認識：認識其中一張就說', () => {
         const lines = presentLinkLines(char('c1', ['pA']), p, ['pA', 'pB']);
         expect(lines[0]).toContain('在場的「姊姊」是「妹妹」的姊姊');
     });
-    it('同一世界：兩張都不認識就不說', () => {
+    it('互相認識：兩張都不認識就不說', () => {
         expect(presentLinkLines(char('c1', ['pC']), p, ['pA', 'pB'])).toEqual([]);
     });
     it('小號：不知道是同一個人就什麼都不提', () => {

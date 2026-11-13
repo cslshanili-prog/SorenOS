@@ -1,5 +1,5 @@
 /**
- * 身份卡之間的連結（plans/persona-line-batch4.md）：同一世界、小號。純邏輯，不碰資料庫。
+ * 身份卡之間的連結（plans/persona-line-batch4.md）：互相認識（kind 'sameWorld'，舊名同一世界）、小號。純邏輯，不碰資料庫。
  *
  * - 連結存在用戶資料上（UserProfile.personaLinks），兩兩設，一張卡可以有好幾條。
  * - 小號是「認不認得出來」：角色對每條小號連結各記一個狀態（CharacterProfile.altKnowledge），
@@ -65,7 +65,7 @@ const fmtDate = (ms: number) => {
 };
 
 /**
- * 這條線（char 可能是線視圖）上要告訴角色的連結：同一世界的關係、它知道的小號、否認過的懷疑。
+ * 這條線（char 可能是線視圖）上要告訴角色的連結：互相認識的關係、它知道的小號、否認過的懷疑。
  * 沒有要說的回空陣列。
  */
 export function personaLinkLines(
@@ -85,7 +85,7 @@ export function personaLinkLines(
             const theirs = link.a === current ? link.bToA : link.aToB;
             const rel = mine
                 ? `「${me}」是「${them}」的${mine}${theirs ? `，「${them}」是TA的${theirs}` : ''}。`
-                : `「${me}」跟「${them}」是同一個世界的人，互相認識。`;
+                : `「${me}」跟「${them}」互相認識。`;
             lines.push(rel + (knowsPersona(char, other)
                 ? `這兩個人你都認識，TA 們是不同的人。`
                 : `你只是知道有「${them}」這個人，還沒跟TA來往過。`));
@@ -122,7 +122,7 @@ export function formatPersonaLinksBlock(
 
 /**
  * 群裡好幾張卡同時在場（plans/persona-line-batch5.md）：在場兩張之間的連結，照這位成員知道的說。
- * - 同一世界：它認識其中一張就說兩人的關係（沒填稱呼就說「同一個世界的人、互相認識」）。
+ * - 互相認識：它認識其中一張就說兩人的關係（沒填稱呼就說「互相認識」）。
  * - 小號：它知道是同一個人才說；不知道就是兩個群友，什麼都不提。
  */
 export function presentLinkLines(
@@ -140,7 +140,7 @@ export function presentLinkLines(
             if (!knowsPersona(char, link.a) && !knowsPersona(char, link.b)) continue;
             const rel = link.aToB
                 ? `在場的「${a}」是「${b}」的${link.aToB}${link.bToA ? `，「${b}」是「${a}」的${link.bToA}` : ''}。`
-                : `在場的「${a}」跟「${b}」是同一個世界的人，互相認識。`;
+                : `在場的「${a}」跟「${b}」互相認識。`;
             lines.push(`${rel}TA 們是不同的人。`);
             continue;
         }
