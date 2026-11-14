@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, ChatsCircle, Gear, ImageSquare, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import type { AssistantMessage, AssistantProposal, AssistantSession } from '../types';
+import { AppID, type AssistantMessage, type AssistantProposal, type AssistantSession } from '../types';
 import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
@@ -9,7 +9,8 @@ import { runSoreTurn } from '../utils/assistant/engine';
 import { loadSorePrefs, resolveSoreApi, saveSorePrefs, type SoreApiSource } from '../utils/assistant/api';
 import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
-import type { CssData, CssWrite } from '../utils/assistant/cssLocations';
+import { type CssData, type CssWrite, findCssLocation, resolveCssTarget } from '../utils/assistant/cssLocations';
+import { buildSoreEntryNote, takeSoreHandoff } from '../utils/assistant/handoff';
 import { applyCssProposal, changedSinceApply, restoreCssProposal } from '../utils/assistant/applyProposal';
 import ProposalCard from '../components/assistant/ProposalCard';
 import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
@@ -20,6 +21,9 @@ import { processImage } from '../utils/file';
  * 對話存在 assistant_sessions；Sore 用哪組 API 存在這台裝置（utils/assistant/api.ts）。
  * 工具結果在畫面上只顯示一行小字，內容只給模型看；寫的工具出提案卡片，按「套用」才寫，快照跟著卡片存。
  */
+
+/** 從編輯頁的「請 Sore 幫忙」進來時的建議 */
+const ENTRY_SUGGESTIONS = ['幫我重新設計一套', '看看現在的 CSS 哪裡有問題', '顏色換暖一點就好'];
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
 
@@ -57,7 +61,7 @@ const formatTime = (at: number) => {
 
 const AssistantApp: React.FC = () => {
     const {
-        closeApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
+        closeApp, openApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
         theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme,
     } = useOS();
     const [sessions, setSessions] = useState<AssistantSession[]>([]);
@@ -81,10 +85,24 @@ const AssistantApp: React.FC = () => {
     const lightLLM = memoryPalaceConfig?.lightLLM;
     const api = useMemo(() => resolveSoreApi(prefs.apiSource, { apiConfig, lightLLM, apiPresets }), [prefs.apiSource, apiConfig, lightLLM, apiPresets]);
 
+    // 從編輯頁捷徑來的：開一段新對話、記住要改哪裡，返回鍵回原本的 App
+    const [returnTo, setReturnTo] = useState<AppID | null>(null);
     useEffect(() => {
+        const handoff = takeSoreHandoff();
+        if (handoff) {
+            const loc = findCssLocation(handoff.location);
+            if (loc) {
+                const target = handoff.targetId || handoff.targetName || '';
+                const resolved = resolveCssTarget(loc, target, cssDataRef.current, { allowNew: true });
+                const label = 'error' in resolved ? loc.label : resolved.label;
+                const now = Date.now();
+                setCurrent({ id: newSessionId(), title: label, messages: [], createdAt: now, updatedAt: now, entry: { location: loc.id, target, label } });
+            }
+            if (handoff.from && handoff.from !== AppID.Assistant) setReturnTo(handoff.from);
+        }
         void DB.getAssistantSessions().then(list => {
             setSessions(list);
-            if (list[0]) setCurrent(list[0]);
+            if (list[0] && !handoff) setCurrent(list[0]);
         }).catch(() => { /* 讀不到就從空的開始 */ });
         return () => abortRef.current?.abort();
     }, []);
@@ -142,7 +160,7 @@ const AssistantApp: React.FC = () => {
         let session: AssistantSession = { ...base, messages: [...base.messages, userMessage], updatedAt: now };
         session.title = sessionTitle(session.messages);
         await persist(session);
-        trackEvent('向Sore提问', { 入口: '桌面', 附图: images.length ? '有' : '没有' });
+        trackEvent('向Sore提问', { 入口: session.entry ? '捷径' : '桌面', 附图: images.length ? '有' : '没有' });
 
         const controller = new AbortController();
         abortRef.current = controller;
@@ -152,6 +170,7 @@ const AssistantApp: React.FC = () => {
                 history: session.messages,
                 call: makeSoreCall(api, controller.signal),
                 ctx: toolContext,
+                entryNote: session.entry ? buildSoreEntryNote(session.entry) : undefined,
                 signal: controller.signal,
                 onMessage: async message => {
                     session = { ...session, messages: [...session.messages, message], updatedAt: Date.now() };
@@ -250,7 +269,7 @@ const AssistantApp: React.FC = () => {
         <div className="h-full w-full flex flex-col bg-amber-50/40 text-slate-800" data-sore-app>
             <div className="shrink-0 bg-white/90 backdrop-blur border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="relative flex items-center justify-between px-3 py-3">
-                    <button type="button" onClick={closeApp} aria-label="返回" className="p-1.5 rounded-full hover:bg-black/5"><CaretLeft size={22} weight="bold" className="text-slate-600" /></button>
+                    <button type="button" onClick={() => (returnTo ? openApp(returnTo) : closeApp())} aria-label="返回" className="p-1.5 rounded-full hover:bg-black/5"><CaretLeft size={22} weight="bold" className="text-slate-600" /></button>
                     <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center leading-tight">
                         <h1 className="text-base font-bold">Sore</h1>
                         <span className="text-[10px] text-slate-400">{api ? api.label : '還沒有 API'}</span>
@@ -264,7 +283,24 @@ const AssistantApp: React.FC = () => {
             </div>
 
             <div ref={listRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 space-y-3" data-sore-messages>
-                {visible.length === 0 && (
+                {current?.entry && (
+                    <div className="mx-auto w-fit max-w-full rounded-full bg-amber-100/70 px-3 py-1 text-[11px] font-bold text-amber-800 truncate" data-sore-entry>
+                        正在改：{current.entry.label}
+                    </div>
+                )}
+                {visible.length === 0 && current?.entry && (
+                    <div className="pt-4 flex flex-col items-center text-center gap-3">
+                        <SoreAvatar size={48} />
+                        <p className="text-[13px] leading-relaxed text-slate-600 max-w-[270px]">來啦。想改成什麼樣？說個感覺、丟張截圖都行，我先看看現在長怎樣 🎨</p>
+                        <div className="flex flex-wrap justify-center gap-2 pt-1">
+                            {ENTRY_SUGGESTIONS.map(s => (
+                                <button key={s} type="button" disabled={running} onClick={() => void send(s)}
+                                    className="rounded-full bg-white border border-amber-200 px-3 py-1.5 text-[12px] text-amber-700 shadow-sm active:scale-95 transition disabled:opacity-40">{s}</button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {visible.length === 0 && !current?.entry && (
                     <div className="pt-6 flex flex-col items-center text-center gap-3">
                         <SoreAvatar size={56} />
                         <div className="text-[15px] font-bold">我是 Sore 👋</div>

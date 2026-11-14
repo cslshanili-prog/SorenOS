@@ -5857,4 +5857,6 @@ export interface AssistantSession {
   messages: AssistantMessage[];
   createdAt: number;
   updatedAt: number;
+  /** 從「請 Sore 幫忙」捷徑開的：在改哪裡（每輪都帶給 Sore，utils/assistant/handoff.ts） */
+  entry?: { location: string; target: string; label: string };
 }

@@ -3555,6 +3555,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <ChromeCssEditor
                             value={activeGroup.chromeCustomCss || ''}
                             onChange={(css) => { updateGroup(activeGroup.id, { chromeCustomCss: css }); setActiveGroup({ ...activeGroup, chromeCustomCss: css }); }}
+                            assist={{ location: 'chat_chrome_group', targetId: activeGroup.id }}
                         />
                     </div>
                     {/* 脫離 CSS 控制的救援鍵：portal 到 body + id 守護，壞 CSS 也點得到（逐字複用私聊方案） */}

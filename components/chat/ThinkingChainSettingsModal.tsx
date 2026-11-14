@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import { THINKING_CHAIN_PRESETS, resolveThinkingChainStyle, PsycheDecor, ThinkingChainStyleId } from './MessageItem';
 import { validateScopedCss } from '../../utils/scopedCss';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 interface ThinkingChainSettingsValue {
     enabled: boolean;
@@ -34,6 +35,8 @@ interface Props {
     onClose: () => void;
     value: ThinkingChainSettingsValue;
     onChange: (next: Partial<ThinkingChainSettingsValue>) => void;
+    /** 有給才出現「請 Sore 幫忙」（心象卡片的 CSS 存在角色上） */
+    charId?: string;
 }
 
 const SAMPLE_CHAIN = '又叫乖乖貓咪……煩死了。算了也沒那麼煩，比起這個——午飯吃沒吃？她又拿力學所當藉口，呵，老一套。算了，先罵一句再問。';
@@ -135,7 +138,7 @@ const StylePreview: React.FC<{ styleId: ThinkingChainStyleId; customColors: Thin
     );
 };
 
-const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, onChange }) => {
+const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, onChange, charId }) => {
     const [draftPrompt, setDraftPrompt] = useState(value.customPrompt || '');
     const [draftCss, setDraftCss] = useState(value.customCss || '');
     useEffect(() => { if (isOpen) setDraftPrompt(value.customPrompt || ''); }, [isOpen, value.customPrompt]);
@@ -282,7 +285,10 @@ const ThinkingChainSettingsModal: React.FC<Props> = ({ isOpen, onClose, value, o
 
                     {/* 2.5 CSS 美化 —— 疊加在任意風格之上，機制同氣泡工坊 */}
                     <section>
-                        <h3 className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-2">CSS 美化（進階）</h3>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <h3 className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">CSS 美化（進階）</h3>
+                            {charId && <AskSoreButton compact location="thinking_chain" targetId={charId} />}
+                        </div>
                         <p className="text-[10.5px] text-slate-400 mb-2 leading-relaxed">
                             在上面選好的風格基礎上，再用 CSS 精修心象卡片。可用類名：
                             <code className="text-indigo-400">.sully-psyche-card</code>（卡片）、

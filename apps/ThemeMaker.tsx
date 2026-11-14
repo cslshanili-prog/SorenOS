@@ -7,6 +7,7 @@ import { useOS } from '../context/OSContext';
 import { ChatTheme, BubbleStyle } from '../types';
 import { processImage } from '../utils/file';
 import { validateScopedCss, runCssRenderabilityCheck, CssValidationResult } from '../utils/scopedCss';
+import AskSoreButton from '../components/assistant/AskSoreButton';
 import { trackEvent } from '../utils/analytics';
 import { resolveBubbleCornerRadii, shouldHideBubbleTail } from '../utils/bubbleAppearance';
 import { shareOrDownloadFile } from '../utils/shareExport';
@@ -1447,6 +1448,11 @@ const ThemeMaker: React.FC = () => {
                                 </div>
                             </div>
 
+                            <div className="flex items-center justify-between gap-2 rounded-lg bg-amber-50/70 px-2.5 py-2">
+                                <span className="text-[10px] text-amber-800">{customThemes.some(t => t.id === editingTheme.id) ? '說想要的樣子，Sore 寫好給你看，按套用才換' : '這套還沒存：Sore 會另外新建一套同名的'}</span>
+                                <AskSoreButton compact location="bubble_theme"
+                                    {...(customThemes.some(t => t.id === editingTheme.id) ? { targetId: editingTheme.id } : { targetName: editingTheme.name || 'Sore 做的氣泡' })} />
+                            </div>
                             <textarea 
                                 ref={cssTextareaRef}
                                 value={editingTheme.customCss || ''} 

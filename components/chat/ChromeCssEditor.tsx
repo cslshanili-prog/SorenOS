@@ -4,6 +4,8 @@ import { DB } from '../../utils/db';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import { readShareText } from '../../utils/pngShare';
 import { FileOrImageImport } from '../share/FileOrImageImport';
+import AskSoreButton from '../assistant/AskSoreButton';
+import type { SoreHandoff } from '../../utils/assistant/handoff';
 
 // 聊天「白框」自定義 CSS 編輯器（Appearance 全局默認 與 單角色定製 共用）。
 // 選擇器鉤子覆蓋頂欄、輸入欄、整屏背景與普通消息佈局；完整清單見下方 AI_PROMPT。
@@ -292,7 +294,7 @@ const copyText = async (text: string): Promise<boolean> => {
     } catch { return false; }
 };
 
-const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void }> = ({ value, onChange }) => {
+const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void; /** 有給才出現「請 Sore 幫忙」 */ assist?: Omit<SoreHandoff, 'from'> }> = ({ value, onChange, assist }) => {
     const [copied, setCopied] = useState(false);
     const [custom, setCustom] = useState<Preset[]>([]);
     const presetImageRef = useRef<HTMLInputElement>(null);
@@ -381,6 +383,12 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
 
     return (
         <div className="space-y-4">
+            {assist && (
+                <div className="flex items-center justify-between gap-2 rounded-2xl bg-amber-50/60 px-3 py-2">
+                    <span className="text-[11px] text-amber-800">說想要的樣子，Sore 寫好給你看，按套用才換</span>
+                    <AskSoreButton {...assist} compact />
+                </div>
+            )}
             {/* 需要靈感：複製提示詞給 AI */}
             <button onClick={handleCopyPrompt}
                 className="flex w-full items-center gap-2.5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 to-violet-50 px-3.5 py-3 text-left transition-all hover:from-indigo-100 hover:to-violet-100 active:scale-[0.99]">

@@ -19,6 +19,7 @@ import {
     runCssRenderabilityCheck,
     validateScopedCss,
 } from '../../utils/scopedCss';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 const CSS_TEMPLATES = [
     {
@@ -273,6 +274,7 @@ const ScheduleAppearanceButton: React.FC<{ compact?: boolean }> = ({ compact = f
                             <div>
                                 <h3 className="text-sm font-bold">自定義 CSS</h3>
                                 <p className="text-[11px] text-slate-400 mt-1">類似白框美化，只作用於日程卡。</p>
+                                <div className="mt-2"><AskSoreButton compact location="schedule" /></div>
                             </div>
                             <button
                                 onClick={copyPrompt}

@@ -23,6 +23,7 @@ import {
     resolveJournalAppearanceCss,
 } from '../../utils/journalAppearance';
 import { runCssRenderabilityCheck, validateScopedCss } from '../../utils/scopedCss';
+import AskSoreButton from '../assistant/AskSoreButton';
 import { shareOrDownloadFile } from '../../utils/shareExport';
 import { readShareText } from '../../utils/pngShare';
 import { JournalThemeThumbnail } from './JournalThemeArtwork';
@@ -376,6 +377,7 @@ const JournalAppearanceButton: React.FC<JournalAppearanceButtonProps> = ({
                             <div>
                                 <h3 className="text-sm font-bold">自定義 CSS</h3>
                                 <p className="mt-1 text-[11px] text-slate-400">疊加在主題之後，只作用於交換日記，不會影響其它 App。</p>
+                                <div className="mt-2"><AskSoreButton compact location="journal" /></div>
                             </div>
                             <button
                                 onClick={copyPrompt}

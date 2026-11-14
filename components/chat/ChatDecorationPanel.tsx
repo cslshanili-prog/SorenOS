@@ -88,7 +88,7 @@ export default function ChatDecorationPanel({character:char,theme,themes,updateC
       <h3>進階 CSS <span className="chat-decoration-former">原白框</span></h3>
       <p className="chat-decoration-note">{global?'全局 CSS 先應用，再疊加角色 CSS。':char.chatDecorationCssIsolated?'當前使用導入預設的獨立 CSS，不疊加全局 CSS。':'角色 CSS 疊加在全局之上；原來的預設與分享文件仍可使用。'}</p>
       <details className="chat-decoration-sources"><summary>查看生效來源</summary><p>全局 CSS：{theme.chatChromeCustomCss?.trim()?'已設置':'未設置'}<br/>角色 CSS：{char.chromeCustomCss?.trim()?'已設置':'未設置'}<br/>氣泡主題：{activeBubble?.name||'默認'}{activeBubble?.customCss?'（含 CSS）':''}</p></details>
-      <ChromeCssEditor key={scope} value={css||''} onChange={value=>setCss(value)}/>
+      <ChromeCssEditor key={scope} value={css||''} onChange={value=>setCss(value)} assist={global?{location:'chat_chrome_global'}:{location:'chat_chrome_char',targetId:char.id}}/>
      </>}
     </div>
    </>}
