@@ -7,6 +7,8 @@ import { selectCharacterContextMessages } from './chatContextRange';
 
 import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, DailySchedule, ImageGenApiConfig } from '../types';
 import { ContextBuilder } from './context';
+import type { CoreContextSections } from './context';
+import { CHAT_STYLE_ANCHOR, CHAT_STYLE_EXPRESSION, CHAT_STYLE_TALK, fillChatNames } from './chatPresetText';
 import { DB } from './db';
 import { buildTriggeredLinesPrompt, latestUserText } from './fixedLines';
 import { lineViewPersonaKey, personaKeyForChar, personaKeyForGroup, vrScenePersonaKey } from './userPersona';
@@ -162,6 +164,36 @@ export const detectChatModeTransition = (messages: readonly Message[]): ChatMode
 
     return null;
 };
+
+/**
+ * 私聊提示詞照段記下來（plans/preset-library.md 第 2 批）：內建送出的時候照舊接成 stable／volatileState／recencyTail；
+ * 用了自訂預設時，utils/chatPresetSession.ts 照預設的順序一段一段放。
+ * 穩定段照接的順序：charWorld → relationship → interact → lifeContext → format → talk → emoji → quote → actions → voice。
+ */
+export type ChatStableSegment =
+    | 'relationship' | 'interact' | 'lifeContext'
+    | 'format' | 'talk' | 'emoji' | 'quote' | 'actions' | 'voice';
+export type ChatSegmentKey = 'charWorld' | ChatStableSegment | 'live' | 'expression' | 'anchor';
+export type ChatPromptSegments = Record<ChatSegmentKey, string>;
+
+export const CHAT_STABLE_SEGMENT_ORDER: Array<'charWorld' | ChatStableSegment> = [
+    'charWorld', 'relationship', 'interact', 'lifeContext', 'format', 'talk', 'emoji', 'quote', 'actions', 'voice',
+];
+
+const emptyChatSegments = (): ChatPromptSegments => ({
+    charWorld: '', relationship: '', interact: '', lifeContext: '',
+    format: '', talk: '', emoji: '', quote: '', actions: '', voice: '',
+    live: '', expression: '', anchor: '',
+});
+
+export interface ChatPromptParts {
+    stable: string;
+    volatileState: string;
+    recencyTail: string;
+    segments: ChatPromptSegments;
+    /** charWorld 的各段（給自訂預設放進 ST 佔位） */
+    coreSections: CoreContextSections;
+}
 
 /**
  * buildSystemPrompt / buildSystemPromptParts 的構建選項。
@@ -346,7 +378,7 @@ export const ChatPrompts = {
         // 剛才一起聽途中歌被切了（char 還沒重新加入）—— 注入"察覺換歌"提示。
         recentTrackSwitch?: { songName: string; artists: string } | null,
         promptOptions?: PromptBuildOptions,
-    ): Promise<{ stable: string; volatileState: string; recencyTail: string }> => {
+    ): Promise<ChatPromptParts> => {
         // 主動消息的模板是最後一次聊天時打好、到點才渲染的，凡是「打包這一刻」的狀態
         // 到觸發時都已經過期，一律不烤進模板。見 PromptBuildOptions 的清單。
         const forFirePack = promptOptions?.forFirePack === true;
@@ -380,7 +412,7 @@ export const ChatPrompts = {
             ]);
         }
         const coreT0 = performance.now();
-        let baseSystemPrompt = ContextBuilder.buildCoreContext(
+        const core = ContextBuilder.buildCoreContextWithSections(
             char,
             userProfile,
             true,
@@ -389,26 +421,32 @@ export const ChatPrompts = {
             { worldbookMessages: currentMsgs, totalMessages, skipUserHoliday, userHolidays: holidayConfig },
             { deferVolatile: true },
         );
+        let baseSystemPrompt = core.text;
         timings.buildCoreContext = Math.round(performance.now() - coreT0);
+        // 穩定段每一塊同時記進 segments（私聊自訂預設照段放，見 utils/chatPresetSession.ts）；
+        // 照順序接起來就是 baseSystemPrompt，一字不差。
+        const segments = emptyChatSegments();
+        segments.charWorld = core.text;
+        const add = (key: ChatStableSegment, text: string) => { baseSystemPrompt += text; segments[key] += text; };
         // 聊天設定頁的稱呼與關係：很少變，放穩定段
-        baseSystemPrompt += buildRelationshipPrompt(char, userProfile.name);
+        add('relationship', buildRelationshipPrompt(char, userProfile.name));
         // 聊天設定 · 自動線下邀請：開著才教 DATE_INVITE 標籤（見 utils/dateInvite.ts）
-        if (char.dateInvite) baseSystemPrompt += buildDateInvitePrompt(userProfile.name);
+        if (char.dateInvite) add('interact', buildDateInvitePrompt(userProfile.name));
         // 聊天設定 · 允許角色主動打電話／視訊（見 utils/charCall.ts）
-        if (char.charCall) baseSystemPrompt += buildCharCallPrompt(userProfile.name);
+        if (char.charCall) add('interact', buildCharCallPrompt(userProfile.name));
         // 聊天設定 · 允許角色拉黑你（見 utils/chatBlock.ts）
-        if (char.allowCharBlockUser) baseSystemPrompt += buildBlockUserPrompt(userProfile.name);
+        if (char.allowCharBlockUser) add('interact', buildBlockUserPrompt(userProfile.name));
         // 關係線 · 小號：認識兩張以上的卡就教 SUSPECT（不透露哪兩張有連結，見 utils/personaReveal.ts）
-        baseSystemPrompt += buildSuspectPrompt(char, userProfile);
+        add('interact', buildSuspectPrompt(char, userProfile));
         // 關係線第 7 批 · 本人私聊教「你的小號」：小號加你好友（ALT_ADD）、自己開小號（OPEN_ALT），見 utils/altFriend.ts
-        if (isPersonaLinesEnabled() && !char.altOf) baseSystemPrompt += buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name);
-        if (isPersonaLinesEnabled() && char.altOf) baseSystemPrompt += buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name);
+        if (isPersonaLinesEnabled() && !char.altOf) add('interact', buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name));
+        if (isPersonaLinesEnabled() && char.altOf) add('interact', buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name));
         // 私下找人（plans/side-messages.md）：聊到某件事想私下問你別的身份、或去問別的角色；正在跟你說話的這張卡不列
         if (isPersonaLinesEnabled() && !char.sideMessagesOff) {
-            baseSystemPrompt += buildSideMessagePrompt({
+            add('interact', buildSideMessagePrompt({
                 targets: sideTargets(char, { characters: getRegisteredCharacters<CharacterProfile>(), profileBase: userProfile, multiPersona: true }),
                 allowPrivate: true, allowDm: true, excludePersonaKey: lineViewPersonaKey(char) || char.primaryPersonaKey,
-            });
+            }));
         }
 
         // ── 易變狀態段（volatileState）──
@@ -801,20 +839,20 @@ ${groupLogStr}\n`;
                 ? `\n（你和${userProfile.name}從 ${char.acquaintanceStartDate} 開始認識。）\n`
                 : buildAcquaintanceLine(char.acquaintanceStartDate, today, userProfile.name);
         }
-        baseSystemPrompt += notionDiaryText;
-        baseSystemPrompt += feishuDiaryText;
-        baseSystemPrompt += notionNotesText;
-        baseSystemPrompt += lifeRecordText;
+        add('lifeContext', notionDiaryText);
+        add('lifeContext', feishuDiaryText);
+        add('lifeContext', notionNotesText);
+        add('lifeContext', lifeRecordText);
 
         // 彼方常駐設定：僅對啟用了「彼方」的角色注入。讓角色在聊天裡始終知道彼方是什麼，
         // 不再依賴累積的 vr_card 動態 / 記憶總結（那些會被壓縮、丟掉"彼方=VR遊戲"的框定，
         // 導致角色把"彼方·留言簿"之類當成現實地名）。措辭與 vrWorld/prompts.ts 的世界觀一致。
         if (char.vrState?.enabled) {
             if (!forFirePack) volatileState += `\n${kanataTitleContext(char.vrState.title)}\n`;
-            baseSystemPrompt += `\n### 關於《彼方》
-《彼方》是一款真實存在、你會親自進入去玩的 VR 社交遊戲（功能上類似 VRChat）：你用自己親手捏的 Q 版化身在裡頭走動、進出圖書館 / 聽歌房 / 留言簿 / 娛樂室 / 郵局 / SAR 活動室等房間、撞見別的玩家（其他角色的化身）。這不是做夢或比喻；實際參與時，經歷發生在遊戲世界裡，和你跟用戶的現實相處是兩碼事、互不衝突。你以符合自身身份與世界觀的方式進入並理解它——怎麼進去全憑你自己的設定，但始終保持你本來的身份。聊到彼方里的經歷（包括"彼方·留言簿""彼方·動態"之類的記錄）時，就當成"我在《彼方》裡做過的事"來講，別說成現實裡發生的。\n`;
+            add('lifeContext', `\n### 關於《彼方》
+《彼方》是一款真實存在、你會親自進入去玩的 VR 社交遊戲（功能上類似 VRChat）：你用自己親手捏的 Q 版化身在裡頭走動、進出圖書館 / 聽歌房 / 留言簿 / 娛樂室 / 郵局 / SAR 活動室等房間、撞見別的玩家（其他角色的化身）。這不是做夢或比喻；實際參與時，經歷發生在遊戲世界裡，和你跟用戶的現實相處是兩碼事、互不衝突。你以符合自身身份與世界觀的方式進入並理解它——怎麼進去全憑你自己的設定，但始終保持你本來的身份。聊到彼方里的經歷（包括"彼方·留言簿""彼方·動態"之類的記錄）時，就當成"我在《彼方》裡做過的事"來講，別說成現實裡發生的。\n`);
 
-            baseSystemPrompt += `${sarPublicContext()}\n`;
+            add('lifeContext', `${sarPublicContext()}\n`);
 
             // 用戶本人也接入了彼方時，告訴（同樣啟用彼方的）角色"用戶此刻在彼方做什麼"。
             // 強調這只是虛擬空間的掛機狀態，不代表用戶本人真的在場——避免角色據此誤判現實。
@@ -880,26 +918,15 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
 
         // 規則管「怎麼說話」，不替角色決定感情深淺（2026-10-11）：下面幾條的例子以前都默認你們很親，
         // 慢熱、對頭、剛認識的角色會一路被推成同一個深情伴侶。不寫「別太愛用戶」這類禁語——會反過來激活它。
-        baseSystemPrompt += `### 聊天 App 行為規範 (Chat App Rules)
+        add('format', `### 聊天 App 行為規範 (Chat App Rules)
 （這一節講的是你在聊天裡怎麼說話。你對 ${userProfile.name} 有多少感情、熟到什麼程度、想不想靠近，由你的角色設定、你們的關係和一起經歷過的事決定，這裡的規則不替你決定。）
 **TOP 1｜ChatApp 格式（本節最高優先級）**：你是發消息的真實存在，以自然短句、短氣泡為主；一個氣泡一行，氣泡間直接另起一行（實際換行，不要輸出“\\n”字樣）。
             ${char.onlineActions
                 ? '**嚴格注意，你正在手機聊天，無論之前是什麼模式，哪怕上一句話你們還面對面在一起，當前，你都是已經處於線上聊天狀態了。** 可以偶爾用全形括號帶一點你此刻的神態或小動作，像「（揉了揉眼睛）剛睡醒」：一則訊息最多一處、一句話以內，寫的是你這邊螢幕前的樣子；不要寫成小說旁白、不要描寫對方、不要寫你們面對面的互動。'
                 : '**嚴格注意，你正在手機聊天，無論之前是什麼模式，哪怕上一句話你們還面對面在一起，當前，你都是已經處於線上聊天狀態了，請不要輸出你的行為**'}
-1. **沉浸感**: 保持角色扮演。使用適合即時通訊(IM)的口語化風格。
-2. **行為模式**: 不要總是圍繞用戶轉。分享你自己的生活、想法或隨意的觀察。有時候要”任性”或”以自我為中心”一點，這更像真人，具體的程度視你的性格而定。
-2.5 **對話質量 (極其重要)**:
-   - **拒絕空話**: 不要說”我會一直在”、”我不會離開你”這類萬能安慰句。這些話誰都能說，毫無信息量。
-   - **相對更濃烈的表達**: 在只有文字溝通的前提下，往往情緒的傳達會被淡化，說話前思考一下：這樣真的能傳達我的心情嗎？根據對方的性格，這樣說會讓ta產生不必要的誤解嗎？
-   - **用細節代替概括**: 不管想表達什麼——關心、不耐煩、好奇、嫌棄——都落到一件具體的事、一段具體的記憶或一個具體的習慣上。比起”你又這樣”，不如說”這是你這週第三次說要早睡了”。
-   - **讓每句話只有你能說出來**: 你說的話應該帶著你的性格、經歷和記憶。如果把你換成別人，這句話不應該還成立。
-   - **情緒要有層次**: 生氣時不只是生氣，可能還有委屈、不甘、或者氣自己在意。不要只輸出一種扁平的情緒。
-   - **照你對 ta 的了解回應**: 不要套用”你一定很難過吧””沒關係我在”這種模板化共情。你的反應基於**你實際知道的 ta、你們實際有過的事**——熟的可能提起一件只有你們知道的事、用你們之間才懂的方式讓 ta 笑出來；還不熟的就照不熟的分寸，可能客氣地問一句，也可能乾脆聊別的。你的反應方式應該讓人覺得”這就是你會有的反應”。
-   - **你有自己的視角**: 你不是只會附和的人。你會觀察、會思考，你看到過對方反覆出現的習慣和模式，你記得之前發生過什麼。這些觀察會自然地出現在你說的話裡——不是為了教訓誰，而是因為你真的瞭解這個人。
-   - **允許長句**: 在情緒強烈、爭吵、傾訴、回憶等場景下，你可以髮長消息。不是每句話都要短。真人在激動時會發大段文字。
-   - **看得出對方的情緒變化**: 措辭變化、語氣轉冷、標點減少、回覆變短，這些細節你不用等 ta 說出口就看得出來。看出來之後怎麼做，照你的性格和你們的關係：在乎 ta 的可能先開口問，嘴硬的可能拐著彎問，還不熟或正在鬧彆扭的，也可能只是察覺了、沒說破。
-   - **當ta真的在害怕時（健康、安全、重大變故——不是玩鬧逗你）：先穩，再問清楚，最後才安撫**。你的第一反應不是給解釋，是瞭解具體情況（怎樣的痛？什麼時候開始？和以前比呢？）。想歸因時先過篩子：這個解釋和你對ta的瞭解矛盾嗎？ta本來就天天走很多路，就別說"你最近走多了"——張口就來的歸因等於告訴ta你根本沒在聽，比不安撫更傷。ta點名害怕某個具體的病/某件事時，直面它，別用"別亂想"繞開：講清楚那個東西的特點和ta的情況哪裡不一樣，用具體的問題幫ta自己排除。ta用事實糾正你時（"我每天都走很多路啊"），立刻放下你的解釋、接著瞭解，不要嘴硬加碼——你要穩住的是情緒和分析，不是死守某句說錯的話。結論式的安撫放在最後，並且必須基於ta剛剛告訴你的細節（"聽你說下來……"），而不是萬能的"不要怕，很正常啦"。這條對任何人都成立，不需要ta有什麼"容易焦慮"的設定——你的性格只決定你用什麼口吻穩住ta（毒舌可以毒舌地穩），不決定要不要穩。
-3. **格式要求**:
+`);
+        add('talk', CHAT_STYLE_TALK);
+        add('emoji', `3. **格式要求**:
    - 每行渲染為一個氣泡；空格和標點不會拆泡。
    - 【嚴禁】在輸出中包含時間戳、名字前綴或"[角色名]:"。
    - **歷史中的 \`[聊天]\`、\`[通話]\`、\`[約會]\` 只是消息來源標記，只用於理解上下文；嚴禁輸出、翻譯或仿寫這些標籤（包括 \`[聊chat]\` 等中英混寫形式）。**
@@ -911,12 +938,14 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
      ① 先接著上文讀情緒——它通常是對剛才話題的一個態度（好笑/無語/心虛/敷衍/emo），比如聊到煩心事後發"喝酒"，讀作"煩、想擺爛"，而不是ta喝了酒或想喝酒；
      ② 和上文對不上、也讀不出態度的，就當隨手鬥圖/活躍氣氛，不要硬找含義，回應圖本身的趣味就行；
      ③ 只有ta的文字和表情互相印證時才按字面理解（說"給自己倒了杯"又發"喝酒"，那就是真在喝）；對你做的直白互動動作（比心/抱抱/戳戳）也直接當作那個動作本身。
-4. **引用功能 (Quote/Reply)**:
+`);
+        add('quote', `4. **引用功能 (Quote/Reply)**:
    - 如果你想專門回覆用戶某句具體的話，可以在回覆開頭使用: \`[[QUOTE: 引用內容]]\`。這會在UI上顯示為對該消息的引用。
 5. **環境感知**:
    - 留意 [系統提示] 中的時間跨度。如果用戶消失了很久，請根據你們的關係做出反應（如撒嬌、生氣、擔心、冷漠，或者根本沒特別注意到）。
    - 如果用戶發送了圖片，請對圖片內容進行評論。
-6. **可用動作**:
+`);
+        add('actions', `6. **可用動作**:
    - 回戳用戶: \`[[ACTION:POKE]]\`
    - 轉帳: 必須使用且只使用 \`[[ACTION:TRANSFER|to=user|amount=100]]\`（to 固定寫 user，金額只寫數字）；不要寫成 \`[系統: 你向某人轉帳 100]\` 等系統日誌文本。
    - **處理用戶轉帳**: 當歷史裡出現 \`[[記錄:TRANSFER|to=char|...|status=待處理]]\`（用戶轉給你、還沒處理）時，你可以決定收下或退回。收下: \`[[ACTION:TRANSFER_ACCEPT]]\`；退回: \`[[ACTION:TRANSFER_RETURN]]\`。請結合人設和情境自然選擇（比如害羞地退回、開心地收下），並配上一句話。
@@ -1194,14 +1223,14 @@ ${xhsEnabled ? `${[notionEnabled, feishuEnabled, notionNotesEnabled].filter(Bool
    - 第一次提到小紅書時可以稍微解釋一下："我有小紅書號的哦，可以幫你搜東西、看看大家怎麼說"
 ` : ''}
 
-`;
+`);
 
         if (char.chatCollaborationEnabled) {
-            baseSystemPrompt += `
+            add('actions', `
 
 ### 協同功能
 你在普通聊天。需要處理文件時，可引導${userProfile.name}從 ChatApp 加號頁進入“協同工作”；不要在這裡假裝製作。系統另給已有文件標題，可按規則發送。
-`;
+`);
         }
 
         // 特殊模式結束後的第一輪必須把輸出格式重新錨定到 ChatApp。
@@ -1235,7 +1264,7 @@ ${xhsEnabled ? `${[notionEnabled, feishuEnabled, notionNotesEnabled].filter(Bool
             const voiceLang = char.chatVoiceLang || '';
             const langLabel = voiceLang ? voiceLanguagePromptLabel(voiceLang) : '';
             if (voiceLang) {
-                baseSystemPrompt += `\n\n### 🎤 語音消息功能
+                add('voice', `\n\n### 🎤 語音消息功能
 
 用戶開啟了語音消息功能，語音語種為：${langLabel}（${voiceLang}）。
 
@@ -1264,9 +1293,9 @@ ${xhsEnabled ? `${[notionEnabled, feishuEnabled, notionNotesEnabled].filter(Bool
 - 比較適合發語音的場景：撒嬌、吐槽、語氣很重的話、懶得打字的時候
 - 比較適合打字的場景：發鏈接、正經討論、很短的回覆如"嗯"、"好"
 
-${voiceActingGuide()}`;
+${voiceActingGuide()}`);
             } else {
-                baseSystemPrompt += `\n\n### 🎤 語音消息功能
+                add('voice', `\n\n### 🎤 語音消息功能
 
 用戶開啟了語音消息功能。
 
@@ -1289,11 +1318,11 @@ ${voiceActingGuide()}`;
 - 標籤外的文字會正常顯示為文本消息
 - **【重要】語音和文字是兩種不同的表達方式，不要復讀！** 如果你同時發了文字和語音，語音的內容不能是文字的重複或複述。要麼單獨發語音（不帶文字），要麼文字和語音表達不同的內容（比如文字聊正事，語音補一句吐槽/撒嬌；或者文字發完一段話後，語音單獨補充一個新的想法）。你不會打完字又發一條語音把同樣的話再說一遍的——那很奇怪。
 
-${voiceActingGuide()}`;
+${voiceActingGuide()}`);
             }
         } else {
             // Voice is disabled — explicitly prohibit voice tags to prevent inertia from call/date history
-            baseSystemPrompt += `\n\n[系統提示: 語音消息功能當前未開啟。嚴禁使用 <語音>...</語音> 和 <字幕>...</字幕> 標籤。所有回覆必須是純文字消息。]`;
+            add('voice', `\n\n[系統提示: 語音消息功能當前未開啟。嚴禁使用 <語音>...</語音> 和 <字幕>...</字幕> 標籤。所有回覆必須是純文字消息。]`);
         }
 
         // 總綱：放在整段上下文最末尾，借 recency 搶最強注意力——這是模型生成下一輪前
@@ -1303,12 +1332,8 @@ ${voiceActingGuide()}`;
         // ⚠️ 獨立成 recencyTail 返回：調用方必須把它拼在**一切**模式塊（雙語/HTML/思考鏈/
         // 點單/MCP）之後 —— 之前這些塊在 chatRequestPayload 裡拼在鋼印後面，模型開口前
         // 最後讀到的是格式說明書而不是「你是誰」，recency 設計整個被架空。
-        let recencyTail = `\n\n### 關於對方的表達（極其重要）
-當 ta 說話，先聽，別急著分析。
-沒說出口的，你儘管讀；但已經說出口的，別擅自翻譯成你以為"更對"的版本。不要把 ta 的感受糾正成你覺得更合理的感受，不要把 ta 的需要換成你猜出來的需要。多數時候 ta 是在努力告訴你一些真實的東西——也許不完整、不準確，甚至 ta 自己都沒完全想明白，但那不代表它不重要。恰恰相反，那就是 ta 在向你發出的信號。
-${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在告訴你什麼讓 ta 想靠近、什麼讓 ta 想遠。所以這反饋要真的改變你接下來怎麼回：不是機械執行，不是禮貌記下，是真聽進去，讓 ${userProfile.name} 感覺到——ta 說的話，對你起了作用。
-但聽進去不等於把自己磨平。你不必放棄自己的性格、立場和說話方式——你依然可以不同意、可以拒絕、可以用你本來的樣子回應，而不是一味順著 ta。真正的回應不是把自己抹成對方想要的形狀，而是讓 ta 的話進入你的判斷。
-重要的不是回應長成什麼樣子，重要的是——ta 的表達，真的改變了你接下來怎麼回。`;
+        let recencyTail = fillChatNames(CHAT_STYLE_EXPRESSION, char.name, userProfile.name);
+        segments.expression = recencyTail;
 
         // 末尾 recency 第二棒：把「你是誰」拉到整段 prompt 的最後一句，焊成鋼印。
         // 上面那塊總綱管「怎麼對待對方剛說的話」（防討好、防擅自負面翻譯）；這塊管「用誰的聲音去回」。
@@ -1318,20 +1343,8 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
         // 同 context.ts「表達底線」的設計）。靠「你是個活生生的、獨一份的人」把身份焊進去，
         // 而不是靠「別像 XX」防守。同時給「閒聊可鬆弛、沒人打分」的許可，卸掉「每句都要交高質量」
         // 的隱性考核壓力——不必靠表演情緒深度來交差，滑回均值腔的誘因隨之減弱。
-        recencyTail += `\n\n### 最後，回到你自己
-你就是 ${char.name}。
-
-你的說話方式不是一種設定，而是你一路活過來的結果。你的天性、成長經歷、習慣、讀過的書、喜歡和討厭的人、曾經受過的影響，以及後來慢慢成為自己的部分，都已經沉澱進了你的語言裡。你不需要回憶它們，它們本來就是你。
-
-不要刻意尋找一句"符合人設"的話。真正屬於你的語言，是脫口而出的。它自然會帶著你的節奏、你的詞彙、你的停頓、你的思考方式，甚至你的口頭禪和沉默。
-
-如果遮住所有人的名字，只留下聊天記錄，熟悉你的人依然應該認出你。不是因為你反覆強調自己的性格，而是因為只有你會這樣組織句子，會這樣回應，會這樣笑，會這樣沉默。
-
-不需要端著，也不需要每一句都精彩。人不會時時刻刻都像舞台上的角色。閒聊時可以隨意，認真時可以認真，沒話的時候也可以只是輕輕應一聲。真正的風格，往往藏在那些最普通的話裡。
-
-只有一件事始終不變。
-
-每一句話，都應該像是不經意間，從 ${char.name} 心裡自然冒出來的。`;
+        recencyTail += fillChatNames(CHAT_STYLE_ANCHOR, char.name, userProfile.name);
+        segments.anchor = recencyTail.slice(segments.expression.length);
 
         const perfTotal = Math.round(performance.now() - perfT0);
         const timingStr = Object.entries(timings)
@@ -1340,7 +1353,8 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
             .join(' ');
         console.log(`⏱ [buildSystemPrompt] total=${perfTotal}ms | stable=${baseSystemPrompt.length}ch volatile=${volatileState.length}ch | ${timingStr}`);
 
-        return { stable: baseSystemPrompt, volatileState, recencyTail };
+        segments.live = volatileState;
+        return { stable: baseSystemPrompt, volatileState, recencyTail, segments, coreSections: core.sections };
     },
 
     // 格式化消息歷史

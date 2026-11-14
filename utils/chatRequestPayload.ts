@@ -43,6 +43,9 @@ import { loadCollaborationFileCabinetBlock } from '../features/collaboration/cha
 import { buildSARUserSurfaceRequest, selectSARUserSurfaceTargets } from './vrWorld/sarUserSurface';
 import { getSARModuleRuntimePlan } from './vrWorld/sarModuleRuntime';
 import { withGlobalWorldbooks } from './globalWorldbooks';
+import { DB } from './db';
+import { resolveChatPresetId } from './presetBinding';
+import { assembleChatPreset, buildChatPresetSlots } from './chatPresetSession';
 
 export { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 
@@ -150,6 +153,8 @@ export interface BuildChatPayloadResult {
         thinkingActive: boolean;
         sarModuleActive: boolean;
         promptBuildSkipped: boolean;
+        /** 這輪照自訂的私聊預設組（plans/preset-library.md 第 2 批）；沒有＝內建 */
+        chatPresetActive?: boolean;
     };
 }
 
@@ -348,6 +353,10 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     );
     let systemPrompt = parts.stable;
     let volatileTail = parts.volatileState;
+    // 自訂預設（plans/preset-library.md 第 2 批）要另外知道哪些是後面補的：模式塊（雙語、HTML、思考鏈、MCP）
+    // 和實時狀態後面接的（點單、語境分析、協同文件櫃）。內建照舊只用 systemPrompt／volatileTail。
+    let modesBlock = '';
+    const addMode = (text: string) => { systemPrompt += text; modesBlock += text; };
     const sarModulePlan = input.recallEntryPoint === 'chat_app'
         ? getSARModuleRuntimePlan(char, userProfile)
         : undefined;
@@ -361,7 +370,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     const targetLang = normalizeTranslationLangLabel(translationConfig?.targetLang);
     const bilingualActive = !!(translationConfig?.enabled && sourceLang && targetLang);
     if (bilingualActive && translationConfig) {
-        systemPrompt += `\n\n[CRITICAL: 雙語輸出模式 - 必須嚴格遵守]
+        addMode(`\n\n[CRITICAL: 雙語輸出模式 - 必須嚴格遵守]
 你的每句話都必須用以下XML標籤格式輸出雙語內容：
 <翻譯>
 <原文>${sourceLang}內容</原文>
@@ -385,23 +394,23 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
 <翻譯>
 <原文>今日は何する？</原文>
 <譯文>今天做什麼？</譯文>
-</翻譯>`;
+</翻譯>`);
     }
 
     // ── 5. HTML 卡片模式 ─────────────────────────────────
     const htmlActive = !!htmlMode?.enabled;
     if (htmlActive) {
-        systemPrompt += `\n\n${buildHtmlPrompt(htmlMode?.customPrompt)}`;
+        addMode(`\n\n${buildHtmlPrompt(htmlMode?.customPrompt)}`);
     }
 
     // ── 6. 思考鏈提示詞 ───────────────────────────────────
     const thinkingActive = !!thinkingChain?.enabled;
     if (thinkingActive) {
         const userName = (userProfile?.name && userProfile.name.trim()) || '用戶';
-        systemPrompt += `\n\n${buildThinkingChainPrompt(char.name, userName)}`;
+        addMode(`\n\n${buildThinkingChainPrompt(char.name, userName)}`);
         const extra = (thinkingChain?.customPrompt || '').trim();
         if (extra) {
-            systemPrompt += `\n\n## 用戶對內心獨白的額外要求\n${extra}`;
+            addMode(`\n\n## 用戶對內心獨白的額外要求\n${extra}`);
         }
     }
 
@@ -460,7 +469,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     if (mcpChatActive && !input.timelyByWorker) {
         const block = buildMcpSystemBlock(userProfile?.name || '用戶', char.id);
         if (block) {
-            systemPrompt += block;
+            addMode(block);
         }
     }
 
@@ -490,19 +499,34 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
 
     // 「關於對方的表達」+「回到你自己」必須是易變尾段的最後內容：修復舊版把雙語/HTML/
     // 思考鏈/點單塊拼在鋼印之後、模型開口前最後讀到的是格式說明書的問題。
+    const liveExtras = volatileTail.slice(parts.volatileState.length);
     volatileTail += parts.recencyTail;
     if (sarModuleBlock) volatileTail += sarModuleBlock;
+
+    // 自訂預設：角色選的 > 私聊場景預設 > 內建。即時對話（交給 worker 生成）先照內建，雲端在第 2b 批接上。
+    const chatPreset = input.timelyByWorker ? null : await loadChatPreset(char, userProfile);
 
     // 結構：[穩定 system] + [歷史消息] + [易變狀態 system] (+ 末尾 reminder)。
     // 穩定前綴不再包含分鐘級時間戳等易變內容 → 支持前綴緩存的中轉能跨輪命中；
     // 易變狀態貼著生成點注入，時間/情緒/日程反而拿到最強 recency 注意力。
     // 注意：即時對話的 worker 端情緒評估把 messages[0] 當 system、messages[1..]
     // 展平為對話歷史 —— 易變尾段會以「[系統]: …」行出現在歷史末尾，信息不丟。
-    const fullMessages: Array<{ role: string; content: any }> = [
-        { role: 'system', content: systemPrompt },
-        ...messagesWithWorldbookDepth,
-        { role: 'system', content: volatileTail },
-    ];
+    const fullMessages: Array<{ role: string; content: any }> = chatPreset
+        ? [
+            ...assembleChatPreset({
+                doc: chatPreset,
+                slots: buildChatPresetSlots({ segments: parts.segments, core: parts.coreSections, modes: modesBlock, liveExtras }),
+                history: messagesWithWorldbookDepth,
+                char,
+                userName: userProfile?.name || '用戶',
+            }),
+            ...(sarModuleBlock ? [{ role: 'system', content: sarModuleBlock.trim() }] : []),
+        ]
+        : [
+            { role: 'system', content: systemPrompt },
+            ...messagesWithWorldbookDepth,
+            { role: 'system', content: volatileTail },
+        ];
     if (bilingualActive) {
         fullMessages.push({
             role: 'system',
@@ -541,8 +565,22 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         cleanedApiMessages: messagesWithWorldbookDepth,
         fullMessages: finalMessages,
         // 合併開關開著時多條 system 被並進開頭一條，下標失去意義 → 交出 -1，調用方退回貼尾。
-        volatileTailIndex: finalMessages === fullMessages ? 1 + messagesWithWorldbookDepth.length : -1,
+        volatileTailIndex: finalMessages !== fullMessages ? -1
+            : chatPreset ? fullMessages.findIndex(m => typeof m.content === 'string' && m.content.includes('[System: 實時狀態 (Live Context)]'))
+            : 1 + messagesWithWorldbookDepth.length,
         recallTrace,
-        flags: { bilingualActive, mcdActive, luckinActive, luckinChatActive, mcpChatActive, htmlActive, thinkingActive, sarModuleActive: !!sarModuleBlock, promptBuildSkipped: false },
+        flags: { bilingualActive, mcdActive, luckinActive, luckinChatActive, mcpChatActive, htmlActive, thinkingActive, sarModuleActive: !!sarModuleBlock, promptBuildSkipped: false, chatPresetActive: !!chatPreset },
     };
+}
+
+/**
+ * 私聊用哪份自訂預設（plans/preset-library.md 第 2 批）；null＝內建。
+ * 場景預設存在主身份的資料上：傳進來的 userProfile 是線上的視角，沒帶就讀一次 DB。
+ */
+async function loadChatPreset(char: CharacterProfile, userProfile: UserProfile) {
+    const sceneDefaults = userProfile?.presetSceneDefaults ?? (await DB.getUserProfile().catch(() => null))?.presetSceneDefaults;
+    const id = resolveChatPresetId(char, { presetSceneDefaults: sceneDefaults });
+    if (!id) return null;
+    const record = await DB.getMeetingPreset(id).catch(() => undefined);
+    return record?.doc ?? null;
 }

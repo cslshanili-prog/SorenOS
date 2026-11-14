@@ -6,6 +6,7 @@ import { saveMeetingPresetDoc } from '../../utils/meetingPreset/store';
 import { addPrompt, canDeletePrompt, movePrompt, moveRegexScript, removePrompt, sectionPromptIds, UNGROUPED_SECTION_ID } from '../../utils/meetingPreset/edit';
 import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor';
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
+import { CHAT_FEATURE_OFF_WARNING, CHAT_SLOT_LABELS, isChatFeatureSlot } from '../../utils/chatPresetSession';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
 // 正則開關、生成參數。條目能新增、刪除（資料佔位只能關）、排序；正則能排序。
@@ -27,6 +28,7 @@ const SLOT_LABELS: Record<MeetingPresetSlot, string> = {
     voice: 'Soren · 語氣標籤',
     length: 'Soren · 回應字數',
     soren: 'Soren · 其它',
+    ...CHAT_SLOT_LABELS,
 };
 
 type Tab = 'prompts' | 'vars' | 'regex' | 'params';
@@ -175,8 +177,11 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                                                     <button onClick={() => { if (!sorting) setEditing(p); }} className="flex-1 min-w-0 text-left">
                                                         <div className={`text-[13px] truncate ${p.enabled ? 'text-slate-700' : 'text-slate-400'}`}>{p.name}</div>
                                                         <div className="text-[10px] text-slate-300 truncate">
-                                                            {p.slot ? `資料佔位 · ${SLOT_LABELS[p.slot]}` : `${p.role}${p.inChat ? ` · 插在倒數第 ${p.inChat.depth} 則` : ''}${p.content.trim() ? '' : ' · 空白'}`}
+                                                            {p.slot ? (isChatFeatureSlot(p.slot) ? '內容由 Soren 照角色設定產生' : `資料佔位 · ${SLOT_LABELS[p.slot]}`) : `${p.role}${p.inChat ? ` · 插在倒數第 ${p.inChat.depth} 則` : ''}${p.content.trim() ? '' : ' · 空白'}`}
                                                         </div>
+                                                        {isChatFeatureSlot(p.slot) && !p.enabled && (
+                                                            <div className="text-[10px] text-amber-500 leading-snug whitespace-normal">{CHAT_FEATURE_OFF_WARNING[p.slot]}</div>
+                                                        )}
                                                     </button>
                                                     {sorting
                                                         ? <MoveButtons label={p.name} first={order[0] === p.id} last={order[order.length - 1] === p.id} onMove={direction => update(movePrompt(doc, p.id, direction))} />
@@ -192,7 +197,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                                 </div>
                             );
                         })}
-                        <p className="text-[11px] text-slate-400 leading-relaxed px-1">條目照這裡的順序送出，按「排序」可以上下移（分組內移動）。聊天記錄、角色描述這類資料佔位只能關、不能刪。Soren 的記憶、情緒、時間、語氣標籤這些，預設裡沒放的會補在聊天記錄前面。</p>
+                        <p className="text-[11px] text-slate-400 leading-relaxed px-1">條目照這裡的順序送出，按「排序」可以上下移（分組內移動）。聊天記錄、角色描述這類資料佔位只能關、不能刪。Soren 的記憶、情緒、時間、語氣標籤這些（私聊還有表情包、轉帳這些功能），預設裡沒放的會補上；放了但關掉的就是不要，不補。</p>
                     </>
                 )}
 
@@ -282,7 +287,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                         </div>
                         <div className="p-4 space-y-3 overflow-y-auto">
                             {editing.slot ? (
-                                <p className="text-sm text-slate-500 leading-relaxed">這是資料佔位：{SLOT_LABELS[editing.slot]}。內容由 Soren 填，這裡只決定它放在哪個位置、要不要送。</p>
+                                <p className="text-sm text-slate-500 leading-relaxed">這是{isChatFeatureSlot(editing.slot) ? ' Soren 功能' : '資料佔位'}：{SLOT_LABELS[editing.slot]}。內容由 Soren 照角色設定和開關產生，這裡只決定它放在哪個位置、要不要送。{isChatFeatureSlot(editing.slot) ? `關掉的話：${CHAT_FEATURE_OFF_WARNING[editing.slot]}` : ''}</p>
                             ) : (
                                 <>
                                     <div className="flex gap-2">

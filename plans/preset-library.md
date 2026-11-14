@@ -1,6 +1,6 @@
 # 預設 App：獨立的預設庫，線上線下共用
 
-> 狀態：第 1 批做完（2026-11-14），實況見文末「第 1 批實況」。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
+> 狀態：第 1 批、第 2a 批（私聊）做完（2026-11-14），實況見文末。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
 >
 > **開工後改的一條**：劇情預設**不搬**進通用格式（見第 6 節）。劇情劇場的引擎靠固定的條目 id（`nmj-v64…`）跑分區、快捷選項、小劇場、旁白，轉成通用格式等於重寫引擎。所以預設 App 一個地方放兩種：通用預設（ST 格式，見面現在用、線上之後用）和劇情專用預設（原格式、原編輯器，只給劇情）。
 
@@ -124,3 +124,35 @@ type PresetScene = 'chat' | 'group' | 'call' | 'date' | 'story';
 **還沒做（第 2 批起）**：條目層級場景標籤、Soren 功能條目、私聊／群聊／電話接上、雲端模板、角色每個場景各自的覆蓋（現在只有見面一個場景，沿用 `dateMeetingPresetId`）。
 
 **測試時的坑**：Playwright 在這個環境 `setInputFiles` 給中文檔名的檔案會靜默設不進去（`files.length` 是 0、沒有 change 事件），測試檔用英文檔名。
+
+## 第 2a 批實況（2026-11-14）：私聊接上預設
+
+Liora 定的三件事：匯入的預設用在私聊時 Soren 的文風**不補**（聽預設的）；角色可以在聊天設定裡自己選；雲端（主動消息 2.0、即時對話）拆到 2b。
+
+**私聊提示詞分段**（`utils/chatPrompts.ts`）
+
+- `buildSystemPromptParts` 多回 `segments` 和 `coreSections`。穩定段照接的順序是 `charWorld → relationship → interact → lifeContext → format → talk → emoji → quote → actions → voice`（`CHAT_STABLE_SEGMENT_ORDER`），接起來就是 `stable`；`live` 就是 `volatileState`；`expression + anchor` 就是 `recencyTail`。
+- 段只是同一串字的切法，內建送出一字不差：改之前拿舊版本做過 36 種組合的 A/B（穩定段、收尾全同；實時狀態只差在新聞本來就隨機排），長期由 `utils/chatPrompts.segments.test.ts` 鎖「接回去等於送出的那串」。
+- 三段文風搬到 `utils/chatPresetText.ts`（`CHAT_STYLE_TALK`／`EXPRESSION`／`ANCHOR`，名字寫 `{{char}}`／`{{user}}`），`ContextBuilder` 的表達底線抽成 `ANTI_FILLER_BLOCK`；內建照舊用同一份字。
+- `ContextBuilder.buildCoreContextWithSections` 同時交出角色塊的各段，`buildCoreContext` 包它。
+
+**組裝**（`utils/chatPresetSession.ts`，用的是見面那顆 `assembleMeetingPreset`）
+
+- 新的 Soren 佔位（`ChatSorenSlot`）：資料 `chatRelation`（稱呼關係＋印象＋你身邊的人）、`chatLife`（日記與彼方）、`chatLive`（實時狀態＋點單／語境分析／協同文件櫃）；功能 `chatFormat`、`chatEmoji`、`chatQuote`、`chatActions`、`chatInteract`、`chatVoice`、`chatModes`（雙語、HTML、思考鏈、MCP）。ST 佔位照見面的拆法填，記憶 `memory` 是房間門牌＋記憶庫（召回、時間、情緒在實時狀態裡）。
+- 預設沒放的資料和功能自動補：實時狀態補在聊天記錄後面，其餘照固定順序補在前面；**預設裡有但關掉的＝明確不要，不補**（這條也改了見面：以前見面關掉的 Soren 佔位還是會被補回去）。文風不補。
+- 送出前相鄰的 system 併成一則，結構跟內建一樣是「前段＋聊天記錄＋後段」；帶圖的聊天記錄原樣送（不跑正則）。
+- 「私聊 · 內建」寫成一份文件（`buildBuiltinChatPresetDoc`）給人複製：ST 佔位、Soren 資料、功能、四條文風文字、聊天記錄、實時狀態、收尾。內建本身不走組裝器。
+
+**接上**（`utils/chatRequestPayload.ts`）
+
+- 用哪份：`resolveChatPresetId`＝角色的 `chatPresetId`（`'builtin'`＝明確內建）> `presetSceneDefaults.chat` > 內建；選的被刪了退回內建。
+- 本地私聊（前台、背景延遲回覆）都走這裡；`timelyByWorker`（即時對話）這批照內建。
+- 模式塊另外記一份給 `chatModes`，實時狀態後面接的另記給 `chatLive`；`volatileTailIndex` 在預設模式指向放實時狀態的那則。`flags.chatPresetActive` 標這輪有沒有照預設。
+
+**畫面**
+
+- 預設 App：場景預設多了「私聊」；篩選多了私聊；「私聊 · 內建」可以複製；ST 預設匯入預設勾私聊＋見面，「⋯ → 適用場景」可以改（取消某場景時順便取消它在那裡的場景預設）；刪除也清角色的 `chatPresetId`。
+- 聊天設定 →「場景與玩法」第一列「預設」：跟著預設 App（顯示目前是哪份）／內建／某一份，按「完成」存。
+- 預設編輯頁：Soren 功能條目寫「內容由 Soren 照角色設定產生」，關掉時在條目下面用橘字講後果（`CHAT_FEATURE_OFF_WARNING`）。
+
+**還沒做**：雲端兩條路（2b）；預設的生成參數（溫度等）私聊還不吃；預設的「只改顯示」正則還沒套到聊天氣泡；條目層級的場景標籤；群聊、電話（第 3 批）。

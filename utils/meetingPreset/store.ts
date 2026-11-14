@@ -51,6 +51,15 @@ export const duplicateMeetingPresetRecord = async (record: MeetingPresetRecord):
 };
 
 /** 內建規則複製成一份自訂預設（文風、人稱、深挖照這個角色現在的設定先開好） */
+/** 把一份文件存成新的一列（預設 App 從私聊內建複製等用；doc 由呼叫端備好） */
+export const saveNewMeetingPresetDoc = async (doc: MeetingPresetDoc): Promise<MeetingPresetRecord> => {
+    const now = Date.now();
+    const record: MeetingPresetRecord = { id: makeId(), name: doc.name, doc, createdAt: now, updatedAt: now };
+    await DB.saveMeetingPreset(record);
+    notify();
+    return record;
+};
+
 export const copyBuiltinMeetingPreset = async (config?: DateStyleConfig): Promise<MeetingPresetRecord> => {
     const doc = duplicatePresetDoc(buildBuiltinMeetingPresetDoc(config));
     const now = Date.now();

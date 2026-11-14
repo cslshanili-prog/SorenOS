@@ -16,7 +16,16 @@ export type MeetingStSlot =
     | 'chatHistory';
 
 /** Soren 自己的佔位：預設沒放的，組裝時補在聊天記錄前面。 */
-export type MeetingSorenSlot = 'memory' | 'recap' | 'time' | 'emotion' | 'voice' | 'length' | 'soren';
+export type MeetingSorenSlot = 'memory' | 'recap' | 'time' | 'emotion' | 'voice' | 'length' | 'soren' | ChatSorenSlot;
+
+/**
+ * 私聊的 Soren 佔位（plans/preset-library.md 第 2 批，填法見 utils/chatPresetSession.ts）。
+ * - 資料：關係與印象、日記與彼方、實時狀態（預設沒放就補；實時狀態補在聊天記錄後面）
+ * - 功能：聊天格式、表情包、引用、動作、互動、語音、模式（預設沒放就補；預設裡有、但關掉的＝明確不要，不補）
+ */
+export type ChatSorenSlot =
+    | 'chatRelation' | 'chatLife' | 'chatLive'
+    | 'chatFormat' | 'chatEmoji' | 'chatQuote' | 'chatActions' | 'chatInteract' | 'chatVoice' | 'chatModes';
 
 export type MeetingPresetSlot = MeetingStSlot | MeetingSorenSlot;
 
