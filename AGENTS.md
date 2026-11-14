@@ -23,6 +23,7 @@
 | **記憶系統** | [`docs/memory-system-overview.md`](./docs/memory-system-overview.md) | 涉及長期記憶、月度總結、向量化記憶宮殿、情感空間。改記憶相關邏輯前必讀 |
 | **查手機 · 人際關係系統** | [`docs/relationship-system.md`](./docs/relationship-system.md) | 改「查手機」聊天/通訊錄、角色聯繫人/好感、真假甄別、真角色雙向對話、虛構 NPC 約束前必讀 |
 | **見面改版 · 線下故事＋自訂預設** | [`plans/offline-date-redesign.md`](./plans/offline-date-redesign.md) | 改見面一般模式（線下故事、ST 預設匯入／巨集／正則、裝飾 iframe、劇情大綱、開場白、總結、完結、情緒褪色、關閉線上、畫面美化、語音標籤）前必讀；GAL／立繪在這次改版拿掉，匯入的預設不轉繁體 |
+| **預設 App（線上線下共用的預設庫）** | [`plans/preset-library.md`](./plans/preset-library.md) | 設計稿（還沒開工）：見面預設、劇情預設搬進獨立的預設 App，條目打場景標籤（私聊／群聊／電話／見面／劇情），Soren 功能做成條目、匯入 ST 預設時自動補位，綁定只管預設＋正則；參考 FloraOS 的做法 |
 | **見面 · 快速離開與「見面中」** | [`docs/date-quick-leave.md`](./docs/date-quick-leave.md) | 改見面選單的「回桌面／去私聊」、掛起與接回、頂端「見面中／通話中」那條前必讀；掛起只在記憶體（`utils/dateSuspend.ts`），進度照舊靠 `savedDateState`；頂端那條要從 `--safe-top` 往下放，放進系統狀態列會點不到 |
 | **見面 · 觀測協議 OBSERVE** | [`docs/date-observe.md`](./docs/date-observe.md) | 改見面的角色觀測卡片前必讀：提示詞注入、掉格式解析容錯（兩層）、卡片渲染；只在內建規則下生效，舊訊息的觀測塊不管開不開都要剝掉 |
 | **聊天紀錄匯入匯出＋ST 角色卡** | [`plans/chat-import-export.md`](./plans/chat-import-export.md) | 改 SillyTavern 角色卡匯入（`utils/stCard.ts`）、從別的 App 匯入私聊／群聊（`utils/chatImportPhone.ts` 轉格式、`utils/chatImportPhoneWrite.ts` 寫進去、`components/chat/PhoneChatImport.tsx` 匯入頁）、SillyTavern 聊天（.jsonl）匯成見面故事（`utils/stChat.ts`、`components/date/StChatImport.tsx`）或匯出（`utils/chatExport.ts`：私聊 Soren JSON／TXT、見面故事 ST jsonl；Soren JSON 匯回照時間＋誰＋類型的指紋認重複）前必讀；每則記 `metadata.importedFrom` 認重複（跳過或原地覆蓋）；Soren 的訊息照 id 排、不照時間，匯到有訊息的線只能接在後面；匯入不觸發任何 AI |
