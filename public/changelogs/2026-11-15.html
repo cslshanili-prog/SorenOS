@@ -1,0 +1,43 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>2026 年 11 月 15 日更新說明 · S3.0 Sore 與預設</title><style>:root{--ink:#2a2620;--soft:#635c50;--paper:#f6f3ec;--card:#fff;--line:#e4ddcd;--accent:#b0762a;--wash:#f3e9d6}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.9 system-ui,-apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:auto;padding:38px 22px 64px}
+header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:8px}
+header small{letter-spacing:3px;color:var(--accent);font-size:10px;font-weight:700}
+h1{font:34px/1.4 "Songti TC","Noto Serif TC",serif;margin:18px 0 12px;letter-spacing:-.01em}
+.lede{color:var(--soft);margin:0}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:0;list-style:none}
+.toc li{margin:0;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--soft);background:var(--card)}
+.toc li:before{display:none}
+h2{font:22px/1.6 "Songti TC","Noto Serif TC",serif;margin:40px 0 6px}
+h2 span{color:var(--accent);font:700 12px/1 ui-monospace,monospace;letter-spacing:2px;display:block;margin-bottom:6px}
+.where{display:inline-block;margin:0 0 6px;padding:1px 9px;border-radius:8px;background:var(--wash);color:var(--accent);font-size:11px;font-weight:700}
+p{margin:8px 0 14px;color:var(--soft)}
+ul{margin:10px 0 18px;padding:0;list-style:none}
+li{position:relative;padding:6px 0 6px 20px;color:var(--soft)}
+li:before{content:"";position:absolute;left:3px;top:16px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+li b,p b{color:var(--ink);font-weight:600}
+.note{margin:18px 0;border-left:3px solid var(--accent);border-radius:3px 12px 12px 3px;background:var(--wash);padding:12px 16px;color:var(--soft);font-size:12.5px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding-top:16px;font-size:11px;letter-spacing:2px;color:var(--accent)}</style></head><body><main>
+<header><small>SOREN S3.0 · MERIDIAN · 2026.11.14 – 11.15</small><h1>手機裡多了一個<br>會幫你修手機的。</h1><p class="lede">這一版有兩個新 App：一個是 AI 助手 Sore，問它怎麼用、哪裡壞了，也能請它直接幫你寫美化、改預設、整理世界書、做小組件；另一個是預設 App，所有預設集中在一處，私聊、群聊、電話、見面都能用自己挑的那一份。聊天紀錄也終於可以搬進搬出了。</p>
+<ul class="toc"><li>Sore</li><li>預設 App</li><li>預設接到每個場景</li><li>聊天紀錄搬家</li><li>世界書全局啟用</li><li>開場白與加好友</li></ul></header>
+<h2><span>01</span>Sore：會幫你修手機的助手</h2>
+<div class="where">桌面 → Sore；各處編輯頁的「請 Sore 幫忙」</div>
+<ul><li><b>答疑</b>：功能在哪、角色怎麼不回、API 報錯是什麼意思。它會自己去看你的設定有沒有填、打一次小請求測連線、翻說明。<b>它看得到有沒有填 Key，看不到 Key 本身</b>，錯誤訊息裡夾帶的 Key 也會先遮掉。</li><li><b>美化</b>：聊天白框（全域、角色、群）、氣泡、見面畫面、心象卡片、交換日記、日程卡，八處的 CSS 都能請它寫。可以傳截圖給它：「做成這樣」或「這裡跑版了」。白框、氣泡、日記、日程、心象卡片可以先<b>預覽</b>。</li><li><b>預設</b>：改條目、加條目、調參數、加正則、從內建複製一份，也能幫你設成場景預設或給哪個角色、哪個群用。這份正在被誰用，卡片上會寫出來。</li><li><b>世界書</b>：補條目、改觸發方式、停用、整組改名、全局啟用、掛給角色；幫某個角色寫之前會先讀他的人設（不讀聊天和記憶）。<b>它不能刪條目</b>，要刪請自己去世界書 App。</li><li><b>桌面小組件</b>：說想要什麼樣子，它寫好 HTML／CSS（可以有互動），先預覽，套用時順便放上桌面。</li><li>它改的東西<b>一律先變成一張卡片</b>：改哪裡、改成什麼，按「套用」才寫進去；寫之前會留一份，<b>按「還原」就回到原樣</b>。</li><li>用哪組 API 在 Sore 的設定裡選，預設用副 API（記憶宮殿那組），沒設就用全域。答疑不用太強的模型；要它看圖的話要選能看圖的。</li></ul>
+<p class="note">Sore 有點嘴賤，但人不壞。它不是角色，不會進角色清單、不會進記憶宮殿。</p>
+<h2><span>02</span>預設 App</h2>
+<div class="where">桌面 → 預設</div>
+<ul><li>原本散在見面設定、劇情劇場裡的預設<b>集中到一個 App</b>：通用預設（SillyTavern 格式，能匯入匯出 ST）和劇情專用預設放在一起管。</li><li>每份通用預設勾「<b>適用場景</b>」：私聊、群聊、電話、見面。</li><li>上方設<b>場景預設</b>：每個場景預設用哪份。角色、群自己選了的照自己的，沒選的跟著場景預設；選「內建」就是用 Soren 原本那套。</li><li>「私聊／群聊／電話／見面 · 內建」都能<b>複製一份</b>來改。</li></ul>
+<h2><span>03</span>預設接到每個場景</h2>
+<div class="where">聊天設置 → 預設、電話預設；群組設置 → 預設；見面設定</div>
+<ul><li><b>私聊</b>：用匯入的預設時，文風照預設；角色資料、記憶、表情包、轉帳、語音這些 Soren 的東西照常補上。預設裡放了但關掉的功能，就是不要。主動消息 2.0 和即時對話也照同一份。</li><li><b>電話</b>、<b>群聊</b>也接上了。群聊的輸出格式固定在最後，預設改不掉，長篇小說體的預設不太適合群聊和電話。</li><li>預設裡的<b>正則目前只在見面生效</b>，私聊、群聊、電話之後再排。</li></ul>
+<h2><span>04</span>聊天紀錄搬家</h2>
+<div class="where">神經鏈接 → 新建鏈接下的「匯入」；聊天設置、訊息列表「＋」、群組設置 → 匯入聊天紀錄；見面記錄</div>
+<ul><li><b>匯入 SillyTavern 角色卡</b>（PNG 或 JSON）：人設、開場白、卡裡的世界書一起進來，PNG 直接當頭像。</li><li><b>匯入別家的私聊、群聊</b>：選要接到哪個角色、哪條線，發話人對到角色；重複的可以跳過或原地覆蓋，引用回覆會接回去。匯入不會叫 AI。</li><li><b>SillyTavern 聊天（.jsonl）匯成見面故事</b>：一份就是一場故事，思考過程收進回覆的思考裡。</li><li><b>匯出</b>：私聊可以匯出成 Soren JSON（能原樣匯回）或 TXT，選整段或日期區間；見面故事可以匯出成 ST 的 .jsonl。</li></ul>
+<h2><span>05</span>世界書全局啟用</h2>
+<div class="where">世界書 → 每組底下「全局啟用」</div>
+<ul><li>跟 ST 的全局世界書一樣，<b>整組一鍵打開</b>，所有角色的私聊、群聊、見面、通話、劇情都讀得到，不用一個一個掛。</li><li>神經鏈接的擴展設定會列出哪幾組是全局的（只看不改，開關在世界書 App）。</li></ul>
+<h2><span>06</span>開場白與加好友</h2>
+<div class="where">神經鏈接 → 角色 → 開場白；檔案 → 先加好友才能對話</div>
+<ul><li>角色可以有一份<b>開場白清單</b>，每段勾私聊或見面：私聊空的時候角色先開口（好幾段就隨機挑），見面也從勾了見面的挑。ST 角色卡的開場白會一起進來。</li><li><b>先加好友才能對話</b>開關：關掉的話，點角色就直接開聊，不用送申請。</li><li>新建的角色<b>一建好就認識你現在的身份卡</b>。</li></ul>
+<p class="note">這一版<b>不用重新部署 Worker</b>，雲端那邊沒有改動。</p>
+<footer>找不到路的時候，問一下 Sore。</footer></main></body></html>
