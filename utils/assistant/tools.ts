@@ -6,6 +6,7 @@
  * - 讀取CSS：各處美化有沒有設；給位置就回現在的內容＋可用選擇器＋規矩
  * - 寫CSS／清除CSS：檢查過了出提案卡片，用戶按「套用」才寫（第 2 批）
  * - 列出預設／讀取預設／讀取條目：讀；改預設／新建預設／設定預設用途：出提案（第 3 批，utils/assistant/presetOps.ts）
+ * - 列出世界書／讀取世界書／讀取角色：讀；改世界書：出提案（第 4 批，utils/assistant/worldbookOps.ts）
  */
 import type { APIConfig, AssistantProposal, CharacterProfile, GroupProfile, StoryTheaterPresetDocument } from '../../types';
 import { findGuide, SORE_GUIDES } from './knowledge';
@@ -19,6 +20,7 @@ import {
     presetUsage, scenesNeededFor,
 } from './presetOps';
 import type { MeetingPresetDoc } from '../meetingPreset/types';
+import { buildWorldbookProposal, describeCharacter, describeWorldbook, describeWorldbookList, type WorldbookData } from './worldbookOps';
 import { BUILTIN_PRESET, PRESET_SCENE_LABEL } from '../presetBinding';
 
 export interface SoreSettingsInput {
@@ -42,6 +44,8 @@ export interface SoreToolContext {
     cssData?: () => CssData;
     /** 預設的現況（第 3 批）；沒給就不能用預設工具 */
     presetData?: () => Promise<PresetData>;
+    /** 世界書與角色（第 4 批）；沒給就不能用世界書工具 */
+    worldbookData?: () => WorldbookData;
 }
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -192,6 +196,7 @@ export const SORE_TOOLS: SoreToolDef[] = [
         },
     },
     ...PRESET_TOOLS(),
+    ...WORLDBOOK_TOOLS(),
 ];
 
 export const findSoreTool = (name: string) => SORE_TOOLS.find(t => t.name === name);
@@ -350,5 +355,55 @@ function buildPresetProposal(input: {
             summary: typeof input.summary === 'string' ? input.summary.trim().slice(0, 200) || undefined : undefined,
         },
     };
+}
+
+// ─── 世界書（第 4 批） ───
+
+function WORLDBOOK_TOOLS(): SoreToolDef[] {
+    // 放在函式裡：SORE_TOOLS 在模組載入時就呼叫這個函式，外面的 const 那時還沒初始化
+    const WORLDBOOK_OPS_USAGE = `ops（照順序套）：
+    {"op":"add","title":"標題","content":"內容","keys":["關鍵詞"],"secondaryKeys":[…],"constant":false,"position":1,"depth":4,"order":100,"role":"system"}（沒給 keys 就是常駐；position 0 角色設定前、1 角色設定後（預設）、2/3 作者註釋頂部/底部、4 聊天記錄指定深度（配 depth、role）、5/6 示例消息前/後）
+    {"op":"edit","entry":"標題或 id", …要改的欄位（title、content、keys、constant、position、depth、order、disable）}
+    {"op":"disable","entry":"…"}、{"op":"enable","entry":"…"}
+    {"op":"rename","name":"新組名"}、{"op":"global","on":true}（整組全局：所有角色都讀得到，不用掛）
+    {"op":"mount","chars":["角色名"],"entries":[…可省略，省略＝整組]}、{"op":"unmount","chars":[…],"entries":[…]}
+    不能刪條目：不要的用 disable，真的要刪請用戶自己去世界書 App。`;
+    const noData = { ok: false, content: '這裡不能讀世界書。' };
+    return [
+        {
+            name: '列出世界書',
+            usage: '參數 {}。列出每一組：條目數、停用幾條、全局沒、掛給了誰。',
+            run: async (_args, ctx) => (ctx.worldbookData ? { ok: true, content: describeWorldbookList(ctx.worldbookData()) } : noData),
+        },
+        {
+            name: '讀取世界書',
+            usage: '參數 {"group": "組名"}＝那組每條的觸發、位置、開頭；加 "entry": "標題或 id"＝那一條全文。改內容前先讀全文。',
+            run: async (args, ctx) => {
+                if (!ctx.worldbookData) return noData;
+                return describeWorldbook(args.group, args.entry, ctx.worldbookData());
+            },
+        },
+        {
+            name: '讀取角色',
+            usage: '參數 {"char": "角色名或 id"}。角色的簡介、人設、世界觀、掛了哪些世界書（不含聊天記錄和記憶）。幫角色寫世界書前先讀，寫出來才合得上。',
+            run: async (args, ctx) => (ctx.worldbookData ? describeCharacter(args.char, ctx.worldbookData()) : noData),
+        },
+        {
+            name: '改世界書',
+            usage: `參數 {"group": "組名（新組就填新名字）", "ops": [...], "summary": "一句話說改了什麼"}。一張卡片只動一組；出提案卡片，用戶按「套用」才寫。${WORLDBOOK_OPS_USAGE}`,
+            run: async (args, ctx) => {
+                if (!ctx.worldbookData) return noData;
+                const ops = Array.isArray(args.ops) ? args.ops : [];
+                if (!ops.length) return { ok: false, content: 'ops 是空的。' };
+                const built = buildWorldbookProposal(args.group, ops, ctx.worldbookData(), args.summary);
+                if ('errors' in built) return { ok: false, content: `沒辦法照做，改好再送：\n${built.errors.slice(0, 8).map(e => `- ${e}`).join('\n')}` };
+                return {
+                    ok: true,
+                    content: `${PROPOSED_NOTE}\n改動：\n${presetChangesNote(built.draft.changes)}`,
+                    proposal: built.draft,
+                };
+            },
+        },
+    ];
 }
 

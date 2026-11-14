@@ -1,9 +1,10 @@
 /**
- * 提案卡片的「套用」「還原」（plans/ai-assistant.md 第 3 節）：美化 CSS（第 2 批）、預設（第 3 批）。
+ * 提案卡片的「套用」「還原」（plans/ai-assistant.md 第 3 節）：美化 CSS（第 2 批）、預設（第 3 批）、世界書（第 4 批）。
  * 套用前再檢查一次（資料可能變了）、記下那一刻的內容當快照，再寫；還原就是把快照寫回去。
  * 真的寫交給 write（畫面那頭接 updateTheme／updateCharacter／…），這裡不碰 React。
  */
-import type { AssistantCssProposal, AssistantPresetBinding, AssistantPresetProposal, StoryTheaterPreset, StoryTheaterPresetDocument } from '../../types';
+import type { AssistantCssProposal, AssistantPresetBinding, AssistantPresetProposal, AssistantWorldbookProposal, MountedWorldbook, StoryTheaterPreset, StoryTheaterPresetDocument, Worldbook } from '../../types';
+import { nextMounted, type WorldbookData } from './worldbookOps';
 import type { MeetingPresetDoc, MeetingPresetRecord } from '../meetingPreset/types';
 import { BUILTIN_PRESET } from '../presetBinding';
 import { type PresetData, readBinding } from './presetOps';
@@ -141,6 +142,70 @@ export const restorePresetProposal = async (proposal: AssistantPresetProposal, d
     }
     for (const { binding, previous } of snapshot.bindings || []) {
         await writer.setBinding(binding, previous);
+    }
+    return { ...proposal, status: 'restored' };
+};
+
+// ─── 世界書（第 4 批） ───
+
+/** 畫面那頭真的寫：新增走 addWorldbook、改走 updateWorldbook（同一事務順便同步角色緩存）、掛載走 updateCharacter */
+export interface WorldbookWriter {
+    add: (book: Worldbook) => Promise<void> | void;
+    update: (id: string, patch: Partial<Worldbook>) => Promise<void> | void;
+    /** 只用在還原時刪掉 Sore 自己加的條目 */
+    remove: (ids: string[]) => Promise<void> | void;
+    setMounted: (charId: string, mounted: MountedWorldbook[]) => Promise<void> | void;
+}
+
+export const applyWorldbookProposal = async (proposal: AssistantWorldbookProposal, data: WorldbookData, writer: WorldbookWriter): Promise<AssistantWorldbookProposal> => {
+    const byId = new Map(data.worldbooks.map(b => [b.id, b]));
+    const missing = proposal.updates.find(u => !byId.has(u.id));
+    if (missing) throw new Error('有條目已經不在了，這張卡片套不上去');
+    if (proposal.adds.some(b => byId.has(b.id))) throw new Error('這些條目已經加過了');
+    for (const m of proposal.mounts) if (!data.characters.some(c => c.id === m.charId)) throw new Error('要掛的角色已經不在了');
+    const now = Date.now();
+    const snapshot = {
+        entries: proposal.updates.map(u => ({ ...byId.get(u.id)! })),
+        mounts: proposal.mounts.map(m => ({ charId: m.charId, mounted: [...(data.characters.find(c => c.id === m.charId)?.mountedWorldbooks || [])] })),
+        at: now,
+    };
+    for (const book of proposal.adds) await writer.add({ ...book, createdAt: now, updatedAt: now });
+    for (const u of proposal.updates) await writer.update(u.id, { ...u.patch, updatedAt: now });
+    // 套用完每條的樣子：沒改到的照原樣（整組掛載也要掛它們）、改到的套上改動、新加的
+    const patches = new Map(proposal.updates.map(u => [u.id, u.patch]));
+    const finalBooks = new Map<string, Worldbook>([
+        ...data.worldbooks.map(b => [b.id, { ...b, ...(patches.get(b.id) || {}) }] as [string, Worldbook]),
+        ...proposal.adds.map(b => [b.id, b] as [string, Worldbook]),
+    ]);
+    for (const m of proposal.mounts) {
+        const current = data.characters.find(c => c.id === m.charId)?.mountedWorldbooks || [];
+        await writer.setMounted(m.charId, nextMounted(current, m, finalBooks));
+    }
+    return { ...proposal, status: 'applied', appliedAt: now, snapshot };
+};
+
+/** 套用之後這幾條又被改過（還原會蓋掉，畫面要先問） */
+export const worldbookChangedSinceApply = (proposal: AssistantWorldbookProposal, data: WorldbookData): boolean => {
+    if (proposal.status !== 'applied' || !proposal.appliedAt) return false;
+    const ids = new Set([...proposal.updates.map(u => u.id), ...proposal.adds.map(b => b.id)]);
+    return data.worldbooks.some(b => ids.has(b.id) && b.updatedAt > proposal.appliedAt! + 2000);
+};
+
+export const restoreWorldbookProposal = async (proposal: AssistantWorldbookProposal, data: WorldbookData, writer: WorldbookWriter): Promise<AssistantWorldbookProposal> => {
+    const snapshot = proposal.snapshot;
+    if (!snapshot) throw new Error('這張卡片沒有快照，沒辦法還原');
+    const existing = new Set(data.worldbooks.map(b => b.id));
+    const added = proposal.adds.map(b => b.id).filter(id => existing.has(id));
+    if (added.length) await writer.remove(added);
+    for (const before of snapshot.entries) {
+        if (!existing.has(before.id)) continue;
+        const u = proposal.updates.find(x => x.id === before.id);
+        // 只寫回這張卡片改過的欄位（原本沒有的欄位寫回 undefined）
+        const patch = Object.fromEntries(Object.keys(u?.patch || {}).map(k => [k, (before as unknown as Record<string, unknown>)[k]])) as Partial<Worldbook>;
+        await writer.update(before.id, patch);
+    }
+    for (const m of snapshot.mounts) {
+        if (data.characters.some(c => c.id === m.charId)) await writer.setMounted(m.charId, m.mounted);
     }
     return { ...proposal, status: 'restored' };
 };

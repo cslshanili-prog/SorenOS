@@ -12,8 +12,10 @@ import type { SoreToolContext } from '../utils/assistant/tools';
 import { type CssData, type CssWrite, findCssLocation, resolveCssTarget } from '../utils/assistant/cssLocations';
 import { buildSoreEntryNote, takeSoreHandoff } from '../utils/assistant/handoff';
 import {
-    applyCssProposal, applyPresetProposal, changedSinceApply, presetChangedSinceApply, type PresetWriter, restoreCssProposal, restorePresetProposal,
+    applyCssProposal, applyPresetProposal, applyWorldbookProposal, changedSinceApply, presetChangedSinceApply, type PresetWriter,
+    restoreCssProposal, restorePresetProposal, restoreWorldbookProposal, worldbookChangedSinceApply, type WorldbookWriter,
 } from '../utils/assistant/applyProposal';
+import type { WorldbookData } from '../utils/assistant/worldbookOps';
 import type { PresetData } from '../utils/assistant/presetOps';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import ProposalCard from '../components/assistant/ProposalCard';
@@ -68,6 +70,7 @@ const AssistantApp: React.FC = () => {
     const {
         closeApp, openApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
         theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme, updateUserProfile,
+        worldbooks, addWorldbook, updateWorldbook, deleteWorldbooks,
     } = useOS();
     const [sessions, setSessions] = useState<AssistantSession[]>([]);
     const [current, setCurrent] = useState<AssistantSession | null>(null);
@@ -86,6 +89,8 @@ const AssistantApp: React.FC = () => {
     // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
     const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
     cssDataRef.current = { theme, characters, groups, customThemes };
+    const worldbookDataRef = useRef<WorldbookData>({ worldbooks, characters });
+    worldbookDataRef.current = { worldbooks, characters };
     const sceneDefaultsRef = useRef(userProfileBase.presetSceneDefaults);
     sceneDefaultsRef.current = userProfileBase.presetSceneDefaults;
 
@@ -164,6 +169,7 @@ const AssistantApp: React.FC = () => {
         testApi: async target => testApiConnection(target === 'light' ? lightLLM : apiConfig),
         cssData: () => cssDataRef.current,
         presetData: loadPresetData,
+        worldbookData: () => worldbookDataRef.current,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
     const addImages = async (files: FileList | null) => {
@@ -240,6 +246,13 @@ const AssistantApp: React.FC = () => {
         },
     };
 
+    const worldbookWriter: WorldbookWriter = {
+        add: book => addWorldbook(book),
+        update: (id, patch) => updateWorldbook(id, patch),
+        remove: ids => deleteWorldbooks(ids),
+        setMounted: (charId, mounted) => updateCharacter(charId, { mountedWorldbooks: mounted }),
+    };
+
     const actOnProposal = async (messageId: string, action: 'apply' | 'reject' | 'restore') => {
         const session = current;
         const message = session?.messages.find(m => m.id === messageId);
@@ -247,7 +260,10 @@ const AssistantApp: React.FC = () => {
         if (!session || !proposal || proposalBusy) return;
         const cssData = cssDataRef.current;
         const presetData = proposal.kind === 'preset' ? await loadPresetData() : null;
-        const changedSince = proposal.kind === 'css' ? changedSinceApply(proposal, cssData) : presetChangedSinceApply(proposal, presetData!);
+        const wbData = worldbookDataRef.current;
+        const changedSince = proposal.kind === 'css' ? changedSinceApply(proposal, cssData)
+            : proposal.kind === 'worldbook' ? worldbookChangedSinceApply(proposal, wbData)
+            : presetChangedSinceApply(proposal, presetData!);
         if (action === 'restore' && changedSince
             && !window.confirm('套用之後這裡又被改過了，還原會把那些改動一起蓋掉。還是要還原？')) return;
         setProposalBusy(messageId);
@@ -256,6 +272,8 @@ const AssistantApp: React.FC = () => {
             if (action === 'reject') next = { ...proposal, status: 'rejected' };
             else if (proposal.kind === 'css') {
                 next = action === 'apply' ? await applyCssProposal(proposal, cssData, writeCss) : await restoreCssProposal(proposal, cssData, writeCss);
+            } else if (proposal.kind === 'worldbook') {
+                next = action === 'apply' ? await applyWorldbookProposal(proposal, wbData, worldbookWriter) : await restoreWorldbookProposal(proposal, wbData, worldbookWriter);
             } else {
                 next = action === 'apply' ? await applyPresetProposal(proposal, presetData!, presetWriter) : await restorePresetProposal(proposal, presetData!, presetWriter);
             }
@@ -266,7 +284,9 @@ const AssistantApp: React.FC = () => {
             });
             if (action === 'apply') addToast(proposal.kind === 'css' && !proposal.css ? '清掉了' : '套用了，去那頁看看；不喜歡可以按還原', 'success');
             if (action === 'restore') addToast('還原了', 'success');
-            const where = proposal.kind === 'css' ? LOCATION_EVENT_LABEL[proposal.location] || '其他' : proposal.presetKind === 'story' ? '剧情预设' : '通用预设';
+            const where = proposal.kind === 'css' ? LOCATION_EVENT_LABEL[proposal.location] || '其他'
+                : proposal.kind === 'worldbook' ? '世界书'
+                : proposal.presetKind === 'story' ? '剧情预设' : '通用预设';
             trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: where });
         } catch (err: any) {
             addToast(err?.message || String(err), 'error');
