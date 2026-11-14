@@ -85,6 +85,7 @@ interface ChatModalsProps {
     onOpenHistoryCleanup?: () => void;
     /** 從別的 App 匯入聊天紀錄（plans/chat-import-export.md） */
     onOpenChatImport?: () => void;
+    onOpenChatExport?: () => void;
     onArchive: () => void;
     onCreatePrompt: () => void;
     onEditPrompt: () => void;
@@ -284,6 +285,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     onTransfer, onImportEmoji, onSaveSettings, chatUser,
     onOpenHistoryCleanup,
     onOpenChatImport,
+    onOpenChatExport,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
     onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
@@ -724,10 +726,13 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             )}
                         </div>
                     </ChatSettingsSection>
-                    <ChatSettingsSection title="聊天記錄" summary="匯入、按範圍清理或保留最近消息">
-                        {onOpenChatImport && <div className="mb-3">
-                            <button type="button" onClick={onOpenChatImport} className="w-full rounded-2xl border border-violet-100 bg-violet-50 py-3 text-sm font-bold text-violet-600">從別的 App 匯入聊天紀錄</button>
-                            <p className="mt-2 text-center text-[10px] text-slate-400">支援另一家手機風格 App 匯出的 JSON，匯到這條線。</p>
+                    <ChatSettingsSection title="聊天記錄" summary="匯入、匯出、按範圍清理或保留最近消息">
+                        {(onOpenChatImport || onOpenChatExport) && <div className="mb-3">
+                            <div className="flex gap-2">
+                                {onOpenChatImport && <button type="button" onClick={onOpenChatImport} className="flex-1 rounded-2xl border border-violet-100 bg-violet-50 py-3 text-sm font-bold text-violet-600">匯入聊天紀錄</button>}
+                                {onOpenChatExport && <button type="button" onClick={onOpenChatExport} className="flex-1 rounded-2xl border border-violet-100 bg-violet-50 py-3 text-sm font-bold text-violet-600">匯出聊天紀錄</button>}
+                            </div>
+                            <p className="mt-2 text-center text-[10px] text-slate-400">匯入收 Soren 匯出的 JSON 和另一家手機風格 App 的 JSON，放到這條線；匯出有 Soren JSON 和 TXT。</p>
                         </div>}
                         {onOpenHistoryCleanup && <div>
                             <button type="button" onClick={onOpenHistoryCleanup} className="w-full rounded-2xl border border-red-100 bg-red-50 py-3 text-sm font-bold text-red-600">清理指定範圍 / 保留最近 N 條</button>

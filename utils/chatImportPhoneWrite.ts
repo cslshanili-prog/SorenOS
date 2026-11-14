@@ -9,7 +9,7 @@
  */
 import type { Message } from '../types';
 import { DB } from './db';
-import { importedKey, importedKeyOf, type ImportedMessage } from './chatImportPhone';
+import { ExistingIndex, importedKey, type ExistingMessage, type ImportedMessage } from './chatImportPhone';
 
 export type DuplicateMode = 'skip' | 'overwrite';
 
@@ -32,22 +32,27 @@ export interface ImportPlan {
 
 export function planImportRows(input: {
     messages: ImportedMessage[];
-    existing: Pick<Message, 'id' | 'metadata'>[];
+    existing: ExistingMessage[];
     duplicate: DuplicateMode;
     place: (m: ImportedMessage) => ImportPlace | null;
 }): ImportPlan {
+    const index = new ExistingIndex(input.existing);
     const existingBySource = new Map<string, number>();
-    for (const m of input.existing) {
-        const key = importedKeyOf(m);
-        if (key && !existingBySource.has(key)) existingBySource.set(key, m.id);
-    }
     const rows: ImportRow[] = [];
     const sources: ImportedMessage[] = [];
     let skippedDuplicates = 0, overwritten = 0, unplaced = 0;
     for (const m of [...input.messages].sort((a, b) => a.timestamp - b.timestamp)) {
         const place = input.place(m);
         if (!place) { unplaced++; continue; }
-        const prevId = existingBySource.get(importedKey(m.metadata.importedFrom));
+        const key = importedKey(m.metadata.importedFrom);
+        const prevId = index.take(key);
+        if (prevId !== undefined) existingBySource.set(key, prevId);
+        // 被引用的那則可能這次沒帶、但已經在 Soren 裡
+        if (m.replyToSourceId) {
+            const rk = importedKey({ source: m.metadata.importedFrom.source, id: m.replyToSourceId });
+            const rid = index.peek(rk);
+            if (rid !== undefined && !existingBySource.has(rk)) existingBySource.set(rk, rid);
+        }
         if (prevId !== undefined && input.duplicate === 'skip') { skippedDuplicates++; continue; }
         if (prevId !== undefined) overwritten++;
         rows.push({

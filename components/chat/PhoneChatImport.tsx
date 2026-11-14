@@ -4,7 +4,8 @@ import { CaretLeft, Warning } from '@phosphor-icons/react';
 import { useOS } from '../../context/OSContext';
 import type { CharacterProfile, ChatLine, Message, MessageType } from '../../types';
 import { DB } from '../../utils/db';
-import { parsePhoneExport, findAlreadyImported, toMemoryFragments, type PhoneImport, type ImportedMessage } from '../../utils/chatImportPhone';
+import { findAlreadyImported, toMemoryFragments, type PhoneImport, type ImportedMessage } from '../../utils/chatImportPhone';
+import { parseChatExportJson } from '../../utils/chatExport';
 import { planImportRows, runImport, type DuplicateMode, type ImportPlace } from '../../utils/chatImportPhoneWrite';
 import { lineFor } from '../../utils/chatLine';
 import { personaNameForKey } from '../../utils/userPersona';
@@ -68,10 +69,10 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
     const read = async (file: File) => {
         let parsed: PhoneImport;
         try {
-            parsed = parsePhoneExport(JSON.parse(await file.text()));
+            parsed = parseChatExportJson(JSON.parse(await file.text()));
         } catch (e: any) {
             addToast(e?.message === '不是認得的聊天紀錄檔' || e instanceof SyntaxError
-                ? '認不出這個檔案。目前支援：另一家手機風格 App 匯出的私聊／群聊 JSON。SillyTavern 的聊天請到見面匯入，角色卡請到神經鏈接。'
+                ? '認不出這個檔案。目前支援：Soren 匯出的私聊 JSON、另一家手機風格 App 匯出的私聊／群聊 JSON。SillyTavern 的聊天請到見面匯入，角色卡請到神經鏈接。'
                 : (e?.message || '讀不出這個檔案'), 'error');
             return;
         }
@@ -118,7 +119,7 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
     }, [data, line?.charId, line?.personaKey, groupTarget]);
 
     const dup = useMemo(() => (data && existing ? findAlreadyImported(existing, data.messages) : null), [data, existing]);
-    const dupCount = dup?.ids.size ?? 0;
+    const dupCount = dup?.existingMessageIds.length ?? 0;
     const otherCount = existing ? existing.length - (dup?.existingMessageIds.length ?? 0) : 0;
     /** 會新增（接在後面）的則數：重複的不管跳過還是覆蓋都不新增 */
     const newCount = data ? data.messages.length - dupCount : 0;
@@ -157,7 +158,11 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
                 if (picked.length) {
                     const personaName = ln.personaKey ? personaNameForKey(userProfileBase, ln.personaKey) : undefined;
                     const frags = toMemoryFragments(picked).map(f => (ln.personaKey ? { ...f, personaKey: ln.personaKey, personaName } : f));
-                    updateCharacter(char.id, prev => ({ memories: [...(prev.memories || []), ...frags] }));
+                    // 一樣的記憶不重複收（Soren 自己匯出的匯回原本的角色時）
+                    updateCharacter(char.id, prev => {
+                        const have = new Set((prev.memories || []).map(f => f.summary));
+                        return { memories: [...(prev.memories || []), ...frags.filter(f => !have.has(f.summary))] };
+                    });
                 }
                 trackEvent('导入聊天记录', { 来源: '另一家', 类型: '私聊', 目标: created ? '新建' : '现有', 重复: dupCount ? (duplicate === 'skip' ? '跳过' : '覆盖') : '无' });
                 addToast(`已匯入 ${res.added} 則${res.overwritten ? `、覆蓋 ${res.overwritten} 則` : ''}${res.skippedDuplicates ? `（${res.skippedDuplicates} 則已經有了，跳過）` : ''}${picked.length ? `，記憶 ${picked.length} 條` : ''}`, 'success');
@@ -222,7 +227,7 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
                 {/* 檔案 */}
                 <div className={card}>
                     <div className="text-base font-bold truncate">{d.kind === 'private' ? `跟「${d.character.name}」的私聊` : `群聊「${d.group.name}」`}</div>
-                    <div className="text-[11px] text-slate-400">另一家手機風格 App 的匯出檔{d.exportDate ? ` · 匯出於 ${fmtDate(Date.parse(d.exportDate) || 0)}` : ''}</div>
+                    <div className="text-[11px] text-slate-400">{d.origin === 'soren' ? 'Soren 匯出的聊天紀錄' : '另一家手機風格 App 的匯出檔'}{d.exportDate ? ` · 匯出於 ${fmtDate(Date.parse(d.exportDate) || 0)}` : ''}</div>
                     {presetDropped && <p className="text-[11px] text-amber-600">這是{d.kind === 'group' ? '群聊' : '私聊'}的紀錄，不是這裡的{d.kind === 'group' ? '私聊' : '群聊'}，下面自己選要放到哪。</p>}
                 </div>
 
@@ -332,14 +337,14 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
                                     <button type="button" onClick={() => setShowMemories(v => !v)}>{showMemories ? '收起' : '展開'}</button>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-slate-400">他記得的事 {d.memories.filter(m => m.kind === 'fact').length} 條、總結 {d.memories.filter(m => m.kind === 'summary').length} 篇。勾的會收進角色記憶，標「匯入」；記憶宮殿之後手動或自動整理時才會進去。</p>
+                            <p className="text-[11px] text-slate-400">{d.origin === 'soren' ? `角色記憶 ${d.memories.length} 條，原樣收回來（已經有一樣的就不重複）。` : `他記得的事 ${d.memories.filter(m => m.kind === 'fact').length} 條、總結 ${d.memories.filter(m => m.kind === 'summary').length} 篇。勾的會收進角色記憶，標「匯入」；`}記憶宮殿之後手動或自動整理時才會進去。</p>
                             {showMemories && (
                                 <div className="space-y-1.5">
                                     {d.memories.map(m => (
                                         <label key={m.key} className="flex items-start gap-2 rounded-xl bg-slate-50 p-2.5 text-[12px]">
                                             <input type="checkbox" className="mt-0.5 accent-violet-500" checked={!!memoryOn[m.key]} onChange={e => setMemoryOn(s => ({ ...s, [m.key]: e.target.checked }))} />
                                             <span className="min-w-0 flex-1">
-                                                <span className="text-[10px] text-slate-400">{m.kind === 'fact' ? '記得的事' : '總結'} · {m.date}</span>
+                                                <span className="text-[10px] text-slate-400">{m.kind === 'fact' ? '記得的事' : m.kind === 'memory' ? '記憶' : '總結'} · {m.date}</span>
                                                 <span className="mt-0.5 block whitespace-pre-wrap break-words text-slate-700 line-clamp-4">{m.summary}</span>
                                             </span>
                                         </label>

@@ -12,6 +12,8 @@ export const PHONE_IMPORT_SOURCE = 'phone-json';
 
 export interface PhoneImportBase {
     kind: 'private' | 'group';
+    /** 哪來的檔：另一家（預設）或 Soren 自己匯出的 JSON */
+    origin?: 'phone' | 'soren';
     exportDate?: string;
     userName?: string;
     messages: ImportedMessage[];
@@ -53,7 +55,8 @@ export interface ImportedMessage {
 export interface ImportedMemory {
     /** 勾選用的 key */
     key: string;
-    kind: 'fact' | 'summary';
+    /** memory：Soren 自己匯出的角色記憶，原樣收回來 */
+    kind: 'fact' | 'summary' | 'memory';
     /** fact 的分類（user／bond／self／people／event） */
     cat?: string;
     date: string;
@@ -202,22 +205,60 @@ export function parsePhoneExport(json: any): PhoneImport {
 
 // ─── 寫進去之前 ───
 
-/** 匯入的那則從哪來：「來源:原本的 id」（不同來源的 id 不會撞在一起） */
-export const importedKey = (f: { source: string; id: string }): string => `${f.source}:${f.id}`;
+/** Soren 自己匯出的 JSON 匯回來（utils/chatExport.ts）：原本的 id 是「時間|誰|類型」的指紋 */
+export const SOREN_JSON_SOURCE = 'soren-json';
+export const fingerprintOf = (m: Pick<Message, 'timestamp' | 'role' | 'type'>): string => `${m.timestamp}|${m.role}|${m.type}`;
+
+/** 匯入的那則從哪來：「來源:原本的 id」（不同來源的 id 不會撞在一起）；Soren 自己的用指紋 */
+export const importedKey = (f: { source: string; id: string }): string => (f.source === SOREN_JSON_SOURCE ? `fp:${f.id}` : `${f.source}:${f.id}`);
 
 export const importedKeyOf = (m: Pick<Message, 'metadata'>): string | undefined => {
     const f = m.metadata?.importedFrom;
     return f && typeof f.source === 'string' && typeof f.id === 'string' ? importedKey(f) : undefined;
 };
 
-/** 這次的訊息裡，哪幾則已經匯過（照來源＋原本的 id）；ids 是 importedKey */
-export function findAlreadyImported(existing: Pick<Message, 'id' | 'metadata'>[], incoming: ImportedMessage[]): { ids: Set<string>; existingMessageIds: number[] } {
-    const want = new Set(incoming.map(m => importedKey(m.metadata.importedFrom)));
+export type ExistingMessage = Pick<Message, 'id' | 'metadata'> & Partial<Pick<Message, 'timestamp' | 'role' | 'type'>>;
+
+/** 已經在 Soren 裡的一則，認得出它的 key：匯入來源一個，再加指紋（Soren 自己匯出又匯回同一條線時對得上） */
+export const existingKeysOf = (m: ExistingMessage): string[] => {
+    const keys: string[] = [];
+    const k = importedKeyOf(m);
+    if (k) keys.push(k);
+    if (typeof m.timestamp === 'number' && m.role && m.type) keys.push(`fp:${fingerprintOf(m as Pick<Message, 'timestamp' | 'role' | 'type'>)}`);
+    return keys;
+};
+
+/** key → 還沒被對走的 Soren id（同一個指紋可能有好幾則，一則只對一次） */
+export class ExistingIndex {
+    private byKey = new Map<string, number[]>();
+    private used = new Set<number>();
+    constructor(existing: ExistingMessage[]) {
+        for (const m of existing) for (const k of existingKeysOf(m)) {
+            const list = this.byKey.get(k);
+            if (list) list.push(m.id); else this.byKey.set(k, [m.id]);
+        }
+    }
+    /** 第一個對得上的 id（不佔用；接引用回覆用） */
+    peek(key: string): number | undefined { return this.byKey.get(key)?.[0]; }
+    /** 拿走一個還沒用過的 */
+    take(key: string): number | undefined {
+        const list = this.byKey.get(key);
+        if (!list) return undefined;
+        const id = list.find(x => !this.used.has(x));
+        if (id !== undefined) this.used.add(id);
+        return id;
+    }
+}
+
+/** 這次的訊息裡，哪幾則已經在了（照來源＋原本的 id，或指紋）；ids 是對到的 importedKey，則數看 existingMessageIds */
+export function findAlreadyImported(existing: ExistingMessage[], incoming: ImportedMessage[]): { ids: Set<string>; existingMessageIds: number[] } {
+    const index = new ExistingIndex(existing);
     const ids = new Set<string>();
     const existingMessageIds: number[] = [];
-    for (const m of existing) {
-        const id = importedKeyOf(m);
-        if (id && want.has(id)) { ids.add(id); existingMessageIds.push(m.id); }
+    for (const m of incoming) {
+        const key = importedKey(m.metadata.importedFrom);
+        const id = index.take(key);
+        if (id !== undefined) { ids.add(key); existingMessageIds.push(id); }
     }
     return { ids, existingMessageIds };
 }
@@ -228,6 +269,6 @@ export function toMemoryFragments(memories: ImportedMemory[], now = Date.now()):
     return memories.map((m, i) => ({
         id: `mem-import-${now}-${i}`,
         date: m.date,
-        summary: m.kind === 'fact' ? `【匯入·${CAT_LABEL[m.cat || ''] || '記得的事'}】${m.summary}` : `【匯入·總結】${m.summary}`,
+        summary: m.kind === 'memory' ? m.summary : m.kind === 'fact' ? `【匯入·${CAT_LABEL[m.cat || ''] || '記得的事'}】${m.summary}` : `【匯入·總結】${m.summary}`,
     }));
 }
