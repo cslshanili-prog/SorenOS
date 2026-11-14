@@ -26,7 +26,6 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('私聊照預設組', () => {
     it('沒選預設：照舊三段，收尾是「回到你自己」', async () => {
-        vi.spyOn(DB, 'getUserProfile').mockResolvedValue(null as any);
         const payload = await buildChatRequestPayload(input({}));
         expect(payload.flags.chatPresetActive).toBe(false);
         expect(payload.fullMessages[0].content).toContain('### 聊天 App 行為規範');
@@ -58,10 +57,17 @@ describe('私聊照預設組', () => {
         expect((await buildChatRequestPayload(input({ chatPresetId: 'builtin' }, profile))).flags.chatPresetActive).toBe(false);
     });
 
-    it('即時對話（交給雲端生成）這批先照內建', async () => {
+    it('即時對話（交給雲端生成）也照預設：worker 只在最後補時效段', async () => {
         vi.spyOn(DB, 'getMeetingPreset').mockResolvedValue({ id: 'p1', name: '日月', doc, createdAt: 0, updatedAt: 0 } as any);
         const payload = await buildChatRequestPayload({ ...input({ chatPresetId: 'p1' }), timelyByWorker: true });
-        expect(payload.flags.chatPresetActive).toBe(false);
+        expect(payload.flags.chatPresetActive).toBe(true);
+        expect(String(payload.fullMessages[0].content).startsWith('你是阿一，文筆細膩。')).toBe(true);
+    });
+
+    it('沒選預設也沒設場景預設：不讀預設表', async () => {
+        const spy = vi.spyOn(DB, 'getMeetingPreset');
+        await buildChatRequestPayload(input({}));
+        expect(spy).not.toHaveBeenCalled();
     });
 
     it('選的那份被刪了：退回內建', async () => {

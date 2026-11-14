@@ -43,9 +43,7 @@ import { loadCollaborationFileCabinetBlock } from '../features/collaboration/cha
 import { buildSARUserSurfaceRequest, selectSARUserSurfaceTargets } from './vrWorld/sarUserSurface';
 import { getSARModuleRuntimePlan } from './vrWorld/sarModuleRuntime';
 import { withGlobalWorldbooks } from './globalWorldbooks';
-import { DB } from './db';
-import { resolveChatPresetId } from './presetBinding';
-import { assembleChatPreset, buildChatPresetSlots } from './chatPresetSession';
+import { assembleChatPreset, buildChatPresetSlots, loadChatPresetDoc } from './chatPresetSession';
 
 export { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 
@@ -503,8 +501,9 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     volatileTail += parts.recencyTail;
     if (sarModuleBlock) volatileTail += sarModuleBlock;
 
-    // 自訂預設：角色選的 > 私聊場景預設 > 內建。即時對話（交給 worker 生成）先照內建，雲端在第 2b 批接上。
-    const chatPreset = input.timelyByWorker ? null : await loadChatPreset(char, userProfile);
+    // 自訂預設：角色選的 > 私聊場景預設 > 內建。即時對話（交給 worker 生成）也照這份：
+    // worker 只在最後補一則時效段，不碰前面的結構（plans/preset-library.md 第 2b 批）。
+    const chatPreset = await loadChatPresetDoc(char, userProfile);
 
     // 結構：[穩定 system] + [歷史消息] + [易變狀態 system] (+ 末尾 reminder)。
     // 穩定前綴不再包含分鐘級時間戳等易變內容 → 支持前綴緩存的中轉能跨輪命中；
@@ -573,14 +572,3 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     };
 }
 
-/**
- * 私聊用哪份自訂預設（plans/preset-library.md 第 2 批）；null＝內建。
- * 場景預設存在主身份的資料上：傳進來的 userProfile 是線上的視角，沒帶就讀一次 DB。
- */
-async function loadChatPreset(char: CharacterProfile, userProfile: UserProfile) {
-    const sceneDefaults = userProfile?.presetSceneDefaults ?? (await DB.getUserProfile().catch(() => null))?.presetSceneDefaults;
-    const id = resolveChatPresetId(char, { presetSceneDefaults: sceneDefaults });
-    if (!id) return null;
-    const record = await DB.getMeetingPreset(id).catch(() => undefined);
-    return record?.doc ?? null;
-}
