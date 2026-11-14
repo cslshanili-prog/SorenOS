@@ -7,6 +7,7 @@ import { addPrompt, canDeletePrompt, movePrompt, moveRegexScript, removePrompt, 
 import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor';
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
 import { isPresetFeatureSlot, PRESET_FEATURE_OFF_WARNING, PRESET_SLOT_LABELS } from '../../utils/meetingPreset/slotLabels';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
 // 正則開關、生成參數。條目能新增、刪除（資料佔位只能關）、排序；正則能排序。
@@ -126,6 +127,7 @@ const MeetingPresetManager: React.FC<{ presetId: string; onClose: () => void }> 
                     <input value={doc.name} onChange={e => update({ ...doc, name: e.target.value })} aria-label="預設名稱"
                         className="flex-1 min-w-0 font-bold text-slate-700 bg-transparent outline-none" />
                     <span className="text-[11px] text-slate-400 shrink-0">開 {enabledCount} / {doc.prompts.length}</span>
+                    <AskSoreButton compact location="preset" targetId={presetId} targetName={doc.name} />
                 </div>
                 <div className="mt-3 flex gap-1 p-1 bg-slate-100 rounded-xl">
                     {tabButton('prompts', '條目')}

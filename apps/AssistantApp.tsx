@@ -28,6 +28,7 @@ import { processImage } from '../utils/file';
 
 /** 從編輯頁的「請 Sore 幫忙」進來時的建議 */
 const ENTRY_SUGGESTIONS = ['幫我重新設計一套', '看看現在的 CSS 哪裡有問題', '顏色換暖一點就好'];
+const PRESET_ENTRY_SUGGESTIONS = ['這份預設在幹嘛？幫我看看', '文風改得更口語一點', '加個正則把星號拿掉'];
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
 
@@ -112,8 +113,13 @@ const AssistantApp: React.FC = () => {
     const [returnTo, setReturnTo] = useState<AppID | null>(null);
     useEffect(() => {
         const handoff = takeSoreHandoff();
-        if (handoff) {
-            const loc = findCssLocation(handoff.location);
+        if (handoff?.location === 'preset' && handoff.targetId) {
+            const now = Date.now();
+            const label = `預設 · ${handoff.targetName || handoff.targetId}`;
+            setCurrent({ id: newSessionId(), title: label, messages: [], createdAt: now, updatedAt: now, entry: { location: 'preset', target: handoff.targetId, label } });
+            if (handoff.from && handoff.from !== AppID.Assistant) setReturnTo(handoff.from);
+        } else if (handoff) {
+            const loc = handoff.location === 'preset' ? undefined : findCssLocation(handoff.location);
             if (loc) {
                 const target = handoff.targetId || handoff.targetName || '';
                 const resolved = resolveCssTarget(loc, target, cssDataRef.current, { allowNew: true });
@@ -334,9 +340,11 @@ const AssistantApp: React.FC = () => {
                 {visible.length === 0 && current?.entry && (
                     <div className="pt-4 flex flex-col items-center text-center gap-3">
                         <SoreAvatar size={48} />
-                        <p className="text-[13px] leading-relaxed text-slate-600 max-w-[270px]">來啦。想改成什麼樣？說個感覺、丟張截圖都行，我先看看現在長怎樣 🎨</p>
+                        <p className="text-[13px] leading-relaxed text-slate-600 max-w-[270px]">{current.entry.location === 'preset'
+                            ? '來啦。想讓它哪裡不一樣？說說角色現在哪裡不對勁，我先翻翻這份預設 📜'
+                            : '來啦。想改成什麼樣？說個感覺、丟張截圖都行，我先看看現在長怎樣 🎨'}</p>
                         <div className="flex flex-wrap justify-center gap-2 pt-1">
-                            {ENTRY_SUGGESTIONS.map(s => (
+                            {(current.entry.location === 'preset' ? PRESET_ENTRY_SUGGESTIONS : ENTRY_SUGGESTIONS).map(s => (
                                 <button key={s} type="button" disabled={running} onClick={() => void send(s)}
                                     className="rounded-full bg-white border border-amber-200 px-3 py-1.5 text-[12px] text-amber-700 shadow-sm active:scale-95 transition disabled:opacity-40">{s}</button>
                             ))}

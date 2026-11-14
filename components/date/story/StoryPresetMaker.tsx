@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import ExpandableTextarea from '../../common/ExpandableTextarea';
+import AskSoreButton from '../../assistant/AskSoreButton';
 import { ArrowDown, ArrowLeft, ArrowUp, Copy, DownloadSimple, FloppyDisk, LockSimple, Plus, Trash } from '@phosphor-icons/react';
 import type { StoryTheaterPreset, StoryTheaterPresetDocument, StoryTheaterPresetPrompt } from '../../../types';
 import {
@@ -221,6 +222,7 @@ const StoryPresetMaker: React.FC<Props> = ({ preset, onBack, onSave, onOpenCopy,
                 <button onClick={onBack} className='w-9 h-9 rounded-full grid place-items-center'><ArrowLeft size={20} /></button>
                 <div className='min-w-0 flex-1'><div className='text-[9px] uppercase tracking-[.24em] font-bold text-violet-500'>Preset maker</div><div className='font-semibold truncate'>預設製作器</div></div>
                 {readOnly && <span className='hidden sm:inline-flex text-[9px] px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-bold'>內置只讀</span>}
+                {!readOnly && <AskSoreButton compact location="preset" targetId={preset.id} targetName={preset.name} />}
                 <button onClick={() => { void downloadStoryPreset(draft); }} className='w-9 h-9 shrink-0 rounded-full bg-white border border-slate-200 grid place-items-center' title='導出糯米機原生預設'><DownloadSimple size={16} /></button>
                 <button onClick={save} className='h-9 px-3 rounded-full bg-slate-900 text-white text-xs font-bold flex items-center gap-1.5'>{readOnly ? <Copy size={14} /> : <FloppyDisk size={14} />}{readOnly ? '複製調整' : saving ? '保存中' : '保存'}</button>
             </div>

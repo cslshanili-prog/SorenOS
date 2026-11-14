@@ -7,10 +7,11 @@ import type { AppID } from '../../types';
 import type { CssLocationId } from './cssLocations';
 
 export interface SoreHandoff {
-    location: CssLocationId;
-    /** 角色／群／氣泡主題 id；全域位置留空 */
+    /** 美化位置，或 'preset'（預設編輯頁，第 3 批） */
+    location: CssLocationId | 'preset';
+    /** 角色／群／氣泡主題 id，或預設 id；全域位置留空 */
     targetId?: string;
-    /** 氣泡主題還沒存的時候用名字（Sore 會新建） */
+    /** 氣泡主題還沒存的時候用名字（Sore 會新建）；預設的話是預設名字（顯示用） */
     targetName?: string;
     /** 返回時回到哪個 App */
     from?: AppID;
@@ -27,8 +28,12 @@ export const takeSoreHandoff = (): SoreHandoff | null => {
 };
 
 /** 每輪送給 Sore 的「用戶從哪裡來」 */
-export const buildSoreEntryNote = (entry: { location: string; target: string; label: string }) => [
+export const buildSoreEntryNote = (entry: { location: string; target: string; label: string }) => (entry.location === 'preset' ? [
+    `用戶在「${entry.label}」的編輯頁按了「請 Sore 幫忙」。`,
+    `要改的預設：preset="${entry.target}"。用戶沒特別說改哪份的時候，就是改這份。`,
+    '開始前先用「讀取預設」看這份現在的樣子；要改的條目先「讀取條目」看全文。',
+].join('\n') : [
     `用戶在「${entry.label}」的編輯頁按了「請 Sore 幫忙」。`,
     `要改的位置：location="${entry.location}"${entry.target ? `，target="${entry.target}"` : ''}。用戶沒特別說改哪裡的時候，就是改這裡。`,
     '開始前先用「讀取CSS」看這裡現在的內容。',
-].join('\n');
+].join('\n'));
