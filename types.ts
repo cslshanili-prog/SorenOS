@@ -3385,6 +3385,11 @@ export interface CharacterProfile {
   dateEmotionIndependent?: boolean;
   /** 見面的開場白庫（ST 的 first_mes + alternate_greetings）；可用 {{char}}、{{user}} */
   dateGreetings?: { id: string; text: string }[];
+  /**
+   * 私聊開場白（神經鏈接編輯頁）：一條線還沒有任何私聊訊息時，打開聊天就由角色先傳一段（好幾段隨機挑），
+   * 不叫 AI；{{char}}／{{user}} 換成角色和這條線上你的名字。見 utils/chatGreeting.ts。跟見面的 dateGreetings 分開。
+   */
+  chatGreetings?: { id: string; text: string }[];
   /** 開場怎麼來：模型寫（預設）或從開場白庫挑 */
   dateOpeningSource?: 'generate' | 'greeting';
   /** 下一場故事的劇情大綱（ST 的 scenario）：開新故事時搬進 DateStory.scenario 並清掉；進行中的故事改自己的 */

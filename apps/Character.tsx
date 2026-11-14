@@ -47,6 +47,7 @@ import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import BriefPersonaField from '../components/character/BriefPersonaField';
 import DialogueExamplesField from '../components/character/DialogueExamplesField';
+import ChatGreetingsField from '../components/character/ChatGreetingsField';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
 import {
     EXTERNAL_MEMORY_MAX_CHARS,
@@ -1657,6 +1658,11 @@ ${isInitialGeneration ? `
                                 addToast={addToast}
                                 // 拆範例途中切去別的角色：結果不能寫到別人身上
                                 onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
+                           />
+
+                           <ChatGreetingsField
+                                greetings={formData.chatGreetings}
+                                onChange={next => setFormData(prev => prev && prev.id === formData.id ? { ...prev, chatGreetings: next } : prev)}
                            />
 
                            <div>

@@ -71,6 +71,7 @@ import { loadTempChatState } from '../utils/tempChatRuntime';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
 import ChatExportSheet from '../components/chat/ChatExportSheet';
+import { chatGreetingMessage, hasChatGreeting } from '../utils/chatGreeting';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
 import ProactiveSettingsModal from '../components/chat/ProactiveSettingsModal';
@@ -222,6 +223,8 @@ const Chat: React.FC = () => {
     const visibleCountRef = useRef(30);
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
     const [showChatExport, setShowChatExport] = useState(false);
+    /** 私聊開場白：這次打開 App 已經看過的線（一條線只試一次，避免重複送） */
+    const greetingCheckedRef = useRef<Set<string>>(new Set());
     const pendingFavoriteJumpRef = useRef<{ charId: string; messageId: number } | null>(null);
     const historyWindowRangeRef = useRef<ChatHistoryWindowRange | null>(null);
     const historyWindowTotalRef = useRef(0);
@@ -1088,6 +1091,26 @@ const Chat: React.FC = () => {
         // chatLineId：換了線（切身份）也要重讀
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCharacterId, chatLineId]);
+
+    // 私聊開場白（utils/chatGreeting.ts）：這條線一則私聊都沒有時，角色先傳一段；不叫 AI，拉黑中不送
+    useEffect(() => {
+        if (!char || !hasChatGreeting(char) || !chatLineId) return;
+        if (greetingCheckedRef.current.has(chatLineId)) return;
+        greetingCheckedRef.current.add(chatLineId);
+        const charIdAtStart = char.id;
+        void (async () => {
+            try {
+                const { messages: any } = await DB.getRecentMessagesWithCount(chatLineArgRef.current, 1, m => isVisibleChatMessage(m, false));
+                if (any.length || activeCharIdRef.current !== charIdAtStart) return;
+                const greeting = chatGreetingMessage(char, chatUserProfile.name);
+                if (!greeting) return;
+                await DB.saveMessage({ ...lineMsgFields(char), role: 'assistant', type: 'text', content: greeting.content, metadata: greeting.metadata });
+                trackEvent('私聊开场白送出');
+                if (activeCharIdRef.current === charIdAtStart) await reloadMessages(visibleCountRef.current);
+            } catch { /* 送不出去就算了，下次打開再試 */ greetingCheckedRef.current.delete(chatLineId); }
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chatLineId, char?.chatGreetings]);
 
     useEffect(() => {
         if (activeCharacterId) {
