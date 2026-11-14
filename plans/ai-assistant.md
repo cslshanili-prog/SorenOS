@@ -1,6 +1,6 @@
 # AI 助手（幫寫美化、預設，答疑）
 
-> 狀態：設計稿（2026-11-14），還沒開工。Liora 已定：桌面 App＋各處捷徑；寫入前先給你看、按「套用」才寫，寫前留快照可還原；第一版做答疑＋美化 CSS；API 設定裡可選，預設用副 API。名字和個性待定（見第 8 節）。
+> 狀態：第 1 批（答疑）已做（2026-11-14），實況見第 9 節；第 2 批起還是設計稿。Liora 已定：桌面 App＋各處捷徑；寫入前先給你看、按「套用」才寫，寫前留快照可還原；第一版做答疑＋美化 CSS；API 設定裡可選，預設用副 API。名字叫 **Sore**：有點幽默毒舌、隨意、偶爾用 emoji、像朋友聊天、簡短不囉嗦。頭像先用佔位圖。
 
 ## 1. 要做什麼
 
@@ -80,7 +80,7 @@ Soren 照這個思路，但：
 
 ## 5. 系統提示詞
 
-1. 助手是誰（名字、個性、口吻；待定）、它能做什麼、不能做什麼（不能直接寫、不能讀 API Key、不知道就說不知道）。
+1. 助手是誰（Sore：隨意、有點毒舌、偶爾 emoji、簡短）、它能做什麼、不能做什麼（不能直接寫、不能讀 API Key、不知道就說不知道）。
 2. 工具協議與目前展開的工具說明（第一批只有答疑＋CSS）。
 3. 答疑知識（第 1 批）。
 4. 從捷徑進來時：在哪一頁、要改的位置、現在的內容。
@@ -100,7 +100,22 @@ Soren 照這個思路，但：
 | 3 | 預設＋正則 |
 | 4 | 世界書＋小組件 |
 
-## 8. 待定
+## 8. Sore 的個性
 
-1. **名字和個性**：FloraOS 的叫「小卷」。Soren 的要不要取名字？什麼口吻（活潑、溫柔、毒舌、像客服）？
-2. **頭像**：一張靜態圖就好，還是之後想讓它有表情？
+- 像朋友聊天：隨意、有點毒舌但不刻薄，偶爾一個 emoji，簡短不囉嗦；講完重點就停。
+- 跟內建角色 Sully（上游帶來的測試角色卡，純聊天）分開：Sore 不是角色，不進角色清單、不進記憶宮殿、不主動找人。
+- 不知道就說不知道，不編設定位置；要改東西只出提案卡片。
+- 頭像：先佔位，Liora 之後給圖再換。
+
+## 9. 實況：第 1 批（答疑）
+
+- 桌面 App「Sore」（`apps/AssistantApp.tsx`，`AppID.Assistant`）：聊天、對話列表（新對話、刪除）、設定（用哪組 API）。空的時候有幾個建議問題可以點。
+- 對話存在 `assistant_sessions` 表（DB v80，`DB.getAssistantSessions` / `saveAssistantSession` / `deleteAssistantSession`）；只在這台裝置，**不進備份**（答疑紀錄沒什麼好留的；之後的寫前快照要不要進備份，第 2 批再定），也不進記憶宮殿。
+- 用哪組 API：`utils/assistant/api.ts`，偏好存這台裝置的 localStorage（`soren_assistant_prefs_v1`）。自動＝副 API（記憶宮殿的 lightLLM）有設就用，沒設用全域；也可以選全域或 API 庫的某一組；選的那組沒填好會往下退。
+- 引擎：`utils/assistant/engine.ts` 的 `runSoreTurn`。文字協議（`utils/assistant/protocol.ts`）：模型寫 `<tool name="X">{json}</tool>`，結果用 `<tool_result>` 當 user 回給它；一輪最多叫 6 次工具，超過就叫它先停下來講目前查到的。容錯：標籤沒閉合、JSON 尾逗號、全形引號、少一個 `}` 都收。
+- 工具（`utils/assistant/tools.ts`，第 1 批都是讀，全部自動跑）：查看設定概況（只回有沒有設、模型名，Key 一律只說有／沒有）、測試API（真的打一次很小的請求，全域或副 API）、讀說明（`utils/assistant/knowledge.ts` 的專題，MCP 那篇直接讀 `docs/mcp-user-guide.md`）。
+- 知識：`SORE_BASE_KNOWLEDGE` 每輪都帶（功能版圖、首次設定、排查方向、「使用幫助」的常見問題，常見問題搬到 `utils/faqData.ts` 兩邊共用）。**改了 App 的行為（設定在哪、按鈕叫什麼），這裡要跟著改**，不然 Sore 會指錯路。
+- 打 API：`utils/assistant/client.ts`。錯誤訊息一律過 `scrubSecret`（整串 Key、前後 12 碼、`sk-…` 長字串都換成 `[Key]`），不讓 Key 進到 Sore 的上下文；回覆只剝 `<think>` 這類有標籤的思考，不用 `stripLeakedReasoning`（那是給角色台詞的，會把 Sore 正常說的「我先看一下」剝掉）。
+- 畫面上工具結果只顯示一行小字（🔍 查看設定概況），內容只給模型看。
+- 埋點：`向Sore提问`（入口）、`切换Sore的API`（选择），見 `docs/analytics.md`。
+- 測試：`utils/assistant/assistant.test.ts`、`utils/assistant/client.test.ts`。
