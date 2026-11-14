@@ -24,6 +24,7 @@ import { resolveCharTimeZone } from '../utils/timezone';
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
+import StChatImport, { type StChatImportHandle } from '../components/date/StChatImport';
 import type { DateStory, UserProfile } from '../types';
 import { cleanDisplayText } from '../utils/meetingPreset/display';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
@@ -169,6 +170,7 @@ const DateApp: React.FC = () => {
     const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
     const [historyView, setHistoryView] = useState<DateHistoryView>('encounter');
     const [historyStories, setHistoryStories] = useState<DateStory[]>([]);
+    const stChatImportRef = useRef<StChatImportHandle>(null);
     const [historySortOrder, setHistorySortOrder] = useState<DateHistorySortOrder>('newest');
     const [historyLoadLimit, setHistoryLoadLimit] = useState(DATE_HISTORY_MESSAGE_LIMIT);
     const [historyReachedEnd, setHistoryReachedEnd] = useState(false);
@@ -1593,6 +1595,15 @@ const DateApp: React.FC = () => {
                             {historySortOrder === 'newest' ? '新 → 舊' : '舊 → 新'}
                         </button>
                     </div>
+                    <div className="px-4 pb-3 -mt-1">
+                        <button type="button" onClick={() => stChatImportRef.current?.open()}
+                            className="w-full rounded-xl border border-dashed border-slate-200 py-2 text-[11px] font-bold text-slate-500 hover:bg-slate-50">
+                            匯入 SillyTavern 聊天（.jsonl）
+                        </button>
+                    </div>
+                    <StChatImport ref={stChatImportRef} char={char}
+                        onSetActive={storyId => updateCharacter(char.id, { activeDateStoryId: storyId })}
+                        onDone={() => { void openHistory(char).then(() => setHistoryView('story')); }} />
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-20">
                     {historyGroups.length === 0 ? <div className="flex flex-col items-center justify-center h-64 text-slate-400 gap-2"><BookOpen size={48} className="opacity-50" /><span className="text-xs">暫無見面記錄</span></div> : historyGroups.map((group) => (
