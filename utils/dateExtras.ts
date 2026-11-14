@@ -6,7 +6,7 @@
 import type { CharacterProfile } from '../types';
 import { expandMacros } from './meetingPreset/macros';
 
-export type DateGreeting = NonNullable<CharacterProfile['dateGreetings']>[number];
+export type DateGreeting = { id: string; text: string };
 
 /** 開場白裡的 {{char}}／{{user}} 換掉（其餘巨集照 ST 規則，認不得的不動） */
 export const expandGreeting = (text: string, charName: string, userName: string): string =>

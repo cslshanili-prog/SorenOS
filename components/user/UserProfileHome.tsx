@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Broadcast, CaretLeft, CaretRight, IdentificationCard, Notebook, PencilSimple, UserCircle } from '@phosphor-icons/react';
+import { Broadcast, CaretLeft, CaretRight, IdentificationCard, Notebook, PencilSimple, UserCircle, UserPlus } from '@phosphor-icons/react';
 import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
 import RealBalancePanel from '../bank/RealBalancePanel';
@@ -9,6 +9,7 @@ import PerCharPersonaPicker from './PerCharPersonaPicker';
 import PerWorldPersonaPicker from './PerWorldPersonaPicker';
 import PerGroupPersonaPicker from './PerGroupPersonaPicker';
 import UserPersonaEditor from './UserPersonaEditor';
+import { friendRequestRequired } from '../../utils/friendRequest';
 import MomentsInteractionSettingsPanel from './MomentsInteractionSettingsPanel';
 import { ensureRealBalanceState } from '../../utils/realBalance';
 import { computeNetWorth, formatMoneyDisplay } from '../../utils/finance';
@@ -30,6 +31,7 @@ const cardClass = 'bg-white rounded-[1.75rem] shadow-[0_10px_30px_-12px_rgba(80,
  */
 const UserProfileHome: React.FC = () => {
     const { userProfile, userProfileBase, updateUserProfile, addToast, apiConfig } = useOS();
+    const friendGate = friendRequestRequired(userProfileBase);
     const [tab, setTab] = useState<'profile' | 'life'>('profile');
     const [view, setView] = useState<ProfileView>('home');
     const [editingCurrent, setEditingCurrent] = useState(false);
@@ -155,7 +157,7 @@ const UserProfileHome: React.FC = () => {
                             </div>
                             <CaretRight size={16} className="text-slate-300 shrink-0" />
                         </button>
-                        <button onClick={() => open('perChat')} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 rounded-b-[1.75rem]">
+                        <button onClick={() => open('perChat')} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50">
                             <span className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0"><IdentificationCard size={20} /></span>
                             <div className="min-w-0 flex-1">
                                 <div className="text-sm font-bold text-slate-700">分世界、角色與群聊身份</div>
@@ -166,6 +168,25 @@ const UserProfileHome: React.FC = () => {
                                 </div>
                             </div>
                             <CaretRight size={16} className="text-slate-300 shrink-0" />
+                        </button>
+                        {/* 先加好友才能對話（沒設＝開；utils/friendRequest.ts 的 strangerAction） */}
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={friendGate}
+                            onClick={() => updateUserProfile({ friendRequestRequired: !friendGate })}
+                            className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50 rounded-b-[1.75rem]"
+                        >
+                            <span className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0"><UserPlus size={20} /></span>
+                            <div className="min-w-0 flex-1">
+                                <div className="text-sm font-bold text-slate-700">先加好友才能對話</div>
+                                <div className="text-[11px] text-slate-400">
+                                    {friendGate ? '找還不認識這張身份卡的角色，會先跳加好友（頁面上也能直接聊）' : '關著：找還不認識你的角色就直接聊，他會直接認識這張卡'}
+                                </div>
+                            </div>
+                            <span className={`w-10 h-6 rounded-full p-1 flex items-center shrink-0 transition-colors ${friendGate ? 'bg-primary' : 'bg-slate-200'}`}>
+                                <span className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${friendGate ? 'translate-x-4' : ''}`} />
+                            </span>
                         </button>
                     </div>
                 </>}

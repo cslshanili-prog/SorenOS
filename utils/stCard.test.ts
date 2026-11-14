@@ -63,7 +63,8 @@ describe('ST 角色卡', () => {
         expect(fields.systemPrompt).toContain('【角色卡附帶的系統提示】\n用第三人稱寫。');
         expect(fields.systemPrompt).not.toContain('{{original}}');
         expect(fields.dateScenario).toBe('海城，六月。');
-        expect(fields.dateGreetings!.map(g => g.text)).toEqual(['「坐。」', '「下車。」']);
+        expect(fields.greetings!.map(g => g.text)).toEqual(['「坐。」', '「下車。」']);
+        expect(fields.greetings!.every(g => g.date && !g.chat)).toBe(true);
         expect(fields.dialogueExamples).toContain('<START>');
         expect(fields.description).toBe('都市 · 豪門 · 冷淡');
         expect(worldbooks).toHaveLength(3);
@@ -75,7 +76,7 @@ describe('ST 角色卡', () => {
     it('沒有世界書、沒有開場白也能匯', () => {
         const { fields, worldbooks } = cardToSoren(normalizeStCard({ name: 'A', description: 'B' }));
         expect(worldbooks).toEqual([]);
-        expect(fields.dateGreetings).toBeUndefined();
+        expect(fields.greetings).toBeUndefined();
         expect(fields.systemPrompt).toBe('B');
     });
 });

@@ -6,7 +6,7 @@ import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
 import { knowsPersona, lineFor } from '../../utils/chatLine';
 import { globalPersonaKey, personaAvatarForKey, REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
-import { faceForPersona, FRIEND_GREETING_MAX, sendFriendRequest } from '../../utils/friendRequest';
+import { faceForPersona, FRIEND_GREETING_MAX, knowPersonaDirectly, sendFriendRequest } from '../../utils/friendRequest';
 import { DB } from '../../utils/db';
 import { trackEvent } from '../../utils/analytics';
 
@@ -63,6 +63,14 @@ const AddFriendPage: React.FC<{
         } finally {
             setSending(false);
         }
+    };
+
+    // 不送申請、直接認識（設置裡「先加好友才能對話」關掉時，點角色就是走這條）
+    const chatDirectly = () => {
+        if (!char || sending) return;
+        updateCharacter(char.id, prev => knowPersonaDirectly(prev, personaKey));
+        trackEvent('跳过好友申请直接聊天', { 来源: '加好友页' });
+        onAccepted(char.id);
     };
 
     return createPortal(
@@ -132,6 +140,9 @@ const AddFriendPage: React.FC<{
                             className="w-full mt-3 py-3 rounded-2xl bg-primary text-white text-sm font-bold active:scale-[0.99] transition disabled:opacity-60">
                             {sending ? `等 ${char.name} 決定…` : '送出好友申請'}
                         </button>
+                        <div className="mt-3 text-center">
+                            <button type="button" onClick={chatDirectly} disabled={sending} className="text-[12px] font-bold text-slate-500 underline-offset-4 hover:underline disabled:opacity-40">直接聊天</button>
+                        </div>
                         <p className="mt-2 text-[10px] leading-relaxed text-slate-400 text-center">
                             他看得到你的名字、頭像、簡介和招呼；之前被拒過的，他也記得。
                         </p>

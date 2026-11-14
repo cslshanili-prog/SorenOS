@@ -48,6 +48,9 @@ import { trackEvent } from '../utils/analytics';
 import BriefPersonaField from '../components/character/BriefPersonaField';
 import DialogueExamplesField from '../components/character/DialogueExamplesField';
 import ChatGreetingsField from '../components/character/ChatGreetingsField';
+import AddFriendPage from '../components/chat/AddFriendPage';
+import { knowPersonaDirectly, strangerAction } from '../utils/friendRequest';
+import { greetingsOf, greetingsPatch } from '../utils/greetings';
 import { sortCharacterGroups, GROUP_FILTER_UNGROUPED } from '../components/character/CharacterGroupFilter';
 import {
     EXTERNAL_MEMORY_MAX_CHARS,
@@ -55,7 +58,7 @@ import {
     getExternalMemoryLengthInfo,
     getExternalMemoryOverLimitMessage,
 } from '../utils/memoryPalace/externalMemory';
-import { resolveUserProfileForChar } from '../utils/userPersona';
+import { resolveUserProfileForChar, globalPersonaKey } from '../utils/userPersona';
 import { isPrimaryLine, lineArgOf, linePatchForChar, lineView } from '../utils/chatLine';
 import LinePersonaPicker from '../components/user/LinePersonaPicker';
 
@@ -440,6 +443,19 @@ const Character: React.FC = () => {
       setView('detail');
   };
   const stCardRef = useRef<StCardImportHandle>(null);
+  /** 「發消息」點到一個還不認識現在這張卡的角色、而且要先加好友：加好友頁 */
+  const [addFriendFor, setAddFriendFor] = useState<string | null>(null);
+  const openChatWith = (charId: string) => {
+      const raw = characters.find(c => c.id === charId);
+      const action = raw ? strangerAction(raw, userProfileBase) : 'open';
+      if (action === 'befriend') { setAddFriendFor(charId); return; }
+      if (action === 'direct') {
+          updateCharacter(charId, prev => knowPersonaDirectly(prev, globalPersonaKey(userProfileBase)));
+          trackEvent('跳过好友申请直接聊天', { 来源: '开关关闭' });
+      }
+      setActiveCharacterId(charId);
+      openApp(AppID.Chat);
+  };
   const stCardImport = <StCardImportButton onClick={() => stCardRef.current?.chooseFile()} />;
 
   const handleChange = (field: keyof CharacterProfile, value: any) => {
@@ -1485,7 +1501,14 @@ ${isInitialGeneration ? `
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
                        <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
-                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.Chat); }} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>發消息</button>
+                       <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => openChatWith(formData.id)} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>發消息</button>
+                       {addFriendFor && (
+                           <AddFriendPage
+                               char={characters.find(c => c.id === addFriendFor) || null}
+                               onClose={() => setAddFriendFor(null)}
+                               onAccepted={(charId) => { setAddFriendFor(null); setActiveCharacterId(charId); openApp(AppID.Chat); }}
+                           />
+                       )}
                    </div>
                    <div className="flex gap-6 text-sm font-medium text-slate-400 pl-1">
                        <button onClick={() => { setDetailTab('identity'); trackEvent('切换角色详情标签页', { tab: 'identity' }); }} className={`pb-2 transition-colors relative ${detailTab === 'identity' ? 'text-slate-800' : ''}`}>設定{detailTab === 'identity' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-full"></div>}</button>
@@ -1661,8 +1684,8 @@ ${isInitialGeneration ? `
                            />
 
                            <ChatGreetingsField
-                                greetings={formData.chatGreetings}
-                                onChange={next => setFormData(prev => prev && prev.id === formData.id ? { ...prev, chatGreetings: next } : prev)}
+                                greetings={greetingsOf(formData)}
+                                onChange={next => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...greetingsPatch(next, { keepBlank: true }) } : prev)}
                            />
 
                            <div>

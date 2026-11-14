@@ -83,7 +83,7 @@ const StCardImport = forwardRef<StCardImportHandle, { onCreated: (char: Characte
     const sameName = !!p && characters.some(c => c.name === p.card.name);
     const rows: [string, string][] = p ? [
         ['人設', f!.systemPrompt ? `${f!.systemPrompt.length} 字（description＋personality${p.card.systemPrompt || p.card.postHistoryInstructions ? '＋卡片附帶的提示' : ''}）` : '沒有'],
-        ['見面開場白', f!.dateGreetings?.length ? `${f!.dateGreetings.length} 個` : '沒有'],
+        ['開場白', f!.greetings?.length ? `${f!.greetings.length} 段，先勾給見面用（編輯頁可以改勾私聊）` : '沒有'],
         ['見面劇情大綱', f!.dateScenario ? `${f!.dateScenario.length} 字` : '沒有'],
         ['對話範例', f!.dialogueExamples ? `${f!.dialogueExamples.length} 字` : '沒有'],
         ['世界書', p.soren.worldbooks.length ? `${p.soren.worldbooks.length} 條，分類「${p.soren.worldbooks[0].category}」，直接掛上` : '沒有'],

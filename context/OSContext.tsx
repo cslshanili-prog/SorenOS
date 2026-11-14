@@ -3728,6 +3728,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       contextRangeMode: 'manual',
       contextRangePolicyVersion: CONTEXT_RANGE_POLICY_VERSION,
       emotionConfig: { enabled: true },
+      // 建立的當下就認識你現在用的那張身份卡（不然要等下次開 App 才補，這段期間誰都不認識它）
+      primaryPersonaKey: globalPersonaKey(userProfileBase),
+      knownPersonaKeys: [globalPersonaKey(userProfileBase)],
     };
     setCharacters(prev => [...prev, newChar]);
     setActiveCharacterId(newChar.id);

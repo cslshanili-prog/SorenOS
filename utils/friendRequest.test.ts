@@ -27,3 +27,17 @@ describe('加好友', () => {
         expect(faceForPersona(base, '__real__', '__real__')).toMatchObject({ name: '妹妹', bio: '真實' });
     });
 });
+
+describe('不認識你的角色：先加好友還是直接聊', () => {
+    const base = { personas: [{ id: 'pB', name: 'B' }], activePersonaId: 'pB' } as unknown as UserProfile;
+    it('認識就直接開；不認識看開關（沒設＝開）', async () => {
+        const { strangerAction, knowPersonaDirectly } = await import('./friendRequest');
+        expect(strangerAction({ knownPersonaKeys: ['pB'], primaryPersonaKey: 'pB' }, base)).toBe('open');
+        expect(strangerAction({ knownPersonaKeys: ['__real__'], primaryPersonaKey: '__real__' }, base)).toBe('befriend');
+        expect(strangerAction({ knownPersonaKeys: ['__real__'] }, { ...base, friendRequestRequired: false })).toBe('direct');
+        // 小號走自己的好友流程，不擋
+        expect(strangerAction({ knownPersonaKeys: [], altOf: 'x' }, base)).toBe('open');
+        expect(knowPersonaDirectly({ knownPersonaKeys: ['a'] }, 'pB')).toEqual({ knownPersonaKeys: ['a', 'pB'] });
+        expect(knowPersonaDirectly({ knownPersonaKeys: ['pB'] }, 'pB')).toEqual({ knownPersonaKeys: ['pB'] });
+    });
+});

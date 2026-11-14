@@ -1110,7 +1110,7 @@ const Chat: React.FC = () => {
             } catch { /* 送不出去就算了，下次打開再試 */ greetingCheckedRef.current.delete(chatLineId); }
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chatLineId, char?.chatGreetings]);
+    }, [chatLineId, char?.greetings, char?.dateGreetings]);
 
     useEffect(() => {
         if (activeCharacterId) {
