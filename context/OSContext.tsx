@@ -103,6 +103,8 @@ import { charMayHaveCloudState, purgeCharAllLinesCloudState, purgeCloudCharById 
 import { allCloudIdsOf, cloudLine, cloudLineViewsOf, findCloudChar, setCloudLineRegistry } from '../utils/amsgCloudLine';
 import { parseCharCredId } from '../utils/amsgLlmCredentials';
 import { setGlobalWorldbooks } from '../utils/globalWorldbooks';
+import { resolveChatPresetId } from '../utils/presetBinding';
+import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldStyleRegistry } from '../utils/charNameRegistry';
@@ -2402,6 +2404,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   realtimeConfigRef.current = realtimeConfig;
   const memoryPalaceConfigRef = useRef(memoryPalaceConfig);
   memoryPalaceConfigRef.current = memoryPalaceConfig;
+
+  // 預設內容改了（plans/preset-library.md 第 2b 批）：主動消息 2.0 的模板裡烤著私聊預設組出來的角色設定，
+  // 用了自訂預設的角色要重打包。沒用的照舊是內建那一串，不碰。
+  useEffect(() => {
+      const onPresetChanged = () => {
+          const base = userProfileBaseRef.current;
+          const using = charactersRef.current.filter(char => resolveChatPresetId(char, base));
+          // 走 ForAll：每條關係線各有一份雲端上下文，身份也照每個角色自己的綁定解析
+          if (using.length) markAmsgStateDirtyForAll({ characters: using, userProfileBase: base, groups: groupsRef.current, realtimeConfig: realtimeConfigRef.current });
+      };
+      window.addEventListener(MEETING_PRESET_UPDATED_EVENT, onPresetChanged);
+      return () => window.removeEventListener(MEETING_PRESET_UPDATED_EVENT, onPresetChanged);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
       if (!isDataLoaded) return;

@@ -112,6 +112,7 @@ import {
 import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
 import { listRecallableMonths } from './agenticTools';
 import { ChatPrompts } from './chatPrompts';
+import { loadChatPresetDoc, renderChatPresetSystemText } from './chatPresetSession';
 import { nowInTimeZone, resolveCharTimeZone, tzAwarenessNote } from './timezone';
 import { DB } from './db';
 import { copyWorkerBundleToClipboard } from './workerDeploy';
@@ -795,7 +796,10 @@ export const buildFirePack = async (
     library.categories,
     char.id,
   );
-  const systemPrompt = templateStub ? '' : await ChatPrompts.buildSystemPrompt(
+  // 私聊選了自訂預設（plans/preset-library.md 第 2b 批）：【角色系統設定】照預設的順序組，
+  // 文風聽預設的、Soren 的資料和功能照補；沒選就是原本那一串。
+  const chatPreset = templateStub ? null : await loadChatPresetDoc(char, userProfile);
+  const promptParts = !chatPreset ? null : await ChatPrompts.buildSystemPromptParts(
     char,
     userProfile,
     groups,
@@ -807,11 +811,28 @@ export const buildFirePack = async (
     undefined,
     undefined,
     undefined,
+    undefined,
     // 模板是現在打好、到點才渲染的，凡是「打包這一刻」的狀態都不烤進去。
     // 具體拿掉哪些塊、到點由誰補，見 ChatPrompts.PromptBuildOptions 上的表。
     // 資料庫的照片清單照帶（utils/libraryPrompt.ts）：角色到點也能傳一張現成的
     { forFirePack: true, libraryPhotos: true },
   );
+  const systemPrompt = templateStub ? ''
+    : chatPreset && promptParts ? renderChatPresetSystemText({ doc: chatPreset, parts: promptParts, char, userName: userProfile.name || '' })
+    : await ChatPrompts.buildSystemPrompt(
+      char,
+      userProfile,
+      groups,
+      emojis,
+      categories,
+      recentMessages,
+      realtimeConfig,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { forFirePack: true, libraryPhotos: true },
+    );
   const recentTranscript = templateStub ? '' : ChatPrompts.buildMessageHistory(
     recentMessages,
     Math.max(1, recentMessages.length),

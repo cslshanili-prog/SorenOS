@@ -15,9 +15,11 @@
  * 送出前相鄰的 system 併成一則，結構跟內建一樣是「前段＋聊天記錄＋後段」。
  */
 
-import type { CharacterProfile } from '../types';
+import type { CharacterProfile, UserProfile } from '../types';
+import { DB } from './db';
+import { resolveChatPresetId } from './presetBinding';
 import { ANTI_FILLER_BLOCK, type CoreContextSections } from './context';
-import type { ChatPromptSegments } from './chatPrompts';
+import type { ChatPromptParts, ChatPromptSegments } from './chatPrompts';
 import { CHAT_STYLE_ANCHOR, CHAT_STYLE_EXPRESSION, CHAT_STYLE_TALK } from './chatPresetText';
 import { assembleMeetingPreset, type PresetMessage } from './meetingPreset/assemble';
 import type { ChatSorenSlot, MeetingPresetDoc, MeetingPresetGroup, MeetingPresetPrompt, MeetingPresetSlot, MeetingPromptRole } from './meetingPreset/types';
@@ -197,4 +199,37 @@ export const assembleChatPreset = (input: {
         },
     });
     return messages;
+};
+
+/**
+ * 這個角色私聊用哪份自訂預設；null＝內建。
+ * 場景預設存在用戶資料上；套了身份卡的那份（resolveUserProfileForChar）是從主資料展開的，照樣帶著。
+ * 角色沒選、場景也沒設就不碰 DB——沒用預設的人每一輪都走這裡。
+ */
+export const loadChatPresetDoc = async (
+    char: Pick<CharacterProfile, 'chatPresetId'>,
+    userProfile: Pick<UserProfile, 'presetSceneDefaults'> | null | undefined,
+): Promise<MeetingPresetDoc | null> => {
+    const id = resolveChatPresetId(char, { presetSceneDefaults: userProfile?.presetSceneDefaults });
+    if (!id) return null;
+    const record = await DB.getMeetingPreset(id).catch(() => undefined);
+    return record?.doc ?? null;
+};
+
+/**
+ * 主動消息 2.0 的 fire_pack（第 2b 批）：模板裡【角色系統設定】那一格要的是一整段文字，
+ * 不是 messages。照預設組一次（沒有聊天記錄），把每一則的文字接起來——順序就是預設的順序，
+ * 聊天記錄之後的條目（破限之類）接在最後。
+ */
+export const renderChatPresetSystemText = (input: {
+    doc: MeetingPresetDoc;
+    parts: Pick<ChatPromptParts, 'segments' | 'coreSections'>;
+    char: CharacterProfile;
+    userName: string;
+}): string => {
+    const slots = buildChatPresetSlots({ segments: input.parts.segments, core: input.parts.coreSections, modes: '', liveExtras: '' });
+    return assembleChatPreset({ doc: input.doc, slots, history: [], char: input.char, userName: input.userName })
+        .map(message => flatten(message.content).trim())
+        .filter(Boolean)
+        .join('\n\n');
 };
