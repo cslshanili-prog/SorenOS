@@ -1,6 +1,6 @@
 # 預設 App：獨立的預設庫，線上線下共用
 
-> 狀態：第 1 批、第 2 批（私聊，含雲端）做完（2026-11-14），實況見文末。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
+> 狀態：第 1 批、第 2 批（私聊，含雲端）、第 3a 批（電話）做完（2026-11-14），實況見文末。第 3b 批（群聊）進行中。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
 >
 > **開工後改的一條**：劇情預設**不搬**進通用格式（見第 6 節）。劇情劇場的引擎靠固定的條目 id（`nmj-v64…`）跑分區、快捷選項、小劇場、旁白，轉成通用格式等於重寫引擎。所以預設 App 一個地方放兩種：通用預設（ST 格式，見面現在用、線上之後用）和劇情專用預設（原格式、原編輯器，只給劇情）。
 
@@ -164,3 +164,13 @@ Liora 定的三件事：匯入的預設用在私聊時 Soren 的文風**不補**
 - **什麼時候重打包**：角色改 `chatPresetId`（`updateCharacter` 本來就會打髒）、改場景預設（`updateUserProfile` 本來就全部打髒）、**預設內容改了**（新加：OSContext 聽 `MEETING_PRESET_UPDATED_EVENT`，只打髒有用自訂預設的角色，走 `markAmsgStateDirtyForAll` 讓每條關係線各自重傳）。
 - `loadChatPresetDoc`：角色沒選、場景也沒設就不碰 DB（每一輪都會走這裡）；套了身份卡的用戶資料是從主資料展開的，`presetSceneDefaults` 照樣帶著，不用另讀。
 - 測試：`utils/activeMsgClient.preset.test.ts`、`utils/chatRequestPayload.preset.test.ts`。
+
+## 第 3a 批實況（2026-11-14）：電話
+
+Liora 定的：電話用「電話」場景預設，角色可以在聊天設定「預設」下面另選一份「電話預設」；群聊整份照套、導演格式鎖最後、每個群在群設定裡選（3b）。
+
+- **電話提示詞搬家**：`buildCallPrompt`／`currentVoiceActingGuide` 從 `apps/CallApp.tsx` 搬到 `utils/callPrompt.ts`。`buildCallPromptParts` 回 `{ text, segments }`：`text` 就是內建送的那一串，`segments` 是 `scene`（你是誰、電話那頭是誰、此刻在做什麼）、`talk`（`CALL_STYLE_TALK`：不像寫作文、感受對方、回覆長度）、`voiceActing`、`format`（來源標記＋底線）、`voiceLang`、`time`。搬之前拿舊函式做過 A/B（語音／視訊 × 語種翻譯 × 有無角色塊）一字不差，長期由 `utils/callPrompt.test.ts` 鎖「段接回去等於內建」。
+- **組裝**（`utils/callPresetSession.ts`）：ST 佔位照見面的拆法填（角色塊用 `buildCoreContextWithSections`，電話不 defer，所以記憶宮殿、情緒、時間在角色塊裡）；Soren 資料沿用 `soren`（印象＋你身邊的人＋固定台詞）、`memory`、`emotion`、`time`（角色塊時間＋電話的【當前時間】）；電話功能是新的 `CallSorenSlot`：`callScene`、`callFormat`、`callVoice`（演出＋語種）、`callVideo`（模型表演、鏡頭情緒、快照說明）、`callModes`（思考鏈）。沒放就補（格式補在最後、最貼近通話記錄），放了關掉不補，文風（說話方式、表達底線）不補。內建電話預設 `buildBuiltinCallPresetDoc` 給人複製。
+- **CallApp 接上**：`loadCallPresetDoc`＝角色的 `callPresetId` > `presetSceneDefaults.call` > 內建；`sendChatRequest` 改走 `composeMessages`，選了預設照預設組（快照那輪多帶快照說明、退回純文字那輪不帶），沒選照舊「一則 system＋通話記錄」。
+- **畫面**：聊天設定多一欄「電話預設」（提醒長篇預設套電話太囉嗦）；預設 App 場景預設、篩選、適用場景多了電話，「電話 · 內建」可以複製，ST 預設匯入預設勾私聊＋電話＋見面；刪預設也清 `callPresetId`；預設編輯頁的功能條目關掉提醒也涵蓋電話。
+- 測試：`utils/callPrompt.test.ts`、`utils/callPresetSession.test.ts`；實機撥了一通電話攔請求（主提示在前、電話場景與語音演出有補、說話方式沒補）。

@@ -24,7 +24,7 @@ export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
     | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
-    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId'>;
+    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId' | 'callPresetId'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -104,7 +104,10 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     // 私聊用哪份預設（plans/preset-library.md 第 2 批）：'' 跟著預設 App、'builtin' 內建、其它是 id
     const { userProfileBase } = useOS();
     const [presetChoice, setPresetChoice] = useState('');
-    const [chatPresets, setChatPresets] = useState<MeetingPresetRecord[]>([]);
+    const [callPresetChoice, setCallPresetChoice] = useState('');
+    const [allPresets, setAllPresets] = useState<MeetingPresetRecord[]>([]);
+    const chatPresets = allPresets.filter(p => scenesOfPreset(p).includes('chat') || p.id === char.chatPresetId);
+    const callPresets = allPresets.filter(p => scenesOfPreset(p).includes('call') || p.id === char.callPresetId);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -129,10 +132,11 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setReplyDrafts(!!char.replyDrafts?.enabled);
         setDraftActions(!!char.replyDrafts?.withActions);
         setPresetChoice(char.chatPresetId || '');
+        setCallPresetChoice(char.callPresetId || '');
         let cancelled = false;
         DB.getMeetingPresets()
-            .then(list => { if (!cancelled) setChatPresets(list.filter(p => scenesOfPreset(p).includes('chat') || p.id === char.chatPresetId)); })
-            .catch(() => { if (!cancelled) setChatPresets([]); });
+            .then(list => { if (!cancelled) setAllPresets(list); })
+            .catch(() => { if (!cancelled) setAllPresets([]); });
         DB.getFirstMessageTimestamp(lineArgOf(char))
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
             .catch(() => { if (!cancelled) setFirstMessageKey(null); });
@@ -146,9 +150,12 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const effectiveStart = startDate || firstMessageKey || undefined;
     const days = acquaintanceDays(effectiveStart, todayKey);
 
-    const sceneDefaultId = userProfileBase.presetSceneDefaults?.chat;
-    const sceneDefaultName = !sceneDefaultId || sceneDefaultId === BUILTIN_PRESET ? '內建' : (chatPresets.find(p => p.id === sceneDefaultId)?.name || '內建');
-    const sceneDefaultLabel = presetChoice ? '' : `（跟著預設 App：目前是「${sceneDefaultName}」）`;
+    const sceneDefaultName = (scene: 'chat' | 'call') => {
+        const id = userProfileBase.presetSceneDefaults?.[scene];
+        return !id || id === BUILTIN_PRESET ? '內建' : (allPresets.find(p => p.id === id)?.name || '內建');
+    };
+    const sceneDefaultLabel = presetChoice ? '' : `（跟著預設 App：目前是「${sceneDefaultName('chat')}」）`;
+    const callSceneDefaultLabel = callPresetChoice ? '' : `（跟著預設 App：目前是「${sceneDefaultName('call')}」）`;
 
     const handleDone = () => {
         onSave({
@@ -173,6 +180,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             replyDrafts: replyDrafts || char.replyDrafts
                 ? { enabled: replyDrafts, withActions: draftActions || undefined } : undefined,
             chatPresetId: presetChoice || undefined,
+            callPresetId: callPresetChoice || undefined,
         });
     };
 
@@ -274,6 +282,14 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                                     <option value="">跟著預設 App</option>
                                     <option value={BUILTIN_PRESET}>內建</option>
                                     {chatPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </Row>
+                            <Row label="電話預設" hint={`TA 講電話（語音、視訊）時照哪份預設。電話要短句，長篇的 ST 預設套上來常常太囉嗦，可以另外選一份短的。${callSceneDefaultLabel}`}>
+                                <select aria-label="電話預設" value={callPresetChoice} onChange={e => setCallPresetChoice(e.target.value)}
+                                    className="max-w-[45%] min-w-0 truncate rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] text-slate-700">
+                                    <option value="">跟著預設 App</option>
+                                    <option value={BUILTIN_PRESET}>內建</option>
+                                    {callPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                 </select>
                             </Row>
                             <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} charTimeZone={resolveCharTimeZone(char)} />

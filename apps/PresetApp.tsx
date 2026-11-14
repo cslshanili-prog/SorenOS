@@ -6,6 +6,7 @@ import { DB } from '../utils/db';
 import { copyBuiltinMeetingPreset, deleteMeetingPresetRecord, duplicateMeetingPresetRecord, importStPresetFile, MEETING_PRESET_UPDATED_EVENT, saveMeetingPresetDoc, saveNewMeetingPresetDoc } from '../utils/meetingPreset/store';
 import { duplicatePresetDoc } from '../utils/meetingPreset/edit';
 import { buildBuiltinChatPresetDoc } from '../utils/chatPresetSession';
+import { buildBuiltinCallPresetDoc } from '../utils/callPresetSession';
 import { buildStPreset, stPresetFileName } from '../utils/meetingPreset/stExport';
 import type { MeetingPresetRecord } from '../utils/meetingPreset/types';
 import { BUILTIN_NIGHT_SCREENING_PRESET, createBlankStoryPreset, downloadStoryPreset, duplicateStoryPreset, parseStoryTheaterPreset, withBuiltInStoryPresets } from '../utils/storyTheater';
@@ -23,14 +24,14 @@ import { StoryTheaterThemeProvider } from '../components/date/story/StoryTheater
  * - 劇情專用預設（story_theater_presets）：劇情劇場的引擎靠條目 id 跑分區、快捷選項，格式和編輯器照舊。
  * - 場景預設：每個場景用哪份（UserProfile.presetSceneDefaults）；角色、劇情自己選的蓋過它。
  */
-type Filter = 'all' | 'chat' | 'date' | 'story';
+type Filter = 'all' | 'chat' | 'call' | 'date' | 'story';
 /** 通用預設現在能用的場景（勾適用場景、設場景預設） */
-const GENERAL_SCENES: PresetScene[] = ['chat', 'date'];
+const GENERAL_SCENES: PresetScene[] = ['chat', 'call', 'date'];
 type Row =
     | { kind: 'general'; record: MeetingPresetRecord }
     | { kind: 'story'; preset: StoryTheaterPreset };
 
-const FUTURE_SCENES: PresetScene[] = ['group', 'call'];
+const FUTURE_SCENES: PresetScene[] = ['group'];
 // 埋點屬性是固定枚舉（docs/analytics.md），用簡體
 const SCENE_EVENT_LABEL: Record<PresetScene, string> = { chat: '私聊', group: '群聊', call: '电话', date: '见面', story: '剧情' };
 
@@ -81,9 +82,9 @@ const PresetApp: React.FC = () => {
             } else {
                 const record = await importStPresetFile(text, source.name);
                 // ST 預設不分場景，私聊、見面都能選；不要的在「⋯ → 適用場景」取消
-                await saveMeetingPresetDoc(record, { ...record.doc, scenes: ['chat', 'date'] });
+                await saveMeetingPresetDoc(record, { ...record.doc, scenes: ['chat', 'call', 'date'] });
                 trackEvent('导入预设', { 种类: '通用' });
-                addToast(`已匯入「${record.name}」（通用預設，私聊、見面都能選）`, 'success');
+                addToast(`已匯入「${record.name}」（通用預設，私聊、電話、見面都能選）`, 'success');
             }
             await reload();
         } catch (e: any) {
@@ -122,10 +123,11 @@ const PresetApp: React.FC = () => {
         if (row.kind === 'general') {
             const id = row.record.id;
             await deleteMeetingPresetRecord(id);
-            for (const c of characters.filter(c => c.dateMeetingPresetId === id || c.chatPresetId === id)) {
+            for (const c of characters.filter(c => c.dateMeetingPresetId === id || c.chatPresetId === id || c.callPresetId === id)) {
                 updateCharacter(c.id, {
                     ...(c.dateMeetingPresetId === id ? { dateMeetingPresetId: undefined } : {}),
                     ...(c.chatPresetId === id ? { chatPresetId: undefined } : {}),
+                    ...(c.callPresetId === id ? { callPresetId: undefined } : {}),
                 });
             }
             for (const scene of GENERAL_SCENES) if (defaults[scene] === id) setSceneDefault(scene, undefined);
@@ -136,11 +138,11 @@ const PresetApp: React.FC = () => {
         addToast('已刪除', 'success');
         await reload();
     };
-    const createFrom = async (what: 'chat-builtin' | 'date-builtin' | 'story-builtin' | 'story-blank') => {
+    const createFrom = async (what: 'chat-builtin' | 'call-builtin' | 'date-builtin' | 'story-builtin' | 'story-blank') => {
         setNewMenu(false);
-        if (what === 'chat-builtin') {
-            const copy = await saveNewMeetingPresetDoc(duplicatePresetDoc(buildBuiltinChatPresetDoc()));
-            addToast(`已從私聊內建複製成「${copy.name}」`, 'success');
+        if (what === 'chat-builtin' || what === 'call-builtin') {
+            const copy = await saveNewMeetingPresetDoc(duplicatePresetDoc(what === 'chat-builtin' ? buildBuiltinChatPresetDoc() : buildBuiltinCallPresetDoc()));
+            addToast(`已從${what === 'chat-builtin' ? '私聊' : '電話'}內建複製成「${copy.name}」`, 'success');
             await reload();
             setManagingId(copy.id);
         } else if (what === 'date-builtin') {
@@ -154,7 +156,7 @@ const PresetApp: React.FC = () => {
             await reload();
             setEditingStory(preset);
         }
-        trackEvent('新建预设', { 来源: what === 'chat-builtin' ? '私聊内建' : what === 'date-builtin' ? '见面内建' : what === 'story-builtin' ? '剧情内建' : '空白剧情' });
+        trackEvent('新建预设', { 来源: what === 'chat-builtin' ? '私聊内建' : what === 'call-builtin' ? '电话内建' : what === 'date-builtin' ? '见面内建' : what === 'story-builtin' ? '剧情内建' : '空白剧情' });
     };
 
     const toggleScene = async (record: MeetingPresetRecord, scene: PresetScene) => {
@@ -221,6 +223,13 @@ const PresetApp: React.FC = () => {
                         </select>
                     </label>
                     <label className="flex items-center gap-3">
+                        <span className="w-12 shrink-0 text-[13px] font-bold text-slate-600">電話</span>
+                        <select aria-label="電話的場景預設" className={sel} value={defaults.call || ''} onChange={e => setSceneDefault('call', e.target.value)}>
+                            <option value="">內建</option>
+                            {general.filter(r => scenesOfPreset(r).includes('call')).map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                    </label>
+                    <label className="flex items-center gap-3">
                         <span className="w-12 shrink-0 text-[13px] font-bold text-slate-600">見面</span>
                         <select aria-label="見面的場景預設" className={sel} value={defaults.date || ''} onChange={e => setSceneDefault('date', e.target.value)}>
                             <option value="">內建規則</option>
@@ -244,7 +253,7 @@ const PresetApp: React.FC = () => {
 
                 {/* 篩選 */}
                 <div className="flex gap-2 overflow-x-auto no-scrollbar">
-                    {([['all', '全部'], ['chat', '私聊'], ['date', '見面'], ['story', '劇情']] as const).map(([k, label]) => (
+                    {([['all', '全部'], ['chat', '私聊'], ['call', '電話'], ['date', '見面'], ['story', '劇情']] as const).map(([k, label]) => (
                         <button key={k} type="button" onClick={() => setFilter(k)} className={chip(filter === k)}>{label}</button>
                     ))}
                 </div>
@@ -258,6 +267,15 @@ const PresetApp: React.FC = () => {
                                 <div className="text-[11px] text-slate-400">現在私聊送的那套，表情包、轉帳這些功能都是條目；想改就複製一份</div>
                             </div>
                             <button type="button" onClick={() => void createFrom('chat-builtin')} className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600">複製一份</button>
+                        </div>
+                    )}
+                    {(filter === 'all' || filter === 'call') && (
+                        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-3">
+                            <div className="min-w-0 flex-1">
+                                <div className="text-[13px] font-bold text-slate-600">電話 · 內建</div>
+                                <div className="text-[11px] text-slate-400">現在講電話送的那套，語音演出、視訊表演都是條目；想改就複製一份</div>
+                            </div>
+                            <button type="button" onClick={() => void createFrom('call-builtin')} className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600">複製一份</button>
                         </div>
                     )}
                     {(filter === 'all' || filter === 'date') && (
@@ -305,7 +323,7 @@ const PresetApp: React.FC = () => {
                     })}
                 </div>
                 <p className="px-1 text-[10px] leading-relaxed text-slate-400">
-                    通用預設是 SillyTavern 的對話補全格式，可以匯入、匯出 ST，現在用在私聊和見面，之後群聊、電話也會用這種。私聊用匯入的預設時，文風照預設的，表情包、轉帳這些 Soren 功能照常補上；主動消息、即時對話這種在雲端生成的也照同一份。劇情專用的是劇情劇場自己的格式（分區、快捷選項靠它跑），只能用在劇情。匯入的預設、正則不轉繁體。
+                    通用預設是 SillyTavern 的對話補全格式，可以匯入、匯出 ST，現在用在私聊、電話和見面，之後群聊也會用這種。電話要短句，長篇的 ST 預設套到電話常常太囉嗦，電話可以另外選一份。私聊用匯入的預設時，文風照預設的，表情包、轉帳這些 Soren 功能照常補上；主動消息、即時對話這種在雲端生成的也照同一份。劇情專用的是劇情劇場自己的格式（分區、快捷選項靠它跑），只能用在劇情。匯入的預設、正則不轉繁體。
                 </p>
             </div>
 
@@ -313,7 +331,7 @@ const PresetApp: React.FC = () => {
             {newMenu && (
                 <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/40" onClick={() => setNewMenu(false)}>
                     <div className="w-full max-w-md rounded-t-3xl bg-white p-3 pb-[calc(var(--safe-bottom,0px)+12px)]" onClick={e => e.stopPropagation()}>
-                        {([['chat-builtin', '從私聊內建複製（通用）'], ['date-builtin', '從見面內建規則複製（通用）'], ['story-builtin', `從劇情內建「${BUILTIN_NIGHT_SCREENING_PRESET.name}」複製`], ['story-blank', '空白劇情預設']] as const).map(([k, label]) => (
+                        {([['chat-builtin', '從私聊內建複製（通用）'], ['call-builtin', '從電話內建複製（通用）'], ['date-builtin', '從見面內建規則複製（通用）'], ['story-builtin', `從劇情內建「${BUILTIN_NIGHT_SCREENING_PRESET.name}」複製`], ['story-blank', '空白劇情預設']] as const).map(([k, label]) => (
                             <button key={k} type="button" onClick={() => void createFrom(k)} className="w-full rounded-xl px-4 py-3 text-left text-sm text-slate-700 active:bg-slate-50">{label}</button>
                         ))}
                         <button type="button" onClick={() => { setNewMenu(false); fileRef.current?.click(); }} className="w-full rounded-xl px-4 py-3 text-left text-sm text-slate-700 active:bg-slate-50">匯入檔案（SillyTavern 預設／劇情預設）</button>

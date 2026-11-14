@@ -3399,6 +3399,8 @@ export interface CharacterProfile {
    * 解析一律走 utils/presetBinding.ts 的 resolveChatPresetId；組裝見 utils/chatPresetSession.ts、plans/preset-library.md 第 2 批
    */
   chatPresetId?: string;
+  /** 這個角色電話（語音／視訊）用哪份預設；規則同 chatPresetId，解析走 resolveCallPresetId（plans/preset-library.md 第 3a 批） */
+  callPresetId?: string;
   /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
   dateEmotionIndependent?: boolean;
   /**
