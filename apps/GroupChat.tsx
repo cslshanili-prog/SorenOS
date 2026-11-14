@@ -37,7 +37,9 @@ import { presentLinkLines } from '../utils/personaLinks';
 import { commitPairToPhones, runPairRound } from '../utils/pairChatRun';
 import { defaultSpeakingKey, focalKnownKey, memberPresence, memberVisibleGroupMessages, presentPersonaKeys } from '../utils/groupChat/presence';
 import { distinctPersonaNote } from '../utils/personaSpeaker';
-import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock } from '../utils/groupChat/prompts';
+import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock, withoutGroupStyle } from '../utils/groupChat/prompts';
+import { assembleGroupPreset, loadGroupPresetDoc } from '../utils/groupPresetSession';
+import GroupPresetSelect from '../components/chat/GroupPresetSelect';
 import { stripLeakedReasoning } from '../utils/reasoningLeak';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
 import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs } from '../utils/groupChat/npcMembers';
@@ -1934,14 +1936,16 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const { header, sharedScene } = buildGroupSystemHeader(currentMsgs, groupMembers);
 
             let context = header;
+            let memberBlocks = '';
 
             // 2. Inject Member Context (Strict Isolation via ContextBuilder)
             for (const member of groupMembers) {
-                context += await buildMemberBlock(member, currentMsgs, sharedScene);
+                memberBlocks += await buildMemberBlock(member, currentMsgs, sharedScene);
             }
             for (const npc of npcMembers) {
-                context += buildNpcBlockFor(npc, currentMsgs, roundSpeakers);
+                memberBlocks += buildNpcBlockFor(npc, currentMsgs, roundSpeakers);
             }
+            context += memberBlocks;
 
             // 3. Group History + 導演任務指令（模板原文照搬進 utils/groupChat/prompts.ts）
             const liveHistoryMsgs = currentMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
@@ -1961,7 +1965,17 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const prompt = `${context}\n\n${buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) })}${htmlPromptExt}\n`;
+            const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
+            const prompt = `${context}\n\n${directorInstruction}${htmlPromptExt}\n`;
+            // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，兩段文風聽預設的，導演格式鎖最後
+            const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
+            const directorMessages = groupPreset
+                ? assembleGroupPreset({
+                    doc: groupPreset, mode: 'director', scene: header, members: memberBlocks,
+                    task: buildUserMessageContent(`${withoutGroupStyle(directorInstruction)}${htmlPromptExt}\n`, history),
+                    memberNames: roundSpeakers.map(m => m.name), userName: groupUserProfile.name,
+                })
+                : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
 
             const data = await completeGroupChatWithMcp({
@@ -1969,7 +1983,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: {
                     model: apiConfig.model,
-                    messages: [{ role: "user", content: buildUserMessageContent(prompt, history) }],
+                    messages: directorMessages,
                     temperature: 0.9, // High creativity for banter
                     max_tokens: 8000
                 },
@@ -2082,6 +2096,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
             // 分兩波（utils/groupChat/waves.ts）：順序每輪隨機；第一波 1～2 人同時生成，
             // 第二波其餘的人同時生成、看得到第一波剛說的話
+            // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，只寫自己台詞的格式鎖最後
+            const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
             for (const wave of planGroupWaves(turns)) {
                 if (abort.signal.aborted) break;
                 // 同一波的人看到的是同一份群歷史：識圖、歷史塊只做一次。
@@ -2114,7 +2130,15 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         const memberBlock = turn.kind === 'char'
                             ? await buildMemberBlock(turn.member, promptMsgs, sharedScene)
                             : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers);
-                        const prompt = `${header}${memberBlock}\n\n${buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' })}${htmlPromptExt}\n`;
+                        const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' });
+                        const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
+                        const roundMessages = groupPreset
+                            ? assembleGroupPreset({
+                                doc: groupPreset, mode: 'roundRobin', scene: header, members: memberBlock,
+                                task: buildUserMessageContent(`${roundInstruction}${htmlPromptExt}\n`, history),
+                                memberNames: [member.name], userName: groupUserProfile.name,
+                            })
+                            : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
 
                         // 每個人用自己的模型：角色走聊天設定的「對話模型」，NPC 走 NPC 自己配的，沒配就是全域
                         const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : resolveCharacterChatApi(turn.member, apiConfig);
@@ -2123,7 +2147,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${turnApi.apiKey}` },
                             body: {
                                 model: turnApi.model,
-                                messages: [{ role: "user", content: buildUserMessageContent(prompt, history) }],
+                                messages: roundMessages,
                                 temperature: 0.9,
                                 max_tokens: 2000
                             },
@@ -3011,6 +3035,13 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             </div>
                         </div>
                     </div>
+                    )}
+
+                    {activeGroup && (
+                        <GroupPresetSelect group={activeGroup} profileBase={userProfileBase} onChange={async presetId => {
+                            await updateGroup(activeGroup.id, { presetId });
+                            setActiveGroup({ ...activeGroup, presetId });
+                        }} />
                     )}
 
                     {/* 角色可以退群：開啟後 AI 才會被教 [[ACTION:LEAVE_GROUP]] 語法 */}

@@ -8,6 +8,7 @@ import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor'
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
 import { CHAT_FEATURE_OFF_WARNING, CHAT_SLOT_LABELS } from '../../utils/chatPresetSession';
 import { CALL_FEATURE_OFF_WARNING, CALL_SLOT_LABELS } from '../../utils/callPresetSession';
+import { GROUP_SLOT_LABELS } from '../../utils/groupPresetSession';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
 // 正則開關、生成參數。條目能新增、刪除（資料佔位只能關）、排序；正則能排序。
@@ -31,6 +32,7 @@ const SLOT_LABELS: Record<MeetingPresetSlot, string> = {
     soren: 'Soren · 其它',
     ...CHAT_SLOT_LABELS,
     ...CALL_SLOT_LABELS,
+    ...GROUP_SLOT_LABELS,
 };
 
 /** Soren 功能條目（私聊、電話）：內容由程式產生，關掉要講後果 */

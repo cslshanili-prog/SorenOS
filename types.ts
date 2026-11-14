@@ -3890,6 +3890,8 @@ export interface NPCProfile {
 
 export interface GroupProfile {
     id: string;
+    /** 這個群用哪份預設（meeting_presets 的 id）；'builtin'＝內建；不設＝跟預設 App 的「群聊」場景預設。解析走 resolveGroupPresetId（plans/preset-library.md 第 3b 批） */
+    presetId?: string;
     name: string;
     members: string[];
     avatar?: string;
