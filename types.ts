@@ -22,6 +22,7 @@ export enum AppID {
   Game = 'game',
   Worldbook = 'worldbook', 
   Presets = 'presets', // 預設 App（plans/preset-library.md）
+  Assistant = 'assistant', // AI 助手 Sore（plans/ai-assistant.md）
   Novel = 'novel', 
   Bank = 'bank', // New App
   Mall = 'mall', // 購物中心（2026-10 第三批：桌面也能進，見 plans/mall-redesign.md）
@@ -5806,4 +5807,27 @@ export interface LifeSimState {
     buildings?: SimBuilding[];
     worldInventory?: Record<string, number>;
     worldGold?: number;
+}
+
+/** AI 助手 Sore 的一則訊息（plans/ai-assistant.md）。tool＝工具的結果（畫面上縮成一行小字，回給模型時當 user 送） */
+export interface AssistantMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'tool';
+  /** 給人看的字（assistant 已經拿掉工具標籤） */
+  text: string;
+  at: number;
+  /** assistant：模型原文（含工具標籤），下一輪回給模型用 */
+  raw?: string;
+  /** tool：哪個工具、成功沒有 */
+  toolName?: string;
+  toolOk?: boolean;
+}
+
+/** Sore 的一段對話（assistant_sessions 表） */
+export interface AssistantSession {
+  id: string;
+  title: string;
+  messages: AssistantMessage[];
+  createdAt: number;
+  updatedAt: number;
 }
