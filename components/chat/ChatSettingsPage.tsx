@@ -15,13 +15,16 @@ import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelat
 import { CHAR_BLOCK_COOLDOWNS } from '../../utils/chatBlock';
 import { DEFAULT_TEMP_CHAT_LIMITS, normalizeTempChatLimits, TEMP_CHAT_LIMIT_RANGES } from '../../utils/tempChat';
 import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
+import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
+import { BUILTIN_PRESET, scenesOfPreset } from '../../utils/presetBinding';
+import { useOS } from '../../context/OSContext';
 
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
     | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
-    | 'replyDrafts' | 'sideMessagesOff'>;
+    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -98,6 +101,10 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [tempLimits, setTempLimits] = useState<TempChatLimits>(DEFAULT_TEMP_CHAT_LIMITS);
     const [replyDrafts, setReplyDrafts] = useState(false);
     const [draftActions, setDraftActions] = useState(false);
+    // 私聊用哪份預設（plans/preset-library.md 第 2 批）：'' 跟著預設 App、'builtin' 內建、其它是 id
+    const { userProfileBase } = useOS();
+    const [presetChoice, setPresetChoice] = useState('');
+    const [chatPresets, setChatPresets] = useState<MeetingPresetRecord[]>([]);
 
     // 每次打開都從角色目前的值重新載入草稿（角色可能剛自己改過關係）
     useEffect(() => {
@@ -121,7 +128,11 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setTempLimits(normalizeTempChatLimits(char.tempChatLimits));
         setReplyDrafts(!!char.replyDrafts?.enabled);
         setDraftActions(!!char.replyDrafts?.withActions);
+        setPresetChoice(char.chatPresetId || '');
         let cancelled = false;
+        DB.getMeetingPresets()
+            .then(list => { if (!cancelled) setChatPresets(list.filter(p => scenesOfPreset(p).includes('chat') || p.id === char.chatPresetId)); })
+            .catch(() => { if (!cancelled) setChatPresets([]); });
         DB.getFirstMessageTimestamp(lineArgOf(char))
             .then(ts => { if (!cancelled) setFirstMessageKey(ts ? getLocalDateKey(new Date(ts)) : null); })
             .catch(() => { if (!cancelled) setFirstMessageKey(null); });
@@ -134,6 +145,10 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const todayKey = getLocalDateKey(nowInTimeZone(resolveCharTimeZone(char)));
     const effectiveStart = startDate || firstMessageKey || undefined;
     const days = acquaintanceDays(effectiveStart, todayKey);
+
+    const sceneDefaultId = userProfileBase.presetSceneDefaults?.chat;
+    const sceneDefaultName = !sceneDefaultId || sceneDefaultId === BUILTIN_PRESET ? '內建' : (chatPresets.find(p => p.id === sceneDefaultId)?.name || '內建');
+    const sceneDefaultLabel = presetChoice ? '' : `（跟著預設 App：目前是「${sceneDefaultName}」）`;
 
     const handleDone = () => {
         onSave({
@@ -157,6 +172,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
             // 從沒打開過的角色不寫這個欄位；關掉時留著「帶動作旁白」的選擇，下次打開不用重選
             replyDrafts: replyDrafts || char.replyDrafts
                 ? { enabled: replyDrafts, withActions: draftActions || undefined } : undefined,
+            chatPresetId: presetChoice || undefined,
         });
     };
 
@@ -252,6 +268,14 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                     <section>
                         <h2 className="px-2 pb-2 text-[11px] font-bold tracking-widest text-slate-400">場景與玩法 (SCENARIO)</h2>
                         <div className="bg-white rounded-[1.75rem] border border-slate-100 shadow-[0_10px_30px_-18px_rgba(80,70,120,0.25)] divide-y divide-slate-100">
+                            <Row label="預設" hint={`TA 私聊時照哪份預設說話。預設在桌面的「預設」App 管理，匯入的 ST 預設文風照它的，表情包、轉帳這些功能照常。${sceneDefaultLabel}`}>
+                                <select aria-label="私聊預設" value={presetChoice} onChange={e => setPresetChoice(e.target.value)}
+                                    className="max-w-[45%] min-w-0 truncate rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-[13px] text-slate-700">
+                                    <option value="">跟著預設 App</option>
+                                    <option value={BUILTIN_PRESET}>內建</option>
+                                    {chatPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </Row>
                             <ReadNoReplySettingsPanel value={readNoReply} onChange={setReadNoReply} charTimeZone={resolveCharTimeZone(char)} />
                             <DelayedReplySettingsPanel value={delayedReply} onChange={setDelayedReply} />
                             <Row label="允許角色主動打電話／視訊" hint="開啟後，角色偶爾會自己打給你（語音或視訊，由角色決定）。你開著 App 時會跳出來電畫面，沒開著就記成未接來電，可以回撥。打過一次後一小時內不會再打">

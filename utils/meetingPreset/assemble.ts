@@ -18,17 +18,25 @@ import { applyRegexScripts, REGEX_PLACEMENT } from './regex';
 
 export interface PresetMessage {
     role: MeetingPromptRole;
-    content: string;
+    /** 一般是字串；私聊的聊天記錄可能是帶圖的多段內容（照原樣送，不跑正則） */
+    content: string | unknown[];
 }
 
 export interface AssembleInput {
     doc: MeetingPresetDoc;
     slots: Partial<Record<MeetingPresetSlot, string>>;
     /** 照時間排；最後一則通常是本輪用戶輸入。system 是已經插好的（例如世界書的指定深度條目），不跑正則、不算深度 */
-    history: Array<{ role: MeetingPromptRole; content: string }>;
+    history: Array<{ role: MeetingPromptRole; content: string | unknown[] }>;
     env: Omit<MacroEnv, 'vars' | 'globalVars'>;
     /** 蓋過預設裡存的 globalVars（例如 Soren 的回應字數設定） */
     globalVars?: Record<string, string>;
+    /**
+     * 預設沒放的 Soren 佔位補在哪、照什麼順序（預設裡有但關掉的不補）。
+     * 不給＝見面那一套：全補在聊天記錄前面。
+     */
+    autoSlots?: { beforeHistory: MeetingSorenSlot[]; afterHistory?: MeetingSorenSlot[] };
+    /** 相鄰的 system 併成一則（私聊用：送出結構跟內建一樣是「前段＋聊天記錄＋後段」，前綴快取才吃得到） */
+    squashSystem?: boolean;
 }
 
 export interface AssembleResult {
@@ -37,6 +45,23 @@ export interface AssembleResult {
 }
 
 const SOREN_SLOT_ORDER: MeetingSorenSlot[] = ['soren', 'memory', 'recap', 'emotion', 'time', 'length', 'voice'];
+
+const isText = (content: string | unknown[]): content is string => typeof content === 'string';
+const hasContent = (content: string | unknown[]) => (isText(content) ? !!content.trim() : content.length > 0);
+
+/** 相鄰的 system 併成一則（中間空一行） */
+export const squashSystemMessages = (messages: PresetMessage[]): PresetMessage[] => {
+    const out: PresetMessage[] = [];
+    for (const message of messages) {
+        const prev = out[out.length - 1];
+        if (prev && prev.role === 'system' && message.role === 'system' && isText(prev.content) && isText(message.content)) {
+            prev.content = `${prev.content}\n\n${message.content}`;
+            continue;
+        }
+        out.push({ ...message });
+    }
+    return out;
+};
 
 const formatSlot = (doc: MeetingPresetDoc, slot: MeetingPresetSlot, content: string, env: MacroEnv): string => {
     if (!content.trim()) return '';
@@ -97,6 +122,7 @@ export const assembleMeetingPreset = (input: AssembleInput): AssembleResult => {
         .map(message => {
             if (message.role === 'system') return { ...message };
             seen++;
+            if (!isText(message.content)) return { ...message };
             return {
                 role: message.role,
                 content: applyRegexScripts(message.content, doc.regexScripts, {
@@ -107,12 +133,15 @@ export const assembleMeetingPreset = (input: AssembleInput): AssembleResult => {
                 }),
             };
         })
-        .filter(message => message.content.trim());
+        .filter(message => hasContent(message.content));
 
-    const placed = new Set(enabled.map(prompt => prompt.slot).filter(Boolean));
-    const sorenExtras: PresetMessage[] = SOREN_SLOT_ORDER
-        .filter(slot => !placed.has(slot) && input.slots[slot]?.trim())
+    // 預設裡有這個佔位（開著＝放在那；關著＝明確不要）就不補
+    const mentioned = new Set(doc.prompts.map(prompt => prompt.slot).filter(Boolean));
+    const extrasFor = (slots: MeetingSorenSlot[]): PresetMessage[] => slots
+        .filter(slot => !mentioned.has(slot) && input.slots[slot]?.trim())
         .map(slot => ({ role: 'system', content: input.slots[slot]!.trim() }));
+    const sorenExtras = extrasFor(input.autoSlots?.beforeHistory ?? SOREN_SLOT_ORDER);
+    const sorenAfter = extrasFor(input.autoSlots?.afterHistory ?? []);
 
     const before: PresetMessage[] = [];
     const after: PresetMessage[] = [];
@@ -134,9 +163,10 @@ export const assembleMeetingPreset = (input: AssembleInput): AssembleResult => {
         if (text.trim()) target.push({ role: prompt.role, content: text });
     }
 
-    const messages = sawHistory
-        ? [...before, ...sorenExtras, ...injectIntoHistory(history, injections, contents), ...after]
-        : [...before, ...sorenExtras, ...after];
+    let messages = sawHistory
+        ? [...before, ...sorenExtras, ...injectIntoHistory(history, injections, contents), ...sorenAfter, ...after]
+        : [...before, ...sorenExtras, ...sorenAfter, ...after];
+    if (input.squashSystem) messages = squashSystemMessages(messages);
 
     const prefill = doc.assistantPrefill ? expandMacros(doc.assistantPrefill, env).trim() : '';
     if (prefill) messages.push({ role: 'assistant', content: prefill });

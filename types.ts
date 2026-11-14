@@ -3394,6 +3394,11 @@ export interface CharacterProfile {
    * 解析一律走 utils/presetBinding.ts。見 plans/offline-date-redesign.md、plans/preset-library.md
    */
   dateMeetingPresetId?: string;
+  /**
+   * 這個角色私聊用哪份預設（meeting_presets 表的 id）；'builtin'＝內建（現在送的那一份）；不設＝跟預設 App 的「私聊」場景預設。
+   * 解析一律走 utils/presetBinding.ts 的 resolveChatPresetId；組裝見 utils/chatPresetSession.ts、plans/preset-library.md 第 2 批
+   */
+  chatPresetId?: string;
   /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
   dateEmotionIndependent?: boolean;
   /**

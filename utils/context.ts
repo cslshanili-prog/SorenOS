@@ -94,6 +94,9 @@ export const CORE_SECTION_ORDER: Array<keyof CoreContextSections> = [
     'worldbookAuthorsNoteTop', 'worldbookAuthorsNoteBottom', 'antiFiller', 'triggeredLines',
 ];
 
+/** 表達底線：私聊、見面等單人場景的角色塊都帶（群聊不帶）。私聊內建預設把它列成一條文風（utils/chatPresetSession.ts） */
+export const ANTI_FILLER_BLOCK = `### 表達底線 (Anti-Filler)\n當你覺得"沒什麼可說"的時候，不要用空泛的感慨、萬能句式或華麗排比去填充——那是沒話找話，對方一眼就能看出來。素材永遠比你以為的多：對方的用詞、ta 怎麼說的、ta 沒說的部分、此刻的情境、你們的過去、你心裡閃過的念頭——挑一兩條往深處走就夠了。寧可一個具體的小細節，不要一句誰都能說的話。\n\n`;
+
 const emptyCoreSections = (): CoreContextSections =>
     Object.fromEntries(CORE_SECTION_ORDER.map(key => [key, ''])) as unknown as CoreContextSections;
 
@@ -438,7 +441,7 @@ export const ContextBuilder = {
         // 完整方法版在 datePrompts 的 DIG_DEEPER_BLOCK（見面模式專用，可按角色開關）。
         // 群聊流（groupOptions）跳過：多成員場景會重複注入 N 份，群聊側暫不接入。
         if (!groupOptions) {
-            sections.antiFiller = `### 表達底線 (Anti-Filler)\n當你覺得"沒什麼可說"的時候，不要用空泛的感慨、萬能句式或華麗排比去填充——那是沒話找話，對方一眼就能看出來。素材永遠比你以為的多：對方的用詞、ta 怎麼說的、ta 沒說的部分、此刻的情境、你們的過去、你心裡閃過的念頭——挑一兩條往深處走就夠了。寧可一個具體的小細節，不要一句誰都能說的話。\n\n`;
+            sections.antiFiller = ANTI_FILLER_BLOCK;
         }
 
         // 固定台詞被對方最新一句觸發：放在角色塊最後。私聊（deferVolatile）改放易變段尾，
@@ -500,7 +503,49 @@ export const ContextBuilder = {
              */
             deferVolatile?: boolean;
         },
-    ): string => {
+    ): string => ContextBuilder.buildCoreContextWithSections(char, user, includeDetailedMemories, memoryPalaceContext, groupOptions, timeOptions, layout).text,
+
+    /** 同 buildCoreContext，另外把各段交出來（私聊自訂預設要分別放進 ST 佔位，見 utils/chatPresetSession.ts） */
+    buildCoreContextWithSections: (
+        char: CharacterProfile,
+        user: UserProfile,
+        includeDetailedMemories: boolean = true,
+        memoryPalaceContext?: string,
+        groupOptions?: {
+            skipUserProfile?: boolean;
+            skipWorldview?: boolean;
+            skipWorldbookIds?: Set<string>;
+            headerOverride?: string;
+        },
+        timeOptions?: {
+            /** 傳入「最後一次和用戶互動的時間戳」→ 統一注入「距離上次聯繫多久」（受 timeAwarenessEnabled 控制）。 */
+            lastInteractionTs?: number;
+            /** 抑制整段時間感知（當前時間/時差/距上次聯繫）。見面純架空（dateTimeAwarenessEnabled=false）時用。 */
+            skipTimeAwareness?: boolean;
+            /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
+            conversational?: boolean;
+            /** Recent messages used to activate keyword-based worldbook entries. */
+            worldbookMessages?: WorldbookScanMessage[];
+            /**
+             * 這段對話總共幾則（私聊／群聊傳）。用來判斷對話範例還要不要附上，見 utils/dialogueExamples.ts；
+             * 不傳就一直附上（見面、通話、各種小 App），跟以前範例寫在人設裡一樣。
+             */
+            totalMessages?: number;
+            /** 這份 prompt 交給 Worker 到點／即時生成：用戶假日那行由 Worker 照當天補，這裡不烤進去。 */
+            skipUserHoliday?: boolean;
+            /** 不傳就讀 localStorage 裡的實時感知設定。 */
+            userHolidays?: UserHolidayConfig;
+        },
+        layout?: {
+            /**
+             * 把「每輪/每分鐘都會變」的三塊（當前時間、記憶宮殿召回、情緒 buff）從本函數輸出裡
+             * 摘出去，由調用方通過 buildVolatileCoreState 拿到後放到消息數組末尾。
+             * 目的：讓 system prompt 前綴穩定，吃到中轉的 prompt 前綴緩存（TTFT 直降）。
+             * 只有聊天主路徑（chatPrompts.buildSystemPromptParts）用；其他 App 不傳，行為不變。
+             */
+            deferVolatile?: boolean;
+        },
+    ): { text: string; sections: CoreContextSections } => {
         const sections = ContextBuilder.buildCoreSections(char, user, includeDetailedMemories, memoryPalaceContext, groupOptions, timeOptions, layout);
         const context = CORE_SECTION_ORDER.filter(key => key !== 'triggeredLines').map(key => sections[key]).join('');
 
@@ -518,7 +563,7 @@ export const ContextBuilder = {
             console.log(`✅ [Context] All fields present | context_chars=${context.length}`);
         }
 
-        return context + sections.triggeredLines;
+        return { text: context + sections.triggeredLines, sections };
     },
 
     /**
