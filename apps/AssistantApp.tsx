@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, ChatsCircle, Gear, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import type { AssistantMessage, AssistantSession } from '../types';
+import type { AssistantMessage, AssistantProposal, AssistantSession } from '../types';
 import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
@@ -9,11 +9,14 @@ import { runSoreTurn } from '../utils/assistant/engine';
 import { loadSorePrefs, resolveSoreApi, saveSorePrefs, type SoreApiSource } from '../utils/assistant/api';
 import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
+import type { CssData, CssWrite } from '../utils/assistant/cssLocations';
+import { applyCssProposal, changedSinceApply, restoreCssProposal } from '../utils/assistant/applyProposal';
+import ProposalCard from '../components/assistant/ProposalCard';
 
 /**
- * AI 助手 Sore（plans/ai-assistant.md）。第 1 批：答疑。
+ * AI 助手 Sore（plans/ai-assistant.md）。第 1 批答疑、第 2 批美化 CSS。
  * 對話存在 assistant_sessions；Sore 用哪組 API 存在這台裝置（utils/assistant/api.ts）。
- * 工具結果在畫面上只顯示一行小字，內容只給模型看。
+ * 工具結果在畫面上只顯示一行小字，內容只給模型看；寫的工具出提案卡片，按「套用」才寫，快照跟著卡片存。
  */
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
@@ -27,6 +30,12 @@ const sessionTitle = (messages: AssistantMessage[]) => {
 };
 
 const sourceEventLabel = (source: SoreApiSource) => (source === 'auto' ? '自动' : source === 'global' ? '全域' : 'API库');
+
+// 埋點屬性是固定枚舉（docs/analytics.md），用簡體
+const LOCATION_EVENT_LABEL: Record<string, string> = {
+    chat_chrome_global: '白框全域', chat_chrome_char: '白框角色', chat_chrome_group: '白框群',
+    bubble_theme: '气泡', date: '见面', thinking_chain: '心象卡', journal: '交换日记', schedule: '日程',
+};
 
 const SoreAvatar: React.FC<{ size?: number }> = ({ size = 32 }) => (
     <div className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 to-orange-400 flex items-center justify-center text-white shadow-sm" style={{ width: size, height: size }}>
@@ -42,7 +51,10 @@ const formatTime = (at: number) => {
 };
 
 const AssistantApp: React.FC = () => {
-    const { closeApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase } = useOS();
+    const {
+        closeApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
+        theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme,
+    } = useOS();
     const [sessions, setSessions] = useState<AssistantSession[]>([]);
     const [current, setCurrent] = useState<AssistantSession | null>(null);
     const [input, setInput] = useState('');
@@ -53,6 +65,10 @@ const AssistantApp: React.FC = () => {
     const abortRef = useRef<AbortController | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [proposalBusy, setProposalBusy] = useState('');
+    // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
+    const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
+    cssDataRef.current = { theme, characters, groups, customThemes };
 
     const lightLLM = memoryPalaceConfig?.lightLLM;
     const api = useMemo(() => resolveSoreApi(prefs.apiSource, { apiConfig, lightLLM, apiPresets }), [prefs.apiSource, apiConfig, lightLLM, apiPresets]);
@@ -91,6 +107,7 @@ const AssistantApp: React.FC = () => {
             };
         },
         testApi: async target => testApiConnection(target === 'light' ? lightLLM : apiConfig),
+        cssData: () => cssDataRef.current,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
     const send = async (text: string) => {
@@ -129,6 +146,43 @@ const AssistantApp: React.FC = () => {
         }
     };
 
+    const writeCss = async (write: CssWrite) => {
+        if (write.kind === 'theme') await updateTheme(write.patch);
+        else if (write.kind === 'character') await updateCharacter(write.id, write.patch);
+        else if (write.kind === 'group') await updateGroup(write.id, write.patch);
+        else if (write.kind === 'chatTheme') await addCustomTheme(write.theme);
+        else await removeCustomTheme(write.id);
+    };
+
+    const actOnProposal = async (messageId: string, action: 'apply' | 'reject' | 'restore') => {
+        const session = current;
+        const message = session?.messages.find(m => m.id === messageId);
+        const proposal = message?.proposal;
+        if (!session || !proposal || proposalBusy) return;
+        const data = cssDataRef.current;
+        if (action === 'restore' && changedSinceApply(proposal, data)
+            && !window.confirm('套用之後這裡又被改過了，還原會把那些改動一起蓋掉。還是要還原？')) return;
+        setProposalBusy(messageId);
+        try {
+            let next: AssistantProposal;
+            if (action === 'apply') next = await applyCssProposal(proposal, data, writeCss);
+            else if (action === 'restore') next = await restoreCssProposal(proposal, data, writeCss);
+            else next = { ...proposal, status: 'rejected' };
+            await persist({
+                ...session,
+                messages: session.messages.map(m => (m.id === messageId ? { ...m, proposal: next } : m)),
+                updatedAt: Date.now(),
+            });
+            if (action === 'apply') addToast(proposal.css ? '套用了，去那頁看看；不喜歡可以按還原' : '清掉了', 'success');
+            if (action === 'restore') addToast('還原了', 'success');
+            trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: LOCATION_EVENT_LABEL[proposal.location] || '其他' });
+        } catch (err: any) {
+            addToast(err?.message || String(err), 'error');
+        } finally {
+            setProposalBusy('');
+        }
+    };
+
     const stop = () => {
         abortRef.current?.abort();
         abortRef.current = null;
@@ -158,7 +212,6 @@ const AssistantApp: React.FC = () => {
     };
 
     const messages = current?.messages || [];
-    const visible = messages.filter(m => m.role !== 'tool' && !(m.role === 'assistant' && !m.text.trim()));
     const toolLines = new Map<string, AssistantMessage[]>();
     // 工具結果掛在它前面那則助手訊息下面顯示
     let anchor = '';
@@ -166,6 +219,8 @@ const AssistantApp: React.FC = () => {
         if (m.role === 'assistant') anchor = m.id;
         else if (m.role === 'tool' && anchor) toolLines.set(anchor, [...(toolLines.get(anchor) || []), m]);
     }
+    // 只叫了工具、沒說話的那則也要留著：工具那行和提案卡片掛在它下面
+    const visible = messages.filter(m => m.role !== 'tool' && !(m.role === 'assistant' && !m.text.trim() && !toolLines.has(m.id)));
 
     return (
         <div className="h-full w-full flex flex-col bg-amber-50/40 text-slate-800" data-sore-app>
@@ -205,13 +260,20 @@ const AssistantApp: React.FC = () => {
                 ) : (
                     <div key={m.id} className="flex items-start gap-2" data-sore-reply>
                         <SoreAvatar />
-                        <div className="max-w-[80%] space-y-1">
-                            <div className="rounded-2xl rounded-tl-md bg-white border border-slate-100 shadow-sm px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
-                            {(toolLines.get(m.id) || []).map(t => (
+                        <div className="max-w-[80%] min-w-0 flex-1 space-y-1">
+                            {!!m.text.trim() && (
+                                <div className="w-fit max-w-full rounded-2xl rounded-tl-md bg-white border border-slate-100 shadow-sm px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
+                            )}
+                            {(toolLines.get(m.id) || []).map(t => (t.proposal ? (
+                                <ProposalCard key={t.id} proposal={t.proposal} busy={!!proposalBusy}
+                                    onApply={() => void actOnProposal(t.id, 'apply')}
+                                    onReject={() => void actOnProposal(t.id, 'reject')}
+                                    onRestore={() => void actOnProposal(t.id, 'restore')} />
+                            ) : (
                                 <div key={t.id} className="text-[11px] text-slate-400 pl-1" data-sore-tool>
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
                                 </div>
-                            ))}
+                            )))}
                             <div className="text-[10px] text-slate-300 pl-1">{formatTime(m.at)}</div>
                         </div>
                     </div>

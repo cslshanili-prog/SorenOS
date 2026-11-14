@@ -5821,6 +5821,31 @@ export interface AssistantMessage {
   /** tool：哪個工具、成功沒有 */
   toolName?: string;
   toolOk?: boolean;
+  /** tool：寫的工具出的提案卡片（按「套用」才寫） */
+  proposal?: AssistantProposal;
+}
+
+/** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */
+export interface AssistantProposal {
+  id: string;
+  kind: 'css';
+  /** utils/assistant/cssLocations.ts 的位置 id */
+  location: string;
+  /** 角色／群／氣泡主題 id；全域位置是空字串；新建氣泡主題時是先產好的 id */
+  targetId: string;
+  /** 卡片上的標題，例如「聊天白框 · 角色 · 阿澈」 */
+  targetLabel: string;
+  /** 新建氣泡主題的名字 */
+  newThemeName?: string;
+  /** 整段新內容；空字串＝清除 */
+  css: string;
+  /** 出提案那時候的內容（給卡片比對） */
+  before: string;
+  summary?: string;
+  status: 'pending' | 'applied' | 'rejected' | 'restored';
+  /** 套用前那一刻的內容；existed=false 表示原本沒有（新建的氣泡主題，還原＝刪掉） */
+  snapshot?: { css: string; existed: boolean; at: number };
+  appliedAt?: number;
 }
 
 /** Sore 的一段對話（assistant_sessions 表） */

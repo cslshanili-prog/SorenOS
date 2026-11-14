@@ -1,12 +1,17 @@
 /**
- * Sore 的工具（plans/ai-assistant.md 第 4 節）。第 1 批只有答疑用的「讀」工具，全部自動執行：
+ * Sore 的工具（plans/ai-assistant.md 第 4 節）。「讀」的工具自動執行；「寫」的工具不寫，回一張提案卡片：
  * - 查看設定概況：有沒有設（不讀、不回 API Key）
  * - 測試API：打一次很小的請求
  * - 讀說明：給用戶看的專題說明
- * 寫的工具（第 2 批起）不在這裡執行，會變成提案卡片。
+ * - 讀取CSS：各處美化有沒有設；給位置就回現在的內容＋可用選擇器＋規矩
+ * - 寫CSS／清除CSS：檢查過了出提案卡片，用戶按「套用」才寫（第 2 批）
  */
-import type { APIConfig, CharacterProfile, GroupProfile } from '../../types';
+import type { APIConfig, AssistantProposal, CharacterProfile, GroupProfile } from '../../types';
 import { findGuide, SORE_GUIDES } from './knowledge';
+import {
+    CSS_LOCATIONS, type CssData, describeCssStatus, describeLocation, findCssLocation, newChatThemeId,
+    readLocationCss, resolveCssTarget, validateLocationCss,
+} from './cssLocations';
 
 export interface SoreSettingsInput {
     apiConfig: APIConfig;
@@ -25,11 +30,17 @@ export interface SoreToolContext {
     settings: () => Promise<SoreSettingsInput>;
     /** 打一次很小的請求；target：main 全域、light 副 API */
     testApi: (target: 'main' | 'light') => Promise<{ ok: boolean; message: string }>;
+    /** 美化位置的現況（主題、角色、群、自訂氣泡主題）；沒給就不能用 CSS 工具 */
+    cssData?: () => CssData;
 }
+
+/** 寫的工具交回來的提案（engine 補上 id 和 status） */
+export type SoreProposalDraft = Omit<AssistantProposal, 'id' | 'status'>;
 
 export interface SoreToolResult {
     ok: boolean;
     content: string;
+    proposal?: SoreProposalDraft;
 }
 
 export interface SoreToolDef {
@@ -62,6 +73,20 @@ export const describeSettings = (s: SoreSettingsInput): string => {
     ].filter(Boolean).join('\n');
 };
 
+const LOCATION_IDS = CSS_LOCATIONS.map(l => `${l.id}（${l.label}）`).join('、');
+
+const cssLocationAndTarget = (args: Record<string, unknown>, ctx: SoreToolContext, allowNew = false) => {
+    if (!ctx.cssData) return { error: '這裡不能改美化。' } as const;
+    const loc = findCssLocation(args.location);
+    if (!loc) return { error: `沒有「${String(args.location ?? '')}」這個位置。能用的：${LOCATION_IDS}` } as const;
+    const data = ctx.cssData();
+    const target = resolveCssTarget(loc, args.target, data, { allowNew });
+    if ('error' in target) return { error: target.error } as const;
+    return { loc, data, target } as const;
+};
+
+const PROPOSED_NOTE = '提案卡片已經給用戶看了，要等用戶按「套用」才會寫進去。用一兩句話說你改了什麼就好，不要把 CSS 再貼一次。';
+
 export const SORE_TOOLS: SoreToolDef[] = [
     {
         name: '查看設定概況',
@@ -87,6 +112,60 @@ export const SORE_TOOLS: SoreToolDef[] = [
             return guide
                 ? { ok: true, content: `# ${guide.title}\n${guide.content}` }
                 : { ok: false, content: `沒有「${topic}」這篇。可以讀的：${SORE_GUIDES.map(g => g.id).join('、')}` };
+        },
+    },
+    {
+        name: '讀取CSS',
+        usage: `參數 {"location": "位置 id", "target": "角色／群／氣泡主題的名字"}。都不給＝列出各處美化有沒有設、有哪些角色和群。改 CSS 前一定先讀：拿到現在的內容、能用的選擇器和規矩。位置：${LOCATION_IDS}。`,
+        run: async (args, ctx) => {
+            if (!ctx.cssData) return { ok: false, content: '這裡不能讀美化。' };
+            if (args.location === undefined || args.location === '') return { ok: true, content: describeCssStatus(ctx.cssData()) };
+            const picked = cssLocationAndTarget(args, ctx);
+            if ('error' in picked) return { ok: false, content: picked.error! };
+            return { ok: true, content: describeLocation(picked.loc, picked.target, picked.data) };
+        },
+    },
+    {
+        name: '寫CSS',
+        usage: '參數 {"location": "位置 id", "target": "名字", "css": "整段新的 CSS", "summary": "一句話說改了什麼"}。css 是整段取代、不是追加：要留原本的就一起寫進去。檢查過了會變成提案卡片給用戶，按「套用」才寫入；檢查不過會回錯誤，改好再送。氣泡主題的 target 是主題名字，不存在會新建。',
+        run: async (args, ctx) => {
+            const picked = cssLocationAndTarget(args, ctx, true);
+            if ('error' in picked) return { ok: false, content: picked.error! };
+            const { loc, data, target } = picked;
+            const css = typeof args.css === 'string' ? args.css.trim() : '';
+            if (!css) return { ok: false, content: '沒有 css。要清空請用「清除CSS」。' };
+            const errors = validateLocationCss(loc, css);
+            if (errors.length) return { ok: false, content: `檢查沒過，改好再送：\n${errors.slice(0, 8).map(e => `- ${e}`).join('\n')}` };
+            const isNewTheme = loc.target === 'chatTheme' && !target.exists;
+            return {
+                ok: true,
+                content: PROPOSED_NOTE,
+                proposal: {
+                    kind: 'css', location: loc.id,
+                    targetId: isNewTheme ? newChatThemeId() : target.id,
+                    targetLabel: target.label,
+                    newThemeName: isNewTheme ? String(args.target).trim() : undefined,
+                    css,
+                    before: target.exists ? readLocationCss(loc, target.id, data) : '',
+                    summary: typeof args.summary === 'string' ? args.summary.trim().slice(0, 200) || undefined : undefined,
+                },
+            };
+        },
+    },
+    {
+        name: '清除CSS',
+        usage: '參數 {"location": "位置 id", "target": "名字"}。把那個位置的 CSS 清空（回到預設的樣子），一樣是提案卡片，用戶按「套用」才清。',
+        run: async (args, ctx) => {
+            const picked = cssLocationAndTarget(args, ctx);
+            if ('error' in picked) return { ok: false, content: picked.error! };
+            const { loc, data, target } = picked;
+            const before = readLocationCss(loc, target.id, data);
+            if (!before) return { ok: false, content: `${target.label}本來就是空的。` };
+            return {
+                ok: true,
+                content: PROPOSED_NOTE,
+                proposal: { kind: 'css', location: loc.id, targetId: target.id, targetLabel: target.label, css: '', before, summary: '清空' },
+            };
         },
     },
 ];

@@ -2,7 +2,7 @@
  * Sore 的一輪：送出 → 讀回覆 → 有工具就執行、把結果回給模型 → 再讀，直到它不叫工具或到上限。
  * 畫面每多一則就收到一次 onMessage（存 DB、畫出來）。plans/ai-assistant.md 第 4 節。
  */
-import type { AssistantMessage } from '../../types';
+import type { AssistantMessage, AssistantProposal } from '../../types';
 import { SORE_BASE_KNOWLEDGE } from './knowledge';
 import { formatToolResult, parseAssistantReply } from './protocol';
 import { findSoreTool, SORE_TOOLS, type SoreToolContext } from './tools';
@@ -19,7 +19,9 @@ export const SORE_PERSONA = `你是 Sore，Soren（一支裝在瀏覽器裡的�
 規矩：
 - 不知道就說不知道，不要編出不存在的設定或按鈕。說明裡沒寫的位置，就說「我不確定在哪」，請用戶截圖或描述。
 - 你看不到 API Key，也不要叫用戶把 Key 貼給你。
-- 要改用戶的東西（CSS、預設…）只能提案，用戶按「套用」才會寫進去；第一版你還不能改東西，只能教用戶怎麼改。
+- 美化 CSS 你可以用工具出提案，用戶按「套用」才會寫進去（寫之前會留一份，可以一鍵還原）；其他東西（預設、世界書…）現在還只能教用戶怎麼改。
+- 改 CSS：先「讀取CSS」看現在的內容和能用的選擇器，再「寫CSS」送整段；用戶要的是小改，就在原本的上面改，別整段重寫成別的風格。
+- 用戶沒講清楚要改哪裡（全域還是某個角色），先問一句。
 - 用戶在罵或很急，先把事情解決，少開玩笑。`;
 
 export const buildToolProtocolPrompt = () => `# 工具
@@ -40,10 +42,19 @@ export const buildSoreSystemPrompt = (opts?: { entryNote?: string }) => [
 
 export type ChatCall = (messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>) => Promise<string>;
 
-/** 歷史 → 送給模型的 messages：assistant 用原文（含工具標籤），工具結果當 user */
+const PROPOSAL_STATUS_TEXT: Record<AssistantProposal['status'], string> = {
+    pending: '用戶還沒決定',
+    applied: '用戶已套用',
+    rejected: '用戶不要',
+    restored: '用戶套用後又還原了',
+};
+
+/** 歷史 → 送給模型的 messages：assistant 用原文（含工具標籤），工具結果當 user；提案帶上現在的狀態 */
 export const toModelMessages = (history: AssistantMessage[]) => history.slice(-HISTORY_LIMIT).map(m => ({
     role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
-    content: m.role === 'assistant' ? (m.raw || m.text) : m.text,
+    content: m.role === 'assistant'
+        ? (m.raw || m.text)
+        : m.proposal ? `${m.text}\n[提案狀態：${PROPOSAL_STATUS_TEXT[m.proposal.status]}]` : m.text,
 }));
 
 const newId = () => `am_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -74,6 +85,7 @@ export const runSoreTurn = async (input: {
             const tool = findSoreTool(call.name);
             let ok = false;
             let content = '';
+            let proposal: AssistantProposal | undefined;
             if (!tool) {
                 content = `沒有「${call.name}」這個工具。能用的：${SORE_TOOLS.map(t => t.name).join('、')}`;
             } else {
@@ -81,11 +93,12 @@ export const runSoreTurn = async (input: {
                     const result = await tool.run(call.args, input.ctx);
                     ok = result.ok;
                     content = result.content;
+                    if (result.proposal) proposal = { ...result.proposal, id: newId(), status: 'pending' };
                 } catch (error: any) {
                     content = `工具出錯：${error?.message || String(error)}`;
                 }
             }
-            await push({ id: newId(), role: 'tool', text: formatToolResult(call.name, ok, content), toolName: call.name, toolOk: ok, at: Date.now() });
+            await push({ id: newId(), role: 'tool', text: formatToolResult(call.name, ok, content), toolName: call.name, toolOk: ok, at: Date.now(), ...(proposal ? { proposal } : {}) });
         }
     }
     return added;

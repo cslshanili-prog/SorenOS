@@ -48,11 +48,11 @@ const bubbleSchema = `{
   "customCss": ".sully-bubble-user{...}"
 }`;
 
-const formatSelectorGroups = (groups: ReadonlyArray<{ label: string; selectors: readonly string[] }>): string => groups
+export const formatSelectorGroups = (groups: ReadonlyArray<{ label: string; selectors: readonly string[] }>): string => groups
   .map(group => `${group.label}：${group.selectors.join('、')}`)
   .join('\n');
 
-const BUBBLE_SELECTOR_GROUPS = [
+export const BUBBLE_SELECTOR_GROUPS = [
   {
     label: '兩側氣泡',
     selectors: [
@@ -70,7 +70,7 @@ const BUBBLE_SELECTOR_GROUPS = [
   },
 ] as const;
 
-const WHITEBOX_SELECTOR_GROUPS = [
+export const WHITEBOX_SELECTOR_GROUPS = [
   {
     label: '整屏與頂欄',
     selectors: [
@@ -112,7 +112,7 @@ const WHITEBOX_SELECTOR_GROUPS = [
   },
 ] as const;
 
-const PSYCHE_SELECTOR_GROUPS = [{
+export const PSYCHE_SELECTOR_GROUPS = [{
   label: '心象卡全部結構',
   selectors: ['.sully-psyche', '.sully-psyche-card', '.sully-psyche-title', '.sully-psyche-preview', '.sully-psyche-body'],
 }] as const;
@@ -276,9 +276,9 @@ export const materializeInstallableArtifact = (artifact: CollaborationInstallabl
   };
 };
 
-const bubbleSelector = /^(?:\.sully-bubble(?:\b|-)|\.sully-voice-bar(?:\b|-))/;
-const whiteboxSelector = /^(?:\.sully-chat(?:\b|-)|\.sully-bubble(?:\b|-)|\.sully-voice-bar(?:\b|-)|\.sully-emoji-msg\b|\.sully-collaboration-file(?:\b|-)|\.sully-schedule-change(?:\b|-))/;
-const psycheSelector = /^\.sully-psyche\b/;
+export const bubbleSelector = /^(?:\.sully-bubble(?:\b|-)|\.sully-voice-bar(?:\b|-))/;
+export const whiteboxSelector = /^(?:\.sully-chat(?:\b|-)|\.sully-bubble(?:\b|-)|\.sully-voice-bar(?:\b|-)|\.sully-emoji-msg\b|\.sully-collaboration-file(?:\b|-)|\.sully-schedule-change(?:\b|-))/;
+export const psycheSelector = /^\.sully-psyche\b/;
 
 const cssOf = (artifact: CollaborationInstallableArtifact): string => (
   typeof artifact.payload.css === 'string' ? artifact.payload.css : ''
