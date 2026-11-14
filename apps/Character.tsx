@@ -18,6 +18,7 @@ import { isSupporting, sortByCast } from '../utils/castRole';
 import CastGeneratorPage from '../components/character/CastGeneratorPage';
 import AltAccountsSection from '../components/character/AltAccountsSection';
 import ExpandableTextarea from '../components/common/ExpandableTextarea';
+import StCardImport, { StCardImportButton, type StCardImportHandle } from '../components/character/StCardImport';
 import CharacterImageGenPanel from '../components/character/CharacterImageGenPanel';
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
@@ -429,6 +430,16 @@ const Character: React.FC = () => {
       setDetailTab('identity');
       setView('detail');
   };
+
+  // 匯入 ST 角色卡：建完一樣直接進編輯頁（plans/chat-import-export.md 第 5 節）
+  const openCreated = (created: CharacterProfile) => {
+      setEditingId(created.id);
+      setFormData(created);
+      setDetailTab('identity');
+      setView('detail');
+  };
+  const stCardRef = useRef<StCardImportHandle>(null);
+  const stCardImport = <StCardImportButton onClick={() => stCardRef.current?.chooseFile()} />;
 
   const handleChange = (field: keyof CharacterProfile, value: any) => {
       // Functional update to prevent stale state issues in simple closures
@@ -1206,11 +1217,18 @@ ${isInitialGeneration ? `
       if (!file) return;
 
       try {
-          const json = await readShareText(file, 'character');
-          const data: CharacterExportData = JSON.parse(json);
-
-          if (data.type !== 'sully_character_card') {
-              throw new Error('無效的角色卡文件');
+          // 不是 Soren 自己的卡：試試 SillyTavern 角色卡（PNG／JSON），是的話交給匯入預覽
+          let data: CharacterExportData | null = null;
+          try {
+              data = JSON.parse(await readShareText(file, 'character'));
+          } catch { data = null; }
+          if (!data || data.type !== 'sully_character_card') {
+              try {
+                  await stCardRef.current?.pick(file);
+                  return;
+              } catch {
+                  throw new Error('無效的角色卡文件（Soren 角色卡或 SillyTavern 角色卡都不是）');
+              }
           }
 
           // 導入側同樣剝離憑據 / 美化 / 語言 / 運行時狀態：即便對方給的是舊版
@@ -1311,6 +1329,7 @@ ${isInitialGeneration ? `
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                         </ToolButton>
                         <input type="file" ref={cardImportRef} className="hidden" accept=".json,.png,application/json,image/png" onChange={handleImportCard} />
+                        <StCardImport ref={stCardRef} onCreated={openCreated} supporting={personaLinesEnabled && topTab === 'supporting'} />
                    </div>
                </div>
                <div className="px-6 pb-3 shrink-0 flex gap-2">
@@ -1409,6 +1428,7 @@ ${isInitialGeneration ? `
                                    <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{personaLinesEnabled && topTab === 'supporting' ? '新建配角' : '新建鏈接'}
                                    </button>
+                                   {stCardImport}
                                </>
                            );
                        }
@@ -1433,6 +1453,7 @@ ${isInitialGeneration ? `
                                <button onClick={handleAddCharacter} className="w-full py-4 rounded-3xl border border-dashed border-violet-300/70 text-violet-400 text-sm bg-white/50 hover:bg-white transition-colors flex items-center justify-center gap-2 shrink-0">
                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>{personaLinesEnabled && topTab === 'supporting' ? '新建配角' : '新建鏈接'}
                                </button>
+                               {stCardImport}
                                {totalPages > 1 && (
                                    <div className="flex items-center justify-center gap-3 pt-2 shrink-0">
                                        <button onClick={() => setCharPage(Math.max(0, page - 1))} disabled={page === 0}
