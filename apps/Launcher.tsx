@@ -36,6 +36,7 @@ import CustomWidgetFrame from '../components/launcher/CustomWidgetFrame';
 import CustomWidgetSettings from '../components/launcher/CustomWidgetSettings';
 import CustomWidgetEditor, { pixelSize } from '../components/launcher/CustomWidgetEditor';
 import { STARTER_TEMPLATES, WIDGET_STARTERS, findUntouchedStarterCopies, isStarterTemplateId, starterTemplateId, type WidgetStarter } from '../utils/widgetStarters';
+import { peekWidgetPlacement, takeWidgetPlacement } from '../utils/assistant/widgetPlacement';
 
 const CompanionHome = React.lazy(() => import('../components/os/CompanionHome'));
 
@@ -1212,6 +1213,16 @@ const Launcher: React.FC = () => {
       trackEvent('桌面新增小组件', { 类型: 'custom', 尺寸: sizeLabel(size) });
       return result.item;
   };
+  // Sore 做好的新小組件（套用時勾了放上桌面）：模板出現在主題裡就照這裡的找空位規則放（utils/assistant/widgetPlacement.ts）
+  useEffect(() => {
+      const pendingId = peekWidgetPlacement();
+      if (!pendingId || layoutEditing) return;
+      const template = (theme.launcherCustomWidgets || []).find(t => t.id === pendingId);
+      if (!template) return;
+      takeWidgetPlacement();
+      placeCustomWidget(template);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme.launcherCustomWidgets, layoutEditing]);
   /**
    * 用範本：先打開這一份的設定（上面有預覽），選好尺寸、填好欄位、放好圖，按「放上桌面」才放。
    * 放上桌面的那一份直接指著範本（`starter:<id>`），不複製進「我的小組件」，從桌面移除就什麼都不留。

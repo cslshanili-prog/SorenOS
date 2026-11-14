@@ -12,6 +12,7 @@ import {
 import { sizeLabel, type WidgetSize } from '../../utils/launcherLayout';
 import CustomWidgetFrame from './CustomWidgetFrame';
 import { useResetHiddenScroll } from './useResetHiddenScroll';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 /**
  * 自訂小組件編輯器：名字、尺寸、HTML、CSS、圖片素材、可填寫欄位，上面一直有預覽。
@@ -152,6 +153,7 @@ const CustomWidgetEditor: React.FC<{
                 <button type="button" onClick={onClose} className="rounded-full px-3 py-1.5 text-[12px] font-bold text-[#3f362c]/60 active:bg-[#3f362c]/5">取消</button>
                 <input value={draft.name} onChange={e => patch({ name: e.target.value.slice(0, 60) })} placeholder="小組件名字" aria-label="小組件名字"
                     className="min-w-0 flex-1 rounded-lg bg-transparent px-1 text-center text-[15px] font-bold outline-none focus:bg-white" />
+                {initial && <AskSoreButton compact location="widget" targetId={draft.id} targetName={draft.name} />}
                 {onExport && initial && (
                     <button type="button" onClick={() => onExport(draft)} className="rounded-full px-2.5 py-1.5 text-[12px] font-bold text-[#3f362c]/60 active:bg-[#3f362c]/5">匯出</button>
                 )}

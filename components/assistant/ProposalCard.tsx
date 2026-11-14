@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowCounterClockwise, Check, Eye, PaintBrush, SlidersHorizontal, X } from '@phosphor-icons/react';
-import type { AssistantCssProposal, AssistantPresetProposal, AssistantProposal } from '../../types';
+import { ArrowCounterClockwise, BookOpenText, Check, Eye, PaintBrush, SlidersHorizontal, SquaresFour, X } from '@phosphor-icons/react';
+import type { AssistantCssProposal, AssistantProposal } from '../../types';
 
 /**
  * Sore 的提案卡片（plans/ai-assistant.md 第 3 節）：改哪裡、改成什麼，按「套用」才寫；
@@ -12,7 +12,7 @@ interface Props {
     onApply: () => void;
     onReject: () => void;
     onRestore: () => void;
-    /** 有假資料頁的美化位置才有（見面、預設沒有） */
+    /** 有假資料頁的美化位置、小組件才有（見面、預設、世界書沒有） */
     onPreview?: () => void;
 }
 
@@ -54,12 +54,13 @@ const CssBody: React.FC<{ proposal: AssistantCssProposal }> = ({ proposal }) => 
     );
 };
 
-const PresetBody: React.FC<{ proposal: AssistantPresetProposal }> = ({ proposal }) => {
+/** 預設、世界書共用：一行一個改動，有改前改後的可以展開 */
+const ChangesBody: React.FC<{ proposal: { summary?: string; usage?: string[]; changes: Array<{ label: string; before?: string; after?: string }> } }> = ({ proposal }) => {
     const [open, setOpen] = useState<number | null>(null);
     return (
         <>
             {proposal.summary && <div className="text-[11px] text-slate-500 -mt-1 pl-6">{proposal.summary}</div>}
-            {proposal.usage.length > 0 && (
+            {!!proposal.usage?.length && (
                 <div className="rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800" data-sore-preset-usage>
                     這份正在被 {proposal.usage.join('、')} 用，改了這些地方都會跟著變
                 </div>
@@ -100,7 +101,7 @@ const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRe
     const tone = proposal.status === 'applied' ? 'border-emerald-200 bg-emerald-50/60'
         : proposal.status === 'pending' ? 'border-amber-200 bg-white' : 'border-slate-200 bg-slate-50';
     const btn = 'flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold transition active:scale-95 disabled:opacity-40';
-    const Icon = proposal.kind === 'preset' ? SlidersHorizontal : PaintBrush;
+    const Icon = proposal.kind === 'preset' ? SlidersHorizontal : proposal.kind === 'worldbook' ? BookOpenText : proposal.kind === 'widget' ? SquaresFour : PaintBrush;
 
     return (
         <div className={`rounded-2xl border ${tone} shadow-sm px-3.5 py-3 space-y-2`} data-sore-proposal data-kind={proposal.kind} data-status={proposal.status}>
@@ -112,7 +113,7 @@ const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRe
                 </span>
             </div>
 
-            {proposal.kind === 'css' ? <CssBody proposal={proposal} /> : <PresetBody proposal={proposal} />}
+            {proposal.kind === 'css' ? <CssBody proposal={proposal} /> : <ChangesBody proposal={proposal} />}
 
             <div className="flex flex-wrap gap-2 pt-0.5">
                 {onPreview && (

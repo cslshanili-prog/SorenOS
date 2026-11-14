@@ -5828,7 +5828,7 @@ export interface AssistantMessage {
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */
-export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal;
+export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal | AssistantWorldbookProposal | AssistantWidgetProposal;
 
 interface AssistantProposalBase {
   id: string;
@@ -5854,6 +5854,38 @@ export interface AssistantCssProposal extends AssistantProposalBase {
   before: string;
   /** 套用前那一刻的內容；existed=false 表示原本沒有（新建的氣泡主題，還原＝刪掉） */
   snapshot?: { css: string; existed: boolean; at: number };
+}
+
+/** 世界書（第 4 批）：一組裡加條目、改條目（含停用、改組名、全局）、掛給／取消掛給角色。不能刪條目（Liora 定的）。 */
+export interface AssistantWorldbookProposal extends AssistantProposalBase {
+  kind: 'worldbook';
+  /** 改完之後的組名 */
+  category: string;
+  /** 新條目（id 先產好） */
+  adds: Worldbook[];
+  /** 既有條目要改的欄位 */
+  updates: Array<{ id: string; patch: Partial<Worldbook> }>;
+  /** 角色掛載：加哪些、拿掉哪些（條目 id） */
+  mounts: Array<{ charId: string; add: string[]; remove: string[] }>;
+  changes: Array<{ label: string; before?: string; after?: string }>;
+  /** 套用前：改到的條目原樣、動到的角色原本的掛載 */
+  snapshot?: { entries: Worldbook[]; mounts: Array<{ charId: string; mounted: MountedWorldbook[] }>; at: number };
+}
+
+/** 桌面自訂小組件（第 4 批）：新建或改一個模板，新的可以順便放上桌面 */
+export interface AssistantWidgetProposal extends AssistantProposalBase {
+  kind: 'widget';
+  templateId: string;
+  isNew: boolean;
+  /** 改好的整個模板 */
+  template: import('./utils/customWidget').CustomWidgetTemplate;
+  /** 新的要不要放上桌面（套用時由桌面找空位放） */
+  place: boolean;
+  /** HTML 裡有 <script> */
+  hasScript: boolean;
+  changes: Array<{ label: string; before?: string; after?: string }>;
+  /** 套用前的模板（null＝原本沒有，還原＝刪掉，連桌面上那幾份） */
+  snapshot?: { template: import('./utils/customWidget').CustomWidgetTemplate | null; at: number };
 }
 
 /** 預設要設給誰用（場景預設、角色的私聊／電話／見面、群）；presetId 'builtin'＝內建、空字串＝跟著場景預設（角色、群才有） */

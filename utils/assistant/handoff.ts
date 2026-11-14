@@ -7,8 +7,8 @@ import type { AppID } from '../../types';
 import type { CssLocationId } from './cssLocations';
 
 export interface SoreHandoff {
-    /** 美化位置，或 'preset'（預設編輯頁，第 3 批） */
-    location: CssLocationId | 'preset';
+    /** 美化位置，或 'preset'（預設編輯頁，第 3 批）、'worldbook'（世界書某一組）、'widget'（小組件編輯頁，第 4 批） */
+    location: CssLocationId | 'preset' | 'worldbook' | 'widget';
     /** 角色／群／氣泡主題 id，或預設 id；全域位置留空 */
     targetId?: string;
     /** 氣泡主題還沒存的時候用名字（Sore 會新建）；預設的話是預設名字（顯示用） */
@@ -28,7 +28,22 @@ export const takeSoreHandoff = (): SoreHandoff | null => {
 };
 
 /** 每輪送給 Sore 的「用戶從哪裡來」 */
-export const buildSoreEntryNote = (entry: { location: string; target: string; label: string }) => (entry.location === 'preset' ? [
+/** 不是美化位置的那幾種：畫面上顯示的標題 */
+export const nonCssEntryLabel = (handoff: SoreHandoff): string | null => {
+    if (handoff.location === 'preset') return `預設 · ${handoff.targetName || handoff.targetId || ''}`;
+    if (handoff.location === 'worldbook') return handoff.targetName ? `世界書 · ${handoff.targetName}` : '世界書';
+    if (handoff.location === 'widget') return `桌面小組件 · ${handoff.targetName || '新的'}`;
+    return null;
+};
+
+export const buildSoreEntryNote = (entry: { location: string; target: string; label: string }) => (entry.location === 'worldbook' ? [
+    `用戶在「${entry.label}」按了「請 Sore 幫忙」。`,
+    entry.target ? `要改的世界書組：group="${entry.target}"。用戶沒特別說改哪組的時候，就是這組。開始前先用「讀取世界書」看這組現在的樣子。` : '用戶在世界書 App，可能要開新的一組；先「列出世界書」看看有哪些。',
+    '要幫某個角色寫的話先「讀取角色」。世界書不能刪條目。',
+].join('\n') : entry.location === 'widget' ? [
+    `用戶在「${entry.label}」的編輯頁按了「請 Sore 幫忙」。`,
+    `要改的小組件：widget="${entry.target}"。先用「讀取小組件」看現在的樣子；讀不到就是還沒存的新小組件，用「寫小組件」新建一個（記得 place: false，用戶自己會放）。`,
+].join('\n') : entry.location === 'preset' ? [
     `用戶在「${entry.label}」的編輯頁按了「請 Sore 幫忙」。`,
     `要改的預設：preset="${entry.target}"。用戶沒特別說改哪份的時候，就是改這份。`,
     '開始前先用「讀取預設」看這份現在的樣子；要改的條目先「讀取條目」看全文。',
