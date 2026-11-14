@@ -12,7 +12,7 @@ import { setSoreHandoff, type SoreHandoff } from '../../utils/assistant/handoff'
 // 埋點屬性是固定枚舉（docs/analytics.md），用簡體
 const LOCATION_EVENT_LABEL: Record<SoreHandoff['location'], string> = {
     chat_chrome_global: '白框全域', chat_chrome_char: '白框角色', chat_chrome_group: '白框群',
-    bubble_theme: '气泡', date: '见面', thinking_chain: '心象卡', journal: '交换日记', schedule: '日程',
+    bubble_theme: '气泡', date: '见面', thinking_chain: '心象卡', journal: '交换日记', schedule: '日程', preset: '预设',
 };
 
 const AskSoreButton: React.FC<Omit<SoreHandoff, 'from'> & { className?: string; compact?: boolean }> = ({ className, compact, ...handoff }) => {

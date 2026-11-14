@@ -4,7 +4,7 @@
  * 角色／群的白框疊在全域白框上面，預覽也照這個順序疊，看起來才跟實際一樣。
  * 預覽頁的 CSP 只收 data: 圖片，背景用網址圖片的在預覽裡看不到。
  */
-import type { AssistantProposal } from '../../types';
+import type { AssistantCssProposal, AssistantProposal } from '../../types';
 import { buildInstallablePreviewDocument } from '../../features/collaboration/makers';
 import type { CollaborationInstallableArtifact } from '../../features/collaboration/types';
 import { type CssData, findCssLocation, NEW_THEME_SIDES, readLocationCss } from './cssLocations';
@@ -19,10 +19,10 @@ const ARTIFACT_KIND: Record<string, CollaborationInstallableArtifact['kind'] | u
     thinking_chain: 'psyche-css',
 };
 
-export const canPreviewProposal = (proposal: AssistantProposal) => !!ARTIFACT_KIND[proposal.location];
+export const canPreviewProposal = (proposal: AssistantProposal): proposal is AssistantCssProposal => proposal.kind === 'css' && !!ARTIFACT_KIND[proposal.location];
 
 /** which：看新的還是原本的 */
-export const buildProposalPreview = (proposal: AssistantProposal, data: CssData, which: 'after' | 'before'): string | null => {
+export const buildProposalPreview = (proposal: AssistantCssProposal, data: CssData, which: 'after' | 'before'): string | null => {
     const kind = ARTIFACT_KIND[proposal.location];
     const loc = findCssLocation(proposal.location);
     if (!kind || !loc) return null;

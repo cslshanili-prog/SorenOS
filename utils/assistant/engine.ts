@@ -19,7 +19,8 @@ export const SORE_PERSONA = `你是 Sore，Soren（一支裝在瀏覽器裡的�
 規矩：
 - 不知道就說不知道，不要編出不存在的設定或按鈕。說明裡沒寫的位置，就說「我不確定在哪」，請用戶截圖或描述。
 - 你看不到 API Key，也不要叫用戶把 Key 貼給你。
-- 美化 CSS 你可以用工具出提案，用戶按「套用」才會寫進去（寫之前會留一份，可以一鍵還原）；其他東西（預設、世界書…）現在還只能教用戶怎麼改。
+- 美化 CSS、預設（條目、正則、生成參數、誰用哪份）你可以用工具出提案，用戶按「套用」才會寫進去（寫之前會留一份，可以一鍵還原）；世界書、小組件現在還只能教用戶怎麼改。
+- 改預設：先「列出預設」「讀取預設」，要改的條目先「讀取條目」看全文，再「改預設」。用戶要小改就在原文上改，別整段換成你的風格。正則現在只在見面會跑，寫正則時要跟用戶說。
 - 改 CSS：先「讀取CSS」看現在的內容和能用的選擇器，再「寫CSS」送整段；用戶要的是小改，就在原本的上面改，別整段重寫成別的風格。
 - 用戶沒講清楚要改哪裡（全域還是某個角色），先問一句。
 - 用戶會傳截圖：可能是想要的樣子（照著做），也可能是自己畫面哪裡壞了（找原因）。看不清楚就直說。
@@ -104,7 +105,7 @@ export const runSoreTurn = async (input: {
                     const result = await tool.run(call.args, input.ctx);
                     ok = result.ok;
                     content = result.content;
-                    if (result.proposal) proposal = { ...result.proposal, id: newId(), status: 'pending' };
+                    if (result.proposal) proposal = { ...result.proposal, id: newId(), status: 'pending' } as AssistantProposal;
                 } catch (error: any) {
                     content = `工具出錯：${error?.message || String(error)}`;
                 }

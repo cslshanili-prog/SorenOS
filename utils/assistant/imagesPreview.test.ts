@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AssistantMessage, AssistantProposal, CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
+import type { AssistantMessage, AssistantCssProposal, CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
 import { SORE_IMAGE_MESSAGES_SENT, toModelMessages } from './engine';
 import { buildProposalPreview, canPreviewProposal } from './preview';
 import type { CssData } from './cssLocations';
@@ -25,7 +25,7 @@ describe('提案預覽', () => {
         groups: [] as GroupProfile[],
         customThemes: [] as ChatTheme[],
     };
-    const proposal = (location: string, css: string, before = ''): AssistantProposal => ({
+    const proposal = (location: string, css: string, before = ''): AssistantCssProposal => ({
         id: 'p', kind: 'css', location, targetId: 'c1', targetLabel: 'x', css, before, status: 'pending',
     });
     it('見面沒有預覽，其他有', () => {
