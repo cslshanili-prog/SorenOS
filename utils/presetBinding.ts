@@ -6,6 +6,7 @@
  *   角色存 'builtin' 是明確選內建；不設就是跟場景預設——舊資料沒設的照舊是內建（場景預設一開始也沒設）。
  *   選的那份被刪了就往下一層退。
  * - 私聊：角色自己選的（CharacterProfile.chatPresetId）> 場景預設 > 內建，規則同見面（第 2 批）。
+ * - 電話：角色自己選的（CharacterProfile.callPresetId）> 場景預設 > 內建（第 3a 批）。
  * - 劇情：每條劇情自己存 presetId（照舊）；新開的劇情預設帶場景預設。
  */
 import type { CharacterProfile, UserProfile } from '../types';
@@ -16,7 +17,7 @@ export const BUILTIN_PRESET = 'builtin';
 
 export const PRESET_SCENE_LABEL: Record<PresetScene, string> = { chat: '私聊', group: '群聊', call: '電話', date: '見面', story: '劇情' };
 /** 這一批開放的場景（線上三個在第 2、3 批） */
-export const ACTIVE_PRESET_SCENES: PresetScene[] = ['chat', 'date', 'story'];
+export const ACTIVE_PRESET_SCENES: PresetScene[] = ['chat', 'call', 'date', 'story'];
 
 /** 通用預設（meeting_presets）適用哪些場景；舊資料沒寫就是見面 */
 export const scenesOfPreset = (record: Pick<MeetingPresetRecord, 'doc'>): PresetScene[] =>
@@ -44,6 +45,15 @@ export function resolveChatPresetId(
     exists: (id: string) => boolean = () => true,
 ): string | undefined {
     return resolveOwnOrScene(char.chatPresetId, 'chat', profileBase, exists);
+}
+
+/** 電話要用的預設 id；undefined＝內建。規則同私聊（plans/preset-library.md 第 3a 批） */
+export function resolveCallPresetId(
+    char: Pick<CharacterProfile, 'callPresetId'>,
+    profileBase: Pick<UserProfile, 'presetSceneDefaults'>,
+    exists: (id: string) => boolean = () => true,
+): string | undefined {
+    return resolveOwnOrScene(char.callPresetId, 'call', profileBase, exists);
 }
 
 function resolveOwnOrScene(

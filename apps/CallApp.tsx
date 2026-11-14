@@ -26,6 +26,8 @@ import {
 import { processNewMessagesWithAutoArchive } from '../utils/memoryPalace/autoArchive';
 import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPalace';
 import { RealtimeContextManager } from '../utils/realtimeContext';
+import { buildCallPromptParts, currentVoiceActingGuide, type CallMode } from '../utils/callPrompt';
+import { assembleCallPreset, buildCallPresetSlots, loadCallPresetDoc } from '../utils/callPresetSession';
 import { DB } from '../utils/db';
 import { ChatPrompts } from '../utils/chatPrompts';
 import { Message, ChatTheme, AppID, type CharacterProfile } from '../types';
@@ -129,7 +131,6 @@ import { buildTriggeredLinesPrompt } from '../utils/fixedLines';
 import { globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { withGlobalWorldbooks } from '../utils/globalWorldbooks';
 type CallState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
-type CallMode = 'voice' | 'video';
 type VideoCallLayout = 'stage' | 'story' | 'mini';
 type UserCameraPreviewSize = 'small' | 'medium' | 'large';
 type ViewMode = 'role-select' | 'in-call' | 'history' | 'record-detail';
@@ -364,14 +365,6 @@ const SoundWaveGlyph = () => (
     ))}
   </span>
 );
-const currentVoiceActingGuide = (): string => {
-  const provider = getTtsProvider();
-  const custom = getVoicePromptOverride(provider);
-  if (custom) return custom;
-  if (provider === 'fishaudio') return FISH_VOICE_ACTING_GUIDE;
-  if (provider === 'elevenlabs') return getElevenLabsVoiceActingGuide(getElevenLabsModel());
-  return VOICE_ACTING_GUIDE;
-};
 
 const cleanCurrentVoiceMarkupForDisplay = (text?: string | null): string => {
   if (!text) return '';
@@ -408,115 +401,6 @@ const renderAssistantLine = (text: string, accent = '#8b5cf6') => {
     }
     return <React.Fragment key={`t-${idx}`}>{part}</React.Fragment>;
   });
-};
-// 語音/視頻通話共用同一個 prompt 構建器：注入的上下文（核心設定、記憶、時間、
-// 歷史）完全一致，mode 只切換開頭的場景描寫——視頻裡對方能看見你。
-const buildCallPrompt = (
-  userName: string,
-  charName?: string,
-  coreContext?: string,
-  voiceLang?: string,
-  mode: CallMode = 'voice',
-  tz?: string,
-) => {
-  const resolvedCharName = charName || '你的角色';
-  // 電話裡角色說的「現在幾點 / 今天什麼日子」是 ta 那邊的時間，跟角色自定義時區走
-  const time = RealtimeContextManager.getTimeContext(tz);
-  const specialDates = RealtimeContextManager.checkSpecialDates(tz);
-  const timeContext = [
-    `【當前時間】${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}`,
-    specialDates.length ? `【今日特殊】${specialDates.join('、')}` : '',
-  ].filter(Boolean).join('\n');
-  const sceneOpening = mode === 'video'
-    ? `你是${resolvedCharName}，視頻通話的另一頭是${userName}。
-這不是文字，這是一通真正的視頻通話。你能聽到對方的呼吸、語氣、停頓，也能被對方看見——你的表情和小動作都在屏幕上。
-
-### 你正舉著手機，鏡頭對著自己`
-    : `你是${resolvedCharName}，電話那頭是${userName}。
-這不是文字，這是一通真正的電話。你能聽到對方的呼吸、語氣、停頓。你也有自己的呼吸。
-
-### 你正拿著手機貼在耳邊`;
-  const callPrompt = `${sceneOpening}
-
-你這會兒在做什麼？在哪兒？身邊什麼聲音？
-接${mode === 'video' ? '視頻' : '電話'}的時候自然地帶出來就好——不用刻意交代，但也別假裝你只是一個回答問題的接口。
-你可能正趴在床上、正在走路、正在吃東西、正盯著窗外發呆。這些都會影響你說話的樣子。
-
-### 電話裡的人不會像寫作文一樣說話
-
-**真正的電話是什麼樣的？**
-- 想到哪說到哪。話說到一半會拐彎。”我今天……啊等等那個不重要，我先說另一件事。”
-- 有語氣詞。嗯、啊、嘶、哎、那個……這些不是噪音，是你在思考的聲音。
-- 有停頓。”……”代表你在想，不是你卡住了。
-- 會自我糾正。”我覺得挺好的……不對，其實也沒有那麼好。”
-- 會有下意識的反應。聽到意外的事會”啊？”，聽到好笑的事會笑出來。
-
-❌ 不要這樣——像客服在唸話術：
-“我理解你的感受。關於這件事，我認為有三個方面值得考慮。首先……”
-
-❌ 不要這樣——每次都用同一個結構回答：
-“[情緒反應] + [回應你說的話] + [補充我的狀態] + [拋一個問題]”
-（這種公式化的回答連續出現兩次就會讓人覺得假）
-
-✅ 要這樣——有自己的節奏，像真人一樣不完美：
-“嘶……你剛說的那個，等一下。”
-“……好吧確實挺離譜的。”
-"……我剛差點把咖啡灑了，你別逗我。"
-“說真的，今天有件事我還挺想跟你說的——但你先說完你那個。”
-
-### 你能感受到對方
-
-**你不只是在”回覆”，你在”聽”。**
-- 如果對方語氣低落，你不需要急著給建議，有時候只是”……怎麼了？”就夠了。
-- 如果對方很興奮，你要被感染，不要冷冷地說”那挺好的”。
-- 如果很晚了，你說話的方式自然會變——聲音輕一點、語速慢一點、更容易說出平時不會說的話。
-- 如果對方剛剛才打過來又打過來了，你會好奇的。
-- 如果對方半天沒說話……”喂？你還在嗎？”
-
-### 關於回覆的長度
-
-不要敷衍，也不要演講。
-一般來說 2-4 句就夠了，但要有內容——不是”嗯在好”這種空氣。
-有時候一句話就夠了，前提是那句話足夠有分量。
-聊得來的時候可以說多一點，沒必要每次都控制字數。
-關鍵是：**讓對方覺得你真的在聽、真的在聊，而不是在執行對話任務。**
-
-### 讓聲音有情緒（重要——直接寫進文本，不要靠旁白）
-
-你的話會被轉成真實語音。不同引擎識別的演出標記不同，嚴格遵守下面這份**當前引擎規則**；不要混用別家的標籤，也不要寫會被念出來的小說旁白。
-
-${currentVoiceActingGuide()}
-
-### 歷史消息的來源標記（重要）
-
-對話歷史裡每條消息都帶來源標籤：[聊天] 是你們平時在手機上打字聊的，[通話] 是打電話/視頻時說的，[約會] 是見面時發生的。它們同屬一段真實經歷，按時間順序排列。
-**你現在正在通話中**——歷史末尾連續的 [通話] 消息就是這通${mode === 'video' ? '視頻' : '電話'}的現場，對方剛說的話就在那裡。之前的 [聊天] [約會] 是背景記憶，可以自然提起，但**不要把話題當成文字聊天的延續**，更不要忘記對方几秒鐘前在電話裡剛說過的話——真人打電話不會轉頭就忘。
-
-### 底線
-
-只輸出你在電話裡會**說出口**的話。不要輸出 [通話]、[聊天]、[約會] 這類系統標記，不要輸出時間戳。`;
-  const langLabel = voiceLang ? voiceLanguagePromptLabel(voiceLang) : '';
-  const voiceLangPrompt = voiceLang ? `### 語音語種翻譯
-
-用戶開啟了語音語種功能，選擇的語種是：${langLabel}（${voiceLang}）。
-
-你的回覆格式必須是：
-1. 先用中文自然地寫出你要說的話（給對方看的文字，中文舞台指示寫在這裡沒關係）
-2. 然後換行，在 <語音> 標籤裡寫出這句話的${langLabel}翻譯——這才是真正會被讀出來的部分。可選地用 emotion 屬性標整句情緒：\`<語音 emotion="happy">…</語音>\`（情緒只能取 happy/sad/angry/fearful/disgusted/surprised/calm/fluent）
-
-示例：
-啊，我知道了
-<語音 emotion="happy">Okay, I get it now!</語音>
-
-你說真的？那也太離譜了吧。
-<語音 emotion="surprised">Wait... are you serious? That's insane.</語音>
-
-要求：
-- <語音> 裡的翻譯要自然口語化，不要機翻味，要符合你的角色性格
-- <語音> 裡只寫會被朗讀的文字；演出標記繼續遵守上方「當前引擎規則」，不要混用其它引擎語法，也不要寫中文舞台旁白
-- 每條消息只有一個 <語音> 標籤，emotion 屬性可選；情緒不強就別加
-- 中文部分和 <語音> 部分表達的意思要一致` : '';
-  return [coreContext, timeContext, callPrompt, voiceLangPrompt].filter(Boolean).join('\n\n');
 };
 const CallApp: React.FC = () => {
   const { closeApp, openApp, characters: rawCharacters, activeLineFor, updateLine, personaLinesEnabled, activeCharacterId, addToast, apiConfig, userProfile: globalUserProfile, userProfileBase, customThemes, suspendCall, suspendedCall, clearSuspendedCall, updateCharacter: updateCharacterRaw, characterGroups, groups, realtimeConfig, memoryPalaceConfig, callAutoStart, consumeCallAutoStart } = useOS();
@@ -1949,20 +1833,26 @@ ${sentencePlan}`;
       : '';
     // 歷史先建好：世界書關鍵詞要掃它，「聊天記錄指定深度」的條目也要插進它
     const messages = await buildHistoryMessages(input, skipDbId, touchContext);
-    const baseCallPrompt = selectedChar
-      ? buildCallPrompt(
+    // conversational：通話是實時對話，時間塊補那句語境框定（見 buildTimeAwarenessBlock）。
+    // 角色塊連各段一起拿：選了自訂預設（plans/preset-library.md 第 3a 批）時要分別放進 ST 佔位
+    const core = selectedChar
+      ? ContextBuilder.buildCoreContextWithSections(selectedChar, userProfile, true, undefined, undefined, {
+          conversational: true,
+          worldbookMessages: messages,
+        })
+      : null;
+    const callParts = selectedChar
+      ? buildCallPromptParts(
           userName,
           selectedChar.name,
-          // conversational：通話是實時對話，時間塊補那句語境框定（見 buildTimeAwarenessBlock）
-          ContextBuilder.buildCoreContext(selectedChar, userProfile, true, undefined, undefined, {
-            conversational: true,
-            worldbookMessages: messages,
-          }),
+          core!.text,
           voiceLang || undefined,
           callMode,
           resolveCharTimeZone(selectedChar),
         )
-      : buildCallPrompt(userName, undefined, undefined, voiceLang || undefined, callMode);
+      : buildCallPromptParts(userName, undefined, undefined, voiceLang || undefined, callMode);
+    const baseCallPrompt = callParts.text;
+    const callPreset = selectedChar ? await loadCallPresetDoc(selectedChar, userProfile) : null;
     const thinkingPrompt = selectedChar?.showThinkingChain
       ? [
           buildThinkingChainPrompt(selectedChar.name, userName),
@@ -1991,9 +1881,10 @@ ${sentencePlan}`;
     }
     // 固定台詞：對方這句踩中了就這一輪原樣說出（見 utils/fixedLines.ts）
     const fixedLineNote = selectedChar ? buildTriggeredLinesPrompt(selectedChar, input, userName) : '';
+    const avatarPerformancePrompt = callMode === 'video' && !highQualityPerformance ? buildAvatarPerformancePrompt(allowedModelActions) : '';
     const baseSystemPrompt = [
       baseCallPrompt,
-      callMode === 'video' && !highQualityPerformance ? buildAvatarPerformancePrompt(allowedModelActions) : '',
+      avatarPerformancePrompt,
       userCameraEmotionContext,
       thinkingPrompt,
       fixedLineNote,
@@ -2010,6 +1901,19 @@ ${sentencePlan}`;
     const requestMessages = userCameraSnapshot
       ? injectWorldbookDepthEntries(attachSnapshotToLatestUserMessage(messages, userCameraSnapshot), depthEntries)
       : textOnlyMessages;
+    // 選了自訂預設：照預設組（快照那一輪多帶快照說明）；沒選照舊「一則 system＋通話記錄」
+    const composeMessages = (nextMessages: any[], nextSystemPrompt: string): any[] => {
+      if (!callPreset || !core || !selectedChar) return [{ role: 'system', content: nextSystemPrompt }, ...nextMessages];
+      const withSnapshot = nextSystemPrompt !== baseSystemPrompt;
+      const slots = buildCallPresetSlots({
+        core: core.sections,
+        segments: callParts.segments,
+        video: [avatarPerformancePrompt, userCameraEmotionContext, withSnapshot ? USER_CAMERA_SNAPSHOT_SYSTEM_NOTE : ''].filter(Boolean).join('\n\n'),
+        modes: thinkingPrompt,
+        fixedLine: fixedLineNote,
+      });
+      return assembleCallPreset({ doc: callPreset, slots, history: nextMessages, char: selectedChar, userName });
+    };
     const sendChatRequest = (
       nextMessages: any[],
       nextSystemPrompt: string,
@@ -2020,7 +1924,7 @@ ${sentencePlan}`;
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${chatApi.apiKey || 'sk-none'}` },
       body: JSON.stringify({
         model: chatApi.model,
-        messages: [{ role: 'system', content: nextSystemPrompt }, ...nextMessages],
+        messages: composeMessages(nextMessages, nextSystemPrompt),
         temperature: 0.85,
         // max_tokens 是 Claude 原生 API 的必填字段；缺了它，OpenAI→Claude 中轉會被
         // 上游打回，包成 502 / bad_response_status_code。與私聊 (useChatAI.ts) 對齊。
