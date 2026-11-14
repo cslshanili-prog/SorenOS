@@ -428,7 +428,7 @@ interface OSContextType {
 
   // Groups
   groups: GroupProfile[];
-  createGroup: (name: string, members: string[]) => void;
+  createGroup: (name: string, members: string[]) => Promise<GroupProfile>;
   updateGroup: (id: string, updates: Partial<GroupProfile>) => Promise<void>;
   deleteGroup: (id: string) => void;
 
@@ -4264,6 +4264,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       await DB.saveGroup(newGroup);
       setGroups(prev => [...prev, newGroup]);
       markGroupMembersDirty(newGroup.members, [...groups, newGroup]);
+      return newGroup;
   };
 
   const updateGroup = async (id: string, updates: Partial<GroupProfile>) => {

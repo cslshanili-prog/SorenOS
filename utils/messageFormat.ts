@@ -39,9 +39,10 @@ export function buildSARMemoryBoundaryInstruction(sourceText: string): string {
  * 表情包消息的 content 存的是圖床 URL，本身不帶名字。拼上下文時要靠這個反查出
  * 當初設的表情名（關鍵字），非識圖模型才能"看見"對方發了什麼表情。
  * 私聊主歷史、群聊主歷史都從這裡取名，避免一處查一處漏（群聊曾漏查，只給 [表情包]）。
+ * fallback：表情庫裡沒有時用的名字（從別處匯入的表情帶 metadata.stickerName）。
  */
-export function stickerNameFromUrl(emojis: Emoji[], url: string): string {
-    return emojis.find(e => e.url === url)?.name || '未知表情';
+export function stickerNameFromUrl(emojis: Emoji[], url: string, fallback?: string): string {
+    return emojis.find(e => e.url === url)?.name || (typeof fallback === 'string' && fallback.trim()) || '未知表情';
 }
 
 /**

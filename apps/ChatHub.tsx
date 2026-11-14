@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, type ChatLine } from '../types';
@@ -14,6 +14,7 @@ import { trackEvent } from '../utils/analytics';
 import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
 import AddFriendPage from '../components/chat/AddFriendPage';
 import PairChatPage from '../components/chat/PairChatPage';
+import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
 import AltRequestsBlock from '../components/chat/AltRequestsBlock';
 import { pairSpeakerOf, parsePairLineId } from '../utils/pairLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
@@ -68,6 +69,7 @@ const ChatHub: React.FC = () => {
         setActiveCharacterId, openGroupChat,
         userProfileBase, personaLinesEnabled, setActivePersonaId, addToast,
     } = useOS();
+    const chatImportRef = useRef<PhoneChatImportHandle>(null);
 
     // 關係線（plans/persona-line-batch1-2.md）：預覽開著時，私聊照「現在的我」分空間——只列認識這張卡的角色；
     // 「全部身份」把每個角色的每條線都列出來，頭像角落標是哪張卡。關著時照舊一個角色一行。
@@ -261,6 +263,12 @@ const ChatHub: React.FC = () => {
                     onClose={() => { setPairOpen(null); setRowsVersion(v => v + 1); }}
                 />
             )}
+            <PhoneChatImport ref={chatImportRef} onDone={r => {
+                chatReturnTarget.set(AppID.ChatHub);
+                if (r.kind === 'group') { openGroupChat(r.groupId); return; }
+                setActiveCharacterId(r.charId);
+                openApp(AppID.Chat);
+            }} />
             {/* Header */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-100 shrink-0 sticky top-0 z-10" style={{ paddingTop: 'var(--safe-top)' }}>
                 <div className="flex items-center justify-between px-4 py-3">
@@ -290,6 +298,7 @@ const ChatHub: React.FC = () => {
                                     {personaLinesEnabled && (
                                         <button onClick={() => { setShowAddMenu(false); setPairOpen('new'); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">讓兩個角色聊聊</button>
                                     )}
+                                    <button onClick={() => { setShowAddMenu(false); chatImportRef.current?.open(); }} className="w-full text-left px-4 py-3 text-xs font-semibold text-slate-600 hover:bg-slate-50 border-t border-slate-50">匯入聊天紀錄</button>
                                 </div>
                             </>
                         )}

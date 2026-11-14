@@ -1133,6 +1133,51 @@ export const DB = {
     });
   },
 
+  /**
+   * 聊天紀錄匯入（plans/chat-import-export.md）：一個事務寫完一批。
+   * 帶 id 的是覆蓋（原地 put，位置不動），沒帶的照順序新增；回傳每一列的 id（同順序）。
+   * 主線不寫 personaKey、群訊息也不寫，跟 saveMessage 一樣。不觸發任何生成。
+   */
+  writeImportedMessages: async (rows: Array<Omit<Message, 'id'> & { id?: number }>): Promise<number[]> => {
+    if (!rows.length) return [];
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_MESSAGES, STORE_ASSETS], 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      const ids: number[] = new Array(rows.length);
+      rows.forEach((raw, i) => {
+        const row: Record<string, unknown> = { ...normalizeLineMsg(raw) };
+        if (!row.personaKey || row.groupId) delete row.personaKey;
+        if (typeof row.id !== 'number') delete row.id;
+        const req = typeof row.id === 'number' ? store.put(row) : store.add(row);
+        req.onsuccess = () => {
+          ids[i] = req.result as number;
+          if (typeof raw.id !== 'number') clearStaleMemoryMirror(tx, raw.charId, ids[i]);
+        };
+      });
+      tx.oncomplete = () => resolve(ids);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('匯入的訊息沒有存進去'));
+    });
+  },
+
+  /** 幾則訊息各合併幾個欄位（匯入後接上引用回覆用）；找不到的那則略過。 */
+  patchMessages: async (patches: Array<{ id: number; fields: Partial<Message> }>): Promise<void> => {
+    if (!patches.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_MESSAGES, 'readwrite');
+      const store = tx.objectStore(STORE_MESSAGES);
+      for (const { id, fields } of patches) {
+        const req = store.get(id);
+        req.onsuccess = () => { if (req.result) store.put({ ...req.result, ...fields, id }); };
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('patchMessages aborted'));
+    });
+  },
+
   /** 整則換掉 type / content / metadata（照片佔位卡生成好之後換成真的圖片用，見 utils/pendingPhoto.ts）。 */
   replaceMessageFields: async (id: number, patch: Partial<Pick<Message, 'type' | 'content' | 'metadata'>>): Promise<void> => {
     const db = await openDB();

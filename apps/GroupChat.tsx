@@ -62,6 +62,7 @@ import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing
 import ChromeCssEditor from '../components/chat/ChromeCssEditor';
 import WhiteboxSoundEditor from '../components/chat/WhiteboxSoundEditor';
 import HtmlCard from '../components/chat/HtmlCard';
+import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
 import { WhiteboxSound, parseWhiteboxSound, upsertWhiteboxSound, stripWhiteboxSoundDirective, resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
 import { buildHtmlPrompt } from '../utils/htmlPrompt';
 import { materializeVisionDescriptions } from '../utils/visionApi';
@@ -507,6 +508,7 @@ const GroupMessageItem = React.memo(({
 const GroupChat: React.FC = () => {
     const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
+    const chatImportRef = useRef<PhoneChatImportHandle>(null);
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
     // 只有通過 pendingGroupChatId 深鏈進來的那次會話才設置，用一次就清空。
     const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
@@ -2742,6 +2744,13 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             {/* --- Modals --- */}
 
             {/* Group Settings Modal */}
+            <PhoneChatImport ref={chatImportRef} onDone={r => {
+                if (r.kind !== 'group') return;
+                if (activeGroup && r.groupId === activeGroup.id) {
+                    setActiveGroup({ ...activeGroup, members: r.members });
+                    void refreshMessages(r.groupId);
+                }
+            }} />
             {modalType === 'settings' && (
             <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" onClick={e => e.stopPropagation()}>
                 {/* 頁首：返回（不存這頁的文字欄位；成員、禁言這些本來就即時生效）／保存 */}
@@ -3279,6 +3288,13 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                 <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-[10px] text-slate-400">聊天還在近期熱區裡。內容足夠多後，會自動出現第一隻公共話題盒。</div>
                             )}
                         </div>
+                    </div>
+
+                    {/* 匯入聊天紀錄（plans/chat-import-export.md） */}
+                    <div className="pt-2 border-t border-slate-100">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">聊天紀錄</label>
+                        <button type="button" onClick={() => { if (activeGroup) chatImportRef.current?.open({ kind: 'group', groupId: activeGroup.id }); }} className="w-full py-3 rounded-2xl border border-violet-100 bg-violet-50 text-xs font-bold text-violet-600">從別的 App 匯入群聊紀錄</button>
+                        <p className="mt-2 text-center text-[10px] text-slate-400">支援另一家手機風格 App 匯出的群聊 JSON，發話人照名字對到角色。</p>
                     </div>
 
                     {/* Danger Zone */}
