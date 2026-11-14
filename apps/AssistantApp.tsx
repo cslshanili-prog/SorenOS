@@ -10,7 +10,7 @@ import { loadSorePrefs, resolveSoreApi, saveSorePrefs, type SoreApiSource } from
 import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
 import { type CssData, type CssWrite, findCssLocation, resolveCssTarget } from '../utils/assistant/cssLocations';
-import { buildSoreEntryNote, takeSoreHandoff } from '../utils/assistant/handoff';
+import { buildSoreEntryNote, nonCssEntryLabel, takeSoreHandoff } from '../utils/assistant/handoff';
 import {
     applyCssProposal, applyPresetProposal, applyWorldbookProposal, changedSinceApply, presetChangedSinceApply, type PresetWriter,
     restoreCssProposal, restorePresetProposal, restoreWorldbookProposal, worldbookChangedSinceApply, type WorldbookWriter,
@@ -36,6 +36,10 @@ import { processImage } from '../utils/file';
 /** 從編輯頁的「請 Sore 幫忙」進來時的建議 */
 const ENTRY_SUGGESTIONS = ['幫我重新設計一套', '看看現在的 CSS 哪裡有問題', '顏色換暖一點就好'];
 const PRESET_ENTRY_SUGGESTIONS = ['這份預設在幹嘛？幫我看看', '文風改得更口語一點', '加個正則把星號拿掉'];
+const WORLDBOOK_ENTRY_SUGGESTIONS = ['幫我整理一下這組', '補幾條地點和勢力的設定', '把這組掛給角色'];
+const WIDGET_ENTRY_SUGGESTIONS = ['幫我做得更好看', '加一個點一下會變的互動', '看看哪裡跑版了'];
+const entrySuggestions = (location: string) => (location === 'preset' ? PRESET_ENTRY_SUGGESTIONS
+    : location === 'worldbook' ? WORLDBOOK_ENTRY_SUGGESTIONS : location === 'widget' ? WIDGET_ENTRY_SUGGESTIONS : ENTRY_SUGGESTIONS);
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
 
@@ -126,13 +130,14 @@ const AssistantApp: React.FC = () => {
     const [returnTo, setReturnTo] = useState<AppID | null>(null);
     useEffect(() => {
         const handoff = takeSoreHandoff();
-        if (handoff?.location === 'preset' && handoff.targetId) {
+        const otherLabel = handoff ? nonCssEntryLabel(handoff) : null;
+        if (handoff && otherLabel) {
             const now = Date.now();
-            const label = `預設 · ${handoff.targetName || handoff.targetId}`;
-            setCurrent({ id: newSessionId(), title: label, messages: [], createdAt: now, updatedAt: now, entry: { location: 'preset', target: handoff.targetId, label } });
+            const target = handoff.targetId || handoff.targetName || '';
+            setCurrent({ id: newSessionId(), title: otherLabel, messages: [], createdAt: now, updatedAt: now, entry: { location: handoff.location, target, label: otherLabel } });
             if (handoff.from && handoff.from !== AppID.Assistant) setReturnTo(handoff.from);
         } else if (handoff) {
-            const loc = handoff.location === 'preset' ? undefined : findCssLocation(handoff.location);
+            const loc = findCssLocation(handoff.location);
             if (loc) {
                 const target = handoff.targetId || handoff.targetName || '';
                 const resolved = resolveCssTarget(loc, target, cssDataRef.current, { allowNew: true });
@@ -389,9 +394,11 @@ const AssistantApp: React.FC = () => {
                         <SoreAvatar size={48} />
                         <p className="text-[13px] leading-relaxed text-slate-600 max-w-[270px]">{current.entry.location === 'preset'
                             ? '來啦。想讓它哪裡不一樣？說說角色現在哪裡不對勁，我先翻翻這份預設 📜'
+                            : current.entry.location === 'worldbook' ? '來啦。要補設定、整理，還是掛給誰？先說好，條目我只能停用不能刪 📚'
+                            : current.entry.location === 'widget' ? '來啦。想讓它長怎樣、會做什麼？丟張參考圖也行 🧩'
                             : '來啦。想改成什麼樣？說個感覺、丟張截圖都行，我先看看現在長怎樣 🎨'}</p>
                         <div className="flex flex-wrap justify-center gap-2 pt-1">
-                            {(current.entry.location === 'preset' ? PRESET_ENTRY_SUGGESTIONS : ENTRY_SUGGESTIONS).map(s => (
+                            {entrySuggestions(current.entry.location).map(s => (
                                 <button key={s} type="button" disabled={running} onClick={() => void send(s)}
                                     className="rounded-full bg-white border border-amber-200 px-3 py-1.5 text-[12px] text-amber-700 shadow-sm active:scale-95 transition disabled:opacity-40">{s}</button>
                             ))}

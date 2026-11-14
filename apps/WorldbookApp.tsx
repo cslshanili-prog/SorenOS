@@ -17,6 +17,7 @@ import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 import { trackEvent } from '../utils/analytics';
 import { globalCategories } from '../utils/globalWorldbooks';
+import AskSoreButton from '../components/assistant/AskSoreButton';
 
 const WorldbookApp: React.FC = () => {
     const { closeApp, worldbooks, addWorldbook, updateWorldbook, updateWorldbooks, deleteWorldbook, deleteWorldbooks, addToast } = useOS();
@@ -639,6 +640,7 @@ const WorldbookApp: React.FC = () => {
                             <DiamondsFour size={18} className="text-indigo-500" /> 世界書
                         </span>
                         <div className="flex items-center gap-2">
+                            <AskSoreButton compact location="worldbook" />
                             {worldbooks.length > 0 && (
                                 <button
                                     onClick={() => {
@@ -752,6 +754,7 @@ const WorldbookApp: React.FC = () => {
                                 </span>
                                 全局啟用
                             </button>
+                            <AskSoreButton compact location="worldbook" targetId={category} targetName={category} />
                             <button type="button" className="text-[11px] text-indigo-500 py-1" onClick={() => setGroupEditor({ category, name: category, mode: 'keep' })}>編輯整組</button>
                             <button type="button" className="text-[11px] text-slate-400 py-1" onClick={() => { setSelectedBookIds(new Set(books.map(book => book.id))); setShowBulkDeleteConfirm(true); }}>刪除整組</button>
                         </div>}
