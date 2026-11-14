@@ -15,6 +15,7 @@ import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/ch
 import AddFriendPage from '../components/chat/AddFriendPage';
 import PairChatPage from '../components/chat/PairChatPage';
 import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
+import { knowPersonaDirectly, strangerAction } from '../utils/friendRequest';
 import AltRequestsBlock from '../components/chat/AltRequestsBlock';
 import { pairSpeakerOf, parsePairLineId } from '../utils/pairLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
@@ -67,7 +68,7 @@ const ChatHub: React.FC = () => {
     const {
         closeApp, openApp, characters, npcs, groups, unreadMessages,
         setActiveCharacterId, openGroupChat,
-        userProfileBase, personaLinesEnabled, setActivePersonaId, addToast,
+        userProfileBase, personaLinesEnabled, setActivePersonaId, addToast, updateCharacter,
     } = useOS();
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
 
@@ -225,10 +226,16 @@ const ChatHub: React.FC = () => {
     }, [characters, npcs, contactQuery]);
 
     const openContact = (item: ContactRow) => {
-        // 他還不認識現在這張卡：先加好友，不直接掉進別張卡的那條線
+        // 他還不認識現在這張卡：「先加好友才能對話」開著就先加好友，關著就直接認識（不掉進別張卡的那條線）
         if (item.kind === 'character' && strangerIds.has(item.id)) {
-            setAddFriendFor(item.id);
-            return;
+            const target = characters.find(c => c.id === item.id);
+            if (target && strangerAction(target, userProfileBase) === 'direct') {
+                updateCharacter(target.id, prev => knowPersonaDirectly(prev, globalPersonaKey(userProfileBase)));
+                trackEvent('跳过好友申请直接聊天', { 来源: '开关关闭' });
+            } else {
+                setAddFriendFor(item.id);
+                return;
+            }
         }
         if (item.kind === 'character') {
             setActiveCharacterId(item.id);

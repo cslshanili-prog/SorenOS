@@ -3,12 +3,13 @@ import ExpandableTextarea from '../common/ExpandableTextarea';
 import type { CharacterProfile, DateStory } from '../../types';
 import { patchDateStory } from '../../utils/dateStory';
 import { describeLength } from '../../utils/dateExtras';
+import { dateGreetingsOf, greetingsOf, greetingsPatch, makeGreetingId, mergeDateEdits } from '../../utils/greetings';
 
 // 見面設定裡的劇情大綱、開場白、回應字數三塊。內建規則和自訂預設都吃這三項：
 // 大綱進預設的「場景」佔位（{{scenario}} 也讀它），字數蓋預設裡讀字數的 getglobalvar。
 // 輸入先放草稿，點別處才存，免得每打一個字就寫一次 DB。
 
-type Greeting = NonNullable<CharacterProfile['dateGreetings']>[number];
+type Greeting = { id: string; text: string };
 
 interface Props {
     char: CharacterProfile;
@@ -19,7 +20,6 @@ interface Props {
     story?: DateStory | null;
 }
 
-const makeGreetingId = () => `dg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 const toNumber = (value: string): number | undefined => {
     const n = Math.floor(Number(value));
     return value.trim() && Number.isFinite(n) && n > 0 ? n : undefined;
@@ -28,11 +28,12 @@ const toNumber = (value: string): number | undefined => {
 const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Section, story }) => {
     const savedScenario = story ? (story.scenario || '') : (char.dateScenario || '');
     const [scenario, setScenario] = useState(savedScenario);
-    const [greetings, setGreetings] = useState<Greeting[]>(char.dateGreetings || []);
+    // 只看得到勾了見面的那幾段（整份清單在神經鏈接編輯頁，utils/greetings.ts）
+    const [greetings, setGreetings] = useState<Greeting[]>(dateGreetingsOf(char));
     const [minDraft, setMinDraft] = useState(char.dateResponseLength?.min ? String(char.dateResponseLength.min) : '');
     const [maxDraft, setMaxDraft] = useState(char.dateResponseLength?.max ? String(char.dateResponseLength.max) : '');
     useEffect(() => {
-        setGreetings(char.dateGreetings || []);
+        setGreetings(dateGreetingsOf(char));
         setMinDraft(char.dateResponseLength?.min ? String(char.dateResponseLength.min) : '');
         setMaxDraft(char.dateResponseLength?.max ? String(char.dateResponseLength.max) : '');
     }, [char.id]);
@@ -49,11 +50,11 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
 
     const saveGreetings = (next: Greeting[]) => {
         const cleaned = next.map(g => ({ ...g, text: g.text.trim() })).filter(g => g.text);
-        const before = JSON.stringify(char.dateGreetings || []);
-        if (JSON.stringify(cleaned) === before) return;
+        const before = JSON.stringify(dateGreetingsOf(char).map(g => ({ id: g.id, text: g.text })));
+        if (JSON.stringify(cleaned.map(g => ({ id: g.id, text: g.text }))) === before) return;
         updateCharacter(char.id, {
-            dateGreetings: cleaned.length ? cleaned : undefined,
-            // 開場白都刪光了就退回讓模型寫
+            ...greetingsPatch(mergeDateEdits(greetingsOf(char), cleaned)),
+            // 見面的開場白都刪光了就退回讓模型寫
             ...(cleaned.length ? {} : { dateOpeningSource: undefined }),
         });
     };
@@ -95,7 +96,7 @@ const DateStoryExtras: React.FC<Props> = ({ char, updateCharacter, addToast, Sec
             </Section>
 
             <Section title="開場白 (Greetings)">
-                <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">寫好幾段開場，感知頁可以選「用開場白」，每次隨機挑一段，重新感知就換一段。可以用 {'{{char}}'}、{'{{user}}'}。赴約那次還是讓模型寫，才接得上邀約。</p>
+                <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">寫好幾段開場，感知頁可以選「用開場白」，每次隨機挑一段，重新感知就換一段。可以用 {'{{char}}'}、{'{{user}}'}。赴約那次還是讓模型寫，才接得上邀約。這裡列的是角色開場白裡勾了「見面」的那幾段（整份在神經鏈接的角色編輯頁），在這裡新增的會自動勾見面。</p>
                 <div className="space-y-3">
                     {greetings.map((g, i) => (
                         <div key={g.id} className="relative">

@@ -3092,6 +3092,9 @@ export interface DateAppearance {
   customCss?: string;
 }
 
+/** 一段開場白：chat＝私聊用、date＝見面用（utils/greetings.ts） */
+export interface CharacterGreeting { id: string; text: string; chat?: boolean; date?: boolean }
+
 export interface CharacterProfile {
   id: string;
   name: string;
@@ -3383,7 +3386,13 @@ export interface CharacterProfile {
   dateMeetingPresetId?: string;
   /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
   dateEmotionIndependent?: boolean;
-  /** 見面的開場白庫（ST 的 first_mes + alternate_greetings）；可用 {{char}}、{{user}} */
+  /**
+   * 開場白清單（神經鏈接編輯頁、見面劇情設定共用一份）：每段勾要給私聊（chat）還是見面（date）用，可以都勾。
+   * 私聊：一條線還沒有私聊訊息時角色先傳一段（utils/chatGreeting.ts）；見面：感知頁「用開場白」。可用 {{char}}、{{user}}。
+   * 讀寫一律走 utils/greetings.ts（舊的 dateGreetings 讀的時候當成勾了見面的）。
+   */
+  greetings?: CharacterGreeting[];
+  /** @deprecated 舊的見面開場白庫；讀的時候當成 greetings 裡勾了見面的那幾段（utils/greetings.ts 的 greetingsOf），寫一律寫 greetings 並清掉這欄 */
   dateGreetings?: { id: string; text: string }[];
   /** 開場怎麼來：模型寫（預設）或從開場白庫挑 */
   dateOpeningSource?: 'generate' | 'greeting';
@@ -4049,6 +4058,11 @@ export interface UserProfile {
      * 群上還開著舊的 userLurkMode 就是旁觀。解析走 utils/groupChat/presence.ts 的 presentPersonaKeys。
      */
     groupPresence?: Record<string, string[]>;
+    /**
+     * 「先加好友才能對話」：沒設＝開。開著時點一個還不認識現在這張卡的角色會先跳加好友頁（頁面上也能直接聊）；
+     * 關掉就直接認識、直接聊。見 utils/friendRequest.ts 的 strangerAction。
+     */
+    friendRequestRequired?: boolean;
     /**
      * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
      * 'vrworld'（彼方，你的分身只有一個）；遊戲的身份存在那一局上。舊資料可能還有 'spark'（Spark 已刪），讀不到就是了。

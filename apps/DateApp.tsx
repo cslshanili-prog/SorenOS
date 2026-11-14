@@ -26,6 +26,7 @@ import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummar
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import StChatImport, { type StChatImportHandle } from '../components/date/StChatImport';
 import { buildStChatJsonl, exportFileName } from '../utils/chatExport';
+import { dateGreetingsOf } from '../utils/greetings';
 import type { DateStory, UserProfile } from '../types';
 import { cleanDisplayText } from '../utils/meetingPreset/display';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
@@ -714,7 +715,7 @@ const DateApp: React.FC = () => {
 
         // 開場白庫：選了「用開場白」又有寫，就直接用，不叫模型（赴約那次照舊讓模型寫，才接得上邀約）
         const source = sourceOverride ?? c.dateOpeningSource;
-        const greeting = source === 'greeting' && !meetup ? pickGreeting(c.dateGreetings || [], peekGreetingId) : undefined;
+        const greeting = source === 'greeting' && !meetup ? pickGreeting(dateGreetingsOf(c), peekGreetingId) : undefined;
         if (greeting) {
             setPeekGreetingId(greeting.id);
             setPeekStatus(expandGreeting(greeting.text, c.name, resolveUserProfileForChar(userProfileBase, c).name));
@@ -969,7 +970,7 @@ const DateApp: React.FC = () => {
             const rerollOpening: DateOpeningMode = lastMsg.metadata?.dateOpeningMode === 'invite' ? 'invite' : 'approach';
             // 這段開場是從開場白庫挑的：重擲就換一條開場白，不叫模型
             const previousGreetingId: string | undefined = lastMsg.metadata?.dateGreetingId;
-            const nextGreeting = previousGreetingId ? pickGreeting(char.dateGreetings || [], previousGreetingId) : undefined;
+            const nextGreeting = previousGreetingId ? pickGreeting(dateGreetingsOf(char), previousGreetingId) : undefined;
             if (nextGreeting) {
                 const content = expandGreeting(nextGreeting.text, char.name, dateUserProfile.name);
                 await DB.deleteMessage(lastMsg.id);
@@ -1792,7 +1793,7 @@ const DateApp: React.FC = () => {
                          ))}
                      </div>
                 </div>
-                {(char.dateGreetings || []).some(g => g.text.trim()) && !peekMeetup && (
+                {dateGreetingsOf(char).some(g => g.text.trim()) && !peekMeetup && (
                     <div className="relative z-10 flex justify-center -mt-1 mb-2">
                         <div role="radiogroup" aria-label="開場怎麼來" className="flex rounded-full border border-neutral-800 bg-neutral-900/80 p-1 text-xs">
                             {([['generate', '模型寫開場'], ['greeting', '用開場白']] as const).map(([value, label]) => {

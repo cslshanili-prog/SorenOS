@@ -65,6 +65,12 @@ export const CARD_STRIPPED_FIELDS = [
   'specialMomentRecords',
   'vrState',
   'chibiStudio',
+
+  // 5) 關係線：認識哪幾張身份卡、各線的狀態都是發卡人自己的（身份卡 id 在接收方不存在，
+  //    留著會變成誰都不認識）。接收方讀進來時照自己現在的身份卡補（utils/chatLine.ts 的 withLineFields）
+  'knownPersonaKeys',
+  'primaryPersonaKey',
+  'lines',
 ] as const;
 
 /**

@@ -7,6 +7,8 @@
  */
 import type { APIConfig, CharacterProfile, FriendRequestRecord, UserProfile } from '../types';
 import { ContextBuilder } from './context';
+import { knowsPersona } from './chatLine';
+import { globalPersonaKey } from './userPersona';
 import { resolveCharacterChatApi } from './characterApi';
 import { extractContent, extractJson, safeResponseJson } from './safeApi';
 
@@ -89,3 +91,25 @@ export function faceForPersona(profileBase: UserProfile, personaKey: string, rea
     }
     return { name: profileBase.name, gender: profileBase.gender, bio: profileBase.bio };
 }
+
+// ─── 不認識你的角色：先加好友還是直接聊 ───
+
+/** 「先加好友才能對話」：沒設就是開 */
+export const friendRequestRequired = (profileBase: Pick<UserProfile, 'friendRequestRequired'>): boolean => profileBase.friendRequestRequired !== false;
+
+/**
+ * 點一個角色要聊天時怎麼走：認識現在這張卡（或是小號，小號另有好友流程）→ 直接開；
+ * 不認識 → 開關開著先加好友（befriend），關著就直接認識（direct）。
+ */
+export function strangerAction(
+    char: Pick<CharacterProfile, 'knownPersonaKeys' | 'primaryPersonaKey' | 'altOf'>,
+    profileBase: UserProfile,
+): 'open' | 'befriend' | 'direct' {
+    if (char.altOf || knowsPersona(char, globalPersonaKey(profileBase))) return 'open';
+    return friendRequestRequired(profileBase) ? 'befriend' : 'direct';
+}
+
+/** 直接認識：這張卡加進他認識的卡（不送申請、不寫系統訊息；那條線是空的，開場白會自己送） */
+export const knowPersonaDirectly = (prev: Pick<CharacterProfile, 'knownPersonaKeys'>, personaKey: string): Pick<CharacterProfile, 'knownPersonaKeys'> => ({
+    knownPersonaKeys: (prev.knownPersonaKeys || []).includes(personaKey) ? prev.knownPersonaKeys : [...(prev.knownPersonaKeys || []), personaKey],
+});

@@ -163,7 +163,8 @@ export function characterBookToWorldInfo(entries: any[]): { entries: Record<stri
 
 export interface SorenFromCard {
     /** 新角色要填的欄位（id、頭像由呼叫端給） */
-    fields: Pick<CharacterProfile, 'name' | 'description' | 'systemPrompt'> & Partial<Pick<CharacterProfile, 'dialogueExamples' | 'dateGreetings' | 'dateScenario'>>;
+    /** 開場白（first_mes＋alternate_greetings）進 greetings，預設只勾見面（酒館的開場多半是長段敘事） */
+    fields: Pick<CharacterProfile, 'name' | 'description' | 'systemPrompt'> & Partial<Pick<CharacterProfile, 'dialogueExamples' | 'greetings' | 'dateScenario'>>;
     /** 卡內世界書＋深度提示，分類是角色名 */
     worldbooks: Worldbook[];
 }
@@ -205,7 +206,7 @@ export function cardToSoren(card: StCard, now = Date.now()): SorenFromCard {
             systemPrompt: join(card.description, card.personality, extra),
             ...(card.mesExample.trim() ? { dialogueExamples: card.mesExample.trim() } : {}),
             ...(card.scenario.trim() ? { dateScenario: card.scenario.trim() } : {}),
-            ...(greetings.length ? { dateGreetings: greetings.map((text, i) => ({ id: `greet-${now}-${i}`, text })) } : {}),
+            ...(greetings.length ? { greetings: greetings.map((text, i) => ({ id: `greet-${now}-${i}`, text, date: true })) } : {}),
         },
         worldbooks,
     };
