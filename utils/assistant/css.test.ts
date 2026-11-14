@@ -128,8 +128,9 @@ describe('CSS 工具', () => {
     });
     it('寫CSS：新氣泡主題先產 id', async () => {
         const result = await findSoreTool('寫CSS')!.run({ location: 'bubble_theme', target: '海鹽', css: '.sully-bubble-ai{color:teal}' }, ctxOf(makeData()));
-        expect(result.proposal?.targetId).toMatch(/^sore_theme_/);
-        expect(result.proposal?.newThemeName).toBe('海鹽');
+        const draft = result.proposal as { targetId: string; newThemeName?: string };
+        expect(draft.targetId).toMatch(/^sore_theme_/);
+        expect(draft.newThemeName).toBe('海鹽');
     });
     it('清除CSS：空的就不出卡片', async () => {
         const empty = await findSoreTool('清除CSS')!.run({ location: 'schedule' }, ctxOf(makeData()));

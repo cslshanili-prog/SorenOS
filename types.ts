@@ -5828,26 +5828,59 @@ export interface AssistantMessage {
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */
-export interface AssistantProposal {
+export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal;
+
+interface AssistantProposalBase {
   id: string;
+  /** 卡片上的標題，例如「聊天白框 · 角色 · 阿澈」 */
+  targetLabel: string;
+  summary?: string;
+  status: 'pending' | 'applied' | 'rejected' | 'restored';
+  appliedAt?: number;
+}
+
+/** 美化 CSS（第 2 批） */
+export interface AssistantCssProposal extends AssistantProposalBase {
   kind: 'css';
   /** utils/assistant/cssLocations.ts 的位置 id */
   location: string;
   /** 角色／群／氣泡主題 id；全域位置是空字串；新建氣泡主題時是先產好的 id */
   targetId: string;
-  /** 卡片上的標題，例如「聊天白框 · 角色 · 阿澈」 */
-  targetLabel: string;
   /** 新建氣泡主題的名字 */
   newThemeName?: string;
   /** 整段新內容；空字串＝清除 */
   css: string;
   /** 出提案那時候的內容（給卡片比對） */
   before: string;
-  summary?: string;
-  status: 'pending' | 'applied' | 'rejected' | 'restored';
   /** 套用前那一刻的內容；existed=false 表示原本沒有（新建的氣泡主題，還原＝刪掉） */
   snapshot?: { css: string; existed: boolean; at: number };
-  appliedAt?: number;
+}
+
+/** 預設要設給誰用（場景預設、角色的私聊／電話／見面、群）；presetId 'builtin'＝內建、空字串＝跟著場景預設（角色、群才有） */
+export type AssistantPresetBinding =
+  | { kind: 'scene'; scene: 'chat' | 'group' | 'call' | 'date' | 'story'; label: string }
+  | { kind: 'char'; charId: string; field: 'chat' | 'call' | 'date'; label: string }
+  | { kind: 'group'; groupId: string; label: string };
+
+/** 預設（第 3 批）：改內容、新建、設給誰用，可以同一張卡片 */
+export interface AssistantPresetProposal extends AssistantProposalBase {
+  kind: 'preset';
+  presetKind: 'general' | 'story';
+  presetId: string;
+  presetName: string;
+  /** 新建的（還原＝刪掉） */
+  isNew: boolean;
+  /** 改好的整份；沒有＝內容不動、只設給誰用 */
+  doc?: import('./utils/meetingPreset/types').MeetingPresetDoc | StoryTheaterPresetDocument;
+  /** 卡片上的改動清單（改了哪條、改前改後） */
+  changes: Array<{ label: string; before?: string; after?: string }>;
+  /** 出提案那時候誰在用這份 */
+  usage: string[];
+  bindings?: AssistantPresetBinding[];
+  /** 綁定設成哪份（presetId 本身，或 'builtin'、''） */
+  bindTo?: string;
+  /** 套用前那一刻：整份預設（null＝原本沒有）、每個綁定原本的值 */
+  snapshot?: { doc?: unknown; bindings?: Array<{ binding: AssistantPresetBinding; previous?: string }>; at: number };
 }
 
 /** Sore 的一段對話（assistant_sessions 表） */

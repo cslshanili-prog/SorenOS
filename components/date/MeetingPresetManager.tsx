@@ -6,38 +6,15 @@ import { saveMeetingPresetDoc } from '../../utils/meetingPreset/store';
 import { addPrompt, canDeletePrompt, movePrompt, moveRegexScript, removePrompt, sectionPromptIds, UNGROUPED_SECTION_ID } from '../../utils/meetingPreset/edit';
 import MeetingRegexEditor, { newMeetingRegexScript } from './MeetingRegexEditor';
 import type { MeetingPresetDoc, MeetingPresetPrompt, MeetingPresetRecord, MeetingPresetSlot } from '../../utils/meetingPreset/types';
-import { CHAT_FEATURE_OFF_WARNING, CHAT_SLOT_LABELS } from '../../utils/chatPresetSession';
-import { CALL_FEATURE_OFF_WARNING, CALL_SLOT_LABELS } from '../../utils/callPresetSession';
-import { GROUP_SLOT_LABELS } from '../../utils/groupPresetSession';
+import { isPresetFeatureSlot, PRESET_FEATURE_OFF_WARNING, PRESET_SLOT_LABELS } from '../../utils/meetingPreset/slotLabels';
 
 // 見面自訂預設的管理頁：條目開關（照預設自帶的分組）、條目內容、{{getglobalvar}} 變數、
 // 正則開關、生成參數。條目能新增、刪除（資料佔位只能關）、排序；正則能排序。
 // 改了 600ms 後存一次，存了就發事件讓開著的見面畫面重讀。
 
-const SLOT_LABELS: Record<MeetingPresetSlot, string> = {
-    worldInfoBefore: '世界書（前）',
-    worldInfoAfter: '世界書（後）',
-    charDescription: '角色描述',
-    charPersonality: '角色設定',
-    scenario: '場景',
-    personaDescription: '用戶描述',
-    dialogueExamples: '對話示例',
-    chatHistory: '聊天記錄',
-    memory: 'Soren · 記憶',
-    recap: 'Soren · 前情提要',
-    time: 'Soren · 時間',
-    emotion: 'Soren · 情緒',
-    voice: 'Soren · 語氣標籤',
-    length: 'Soren · 回應字數',
-    soren: 'Soren · 其它',
-    ...CHAT_SLOT_LABELS,
-    ...CALL_SLOT_LABELS,
-    ...GROUP_SLOT_LABELS,
-};
-
-/** Soren 功能條目（私聊、電話）：內容由程式產生，關掉要講後果 */
-const FEATURE_OFF_WARNING: Partial<Record<MeetingPresetSlot, string>> = { ...CHAT_FEATURE_OFF_WARNING, ...CALL_FEATURE_OFF_WARNING };
-const isFeatureSlot = (slot: MeetingPresetSlot | undefined): slot is MeetingPresetSlot => !!slot && slot in FEATURE_OFF_WARNING;
+const SLOT_LABELS = PRESET_SLOT_LABELS;
+const FEATURE_OFF_WARNING = PRESET_FEATURE_OFF_WARNING;
+const isFeatureSlot = isPresetFeatureSlot;
 
 type Tab = 'prompts' | 'vars' | 'regex' | 'params';
 

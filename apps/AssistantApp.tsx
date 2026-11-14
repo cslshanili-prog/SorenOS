@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, ChatsCircle, Gear, ImageSquare, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import { AppID, type AssistantMessage, type AssistantProposal, type AssistantSession } from '../types';
+import { AppID, type AssistantCssProposal, type AssistantMessage, type AssistantPresetBinding, type AssistantProposal, type AssistantSession } from '../types';
 import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
@@ -11,7 +11,11 @@ import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
 import { type CssData, type CssWrite, findCssLocation, resolveCssTarget } from '../utils/assistant/cssLocations';
 import { buildSoreEntryNote, takeSoreHandoff } from '../utils/assistant/handoff';
-import { applyCssProposal, changedSinceApply, restoreCssProposal } from '../utils/assistant/applyProposal';
+import {
+    applyCssProposal, applyPresetProposal, changedSinceApply, presetChangedSinceApply, type PresetWriter, restoreCssProposal, restorePresetProposal,
+} from '../utils/assistant/applyProposal';
+import type { PresetData } from '../utils/assistant/presetOps';
+import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import ProposalCard from '../components/assistant/ProposalCard';
 import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
 import { processImage } from '../utils/file';
@@ -62,7 +66,7 @@ const formatTime = (at: number) => {
 const AssistantApp: React.FC = () => {
     const {
         closeApp, openApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
-        theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme,
+        theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme, updateUserProfile,
     } = useOS();
     const [sessions, setSessions] = useState<AssistantSession[]>([]);
     const [current, setCurrent] = useState<AssistantSession | null>(null);
@@ -76,11 +80,30 @@ const AssistantApp: React.FC = () => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [proposalBusy, setProposalBusy] = useState('');
     const [pendingImages, setPendingImages] = useState<string[]>([]);
-    const [preview, setPreview] = useState<{ proposal: AssistantProposal; which: 'after' | 'before' } | null>(null);
+    const [preview, setPreview] = useState<{ proposal: AssistantCssProposal; which: 'after' | 'before' } | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
     const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
     cssDataRef.current = { theme, characters, groups, customThemes };
+    const sceneDefaultsRef = useRef(userProfileBase.presetSceneDefaults);
+    sceneDefaultsRef.current = userProfileBase.presetSceneDefaults;
+
+    /** 預設的現況：每次都從 DB 讀（預設 App 可能剛改過），角色、群、場景預設用最新的 */
+    const loadPresetData = useCallback(async (): Promise<PresetData> => {
+        const [general, story, theaters] = await Promise.all([
+            DB.getMeetingPresets().catch(() => []),
+            DB.getStoryTheaterPresets().catch(() => []),
+            DB.getStoryTheaters().catch(() => []),
+        ]);
+        return {
+            general,
+            story: story.filter(p => !p.builtIn),
+            characters: cssDataRef.current.characters,
+            groups: cssDataRef.current.groups,
+            storyTheaters: theaters.map(t => ({ id: t.id, title: t.title, presetId: t.presetId })),
+            sceneDefaults: { ...(sceneDefaultsRef.current || {}) },
+        };
+    }, []);
 
     const lightLLM = memoryPalaceConfig?.lightLLM;
     const api = useMemo(() => resolveSoreApi(prefs.apiSource, { apiConfig, lightLLM, apiPresets }), [prefs.apiSource, apiConfig, lightLLM, apiPresets]);
@@ -134,6 +157,7 @@ const AssistantApp: React.FC = () => {
         },
         testApi: async target => testApiConnection(target === 'light' ? lightLLM : apiConfig),
         cssData: () => cssDataRef.current,
+        presetData: loadPresetData,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
     const addImages = async (files: FileList | null) => {
@@ -197,28 +221,47 @@ const AssistantApp: React.FC = () => {
         else await removeCustomTheme(write.id);
     };
 
+    const notifyPresets = () => { try { window.dispatchEvent(new Event(MEETING_PRESET_UPDATED_EVENT)); } catch { /* 沒有 window 就算了 */ } };
+    const presetWriter: PresetWriter = {
+        saveGeneral: async record => { await DB.saveMeetingPreset(record); notifyPresets(); },
+        deleteGeneral: async id => { await DB.deleteMeetingPreset(id); notifyPresets(); },
+        saveStory: preset => DB.saveStoryTheaterPreset(preset),
+        deleteStory: id => DB.deleteStoryTheaterPreset(id),
+        setBinding: async (binding: AssistantPresetBinding, value: string | undefined) => {
+            if (binding.kind === 'scene') updateUserProfile(prev => ({ presetSceneDefaults: { ...(prev.presetSceneDefaults || {}), [binding.scene]: value } }));
+            else if (binding.kind === 'group') await updateGroup(binding.groupId, { presetId: value });
+            else await updateCharacter(binding.charId, binding.field === 'chat' ? { chatPresetId: value } : binding.field === 'call' ? { callPresetId: value } : { dateMeetingPresetId: value });
+        },
+    };
+
     const actOnProposal = async (messageId: string, action: 'apply' | 'reject' | 'restore') => {
         const session = current;
         const message = session?.messages.find(m => m.id === messageId);
         const proposal = message?.proposal;
         if (!session || !proposal || proposalBusy) return;
-        const data = cssDataRef.current;
-        if (action === 'restore' && changedSinceApply(proposal, data)
+        const cssData = cssDataRef.current;
+        const presetData = proposal.kind === 'preset' ? await loadPresetData() : null;
+        const changedSince = proposal.kind === 'css' ? changedSinceApply(proposal, cssData) : presetChangedSinceApply(proposal, presetData!);
+        if (action === 'restore' && changedSince
             && !window.confirm('套用之後這裡又被改過了，還原會把那些改動一起蓋掉。還是要還原？')) return;
         setProposalBusy(messageId);
         try {
             let next: AssistantProposal;
-            if (action === 'apply') next = await applyCssProposal(proposal, data, writeCss);
-            else if (action === 'restore') next = await restoreCssProposal(proposal, data, writeCss);
-            else next = { ...proposal, status: 'rejected' };
+            if (action === 'reject') next = { ...proposal, status: 'rejected' };
+            else if (proposal.kind === 'css') {
+                next = action === 'apply' ? await applyCssProposal(proposal, cssData, writeCss) : await restoreCssProposal(proposal, cssData, writeCss);
+            } else {
+                next = action === 'apply' ? await applyPresetProposal(proposal, presetData!, presetWriter) : await restorePresetProposal(proposal, presetData!, presetWriter);
+            }
             await persist({
                 ...session,
                 messages: session.messages.map(m => (m.id === messageId ? { ...m, proposal: next } : m)),
                 updatedAt: Date.now(),
             });
-            if (action === 'apply') addToast(proposal.css ? '套用了，去那頁看看；不喜歡可以按還原' : '清掉了', 'success');
+            if (action === 'apply') addToast(proposal.kind === 'css' && !proposal.css ? '清掉了' : '套用了，去那頁看看；不喜歡可以按還原', 'success');
             if (action === 'restore') addToast('還原了', 'success');
-            trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: LOCATION_EVENT_LABEL[proposal.location] || '其他' });
+            const where = proposal.kind === 'css' ? LOCATION_EVENT_LABEL[proposal.location] || '其他' : proposal.presetKind === 'story' ? '剧情预设' : '通用预设';
+            trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: where });
         } catch (err: any) {
             addToast(err?.message || String(err), 'error');
         } finally {
@@ -336,7 +379,7 @@ const AssistantApp: React.FC = () => {
                                     onApply={() => void actOnProposal(t.id, 'apply')}
                                     onReject={() => void actOnProposal(t.id, 'reject')}
                                     onRestore={() => void actOnProposal(t.id, 'restore')}
-                                    onPreview={canPreviewProposal(t.proposal) ? () => setPreview({ proposal: t.proposal!, which: t.proposal!.css ? 'after' : 'before' }) : undefined} />
+                                    onPreview={canPreviewProposal(t.proposal) ? () => { const p = t.proposal as AssistantCssProposal; setPreview({ proposal: p, which: p.css ? 'after' : 'before' }); } : undefined} />
                             ) : (
                                 <div key={t.id} className="text-[11px] text-slate-400 pl-1" data-sore-tool>
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
