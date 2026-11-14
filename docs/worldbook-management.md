@@ -12,6 +12,16 @@
 
 舊版本若已把關鍵詞清空並保存，不能從現有數據推算回來。應從原文件補回原條目的關鍵詞；不要通過替換條目 ID 自動重建綁定。
 
+## 全局啟用（2026-11-14）
+
+- 跟 ST 的全局世界書一樣，以**組**為單位開：世界書 App 每組下方「全局啟用」開關，整組條目一起寫 `Worldbook.global`。組裡每條都開著才顯示為開（`globalCategories`）。
+- 開了的組，**所有角色**的私聊、群聊、見面、通話、小劇場、NPC 群成員都讀得到，不用掛載；跟角色自己掛的合在一起，同一條 `id` 只送一次。讀取一律走 `utils/globalWorldbooks.ts` 的 `withGlobalWorldbooks(char.mountedWorldbooks)`——新入口組世界書時要用它，不要直接讀 `mountedWorldbooks`。
+- 全局那份由 OSContext 在世界書庫變動時登記（`setGlobalWorldbooks`），組提示詞的純函式從登記處拿；角色的 `mountedWorldbooks` 緩存**不寫進**全局條目，`global` 也不進掛載緩存。
+- 新增條目到全局組、匯入到同名的全局組、把條目改到全局組：跟著全局；改到別的組就跟那組走。
+- 碰到全局條目（開關、修改、刪除）時所有角色的雲端提示詞標髒重組（`markAmsgStateDirtyForAll`）。
+- 匯出成 ST 檔不帶 `global`（ST 的全局是設定、不在檔案裡）。
+- 神經鏈接的擴展設定下面列「全局啟用（每個角色都讀得到）」那幾組，唯讀；開關只在世界書 App。
+
 ## 綁定不變量
 
 綁定只按條目 `id`，從不按標題、分組名或導入的 `sourceUid` 匹配。

@@ -41,6 +41,7 @@ import { formatDialogueExamplesBlock, shouldIncludeDialogueExamples } from './di
 import { buildTriggeredLinesPrompt, formatSignatureLinesBlock, latestUserText } from './fixedLines';
 import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 import { getCachedUserHolidayReminder, type UserHolidayConfig } from './userHolidays';
+import { withGlobalWorldbooks } from './globalWorldbooks';
 
 /**
  * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
@@ -249,7 +250,8 @@ export const ContextBuilder = {
             }
         }
         const skipBookIds = groupOptions?.skipWorldbookIds;
-        const filteredBooks = (char.mountedWorldbooks || []).filter(wb => !skipBookIds || !skipBookIds.has(wb.id));
+        // 角色自己掛的＋全局啟用的（utils/globalWorldbooks.ts）
+        const filteredBooks = withGlobalWorldbooks(char.mountedWorldbooks).filter(wb => !skipBookIds || !skipBookIds.has(wb.id));
         const worldbookSections = splitWorldbookSections(resolveWorldbookEntries(
             filteredBooks,
             timeOptions?.worldbookMessages || [],
@@ -642,7 +644,7 @@ export const ContextBuilder = {
         // 1. 找出共享的世界書（被 2+ 角色掛載，按 id 計），順帶記下是誰掛的
         const wbMounts = new Map<string, { memberNames: string[]; entry: MountedWorldbook }>();
         for (const m of members) {
-            for (const wb of (m.mountedWorldbooks || [])) {
+            for (const wb of withGlobalWorldbooks(m.mountedWorldbooks)) {
                 if (!wb.id) continue;
                 const existing = wbMounts.get(wb.id);
                 if (existing) existing.memberNames.push(m.name);

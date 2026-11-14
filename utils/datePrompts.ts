@@ -34,6 +34,7 @@ import { getVoicePromptOverride } from './ttsProvider';
 import { selectCharacterContextMessages } from './chatContextRange';
 import { buildTriggeredLinesPrompt } from './fixedLines';
 import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries, type WorldbookScanMessage } from './worldbook';
+import { withGlobalWorldbooks } from './globalWorldbooks';
 
 export type ApiMessage = { role: string; content: any };
 
@@ -319,7 +320,7 @@ const withWorldbookDepthEntries = (
     scanMessages: WorldbookScanMessage[],
 ): ApiMessage[] => injectWorldbookDepthEntries(
     conversation,
-    resolveWorldbookDepthEntries(char.mountedWorldbooks || [], scanMessages, char.name, userName),
+    resolveWorldbookDepthEntries(withGlobalWorldbooks(char.mountedWorldbooks), scanMessages, char.name, userName),
 );
 
 // 內建規則的固定段落：內建模式拼散文塊、「內建規則」預設（utils/meetingPreset/builtin.ts）都從這裡拿，

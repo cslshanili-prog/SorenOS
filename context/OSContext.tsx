@@ -102,6 +102,7 @@ import { ActiveMsgStore, exportAmsg2GlobalConfig } from '../utils/activeMsgStore
 import { charMayHaveCloudState, purgeCharAllLinesCloudState, purgeCloudCharById } from '../utils/amsg2CharCleanup';
 import { allCloudIdsOf, cloudLine, cloudLineViewsOf, findCloudChar, setCloudLineRegistry } from '../utils/amsgCloudLine';
 import { parseCharCredId } from '../utils/amsgLlmCredentials';
+import { setGlobalWorldbooks } from '../utils/globalWorldbooks';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldStyleRegistry } from '../utils/charNameRegistry';
@@ -1025,6 +1026,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const [groups, setGroups] = useState<GroupProfile[]>([]);
   const [characterGroups, setCharacterGroups] = useState<CharacterGroup[]>([]);
   const [worldbooks, setWorldbooks] = useState<Worldbook[]>([]); 
+  // 全局世界書：組提示詞的純函式從這裡拿（utils/globalWorldbooks.ts）。渲染時就登記，免得第一輪拿到舊的
+  setGlobalWorldbooks(worldbooks);
   const [novels, setNovels] = useState<NovelBook[]>([]); // New
   const [songs, setSongs] = useState<SongSheet[]>([]);
 
@@ -4299,6 +4302,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const addWorldbook = async (wb: Worldbook) => {
       setWorldbooks(prev => [...prev, wb]);
       await DB.saveWorldbook(wb);
+      // 加進全局組：每個角色的雲端提示詞都要重組
+      if (wb.global) markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
   };
 
   const mutateWorldbooks = async (ids: string[], updates: Partial<Worldbook> | null) => {
@@ -4312,7 +4317,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       setCharacters(prev => prev.map(char => mounted.has(char.id)
           ? { ...char, mountedWorldbooks: mounted.get(char.id) }
           : char));
-      result.characters.forEach(char => markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }));
+      // 碰到全局的條目（改前或改後是全局）：每個角色都讀得到，全部重組；不然只重組掛了它的角色
+      const touchesGlobal = result.books.some(book => book.global) || ids.some(id => worldbooks.find(book => book.id === id)?.global);
+      if (touchesGlobal) markAmsgStateDirtyForAll({ characters, userProfileBase, groups, realtimeConfig });
+      else result.characters.forEach(char => markAmsgStateDirty({ char, userProfile, groups, realtimeConfig }));
   };
 
   const updateWorldbooks = (ids: string[], updates: Partial<Worldbook>) => mutateWorldbooks(ids, updates);

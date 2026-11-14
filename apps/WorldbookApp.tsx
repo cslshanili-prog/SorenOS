@@ -16,6 +16,7 @@ import { confirmExportSafety } from '../utils/exportGuard';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareFile } from '../utils/pngShare';
 import { trackEvent } from '../utils/analytics';
+import { globalCategories } from '../utils/globalWorldbooks';
 
 const WorldbookApp: React.FC = () => {
     const { closeApp, worldbooks, addWorldbook, updateWorldbook, updateWorldbooks, deleteWorldbook, deleteWorldbooks, addToast } = useOS();
@@ -78,6 +79,14 @@ const WorldbookApp: React.FC = () => {
     }, [worldbooks]);
 
     const categoryNames = useMemo(() => Object.keys(groupedBooks), [groupedBooks]);
+    // 全局啟用的組（組裡每條都開著才算；utils/globalWorldbooks.ts）
+    const globalCats = useMemo(() => globalCategories(worldbooks.map(wb => ({ category: wb.category || '未分類設定 (General)', global: wb.global }))), [worldbooks]);
+    const toggleGroupGlobal = async (category: string, books: Worldbook[]) => {
+        const on = !globalCats.has(category);
+        await updateWorldbooks(books.map(book => book.id), { global: on || undefined });
+        trackEvent('世界书整组全局启用', { 状态: on ? '开' : '关' });
+        addToast(on ? `「${category}」全局啟用：所有角色、所有聊天都讀得到` : `「${category}」取消全局，只有掛了的角色讀得到`, 'success');
+    };
 
     // 編輯頁「已有分組」建議列表：隨輸入實時過濾。
     // 不能用原生 datalist —— 分組一多，移動端 WebView 會把候選渲染成撐爆屏幕、無法滾動的巨型下拉。
@@ -166,12 +175,16 @@ const WorldbookApp: React.FC = () => {
             matchWholeWords: tempWholeWords,
         };
 
+        // 放進全局啟用的組就跟著全局；換到別的組就跟那組走
+        const targetGlobal = globalCats.has(category);
         if (editingBook) {
+            const movedGroup = (editingBook.category || '未分類設定 (General)') !== category;
             await updateWorldbook(editingBook.id, {
                 title: tempTitle,
                 content: tempContent,
                 category: category,
                 ...entryConfig,
+                ...(movedGroup ? { global: targetGlobal || undefined } : {}),
             });
             addToast('已保存 (同步至相關角色)', 'success');
         } else {
@@ -181,6 +194,7 @@ const WorldbookApp: React.FC = () => {
                 content: tempContent,
                 category: category,
                 ...entryConfig,
+                ...(targetGlobal ? { global: true } : {}),
                 createdAt: Date.now(),
                 updatedAt: Date.now()
             };
@@ -198,7 +212,9 @@ const WorldbookApp: React.FC = () => {
             const text = await source.text();
             const category = source.name.replace(/\.json$/i, '').trim() || '導入世界書';
             const imported = parseStandardWorldbook(text, category);
-            for (const book of imported) await addWorldbook(book);
+            // 匯進一個已經全局啟用的組：新條目跟著全局
+            const intoGlobal = globalCats.has(category);
+            for (const book of imported) await addWorldbook(intoGlobal ? { ...book, global: true } : book);
             addToast(`已導入 ${imported.length} 條世界書條目`, 'success');
             setExpandedCategory(category);
         } catch (error: any) {
@@ -686,7 +702,7 @@ const WorldbookApp: React.FC = () => {
                         世界書是一組按條件提供給 AI 的補充設定，可用於世界觀、人物關係、地點和規則等內容。它不會自己發消息，也不等同於角色記憶。
                     </p>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
-                        創建或導入後，還要在角色編輯頁的“擴展設定”中掛載；聊天生成回覆時，已啟用並滿足常駐或關鍵詞條件（以及可選的概率判定）的條目才會注入提示詞。
+                        創建或導入後，在角色編輯頁的“擴展設定”中掛載給某些角色，或打開那一組的“全局啟用”讓所有角色都讀得到；聊天生成回覆時，已啟用並滿足常駐或關鍵詞條件（以及可選的概率判定）的條目才會注入提示詞。
                     </p>
                     <p className="mt-2 rounded-xl bg-indigo-50 px-3 py-2 text-[10px] leading-relaxed text-indigo-700">
                         注意：“啟用隨機概率”未點亮 = 不使用隨機抽取，條件滿足時按 100% 通過；並不是“未激活”。
@@ -715,6 +731,7 @@ const WorldbookApp: React.FC = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-400 group-hover:text-indigo-500"><path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" /></svg>
                             </div>
                             <h3 className="min-w-0 flex-1 break-words text-xs font-bold text-slate-500 uppercase tracking-wider group-hover:text-indigo-600 transition-colors">{category}</h3>
+                            {globalCats.has(category) && <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-600 border border-emerald-100">全局</span>}
                             <span className="text-[9px] bg-white/50 px-1.5 rounded text-slate-400 border border-white/50">{books.length}</span>
                             <button
                                 onClick={(event) => handleExportGroup(event, category, books)}
@@ -725,7 +742,16 @@ const WorldbookApp: React.FC = () => {
                             </button>
                         </div>
 
-                        {!isSelecting && <div className="flex justify-end gap-3 px-2 pb-1">
+                        {!isSelecting && <div className="flex items-center justify-end gap-3 px-2 pb-1">
+                            <button type="button" role="switch" aria-checked={globalCats.has(category)} aria-label={`「${category}」全局啟用`}
+                                onClick={() => void toggleGroupGlobal(category, books)}
+                                className="mr-auto flex items-center gap-1.5 py-1 text-[11px] text-slate-500"
+                                title="開了之後所有角色、所有聊天都讀得到這組，不用一個一個掛">
+                                <span className={`w-7 h-4 rounded-full p-0.5 flex items-center transition-colors ${globalCats.has(category) ? 'bg-emerald-500' : 'bg-slate-200'}`}>
+                                    <span className={`w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${globalCats.has(category) ? 'translate-x-3' : ''}`} />
+                                </span>
+                                全局啟用
+                            </button>
                             <button type="button" className="text-[11px] text-indigo-500 py-1" onClick={() => setGroupEditor({ category, name: category, mode: 'keep' })}>編輯整組</button>
                             <button type="button" className="text-[11px] text-slate-400 py-1" onClick={() => { setSelectedBookIds(new Set(books.map(book => book.id))); setShowBulkDeleteConfirm(true); }}>刪除整組</button>
                         </div>}

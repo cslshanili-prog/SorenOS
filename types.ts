@@ -1399,6 +1399,12 @@ export interface Worldbook extends WorldbookEntryConfig {
     category: string; 
     createdAt: number;
     updatedAt: number;
+    /**
+     * 全局啟用（像 ST 的全局世界書）：所有角色、所有聊天都讀得到，不用一個一個掛。
+     * 世界書 App 以「組」為單位開關（整組一起寫）；只存在本機庫裡，不進掛載緩存、不匯出到 ST 檔。
+     * 讀取一律過 utils/globalWorldbooks.ts 的 withGlobalWorldbooks。
+     */
+    global?: boolean;
 }
 
 // --- NOVEL / CO-WRITING TYPES ---

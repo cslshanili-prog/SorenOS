@@ -7,6 +7,7 @@ import type { GroupProfile, NPCProfile } from '../../types';
 import { formatWorldbookSection, resolveWorldbookEntries, type WorldbookScanMessage } from '../worldbook';
 import { buildNpcMemoryBlock } from '../npcMemory';
 import { userRelationLabel } from '../personaSpeaker';
+import { withGlobalWorldbooks } from '../globalWorldbooks';
 
 export interface Speaker { id: string; name: string }
 
@@ -56,7 +57,7 @@ export function buildNpcMemberBlock(params: {
             ? `  · 對${userRelationLabel(knownUserName, userName)}${userLurking && !distinct ? '（此刻不在群裡）' : ''}：${r.description.trim()}`
             : `  · 對「${others.find(o => o.id === r.targetId)?.name}」：${r.description.trim()}`);
     const worldbook = formatWorldbookSection(
-        resolveWorldbookEntries(npc.mountedWorldbooks || [], scanMessages, npc.name, userName),
+        resolveWorldbookEntries(withGlobalWorldbooks(npc.mountedWorldbooks), scanMessages, npc.name, userName),
         `${npc.name} 的擴展設定`,
     ).trim();
     const memory = buildNpcMemoryBlock(npc);
