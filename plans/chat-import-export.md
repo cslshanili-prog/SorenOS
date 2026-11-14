@@ -91,7 +91,8 @@
 | `mes_example` | 對話範例（`<START>` 分段照留） |
 | `system_prompt`、`post_history_instructions` | 接在人設後面，標明來自卡片（Soren 沒有獨立欄位） |
 | `character_book`（卡內世界書） | 建一本世界書、綁到這個角色（走現成的 SillyTavern 世界書轉換） |
-| `creator_notes`、`creator`、`tags` | 放進角色備註，不進提示詞 |
+| `creator_notes` | 匯入前的預覽裡看得到（「看看作者的話」），**不存**（Soren 角色卡沒有備註欄，也不該進提示詞） |
+| `creator`、`tags` | 預覽顯示；`tags` 前四個當角色的簡短描述 |
 | `extensions.depth_prompt` | 收成一條深度注入的世界書條目 |
 | `extensions.regex_scripts` | 不收（正則跟預設走，在見面的預設裡匯） |
 
@@ -119,3 +120,7 @@
 - **b**：另一家格式認定與轉換（純邏輯＋測試，拿三份樣本當測試資料，內容換成假的）、匯入頁（私聊、群聊）、記憶。
 - **c**：ST jsonl → 見面故事、思考拆分、swipe。
 - **d**：匯出。
+
+## 9. 實況
+
+- **a 已做**：`utils/stCard.ts`（`readPngTextChunks` 讀 tEXt／未壓縮的 iTXt、`extractCardJsonFromPng`〔ccv3 優先、再 chara；base64 或直接 JSON〕、`normalizeStCard`〔V1／V2／V3〕、`characterBookToWorldInfo`〔卡內世界書的 keys／secondary_keys／insertion_order／position 字串／enabled 換成 ST 世界書檔的欄位，extensions 攤開〕、`cardToSoren`）。`components/character/StCardImport.tsx`：神經鏈接兩處「新建鏈接」下面一顆「匯入 SillyTavern 角色卡（PNG／JSON）」；右上角原本的「導入」收到不是 Soren 角色卡的檔，也轉進同一個預覽；預覽列出各欄位進哪裡、同名提醒、作者的話可展開；建立＝`addCharacter`＋`updateCharacter`、世界書 `addWorldbook` 後直接寫進 `mountedWorldbooks`；PNG 本身存成頭像（blobRef）；配角分頁裡匯的就是配角。`system_prompt` 的 `{{original}}` 拿掉。埋點 `导入ST角色卡`。
