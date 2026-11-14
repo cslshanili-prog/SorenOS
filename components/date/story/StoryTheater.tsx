@@ -24,6 +24,7 @@ import StoryTheaterSession from './StoryTheaterSession';
 import StoryVectorMemoryPanel from './StoryVectorMemoryPanel';
 import { StoryAppearanceButton, StoryTheaterThemeProvider } from './StoryTheaterTheme';
 import { deleteStoryTheaterData } from '../../../utils/storyTheaterDeletion';
+import { defaultStoryPresetId } from '../../../utils/presetBinding';
 
 interface Props {
     onSwitchCompanion: () => void;
@@ -33,7 +34,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, npcs, userProfile, addToast, remoteVectorConfig } = useOS();
+    const { characters, npcs, userProfile, userProfileBase, addToast, remoteVectorConfig } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -230,7 +231,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 <button onClick={onClose} className='w-9 h-9 rounded-full grid place-items-center'><ArrowLeft size={20} /></button>
                 <div><div className='text-[9px] uppercase tracking-[.24em] font-bold text-violet-500'>Meet</div><h1 className='font-semibold'>見面</h1></div>
                 <StoryAppearanceButton className='ml-auto bg-white border border-slate-200' />
-                <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: presets[0]?.id }); setView('editor'); }} className='w-10 h-10 rounded-full bg-slate-900 text-white grid place-items-center'><Plus size={19} /></button>
+                <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: defaultStoryPresetId(userProfileBase, presets.map(item => item.id)) }); setView('editor'); }} className='w-10 h-10 rounded-full bg-slate-900 text-white grid place-items-center'><Plus size={19} /></button>
             </div>
             <div className='mx-5 mb-4 grid grid-cols-2 p-1 rounded-xl bg-slate-200'>
                 <button onClick={onSwitchCompanion} className='py-2 rounded-lg text-xs font-bold text-slate-500'>陪伴</button>
@@ -246,7 +247,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 </section>
 
                 <section className='py-6'>
-                    {entries.length === 0 ? <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: presets[0]?.id }); setView('editor'); }} className='w-full py-14 rounded-3xl border border-dashed border-slate-300 text-center'><span className='block text-sm font-semibold'>新增第一條劇情</span><span className='block mt-2 text-[10px] text-slate-400'>選擇多位角色、記憶方式、世界書與原生預設</span></button> : <div className='divide-y divide-slate-200'>{entries.map(item => {
+                    {entries.length === 0 ? <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: defaultStoryPresetId(userProfileBase, presets.map(item => item.id)) }); setView('editor'); }} className='w-full py-14 rounded-3xl border border-dashed border-slate-300 text-center'><span className='block text-sm font-semibold'>新增第一條劇情</span><span className='block mt-2 text-[10px] text-slate-400'>選擇多位角色、記憶方式、世界書與原生預設</span></button> : <div className='divide-y divide-slate-200'>{entries.map(item => {
                         const cast = characters.filter(char => item.characterIds.includes(char.id));
                         const mask = resolveStoryTheaterMask(item.mask, userProfile, characters, masks);
                         const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;

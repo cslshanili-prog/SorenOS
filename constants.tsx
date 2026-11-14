@@ -34,7 +34,7 @@ import {
   Newspaper,
   Planet,
   Wrench,
-  HouseLine,
+  HouseLine, SlidersHorizontal
 } from '@phosphor-icons/react';
 
 // SVG 圖標庫 - Phosphor Icons
@@ -57,6 +57,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   FAQ: ({ className }) => <Question className={className} weight="regular" />,
   Game: ({ className }) => <GameController className={className} weight="regular" />,
   Worldbook: ({ className }) => <Globe className={className} weight="regular" />,
+  Presets: ({ className }) => <SlidersHorizontal className={className} weight="regular" />,
   Novel: ({ className }) => <PenNib className={className} weight="regular" />,
   Bank: ({ className }) => <PiggyBank className={className} weight="regular" />,
   Mall: ({ className }) => <ShoppingBag className={className} weight="regular" />,
@@ -100,6 +101,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.VRWorld, name: '彼方', icon: 'VRWorld', color: 'indigo' },
   { id: AppID.Schedule, name: '時光契約', icon: 'Schedule', color: 'cyan' },
   { id: AppID.Worldbook, name: '世界書', icon: 'Worldbook', color: 'indigo' },
+  { id: AppID.Presets, name: '預設', icon: 'Presets', color: 'violet' },
   { id: AppID.HotNews, name: '熱點', icon: 'HotNews', color: 'red' },
   { id: AppID.FAQ, name: '使用幫助', icon: 'FAQ', color: 'indigo' },
   { id: AppID.Gallery, name: '資料庫', icon: 'Gallery', color: 'orange' },

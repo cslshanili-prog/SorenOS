@@ -21,6 +21,7 @@ export enum AppID {
   FAQ = 'faq',
   Game = 'game',
   Worldbook = 'worldbook', 
+  Presets = 'presets', // 預設 App（plans/preset-library.md）
   Novel = 'novel', 
   Bank = 'bank', // New App
   Mall = 'mall', // 購物中心（2026-10 第三批：桌面也能進，見 plans/mall-redesign.md）
@@ -3388,7 +3389,10 @@ export interface CharacterProfile {
   dateStyleConfig?: DateStyleConfig; // 見面模式文風（寫作風格 / 敘事人稱 / 自定義補充）
   /** 觀測協議 OBSERVE：開啟後每條回覆注入「時間/地點/狀態/細節」結構化觀測，渲染成觀測卡片（樣式/字段可自定義）；只在內建規則下生效，見 docs/date-observe.md */
   dateObserve?: DateObserveConfig;
-  /** 見面用的自訂預設（meeting_presets 表的 id）；不設就是內建規則。見 plans/offline-date-redesign.md */
+  /**
+   * 這個角色見面用哪份預設（meeting_presets 表的 id）；'builtin'＝內建規則；不設＝跟預設 App 的「見面」場景預設（那裡也沒設才是內建）。
+   * 解析一律走 utils/presetBinding.ts。見 plans/offline-date-redesign.md、plans/preset-library.md
+   */
   dateMeetingPresetId?: string;
   /** 線下情緒獨立：開著時見面的情緒跟著故事走（DateStory.emotion），見面自己跑評估；見 utils/dateEmotion.ts */
   dateEmotionIndependent?: boolean;
@@ -4069,6 +4073,11 @@ export interface UserProfile {
      * 關掉就直接認識、直接聊。見 utils/friendRequest.ts 的 strangerAction。
      */
     friendRequestRequired?: boolean;
+    /**
+     * 預設 App 的「場景預設」（plans/preset-library.md）：場景 → 預設 id，或 'builtin'（內建）。
+     * 角色沒自己選的就跟這裡；這裡也沒設就是內建。見 utils/presetBinding.ts。
+     */
+    presetSceneDefaults?: Partial<Record<'chat' | 'group' | 'call' | 'date' | 'story', string>>;
     /**
      * 多角色同場畫面的場景身份（多身份隔離 2d）：場景 → 身份卡 id / REAL_IDENTITY_PERSONA_ID。
      * 'vrworld'（彼方，你的分身只有一個）；遊戲的身份存在那一局上。舊資料可能還有 'spark'（Spark 已刪），讀不到就是了。

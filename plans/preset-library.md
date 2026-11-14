@@ -1,6 +1,8 @@
 # 預設 App：獨立的預設庫，線上線下共用
 
-> 狀態：設計稿（2026-11-14），還沒開工。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
+> 狀態：第 1 批做完（2026-11-14），實況見文末「第 1 批實況」。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
+>
+> **開工後改的一條**：劇情預設**不搬**進通用格式（見第 6 節）。劇情劇場的引擎靠固定的條目 id（`nmj-v64…`）跑分區、快捷選項、小劇場、旁白，轉成通用格式等於重寫引擎。所以預設 App 一個地方放兩種：通用預設（ST 格式，見面現在用、線上之後用）和劇情專用預設（原格式、原編輯器，只給劇情）。
 
 ## 1. 為什麼
 
@@ -78,7 +80,7 @@ type PresetScene = 'chat' | 'group' | 'call' | 'date' | 'story';
 ## 6. 搬家（第 1 批）
 
 - 見面預設：原表原記錄，`scenes: ['date']`，schema 升版。角色的 `dateMeetingPresetId` 照讀。
-- 劇情預設：`story_theater_presets` 每份轉成新格式（`marker` → `slot`、`section` → `groups`），`scenes: ['story']`，寫進 `meeting_presets`；劇情的 `presetId` 改指新的 id。舊表**先留著不刪**（驗證一版沒問題再清）。內建的「夜場放映」也轉一份內建。
+- ~~劇情預設：轉成新格式寫進 `meeting_presets`~~ → **改了**：劇情預設留在 `story_theater_presets`、格式和編輯器照舊（引擎綁死固定條目 id），預設 App 裡另列「劇情專用」。通用預設之後若要給劇情用，再另外設計怎麼對上劇情引擎的分區。
 - 舊的入口保留成捷徑：見面設定、劇情編輯器的預設選單照舊能選，旁邊「管理」跳到預設 App。
 
 ## 7. 匯入匯出
@@ -102,3 +104,23 @@ type PresetScene = 'chat' | 'group' | 'call' | 'date' | 'story';
 1. **App 名字和圖示**：「預設」？跟世界書放同一頁。
 2. **匯出成 ST 時 Soren 功能條目怎麼處理**：(a) 略過（ST 用不到）(b) 匯出成普通文字條目（內容是當下產生的文字）。建議 (a)，ST 那邊沒有這些功能。
 3. **場景標籤要不要讓用戶在條目層級改**：FloraOS 可以。建議第 1 批先只在預設層級勾、條目層級第 2 批做私聊時再開（那時才真的有跨場景的條目）。
+
+## 第 1 批實況（2026-11-14）
+
+**做了什麼**
+
+- **預設 App**（`apps/PresetApp.tsx`，`AppID.Presets`，桌面名「預設」，圖示 `SlidersHorizontal`，跟世界書並排）。
+  - 上方「每個場景預設用哪份」：見面（內建規則＋含見面場景的通用預設）、劇情（劇情預設；沒設＝新劇情用第一份）；私聊、群聊、電話灰著，寫「之後開放」。
+  - 篩選：全部／見面／劇情。內建兩列（見面 · 內建規則「複製一份」、劇情 · 夜場放映「看看」），下面是自己的。
+  - 每列「⋯」：管理（通用→`MeetingPresetManager`；劇情→`StoryPresetMaker`，外面要包 `StoryTheaterThemeProvider` 才讓得出頂端安全區）、設為／取消場景預設、複製一份、匯出（通用→ST json；劇情→原格式）、刪除（通用的刪掉會清掉角色身上指著它的 `dateMeetingPresetId` 和場景預設）。
+  - 右上匯入：`schema: 'sullyos.story-preset'`（含 PNG 分享卡）進劇情，其它當 ST 預設進通用。右上「＋」：從見面內建複製／從劇情內建複製／空白劇情預設。
+- **場景綁定**（`utils/presetBinding.ts`）：
+  - `UserProfile.presetSceneDefaults`：每個場景一份 id；`MeetingPresetDoc.scenes`（沒寫＝`['date']`）。
+  - 見面用哪份：`resolveDatePresetId` = 角色自己選的（`'builtin'` 明確指內建）> 見面場景預設 > 內建。角色 `dateMeetingPresetId` 沒設就是「跟著預設 App」。舊資料場景預設是空的，行為跟以前一樣。
+  - 劇情：新劇情預設選 `defaultStoryPresetId`（場景預設在清單裡就用它，不然第一份）；已經選過的劇情照舊。
+- **舊入口變捷徑**：見面設定的預設區多一列「跟著預設 App · 目前：X」，內建規則改成寫 `'builtin'`，底下連到預設 App；`DateApp` 載入預設照解析走，場景預設改了即時換。
+- 埋點：`设定场景预设`、`导入预设`、`新建预设`（`docs/analytics.md`）。
+
+**還沒做（第 2 批起）**：條目層級場景標籤、Soren 功能條目、私聊／群聊／電話接上、雲端模板、角色每個場景各自的覆蓋（現在只有見面一個場景，沿用 `dateMeetingPresetId`）。
+
+**測試時的坑**：Playwright 在這個環境 `setInputFiles` 給中文檔名的檔案會靜默設不進去（`files.length` 是 0、沒有 change 事件），測試檔用英文檔名。

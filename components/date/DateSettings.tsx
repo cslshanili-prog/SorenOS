@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useOS } from '../../context/OSContext';
-import { CharacterProfile, DateStyleConfig } from '../../types';
+import { CharacterProfile, DateStyleConfig, AppID } from '../../types';
 import { resolveUserProfileForChar } from '../../utils/userPersona';
 import { processImageToBlob } from '../../utils/file';
 import { putImageBlob } from '../../utils/blobRef';
@@ -20,6 +20,7 @@ import type { DateStory } from '../../types';
 import DateAppearanceSettings from './DateAppearanceSettings';
 import DateSummarySettings from './DateSummarySettings';
 import DateStoryTimeSettings from './DateStoryTimeSettings';
+import { BUILTIN_PRESET, charDateChoice, resolveDatePresetId, sceneDefault } from '../../utils/presetBinding';
 
 interface DateSettingsProps {
     char: CharacterProfile;
@@ -38,7 +39,7 @@ const Section: React.FC<{ title: string; defaultOpen?: boolean; children: React.
 );
 
 const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
-    const { updateCharacter, addToast, userProfileBase } = useOS();
+    const { updateCharacter, addToast, userProfileBase, openApp, updateUserProfile } = useOS();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // 文風與敘事（即時生效：system prompt 每次請求重建，存上就影響下一條回覆）
@@ -87,7 +88,11 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         return () => { cancelled = true; window.removeEventListener(DATE_STORY_UPDATED_EVENT, load); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [char.id, char.activeDateStoryId]);
-    const activePresetId = presets.some(p => p.id === char.dateMeetingPresetId) ? char.dateMeetingPresetId : undefined;
+    // 這個角色現在用哪份（自己選的 > 預設 App 的見面場景預設 > 內建；utils/presetBinding.ts）
+    const activePresetId = resolveDatePresetId(char, userProfileBase, id => presets.some(p => p.id === id));
+    const choice = charDateChoice(char);
+    const sceneDefaultId = sceneDefault(userProfileBase, 'date');
+    const sceneDefaultName = presets.find(p => p.id === sceneDefaultId)?.name || '內建規則';
     const handlePresetFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (presetInputRef.current) presetInputRef.current.value = '';
@@ -107,6 +112,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
         if (!window.confirm(`刪除預設「${preset.name}」？用這份預設的角色會改回內建規則。`)) return;
         await deleteMeetingPresetRecord(preset.id);
         if (char.dateMeetingPresetId === preset.id) updateCharacter(char.id, { dateMeetingPresetId: undefined });
+        if (sceneDefaultId === preset.id) updateUserProfile(prev => ({ presetSceneDefaults: { ...(prev.presetSceneDefaults || {}), date: undefined } }));
         addToast('已刪除', 'success');
     };
     const handleDuplicatePreset = async (preset: MeetingPresetRecord) => {
@@ -159,12 +165,19 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                 <p className="text-[11px] text-slate-400 leading-relaxed">角色立繪搬到了「神經鏈接 → 形象」，桌面陪伴和節日活動照常使用。</p>
 
                 <Section title="預設 (Preset)" defaultOpen>
-                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用，選哪一份是每個角色自己的；點一下就換成那份，一次只跑標著「使用中」的那份，剛匯入的會自動選上。</p>
+                    <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">可以匯入 SillyTavern 的對話補全預設，條目、變數、正則照預設跑。預設清單所有角色共用（也在桌面的「預設」App 裡），選哪一份是每個角色自己的；點一下就換成那份，剛匯入的會自動選上。</p>
                     <div className="space-y-2">
-                        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${!activePresetId ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
-                            <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })} className="flex-1 min-w-0 flex items-center gap-3 text-left">
-                                <span className={`text-sm font-bold ${!activePresetId ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
-                                {!activePresetId && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
+                        {/* 跟著預設 App 的見面場景預設（不設＝這個） */}
+                        <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: undefined })}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all ${choice === 'follow' ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
+                            <span className={`text-sm font-bold ${choice === 'follow' ? 'text-primary' : 'text-slate-600'}`}>跟著預設 App</span>
+                            {choice === 'follow' && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
+                            <span className="text-[11px] text-slate-400 truncate">目前：{sceneDefaultName}</span>
+                        </button>
+                        <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${choice === 'builtin' ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
+                            <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: BUILTIN_PRESET })} className="flex-1 min-w-0 flex items-center gap-3 text-left">
+                                <span className={`text-sm font-bold ${choice === 'builtin' ? 'text-primary' : 'text-slate-600'}`}>內建規則</span>
+                                {choice === 'builtin' && <span className="shrink-0 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">使用中</span>}
                                 <span className="text-[11px] text-slate-400 truncate">下面的文風與敘事</span>
                             </button>
                             <button onClick={() => setPresetMenu('builtin')} aria-label="內建規則 的更多操作" className="p-1.5 text-slate-400 active:scale-95">
@@ -172,7 +185,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                             </button>
                         </div>
                         {presets.map(preset => {
-                            const active = activePresetId === preset.id;
+                            const active = choice === preset.id;
                             return (
                                 <div key={preset.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl border transition-all ${active ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-slate-100 bg-slate-50'}`}>
                                     <button onClick={() => updateCharacter(char.id, { dateMeetingPresetId: preset.id })} className="flex-1 min-w-0 text-left">
@@ -195,6 +208,7 @@ const DateSettings: React.FC<DateSettingsProps> = ({ char, onBack }) => {
                         {importing ? '匯入中…' : '+ 匯入 SillyTavern 預設（.json）'}
                     </button>
                     <input type="file" ref={presetInputRef} className="hidden" accept=".json,application/json" onChange={handlePresetFile} />
+                    <button onClick={() => openApp(AppID.Presets)} className="mt-2 w-full py-2 text-[12px] font-bold text-slate-500">到「預設」App 管理全部預設、設場景預設 ›</button>
                 </Section>
 
                 <section className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-100">
