@@ -202,18 +202,21 @@ export function parsePhoneExport(json: any): PhoneImport {
 
 // ─── 寫進去之前 ───
 
-export const importedIdOf = (m: Pick<Message, 'metadata'>): string | undefined => {
+/** 匯入的那則從哪來：「來源:原本的 id」（不同來源的 id 不會撞在一起） */
+export const importedKey = (f: { source: string; id: string }): string => `${f.source}:${f.id}`;
+
+export const importedKeyOf = (m: Pick<Message, 'metadata'>): string | undefined => {
     const f = m.metadata?.importedFrom;
-    return f && f.source === PHONE_IMPORT_SOURCE && typeof f.id === 'string' ? f.id : undefined;
+    return f && typeof f.source === 'string' && typeof f.id === 'string' ? importedKey(f) : undefined;
 };
 
-/** 這次的訊息裡，哪幾則已經匯過（照原本的 id） */
+/** 這次的訊息裡，哪幾則已經匯過（照來源＋原本的 id）；ids 是 importedKey */
 export function findAlreadyImported(existing: Pick<Message, 'id' | 'metadata'>[], incoming: ImportedMessage[]): { ids: Set<string>; existingMessageIds: number[] } {
-    const want = new Set(incoming.map(m => m.metadata.importedFrom.id));
+    const want = new Set(incoming.map(m => importedKey(m.metadata.importedFrom)));
     const ids = new Set<string>();
     const existingMessageIds: number[] = [];
     for (const m of existing) {
-        const id = importedIdOf(m);
+        const id = importedKeyOf(m);
         if (id && want.has(id)) { ids.add(id); existingMessageIds.push(m.id); }
     }
     return { ids, existingMessageIds };

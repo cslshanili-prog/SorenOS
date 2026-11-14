@@ -9,7 +9,7 @@
  */
 import type { Message } from '../types';
 import { DB } from './db';
-import { importedIdOf, type ImportedMessage } from './chatImportPhone';
+import { importedKey, importedKeyOf, type ImportedMessage } from './chatImportPhone';
 
 export type DuplicateMode = 'skip' | 'overwrite';
 
@@ -22,7 +22,7 @@ export interface ImportPlan {
     rows: ImportRow[];
     /** 每一列對應的匯入訊息（同順序） */
     sources: ImportedMessage[];
-    /** 原本 id → 已經在 Soren 裡的訊息 id（重複匯入時用來接引用回覆） */
+    /** importedKey → 已經在 Soren 裡的訊息 id（重複匯入時用來接引用回覆） */
     existingBySource: Map<string, number>;
     skippedDuplicates: number;
     overwritten: number;
@@ -38,8 +38,8 @@ export function planImportRows(input: {
 }): ImportPlan {
     const existingBySource = new Map<string, number>();
     for (const m of input.existing) {
-        const id = importedIdOf(m);
-        if (id && !existingBySource.has(id)) existingBySource.set(id, m.id);
+        const key = importedKeyOf(m);
+        if (key && !existingBySource.has(key)) existingBySource.set(key, m.id);
     }
     const rows: ImportRow[] = [];
     const sources: ImportedMessage[] = [];
@@ -47,7 +47,7 @@ export function planImportRows(input: {
     for (const m of [...input.messages].sort((a, b) => a.timestamp - b.timestamp)) {
         const place = input.place(m);
         if (!place) { unplaced++; continue; }
-        const prevId = existingBySource.get(m.metadata.importedFrom.id);
+        const prevId = existingBySource.get(importedKey(m.metadata.importedFrom));
         if (prevId !== undefined && input.duplicate === 'skip') { skippedDuplicates++; continue; }
         if (prevId !== undefined) overwritten++;
         rows.push({
@@ -70,14 +70,15 @@ export function planImportRows(input: {
 export function replyPatches(plan: ImportPlan, ids: number[], nameOf: (m: ImportedMessage | undefined, fromMe: boolean) => string): Array<{ id: number; fields: Partial<Message> }> {
     const idBySource = new Map(plan.existingBySource);
     const bySource = new Map<string, ImportedMessage>();
-    plan.sources.forEach((m, i) => { idBySource.set(m.metadata.importedFrom.id, ids[i]); bySource.set(m.metadata.importedFrom.id, m); });
+    plan.sources.forEach((m, i) => { const k = importedKey(m.metadata.importedFrom); idBySource.set(k, ids[i]); bySource.set(k, m); });
     const out: Array<{ id: number; fields: Partial<Message> }> = [];
     plan.sources.forEach((m, i) => {
         if (!m.replyToSourceId) return;
-        const target = idBySource.get(m.replyToSourceId);
+        const replyKey = importedKey({ source: m.metadata.importedFrom.source, id: m.replyToSourceId });
+        const target = idBySource.get(replyKey);
         if (target === undefined) return;
         const fromMe = m.replyToPreview?.fromMe ?? false;
-        out.push({ id: ids[i], fields: { replyTo: { id: target, content: m.replyToPreview?.content || '', name: fromMe ? '我' : nameOf(bySource.get(m.replyToSourceId), false) } } });
+        out.push({ id: ids[i], fields: { replyTo: { id: target, content: m.replyToPreview?.content || '', name: fromMe ? '我' : nameOf(bySource.get(replyKey), false) } } });
     });
     return out;
 }

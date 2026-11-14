@@ -101,7 +101,7 @@ describe('另一家的匯出檔', () => {
             { id: 103, metadata: {} },
         ];
         const hit = findAlreadyImported(existing as any, r.messages);
-        expect([...hit.ids]).toEqual(['g2']);
+        expect([...hit.ids]).toEqual(['phone-json:g2']);
         expect(hit.existingMessageIds).toEqual([101]);
     });
 });
