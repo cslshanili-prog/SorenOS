@@ -66,7 +66,7 @@ const StChatImport = forwardRef<StChatImportHandle, {
         const active = await loadActiveDateStory(char).catch(() => null);
         setDuplicate('skip');
         setContinueIt(!active);
-        setP({ data, title: stChatTitle(file.name), existing, prevStory, dupCount: dup.ids.size, active });
+        setP({ data, title: stChatTitle(file.name), existing, prevStory, dupCount: dup.existingMessageIds.length, active });
     };
 
     const close = () => setP(null);

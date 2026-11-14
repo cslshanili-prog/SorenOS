@@ -25,6 +25,7 @@ import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../util
 import { finishDateStoryWithSummary, sendDateFinalToPalace, writeDateFinalSummary, type DatePalaceOutcome } from '../utils/dateStoryFinish';
 import { completeDateStory, DATE_STORY_UPDATED_EVENT, dateStoryLabel, loadActiveDateStory, patchDateStory, migrateLegacyDateStory, startDateStory, storyTag, withStoryScenario } from '../utils/dateStory';
 import StChatImport, { type StChatImportHandle } from '../components/date/StChatImport';
+import { buildStChatJsonl, exportFileName } from '../utils/chatExport';
 import type { DateStory, UserProfile } from '../types';
 import { cleanDisplayText } from '../utils/meetingPreset/display';
 import { applyRegexScripts, REGEX_PLACEMENT } from '../utils/meetingPreset/regex';
@@ -1342,6 +1343,27 @@ const DateApp: React.FC = () => {
         }
     };
 
+    /** 一場故事匯出成 SillyTavern 的 .jsonl（plans/chat-import-export.md 第 6 節） */
+    const exportStoryAsSt = async (group: DateHistoryGroup) => {
+        if (!char || !group.story || historyBusy) return;
+        setHistoryBusy(true);
+        try {
+            const result = await shareOrDownloadFile({
+                content: buildStChatJsonl({ charName: char.name, userName: resolveUserProfileForChar(userProfileBase, char).name || 'User', messages: group.messages }),
+                fileName: exportFileName(`${char.name}_${dateStoryLabel(group.story)}`, 'SillyTavern', 'jsonl'),
+                mimeType: 'application/jsonl',
+                shareTitle: `${char.name}的見面故事`,
+            });
+            addToast(result === 'shared' ? '已打開分享面板' : '已匯出成 SillyTavern 聊天檔', 'success');
+            trackEvent('导出聊天记录', { 类型: '见面故事', 格式: 'ST jsonl', 范围: '全部', 含记忆: '否' });
+        } catch (error) {
+            console.error('Export Date Story ST Error', error);
+            addToast('匯出失敗', 'error');
+        } finally {
+            setHistoryBusy(false);
+        }
+    };
+
     const handleExportAllHistory = async () => {
         if (!char || historyBusy) return;
         setHistoryBusy(true);
@@ -1640,6 +1662,14 @@ const DateApp: React.FC = () => {
                                     disabled={historyBusy}
                                     className="shrink-0 text-[11px] font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full disabled:opacity-40"
                                 >導出{historyView === 'date' ? '當天' : historyView === 'story' ? '這場' : '本次'}</button>
+                                {historyView === 'story' && group.story && (
+                                    <button
+                                        onClick={(event) => { event.stopPropagation(); void exportStoryAsSt(group); }}
+                                        disabled={historyBusy}
+                                        title="匯出成 SillyTavern 聊天檔（.jsonl）"
+                                        className="shrink-0 text-[11px] font-bold text-violet-500 bg-violet-50 px-3 py-1.5 rounded-full disabled:opacity-40"
+                                    >ST 檔</button>
+                                )}
                             </div>
                             {historyView === 'story' && group.story && (group.story.finalSummary || group.story.status === 'completed') && (
                                 <div className="px-4 py-3 border-b border-slate-100 bg-amber-50/40" data-date-final-summary>

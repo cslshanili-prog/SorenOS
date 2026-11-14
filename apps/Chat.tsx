@@ -70,6 +70,7 @@ import { isTempChatMessage, TEMP_CHAT_CHANGED_EVENT } from '../utils/tempChat';
 import { loadTempChatState } from '../utils/tempChatRuntime';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
+import ChatExportSheet from '../components/chat/ChatExportSheet';
 import type { ChatCleanupPlan } from '../utils/chatHistoryCleanup';
 import Modal from '../components/os/Modal';
 import ProactiveSettingsModal from '../components/chat/ProactiveSettingsModal';
@@ -220,6 +221,7 @@ const Chat: React.FC = () => {
     const scrollThrottleRef = useRef(0);
     const visibleCountRef = useRef(30);
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
+    const [showChatExport, setShowChatExport] = useState(false);
     const pendingFavoriteJumpRef = useRef<{ charId: string; messageId: number } | null>(null);
     const historyWindowRangeRef = useRef<ChatHistoryWindowRange | null>(null);
     const historyWindowTotalRef = useRef(0);
@@ -4163,6 +4165,7 @@ const Chat: React.FC = () => {
              <PhoneChatImport ref={chatImportRef} onDone={r => {
                  if (r.kind === 'private' && r.charId === char.id) void reloadMessages(visibleCountRef.current);
              }} />
+             {showChatExport && <ChatExportSheet char={char} userName={chatUserProfile.name} emojis={emojis} onClose={() => setShowChatExport(false)} />}
              {showHistoryCleanup && <ChatHistoryCleanupModal key={char.id} character={char} onClose={() => setShowHistoryCleanup(false)} onDeleted={handleHistoryCleanupDone} />}
              {emojiExport && <EmojiExportDialog {...emojiExport} onClose={() => setEmojiExport(null)} />}
             {showTempChat && char.chatBlock && (
@@ -4207,6 +4210,7 @@ const Chat: React.FC = () => {
                 onSaveSettings={saveSettings}
                 chatUser={{ name: chatUserProfile.name, avatar: chatUserProfile.avatar }}
                 onOpenHistoryCleanup={() => { setModalType('none'); setShowHistoryCleanup(true); }}
+                onOpenChatExport={() => setShowChatExport(true)}
                 onOpenChatImport={() => { const ln = lineOf(char); chatImportRef.current?.open({ kind: 'private', charId: char.id, ...(ln.personaKey ? { personaKey: ln.personaKey } : {}) }); }} onArchive={handleFullArchive}
                 onCreatePrompt={createNewPrompt} onEditPrompt={editSelectedPrompt} onSavePrompt={handleSavePrompt} onDeletePrompt={handleDeletePrompt}
                 onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
