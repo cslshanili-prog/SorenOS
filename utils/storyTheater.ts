@@ -20,6 +20,7 @@ import {
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
 import { buildNpcMemoryBlock } from './npcMemory';
+import { withGlobalWorldbooks } from './globalWorldbooks';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export interface StoryApiMessage { role: StoryApiRole; content: string; }
@@ -1120,7 +1121,7 @@ export const dedupeTheaterWorldbooks = (characters: CharacterProfile[]): Mounted
     const seen = new Set<string>();
     const output: MountedWorldbook[] = [];
     for (const char of characters) {
-        for (const book of (char.mountedWorldbooks || [])) {
+        for (const book of withGlobalWorldbooks(char.mountedWorldbooks)) {
             const keys = [
                 book.id ? `id:${book.id}` : '',
                 `body:${book.title.trim().toLocaleLowerCase()}\u0000${book.content.trim()}`,

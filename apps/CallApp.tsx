@@ -127,6 +127,7 @@ import VoiceFavoriteActionSheet from '../components/voice/VoiceFavoriteActionShe
 import { getVoiceFavorite, removeVoiceFavorite, saveVoiceFavorite } from '../utils/voiceFavorites';
 import { buildTriggeredLinesPrompt } from '../utils/fixedLines';
 import { globalPersonaKey, resolveUserProfileForChar } from '../utils/userPersona';
+import { withGlobalWorldbooks } from '../utils/globalWorldbooks';
 type CallState = 'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking' | 'ended' | 'error';
 type CallMode = 'voice' | 'video';
 type VideoCallLayout = 'stage' | 'story' | 'mini';
@@ -2003,7 +2004,7 @@ ${sentencePlan}`;
     // 深度條目在貼完快照之後再插：快照要貼在用戶本輪的話上，
     // 不能讓插進來的 user 角色條目頂掉「最後一條 user 消息」的位置
     const depthEntries = selectedChar
-      ? resolveWorldbookDepthEntries(selectedChar.mountedWorldbooks || [], messages, selectedChar.name, userName)
+      ? resolveWorldbookDepthEntries(withGlobalWorldbooks(selectedChar.mountedWorldbooks), messages, selectedChar.name, userName)
       : [];
     const textOnlyMessages = injectWorldbookDepthEntries(messages, depthEntries);
     const requestMessages = userCameraSnapshot

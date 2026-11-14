@@ -2060,6 +2060,27 @@ ${isInitialGeneration ? `
                                            暫未掛載任何世界書
                                        </div>
                                    )}
+                                   {/* 全局啟用的組（utils/globalWorldbooks.ts）：每個角色都讀得到，這裡只列出來看，開關在世界書 App */}
+                                   {(() => {
+                                       const globalBooks = worldbooks.filter(book => book.global);
+                                       if (!globalBooks.length) return null;
+                                       const byCat = new Map<string, typeof globalBooks>();
+                                       for (const book of globalBooks) { const c = book.category || '未分類設定 (General)'; byCat.set(c, [...(byCat.get(c) || []), book]); }
+                                       return (
+                                           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3" data-global-worldbooks>
+                                               <div className="text-[11px] font-bold text-emerald-700">全局啟用（每個角色都讀得到）</div>
+                                               <p className="mt-0.5 text-[10px] leading-relaxed text-emerald-700/60">不用掛也會帶上；要關掉到世界書 App 那一組的「全局啟用」。上面掛的跟這裡重複的只送一次。</p>
+                                               {[...byCat].map(([category, books]) => (
+                                                   <details key={category} className="mt-2">
+                                                       <summary className="cursor-pointer text-xs font-bold text-slate-600 break-words">{category} <span className="font-normal text-slate-400">· {books.length} 條</span></summary>
+                                                       <ul className="mt-1 space-y-0.5 pl-3">
+                                                           {books.map(book => <li key={book.id} className={`text-[11px] break-words ${book.disable ? 'text-slate-300 line-through' : 'text-slate-500'}`}>{book.title}</li>)}
+                                                       </ul>
+                                                   </details>
+                                               ))}
+                                           </div>
+                                       );
+                                   })()}
                                </div>
                            </div>
 

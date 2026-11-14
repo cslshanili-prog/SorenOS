@@ -31,6 +31,7 @@ import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries, type Worldbo
 import { assembleMeetingPreset } from './meetingPreset/assemble';
 import { buildLengthLine, presetLengthGlobals, scenarioText } from './dateExtras';
 import type { MeetingPresetDoc, MeetingPresetGeneration, MeetingPresetSlot } from './meetingPreset/types';
+import { withGlobalWorldbooks } from './globalWorldbooks';
 
 const join = (...parts: string[]) => parts.filter(part => part && part.trim()).map(part => part.trim()).join('\n\n');
 
@@ -101,7 +102,7 @@ export const buildMeetingPresetPayload = async (input: {
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話
     const withDepth = injectWorldbookDepthEntries(
         [...history, { role: 'user', content: userText }],
-        resolveWorldbookDepthEntries(char.mountedWorldbooks || [], scan, char.name, userName),
+        resolveWorldbookDepthEntries(withGlobalWorldbooks(char.mountedWorldbooks), scan, char.name, userName),
     );
     const presetHistory = withDepth
         .map(message => ({

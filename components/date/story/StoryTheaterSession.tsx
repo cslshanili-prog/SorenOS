@@ -64,6 +64,7 @@ import {
     MEETING_CONTINUE_DISPLAY_TEXT,
 } from '../../../utils/meetingContinue';
 import { equalsAnyScript, scriptKey } from '../../../utils/scriptKey';
+import { withGlobalWorldbooks } from '../../../utils/globalWorldbooks';
 
 interface Props {
     entry: StoryTheaterEntry;
@@ -505,7 +506,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     }, [entry, memoryActors, threadId]);
 
     const buildActorContexts = useCallback(async (query: string): Promise<string> => {
-        const allBookIds = new Set(actors.flatMap(actor => (actor.mountedWorldbooks || []).map(book => book.id)));
+        const allBookIds = new Set(actors.flatMap(actor => withGlobalWorldbooks(actor.mountedWorldbooks).map(book => book.id)));
         const blocks: string[] = [];
         for (const actor of actors) {
             if (!entry.carryCharacterMemory) {
@@ -545,8 +546,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, mask.name);
         }
         const skipWorldbookIds = new Set([
-            ...(maskCharacter.mountedWorldbooks || []).map(book => book.id),
-            ...actors.flatMap(actor => (actor.mountedWorldbooks || []).map(book => book.id)),
+            ...withGlobalWorldbooks(maskCharacter.mountedWorldbooks).map(book => book.id),
+            ...actors.flatMap(actor => withGlobalWorldbooks(actor.mountedWorldbooks).map(book => book.id)),
         ]);
         const core = ContextBuilder.buildCoreContext({ ...maskCharacter, memoryPalaceInjection: recalled }, userProfile, true, recalled, {
             skipUserProfile: true,

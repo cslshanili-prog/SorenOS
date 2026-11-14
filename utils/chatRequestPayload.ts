@@ -42,6 +42,7 @@ import type { RecallEntryPoint, RecallTrace } from './memoryPalace/trace';
 import { loadCollaborationFileCabinetBlock } from '../features/collaboration/chatLibrary';
 import { buildSARUserSurfaceRequest, selectSARUserSurfaceTargets } from './vrWorld/sarUserSurface';
 import { getSARModuleRuntimePlan } from './vrWorld/sarModuleRuntime';
+import { withGlobalWorldbooks } from './globalWorldbooks';
 
 export { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 
@@ -419,7 +420,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     const cleanedApiMessages = cleanApiMessages(input.stripImages ? flattenImageContentParts(apiMessages) : apiMessages);
     const messagesWithWorldbookDepth = injectWorldbookDepthEntries(
         cleanedApiMessages,
-        resolveWorldbookDepthEntries(char.mountedWorldbooks || [], cleanedApiMessages, char.name, userProfile.name),
+        resolveWorldbookDepthEntries(withGlobalWorldbooks(char.mountedWorldbooks), cleanedApiMessages, char.name, userProfile.name),
     );
 
     // ── 9. 麥當勞小程序上下文（購物車/菜單實時快照 → 易變尾段） ──
