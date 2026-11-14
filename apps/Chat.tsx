@@ -4941,6 +4941,7 @@ const Chat: React.FC = () => {
             {/* 思考鏈設置 Modal — 入口：聊天加號面板「展示思考」按鈕長按 / 思考鏈卡片右上齒輪 */}
             {char && (
                 <ThinkingChainSettingsModal
+                    charId={char.id}
                     isOpen={showThinkingChainModal}
                     onClose={() => setShowThinkingChainModal(false)}
                     value={{

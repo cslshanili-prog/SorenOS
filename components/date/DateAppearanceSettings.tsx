@@ -6,6 +6,7 @@ import {
     buildDateAppearanceCss, DATE_CSS_HOOKS, DATE_CUSTOM_CSS_MAX, DATE_DEFAULT_DIM, DATE_FONT_SIZE,
     DATE_NATIVE_COLORS, resolveDateBackdrop, resolveDateColors, resolveDateFontSize, scopeDateCss,
 } from '../../utils/dateAppearance';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 // 見面設定的「畫面美化」：底圖＋遮罩、字級、字色（深淺各一套）、裝飾卡片底色、自訂 CSS。
 // 上面有一塊小預覽，跟見面畫面用同一套 class，自訂 CSS 也套得上。
@@ -153,7 +154,10 @@ const DateAppearanceSettings: React.FC<Props> = ({ char, updateCharacter, addToa
                 <div className="pt-3">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-[11px] text-slate-500 font-bold">自訂 CSS</span>
-                        <button onClick={() => setShowHooks(v => !v)} className="text-[11px] text-primary font-bold">{showHooks ? '收起可用 class' : '可用 class'}</button>
+                        <div className="flex items-center gap-2">
+                            <AskSoreButton compact location="date" targetId={char.id} />
+                            <button onClick={() => setShowHooks(v => !v)} className="text-[11px] text-primary font-bold">{showHooks ? '收起可用 class' : '可用 class'}</button>
+                        </div>
                     </div>
                     {showHooks && (
                         <ul className="mb-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 space-y-1">
