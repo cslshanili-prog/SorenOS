@@ -1,6 +1,6 @@
 # 聊天紀錄匯入匯出＋ST 角色卡
 
-> 狀態：第 7 節定案（Liora 2026-11-14：照建議，重複匯入改成讓人選），**開始做 a**。起因：有人想從別家搬過來，主要是 SillyTavern（酒館）和另一家手機風格的 App。Soren 現在沒有單純的聊天紀錄匯入匯出（只有整台 ZIP 備份、多選轉發、記憶導入），也不能匯入 ST 角色卡。
+> 狀態：第 7 節定案（Liora 2026-11-14：照建議，重複匯入改成讓人選）；a、b 已做（見第 9 節），下一批 c。起因：有人想從別家搬過來，主要是 SillyTavern（酒館）和另一家手機風格的 App。Soren 現在沒有單純的聊天紀錄匯入匯出（只有整台 ZIP 備份、多選轉發、記憶導入），也不能匯入 ST 角色卡。
 >
 > 已定（Liora 2026-11-14）：ST 聊天匯成**見面故事**（酒館是小說式長段落，不是一人一句的私聊）；一起做 **ST 角色卡 PNG**；圖床的圖**不搬**，匯入頁放一句提示；另一家的 `subtext` 收進思考鏈、`reactions` 不收。
 
@@ -29,7 +29,7 @@
 4. **匯入**：寫進資料庫；每則記下來源和原本的 id（`metadata.importedFrom`）。**同一份再匯一次**，預覽會說「其中 N 則已經匯過」，讓你選：**跳過已經有的**（預設）或**覆蓋**（舊的那幾則換成檔案裡的版本）；選覆蓋時再提醒一次「在 Soren 裡改過、重新生成過的會被蓋掉」。
 5. 一句提示：「圖片和貼圖還是連到原本的圖床，那邊刪了或關了就看不到。」
 
-匯入的訊息照原本的時間排，夾在既有訊息中間也照時間。不觸發 AI（不回覆、不總結、不評情緒）；要讓角色接著聊，照常傳一句就好。
+~~匯入的訊息照原本的時間排，夾在既有訊息中間也照時間。~~ 做 b 時改：Soren 的訊息照寫進去的先後（自增 id）排，聊天畫面、提示詞、記憶宮殿都是，所以**做不到夾在中間**。匯到新角色／空的線就是照時間；匯到已經有訊息的線，新的那幾則接在後面（時間照原本的標），預覽會提醒、建議匯到新角色。覆蓋是原地換內容，位置不動。不觸發 AI（不回覆、不總結、不評情緒）；要讓角色接著聊，照常傳一句就好。
 
 ## 3. 另一家（JSON）
 
@@ -47,7 +47,7 @@
 | `image`＋`imageSummary` | 圖片訊息＋描述 |
 | `transferData`（金額、幣別、備註、狀態） | 轉帳卡 |
 | `isVoice`＋`voiceText` | 語音訊息（沒有音檔，只有文字） |
-| `type: state`（「你已新增了…」） | 系統小字 |
+| `type: state` | 大多是**場景旁白**（雙方都有）→ 照誰寫的放、標 `metadata.narration`；只有「你已新增了…」（id `fg_` 開頭）這種才是系統小字 |
 | `type: recalled` | 系統小字「你已撤回一條消息」（被撤回的原文不收） |
 | `subtext`（沒說出口的心聲） | 收進那則的思考鏈 |
 | `translation` | 有而且跟原文不同才收進那則（不另外顯示） |
@@ -124,3 +124,4 @@
 ## 9. 實況
 
 - **a 已做**：`utils/stCard.ts`（`readPngTextChunks` 讀 tEXt／未壓縮的 iTXt、`extractCardJsonFromPng`〔ccv3 優先、再 chara；base64 或直接 JSON〕、`normalizeStCard`〔V1／V2／V3〕、`characterBookToWorldInfo`〔卡內世界書的 keys／secondary_keys／insertion_order／position 字串／enabled 換成 ST 世界書檔的欄位，extensions 攤開〕、`cardToSoren`）。`components/character/StCardImport.tsx`：神經鏈接兩處「新建鏈接」下面一顆「匯入 SillyTavern 角色卡（PNG／JSON）」；右上角原本的「導入」收到不是 Soren 角色卡的檔，也轉進同一個預覽；預覽列出各欄位進哪裡、同名提醒、作者的話可展開；建立＝`addCharacter`＋`updateCharacter`、世界書 `addWorldbook` 後直接寫進 `mountedWorldbooks`；PNG 本身存成頭像（blobRef）；配角分頁裡匯的就是配角。`system_prompt` 的 `{{original}}` 拿掉。埋點 `导入ST角色卡`。
+- **b 已做**：`utils/chatImportPhone.ts`（認格式：私聊有 `character`，群聊 `kind` 是 `group_chat`／`group`；訊息照 3.1 轉，`ImportedMessage` 還沒決定放到哪；`findAlreadyImported`、`toMemoryFragments`）、`utils/chatImportPhoneWrite.ts`（`planImportRows` 決定新增／覆蓋／跳過，`runImport` 一個事務寫完〔`DB.writeImportedMessages`〕再 `DB.patchMessages` 接引用回覆）。匯入頁 `components/chat/PhoneChatImport.tsx`（全螢幕、portal 到 body）：入口是私聊聊天設置「聊天記錄」→「從別的 App 匯入聊天紀錄」（固定這條線）、訊息列表「＋」→「匯入聊天紀錄」（自己選，匯完打開那個聊天）、群組設置「聊天紀錄」（固定這個群）；檔案跟入口對不上（私聊入口匯群聊檔）就改成自己選。私聊：選角色（同名排前、或新建，新建帶名字／身份／簡介）、多條線時選線；群聊：新建群或選現有群、每個發話人對角色（照名字、對不到新建），不在群裡的加進群；群裡你的訊息不寫身份（照群的在場身份）。記憶只收私聊的（勾選、標「匯入·分類」，非主線帶 personaKey）；群聊總結不收。貼圖的 `stickerMeaning` 存 `metadata.stickerName`，`stickerNameFromUrl` 表情庫找不到時用它（私聊、群聊提示詞）。`OSContext.createGroup` 改成回傳新群。埋點 `导入聊天记录`。測試 `utils/chatImportPhone.test.ts`（假資料）。790 則私聊實測約 2.5 秒。

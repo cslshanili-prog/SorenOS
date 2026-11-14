@@ -83,6 +83,8 @@ interface ChatModalsProps {
     /** 這個私聊裡生效的「你」（名字、頭像），聊天設定頁頂部用。 */
     chatUser: { name: string; avatar: string };
     onOpenHistoryCleanup?: () => void;
+    /** 從別的 App 匯入聊天紀錄（plans/chat-import-export.md） */
+    onOpenChatImport?: () => void;
     onArchive: () => void;
     onCreatePrompt: () => void;
     onEditPrompt: () => void;
@@ -281,6 +283,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     contextRangeSnapshot,
     onTransfer, onImportEmoji, onSaveSettings, chatUser,
     onOpenHistoryCleanup,
+    onOpenChatImport,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
     onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
@@ -721,7 +724,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             )}
                         </div>
                     </ChatSettingsSection>
-                    <ChatSettingsSection title="聊天記錄" summary="按範圍清理或保留最近消息">
+                    <ChatSettingsSection title="聊天記錄" summary="匯入、按範圍清理或保留最近消息">
+                        {onOpenChatImport && <div className="mb-3">
+                            <button type="button" onClick={onOpenChatImport} className="w-full rounded-2xl border border-violet-100 bg-violet-50 py-3 text-sm font-bold text-violet-600">從別的 App 匯入聊天紀錄</button>
+                            <p className="mt-2 text-center text-[10px] text-slate-400">支援另一家手機風格 App 匯出的 JSON，匯到這條線。</p>
+                        </div>}
                         {onOpenHistoryCleanup && <div>
                             <button type="button" onClick={onOpenHistoryCleanup} className="w-full rounded-2xl border border-red-100 bg-red-50 py-3 text-sm font-bold text-red-600">清理指定範圍 / 保留最近 N 條</button>
                             <p className="mt-2 text-center text-[10px] text-slate-400">按頁選擇記錄，永久刪除前需要兩次確認。</p>

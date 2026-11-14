@@ -155,7 +155,7 @@ export function buildGroupHistoryBlock(
                 content = '[圖片]';
             }
         } else if (m.type === 'emoji') {
-            content = `[表情包: ${stickerNameFromUrl(emojis, rawText.trim())}]`;
+            content = `[表情包: ${stickerNameFromUrl(emojis, rawText.trim(), m.metadata?.stickerName)}]`;
         } else if (m.type === 'transfer') {
             // 回執行自帶完整句子（[系統: X 領取了 Y 的紅包]），不加名字前綴
             if (m.metadata?.packetReceipt) { lines.push(`${timePrefix}${packetHistoryLine(m, nameOf, now)}`); return; }

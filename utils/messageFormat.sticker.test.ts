@@ -24,6 +24,8 @@ describe('stickerNameFromUrl 表情名反查', () => {
     it('URL 查不到時兜底為 未知表情, 不拋錯', () => {
         expect(stickerNameFromUrl(emojis, 'https://img.example/none.png')).toBe('未知表情');
         expect(stickerNameFromUrl([], DOGE_URL)).toBe('未知表情');
+        expect(stickerNameFromUrl([], DOGE_URL, '偷看')).toBe('偷看');
+        expect(stickerNameFromUrl(emojis, DOGE_URL, '偷看')).toBe('柴犬貼貼');
     });
 });
 

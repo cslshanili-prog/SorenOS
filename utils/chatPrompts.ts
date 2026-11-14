@@ -1659,7 +1659,7 @@ ${userProfile.name} 給你反饋時，別當成約束，當成信任——ta 在
                     }
                 }
                 else if (m.type === 'emoji') {
-                     const stickerName = stickerNameFromUrl(emojis, m.content);
+                     const stickerName = stickerNameFromUrl(emojis, m.content, m.metadata?.stickerName);
                      content = `${timeStr} [${m.role === 'user' ? '用戶' : '你'} 發送了表情包: ${stickerName}]`;
                 }
                 else if ((m.type as string) === 'chat_forward') {
