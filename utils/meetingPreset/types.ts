@@ -85,6 +85,8 @@ export interface MeetingPresetDoc {
     personalityFormat?: string;
     /** `{{getglobalvar::名字}}` 用到的值，用戶在預設設定裡填 */
     globalVars: Record<string, string>;
+    /** 適用場景（預設 App 篩選、選單用；plans/preset-library.md）。沒有＝見面（舊資料都是見面的） */
+    scenes?: Array<'chat' | 'group' | 'call' | 'date' | 'story'>;
 }
 
 /** meeting_presets 表的一列 */

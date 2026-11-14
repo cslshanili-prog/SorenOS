@@ -74,6 +74,7 @@ import {
     type DateHistoryView,
     DATE_HISTORY_VIEW_LABEL,
 } from '../utils/dateHistory';
+import { BUILTIN_PRESET, sceneDefault } from '../utils/presetBinding';
 
 /** 上次自己選的開場方式（赴約那次臨時用的「我走過去」不算）。 */
 const loadRememberedOpening = (): DateOpeningMode => {
@@ -239,22 +240,31 @@ const DateApp: React.FC = () => {
         };
     }, []);
 
-    // 這個角色選的自訂預設（見面設定 → 預設）。預設在別處被改過會發事件，這裡重讀。
+    // 這個角色見面用的預設：角色自己選的 > 預設 App 的見面場景預設 > 內建（utils/presetBinding.ts）。
+    // 預設在別處被改過會發事件，這裡重讀。
     const [activePreset, setActivePreset] = useState<MeetingPresetRecord | null>(null);
-    const presetId = char?.dateMeetingPresetId;
+    /** 照優先順序找；選的那份被刪了就往下一層退 */
+    const loadPresetFor = async (c: CharacterProfile): Promise<MeetingPresetRecord | null> => {
+        const tryLoad = async (id: string | undefined) => (id ? (await DB.getMeetingPreset(id).catch(() => undefined)) || null : null);
+        const own = c.dateMeetingPresetId;
+        if (own === BUILTIN_PRESET) return null;
+        const fromOwn = await tryLoad(own);
+        if (fromOwn) return fromOwn;
+        const def = sceneDefault(userProfileBase, 'date');
+        return def && def !== BUILTIN_PRESET ? tryLoad(def) : null;
+    };
+    const presetKey = `${char?.dateMeetingPresetId || ''}|${sceneDefault(userProfileBase, 'date') || ''}`;
     useEffect(() => {
         let cancelled = false;
         const load = () => {
-            if (!presetId) { setActivePreset(null); return; }
-            DB.getMeetingPreset(presetId).then(record => { if (!cancelled) setActivePreset(record || null); }).catch(() => {});
+            if (!char) { setActivePreset(null); return; }
+            loadPresetFor(char).then(record => { if (!cancelled) setActivePreset(record); }).catch(() => {});
         };
         load();
         window.addEventListener(MEETING_PRESET_UPDATED_EVENT, load);
         return () => { cancelled = true; window.removeEventListener(MEETING_PRESET_UPDATED_EVENT, load); };
-    }, [presetId]);
-    /** 送出前從庫裡拿最新的：設定頁剛改的開關這一輪就要生效 */
-    const loadPresetFor = async (c: CharacterProfile): Promise<MeetingPresetRecord | null> =>
-        c.dateMeetingPresetId ? (await DB.getMeetingPreset(c.dateMeetingPresetId).catch(() => undefined)) || null : null;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [char?.id, presetKey]);
     // 見面跟隨「個人檔案 → 分角色身份指定」——見面跟私聊/查手機/記憶宮殿是同一種
     // "你與這個角色的關係"，不單獨開一套指定入口，避免同一個角色在不同場景裡認出不同的你。
     const dateUserProfile = useMemo(
