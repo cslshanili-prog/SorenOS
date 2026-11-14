@@ -1,6 +1,6 @@
 # 預設 App：獨立的預設庫，線上線下共用
 
-> 狀態：第 1 批、第 2 批（私聊，含雲端）、第 3a 批（電話）做完（2026-11-14），實況見文末。第 3b 批（群聊）進行中。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
+> 狀態：第 1～3 批全部做完（2026-11-14）：預設 App、私聊（含雲端）、電話、群聊。實況見文末。之後另開 AI 助手。Liora 已定：照建議做獨立 App、條目打場景標籤、綁定只管預設＋正則、功能條目可以關但要提醒、分三批。
 >
 > **開工後改的一條**：劇情預設**不搬**進通用格式（見第 6 節）。劇情劇場的引擎靠固定的條目 id（`nmj-v64…`）跑分區、快捷選項、小劇場、旁白，轉成通用格式等於重寫引擎。所以預設 App 一個地方放兩種：通用預設（ST 格式，見面現在用、線上之後用）和劇情專用預設（原格式、原編輯器，只給劇情）。
 
@@ -174,3 +174,13 @@ Liora 定的：電話用「電話」場景預設，角色可以在聊天設定�
 - **CallApp 接上**：`loadCallPresetDoc`＝角色的 `callPresetId` > `presetSceneDefaults.call` > 內建；`sendChatRequest` 改走 `composeMessages`，選了預設照預設組（快照那輪多帶快照說明、退回純文字那輪不帶），沒選照舊「一則 system＋通話記錄」。
 - **畫面**：聊天設定多一欄「電話預設」（提醒長篇預設套電話太囉嗦）；預設 App 場景預設、篩選、適用場景多了電話，「電話 · 內建」可以複製，ST 預設匯入預設勾私聊＋電話＋見面；刪預設也清 `callPresetId`；預設編輯頁的功能條目關掉提醒也涵蓋電話。
 - 測試：`utils/callPrompt.test.ts`、`utils/callPresetSession.test.ts`；實機撥了一通電話攔請求（主提示在前、電話場景與語音演出有補、說話方式沒補）。
+
+## 第 3b 批實況（2026-11-14）：群聊
+
+- **抽文風**：導演指令裡「一、群聊的樂子是多元的」＋「二、修羅場硬規則」是 `GROUP_STYLE_ATMOSPHERE`，「四、對話質量」是 `GROUP_STYLE_QUALITY`（`utils/groupChat/prompts.ts`），模板照舊用它們，A/B 一字不差。`withoutGroupStyle` 把這兩段拿掉；「三、U 還是 U」、互動結構、私下找人、格式、JSON 都留著（那是功能，不是文風）。輪流模式的規則很短、多半是格式，不拆。
+- **組裝**（`utils/groupPresetSession.ts`）：群聊內建是一則 user 訊息（群場景＋成員檔案＋本輪任務，記錄寫在任務裡）。用了自訂預設：預設條目照順序；`groupScene`（`buildGroupSystemHeader` 的 header）、`groupMembers`（成員檔案塊，輪流模式只有輪到的那位）是 Soren 佔位，沒放就補在記錄前；「聊天記錄」那格放本輪任務（導演模式拿掉兩段文風，圖片照帶，用多段內容送所以不跑預設的正則）；預設沒有記錄格或關掉也照補。最後永遠接一則格式鎖（`groupFormatLock`：導演＝只輸出 JSON 陣列、輪流＝只寫自己的台詞），預設的 assistant 預填不送。`{{char}}` 換成成員名字（「、」接），`{{user}}` 是群裡的你。
+- **用哪份**：`GroupProfile.presetId`（`'builtin'`＝明確內建）> `presetSceneDefaults.group` > 內建（`resolveGroupPresetId`、`loadGroupPresetDoc`），導演和輪流兩條路都接。
+- **畫面**：群設定多一欄「預設」（`components/chat/GroupPresetSelect.tsx`，選了就存）；預設 App 場景預設、篩選、適用場景多了群聊，「群聊 · 內建」可以複製，ST 預設匯入預設勾全部四個線上線下場景；刪預設也清群的 `presetId`。
+- 測試：`utils/groupPresetSession.test.ts`；實機在導演模式送一輪攔請求（預設主提示在前、群場景補上、任務帶記錄、氛圍規則拿掉、JSON 鎖最後），回的 JSON 照常解析成氣泡。
+
+**整體還沒做的**：預設的生成參數（溫度等）線上場景還不吃；「只改顯示」的正則還沒套到聊天氣泡；條目層級的場景標籤；AI 助手。

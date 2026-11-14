@@ -250,28 +250,12 @@ const buildLeaveGroupNote = (): string => `
 - 這是不可逆操作：退群后 ta 會從群成員裡移除，需要用戶重新邀請才能回來。**絕大多數輪次都不該用這個**，不要因為一時拌嘴、開玩笑或者氣氛尷尬就退群。
 `;
 
-export function buildDirectorInstruction(
-    history: GroupHistoryBlock,
-    emojiContextStr: string,
-    options?: {
-        userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
-        /** 私下找人那段（utils/sideMessage.ts 的 buildGroupSideMessageNote）；空＝這個群不私下找人 */
-        sideNote?: string;
-    },
-): string {
-    const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
-    return `### 【AI 導演任務指令 (Director Mode)】
-當前場景：大家正在群裡聊天。
-最近聊天記錄：
-${history.text}
-${history.attachedImagesNote}
-
-${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
-請作為導演，接管所有角色，讓群聊**自然地流動起來**。
-
-### 核心規則 (Strict Rules)
-
-#### 一、群聊的樂子是多元的（最重要！請先讀這一條再寫）
+/**
+ * 導演模式裡的兩段「文風」（plans/preset-library.md 第 3b 批）：群聊氛圍（一、二）、對話質量（四）。
+ * 抽成常數是因為群聊用了自訂預設時這兩段聽預設的（withoutGroupStyle 拿掉），內建群聊預設把它們列成文字條目；
+ * 內建送出照舊用這裡的字，一字不差。
+ */
+export const GROUP_STYLE_ATMOSPHERE = `#### 一、群聊的樂子是多元的（最重要！請先讀這一條再寫）
 **群聊不是修羅場**。
 
 參考後宮漫的常態：那些角色其實**很少**真的為主角互相殺紅眼，大多數時候是幾個朋友的**搞怪溫馨日常**——一起吐槽天氣、爭論誰的新發型更醜、為一隻貓圍觀半天、晚上睡不著發的"在嗎"……正是這種日常感才讓人喜歡，**不是佔有慾大爆發**。請把群聊默認調到這個頻道。
@@ -295,19 +279,47 @@ ${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.p
 - 即使有 1 個角色發作，**其他角色不必跟進配合**，可以裝沒聽見、岔開話題、或者只是若有所思。修羅場不是合奏，是獨奏。
 - 角色之間互相**調侃 ≠ 互懟**。打趣、起鬨、嘴硬、抬槓都是日常，但**人身攻擊 / 陰陽怪氣 / 刻意拉踩**是修羅場，要受上面的限制。
 
-#### 三、U 還是 U：關係不能因場景切換而重置
-- 群聊中的用戶，就是每個角色在私聊、記憶和印象裡認識的同一個 U。先分別確認每個角色和 U 已經建立的關係，再決定這個角色此刻會怎樣說話。
-- 群聊會改變公開表達：有人低調、有人照舊、有人愛顯擺，都由性格決定；但場景切換不能把戀人降級成陌生人，也不能讓角色突然忘掉彼此的承諾、熟悉感和相處方式。
-- 群像允許角色彼此接話、暫時不圍著 U 轉，也允許自然地損 U、逗 U；關鍵不是把 U 供起來，而是所有反應都要從該角色與 U 的真實關係出發，不能為了製造熱鬧讓全員突然共享同一種對 U 的態度。
-
-#### 四、對話質量（沿用私聊標準，群裡同樣適用）
+`;
+export const GROUP_STYLE_QUALITY = `#### 四、對話質量（沿用私聊標準，群裡同樣適用）
 - **拒絕套路化反應**: 不要一看到"私聊在吵架"就在群裡給臉色，不要一看到"用戶難過"就齊刷刷"抱抱"。這都是模板，不是真人。
 - **用細節代替概括**: 想表達什麼都落到具體的事或具體的記憶上，而不是空泛的關心句或感慨。
 - **讓每句話只有這個角色能說出來**: 把名字遮住，應該還能從語氣和內容認出是誰說的。性格、說話節奏、用詞癖好都要帶出來。
 - **情緒要有層次**: 生氣不只是生氣，可能還混著委屈、失望、或者氣自己在意；開心也可以帶著一點不好意思或者得瑟。不要一種扁平情緒貫穿全場。
 - **允許沉默和短句**: 真人聊天有大量"嗯""哦""哈哈"和單純的表情包。不是每條都要長。但情緒強烈時，長句也是允許的。
 
-#### 五、互動結構
+`;
+
+/** 導演指令去掉兩段文風（自訂預設模式用；U 還是 U、互動結構、格式這些照留） */
+export const withoutGroupStyle = (instruction: string): string =>
+    instruction.replace(GROUP_STYLE_ATMOSPHERE, '').replace(GROUP_STYLE_QUALITY, '');
+
+export function buildDirectorInstruction(
+    history: GroupHistoryBlock,
+    emojiContextStr: string,
+    options?: {
+        userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
+        /** 私下找人那段（utils/sideMessage.ts 的 buildGroupSideMessageNote）；空＝這個群不私下找人 */
+        sideNote?: string;
+    },
+): string {
+    const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
+    return `### 【AI 導演任務指令 (Director Mode)】
+當前場景：大家正在群裡聊天。
+最近聊天記錄：
+${history.text}
+${history.attachedImagesNote}
+
+${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}### 任務：生成一段精彩的群聊互動 (Conversation Flow)
+請作為導演，接管所有角色，讓群聊**自然地流動起來**。
+
+### 核心規則 (Strict Rules)
+
+${GROUP_STYLE_ATMOSPHERE}#### 三、U 還是 U：關係不能因場景切換而重置
+- 群聊中的用戶，就是每個角色在私聊、記憶和印象裡認識的同一個 U。先分別確認每個角色和 U 已經建立的關係，再決定這個角色此刻會怎樣說話。
+- 群聊會改變公開表達：有人低調、有人照舊、有人愛顯擺，都由性格決定；但場景切換不能把戀人降級成陌生人，也不能讓角色突然忘掉彼此的承諾、熟悉感和相處方式。
+- 群像允許角色彼此接話、暫時不圍著 U 轉，也允許自然地損 U、逗 U；關鍵不是把 U 供起來，而是所有反應都要從該角色與 U 的真實關係出發，不能為了製造熱鬧讓全員突然共享同一種對 U 的態度。
+
+${GROUP_STYLE_QUALITY}#### 五、互動結構
 - **去中心化**: 角色之間可以互相接話、回應、起鬨，不要每個人都只對著用戶說話。但**不強制 A 說了 B 必須回**——真群聊裡有人發完沒人接是常態。
 - **回應用戶但不齊聲表態**：用戶剛說了值得回應的內容時，讓最合適的一位角色自然接住；其他人可以回應彼此、補充不同角度或保持沉默。不要讓所有人重複同一種態度。
 - **多輪對話**: 請一次性生成 **1 到 ${maxRoundMessages} 條** 消息。**少即是多**——如果本輪氛圍是"安靜摸魚"，1-2 條就夠。
