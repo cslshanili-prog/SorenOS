@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowCounterClockwise, BookOpenText, Check, Eye, PaintBrush, SlidersHorizontal, X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, BookOpenText, Check, Eye, PaintBrush, SlidersHorizontal, SquaresFour, X } from '@phosphor-icons/react';
 import type { AssistantCssProposal, AssistantProposal } from '../../types';
 
 /**
@@ -12,7 +12,7 @@ interface Props {
     onApply: () => void;
     onReject: () => void;
     onRestore: () => void;
-    /** 有假資料頁的美化位置才有（見面、預設沒有） */
+    /** 有假資料頁的美化位置、小組件才有（見面、預設、世界書沒有） */
     onPreview?: () => void;
 }
 
@@ -101,7 +101,7 @@ const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRe
     const tone = proposal.status === 'applied' ? 'border-emerald-200 bg-emerald-50/60'
         : proposal.status === 'pending' ? 'border-amber-200 bg-white' : 'border-slate-200 bg-slate-50';
     const btn = 'flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold transition active:scale-95 disabled:opacity-40';
-    const Icon = proposal.kind === 'preset' ? SlidersHorizontal : proposal.kind === 'worldbook' ? BookOpenText : PaintBrush;
+    const Icon = proposal.kind === 'preset' ? SlidersHorizontal : proposal.kind === 'worldbook' ? BookOpenText : proposal.kind === 'widget' ? SquaresFour : PaintBrush;
 
     return (
         <div className={`rounded-2xl border ${tone} shadow-sm px-3.5 py-3 space-y-2`} data-sore-proposal data-kind={proposal.kind} data-status={proposal.status}>

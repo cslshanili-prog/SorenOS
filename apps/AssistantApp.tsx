@@ -14,7 +14,12 @@ import { buildSoreEntryNote, takeSoreHandoff } from '../utils/assistant/handoff'
 import {
     applyCssProposal, applyPresetProposal, applyWorldbookProposal, changedSinceApply, presetChangedSinceApply, type PresetWriter,
     restoreCssProposal, restorePresetProposal, restoreWorldbookProposal, worldbookChangedSinceApply, type WorldbookWriter,
+    applyWidgetProposal, restoreWidgetProposal, widgetChangedSinceApply, type WidgetWriter,
 } from '../utils/assistant/applyProposal';
+import type { WidgetData } from '../utils/assistant/widgetOps';
+import { cancelWidgetPlacement, requestWidgetPlacement } from '../utils/assistant/widgetPlacement';
+import { buildWidgetSrcDoc, type CustomWidgetTemplate } from '../utils/customWidget';
+import { removeCustomWidgetsOf } from '../utils/launcherLayout';
 import type { WorldbookData } from '../utils/assistant/worldbookOps';
 import type { PresetData } from '../utils/assistant/presetOps';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
@@ -85,10 +90,13 @@ const AssistantApp: React.FC = () => {
     const [proposalBusy, setProposalBusy] = useState('');
     const [pendingImages, setPendingImages] = useState<string[]>([]);
     const [preview, setPreview] = useState<{ proposal: AssistantCssProposal; which: 'after' | 'before' } | null>(null);
+    const [widgetPreview, setWidgetPreview] = useState<CustomWidgetTemplate | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
     const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
     cssDataRef.current = { theme, characters, groups, customThemes };
+    const widgetDataRef = useRef<WidgetData>({ templates: theme.launcherCustomWidgets || [], layout: theme.launcherLayout });
+    widgetDataRef.current = { templates: theme.launcherCustomWidgets || [], layout: theme.launcherLayout };
     const worldbookDataRef = useRef<WorldbookData>({ worldbooks, characters });
     worldbookDataRef.current = { worldbooks, characters };
     const sceneDefaultsRef = useRef(userProfileBase.presetSceneDefaults);
@@ -170,6 +178,7 @@ const AssistantApp: React.FC = () => {
         cssData: () => cssDataRef.current,
         presetData: loadPresetData,
         worldbookData: () => worldbookDataRef.current,
+        widgetData: () => widgetDataRef.current,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
     const addImages = async (files: FileList | null) => {
@@ -253,6 +262,18 @@ const AssistantApp: React.FC = () => {
         setMounted: (charId, mounted) => updateCharacter(charId, { mountedWorldbooks: mounted }),
     };
 
+    const widgetWriter: WidgetWriter = {
+        setTemplates: (templates, removePlacedOf) => {
+            const layout = widgetDataRef.current.layout;
+            return updateTheme({
+                launcherCustomWidgets: templates,
+                ...(removePlacedOf && layout ? { launcherLayout: removeCustomWidgetsOf(layout, removePlacedOf) } : {}),
+            });
+        },
+        requestPlacement: requestWidgetPlacement,
+        cancelPlacement: cancelWidgetPlacement,
+    };
+
     const actOnProposal = async (messageId: string, action: 'apply' | 'reject' | 'restore') => {
         const session = current;
         const message = session?.messages.find(m => m.id === messageId);
@@ -263,6 +284,7 @@ const AssistantApp: React.FC = () => {
         const wbData = worldbookDataRef.current;
         const changedSince = proposal.kind === 'css' ? changedSinceApply(proposal, cssData)
             : proposal.kind === 'worldbook' ? worldbookChangedSinceApply(proposal, wbData)
+            : proposal.kind === 'widget' ? widgetChangedSinceApply(proposal, widgetDataRef.current)
             : presetChangedSinceApply(proposal, presetData!);
         if (action === 'restore' && changedSince
             && !window.confirm('套用之後這裡又被改過了，還原會把那些改動一起蓋掉。還是要還原？')) return;
@@ -272,6 +294,8 @@ const AssistantApp: React.FC = () => {
             if (action === 'reject') next = { ...proposal, status: 'rejected' };
             else if (proposal.kind === 'css') {
                 next = action === 'apply' ? await applyCssProposal(proposal, cssData, writeCss) : await restoreCssProposal(proposal, cssData, writeCss);
+            } else if (proposal.kind === 'widget') {
+                next = action === 'apply' ? await applyWidgetProposal(proposal, widgetDataRef.current, widgetWriter) : await restoreWidgetProposal(proposal, widgetDataRef.current, widgetWriter);
             } else if (proposal.kind === 'worldbook') {
                 next = action === 'apply' ? await applyWorldbookProposal(proposal, wbData, worldbookWriter) : await restoreWorldbookProposal(proposal, wbData, worldbookWriter);
             } else {
@@ -282,10 +306,13 @@ const AssistantApp: React.FC = () => {
                 messages: session.messages.map(m => (m.id === messageId ? { ...m, proposal: next } : m)),
                 updatedAt: Date.now(),
             });
-            if (action === 'apply') addToast(proposal.kind === 'css' && !proposal.css ? '清掉了' : '套用了，去那頁看看；不喜歡可以按還原', 'success');
+            if (action === 'apply') addToast(proposal.kind === 'css' && !proposal.css ? '清掉了'
+                : proposal.kind === 'widget' && proposal.isNew && proposal.place ? '存好了，回桌面就會看到它；不喜歡可以按還原'
+                : '套用了，去那頁看看；不喜歡可以按還原', 'success');
             if (action === 'restore') addToast('還原了', 'success');
             const where = proposal.kind === 'css' ? LOCATION_EVENT_LABEL[proposal.location] || '其他'
                 : proposal.kind === 'worldbook' ? '世界书'
+                : proposal.kind === 'widget' ? '小组件'
                 : proposal.presetKind === 'story' ? '剧情预设' : '通用预设';
             trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: where });
         } catch (err: any) {
@@ -407,7 +434,8 @@ const AssistantApp: React.FC = () => {
                                     onApply={() => void actOnProposal(t.id, 'apply')}
                                     onReject={() => void actOnProposal(t.id, 'reject')}
                                     onRestore={() => void actOnProposal(t.id, 'restore')}
-                                    onPreview={canPreviewProposal(t.proposal) ? () => { const p = t.proposal as AssistantCssProposal; setPreview({ proposal: p, which: p.css ? 'after' : 'before' }); } : undefined} />
+                                    onPreview={canPreviewProposal(t.proposal) ? () => { const p = t.proposal as AssistantCssProposal; setPreview({ proposal: p, which: p.css ? 'after' : 'before' }); }
+                                        : t.proposal.kind === 'widget' ? () => setWidgetPreview((t.proposal as { template: CustomWidgetTemplate }).template) : undefined} />
                             ) : (
                                 <div key={t.id} className="text-[11px] text-slate-400 pl-1" data-sore-tool>
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
@@ -486,6 +514,23 @@ const AssistantApp: React.FC = () => {
                     </div>
                 );
             })()}
+
+            {widgetPreview && (
+                <div className="absolute inset-0 z-40 bg-slate-900/95 backdrop-blur flex flex-col" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom, 0px)' }} data-sore-widget-preview>
+                    <div className="flex items-center justify-between px-4 py-3 text-white">
+                        <div className="min-w-0">
+                            <div className="text-[13px] font-bold truncate">{widgetPreview.name}</div>
+                            <div className="text-[10px] opacity-70">{widgetPreview.w}×{widgetPreview.h} 格 · 欄位用預設值；圖片要放上桌面後自己加</div>
+                        </div>
+                        <button type="button" onClick={() => setWidgetPreview(null)} aria-label="關閉預覽" className="p-1.5 rounded-full hover:bg-white/10"><X size={20} /></button>
+                    </div>
+                    <div className="flex-1 min-h-0 flex items-center justify-center p-4" style={{ background: 'radial-gradient(circle at 30% 20%, #6b7fd7 0%, #3b2a63 55%, #1b1530 100%)' }}>
+                        <iframe title="小組件預覽" sandbox="allow-scripts"
+                            srcDoc={buildWidgetSrcDoc({ template: widgetPreview, imageUrls: {}, userName: userProfileBase.name, size: { w: widgetPreview.w, h: widgetPreview.h }, contentColor: theme.contentColor })}
+                            className="border-0 bg-transparent" style={{ width: Math.round(widgetPreview.w * 84), height: Math.round(widgetPreview.h * 92) }} />
+                    </div>
+                </div>
+            )}
 
             {panel !== 'none' && (
                 <div className="absolute inset-0 z-30 bg-black/30 flex flex-col justify-end" onClick={() => setPanel('none')}>

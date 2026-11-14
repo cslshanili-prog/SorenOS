@@ -7,6 +7,7 @@
  * - 寫CSS／清除CSS：檢查過了出提案卡片，用戶按「套用」才寫（第 2 批）
  * - 列出預設／讀取預設／讀取條目：讀；改預設／新建預設／設定預設用途：出提案（第 3 批，utils/assistant/presetOps.ts）
  * - 列出世界書／讀取世界書／讀取角色：讀；改世界書：出提案（第 4 批，utils/assistant/worldbookOps.ts）
+ * - 列出小組件／讀取小組件：讀；寫小組件：出提案（第 4 批，utils/assistant/widgetOps.ts）
  */
 import type { APIConfig, AssistantProposal, CharacterProfile, GroupProfile, StoryTheaterPresetDocument } from '../../types';
 import { findGuide, SORE_GUIDES } from './knowledge';
@@ -21,6 +22,7 @@ import {
 } from './presetOps';
 import type { MeetingPresetDoc } from '../meetingPreset/types';
 import { buildWorldbookProposal, describeCharacter, describeWorldbook, describeWorldbookList, type WorldbookData } from './worldbookOps';
+import { buildWidgetProposal, describeWidget, describeWidgetList, findWidget, WIDGET_GUIDE, type WidgetData } from './widgetOps';
 import { BUILTIN_PRESET, PRESET_SCENE_LABEL } from '../presetBinding';
 
 export interface SoreSettingsInput {
@@ -46,6 +48,8 @@ export interface SoreToolContext {
     presetData?: () => Promise<PresetData>;
     /** 世界書與角色（第 4 批）；沒給就不能用世界書工具 */
     worldbookData?: () => WorldbookData;
+    /** 桌面小組件模板與版面（第 4 批）；沒給就不能用小組件工具 */
+    widgetData?: () => WidgetData;
 }
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -197,6 +201,7 @@ export const SORE_TOOLS: SoreToolDef[] = [
     },
     ...PRESET_TOOLS(),
     ...WORLDBOOK_TOOLS(),
+    ...WIDGET_TOOLS(),
 ];
 
 export const findSoreTool = (name: string) => SORE_TOOLS.find(t => t.name === name);
@@ -402,6 +407,38 @@ function WORLDBOOK_TOOLS(): SoreToolDef[] {
                     content: `${PROPOSED_NOTE}\n改動：\n${presetChangesNote(built.draft.changes)}`,
                     proposal: built.draft,
                 };
+            },
+        },
+    ];
+}
+
+// ─── 桌面小組件（第 4 批） ───
+
+function WIDGET_TOOLS(): SoreToolDef[] {
+    const noData = { ok: false, content: '這裡不能讀小組件。' };
+    return [
+        {
+            name: '列出小組件',
+            usage: '參數 {}。列出桌面自訂小組件模板：尺寸、欄位、有沒有程式、桌面上放了幾份。',
+            run: async (_args, ctx) => (ctx.widgetData ? { ok: true, content: describeWidgetList(ctx.widgetData()) } : noData),
+        },
+        {
+            name: '讀取小組件',
+            usage: '參數 {"widget": "名字或 id"}。整個模板：HTML、CSS、欄位、圖片鍵。改之前先讀。',
+            run: async (args, ctx) => {
+                if (!ctx.widgetData) return noData;
+                const found = findWidget(args.widget, ctx.widgetData());
+                return 'error' in found ? { ok: false, content: found.error } : { ok: true, content: describeWidget(found) };
+            },
+        },
+        {
+            name: '寫小組件',
+            usage: `參數：新的 {"name": "名字", "size": "4x2", "html": "…", "css": "…", "fields": [...], "place": true, "summary": "…"}；改既有的 {"widget": "名字或 id", 要改的那幾個（html／css 是整段取代）, "summary": "…"}。出提案卡片（可以預覽），按「套用」才存；新的預設會放上桌面（place: false 就只存模板）。你沒辦法給圖片，要圖請用戶之後在小組件編輯頁加。\n${WIDGET_GUIDE}`,
+            run: async (args, ctx) => {
+                if (!ctx.widgetData) return noData;
+                const built = buildWidgetProposal(args, ctx.widgetData());
+                if ('error' in built) return { ok: false, content: built.error };
+                return { ok: true, content: `${PROPOSED_NOTE}\n改動：\n${presetChangesNote(built.draft.changes)}`, proposal: built.draft };
             },
         },
     ];

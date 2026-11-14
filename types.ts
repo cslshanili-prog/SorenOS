@@ -5828,7 +5828,7 @@ export interface AssistantMessage {
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */
-export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal | AssistantWorldbookProposal;
+export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal | AssistantWorldbookProposal | AssistantWidgetProposal;
 
 interface AssistantProposalBase {
   id: string;
@@ -5870,6 +5870,22 @@ export interface AssistantWorldbookProposal extends AssistantProposalBase {
   changes: Array<{ label: string; before?: string; after?: string }>;
   /** 套用前：改到的條目原樣、動到的角色原本的掛載 */
   snapshot?: { entries: Worldbook[]; mounts: Array<{ charId: string; mounted: MountedWorldbook[] }>; at: number };
+}
+
+/** 桌面自訂小組件（第 4 批）：新建或改一個模板，新的可以順便放上桌面 */
+export interface AssistantWidgetProposal extends AssistantProposalBase {
+  kind: 'widget';
+  templateId: string;
+  isNew: boolean;
+  /** 改好的整個模板 */
+  template: import('./utils/customWidget').CustomWidgetTemplate;
+  /** 新的要不要放上桌面（套用時由桌面找空位放） */
+  place: boolean;
+  /** HTML 裡有 <script> */
+  hasScript: boolean;
+  changes: Array<{ label: string; before?: string; after?: string }>;
+  /** 套用前的模板（null＝原本沒有，還原＝刪掉，連桌面上那幾份） */
+  snapshot?: { template: import('./utils/customWidget').CustomWidgetTemplate | null; at: number };
 }
 
 /** 預設要設給誰用（場景預設、角色的私聊／電話／見面、群）；presetId 'builtin'＝內建、空字串＝跟著場景預設（角色、群才有） */

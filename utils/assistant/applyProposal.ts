@@ -1,10 +1,12 @@
 /**
- * 提案卡片的「套用」「還原」（plans/ai-assistant.md 第 3 節）：美化 CSS（第 2 批）、預設（第 3 批）、世界書（第 4 批）。
+ * 提案卡片的「套用」「還原」（plans/ai-assistant.md 第 3 節）：美化 CSS（第 2 批）、預設（第 3 批）、世界書和桌面小組件（第 4 批）。
  * 套用前再檢查一次（資料可能變了）、記下那一刻的內容當快照，再寫；還原就是把快照寫回去。
  * 真的寫交給 write（畫面那頭接 updateTheme／updateCharacter／…），這裡不碰 React。
  */
-import type { AssistantCssProposal, AssistantPresetBinding, AssistantPresetProposal, AssistantWorldbookProposal, MountedWorldbook, StoryTheaterPreset, StoryTheaterPresetDocument, Worldbook } from '../../types';
+import type { AssistantCssProposal, AssistantPresetBinding, AssistantPresetProposal, AssistantWidgetProposal, AssistantWorldbookProposal, MountedWorldbook, StoryTheaterPreset, StoryTheaterPresetDocument, Worldbook } from '../../types';
 import { nextMounted, type WorldbookData } from './worldbookOps';
+import type { WidgetData } from './widgetOps';
+import type { CustomWidgetTemplate } from '../customWidget';
 import type { MeetingPresetDoc, MeetingPresetRecord } from '../meetingPreset/types';
 import { BUILTIN_PRESET } from '../presetBinding';
 import { type PresetData, readBinding } from './presetOps';
@@ -206,6 +208,50 @@ export const restoreWorldbookProposal = async (proposal: AssistantWorldbookPropo
     }
     for (const m of snapshot.mounts) {
         if (data.characters.some(c => c.id === m.charId)) await writer.setMounted(m.charId, m.mounted);
+    }
+    return { ...proposal, status: 'restored' };
+};
+
+// ─── 桌面小組件（第 4 批） ───
+
+export interface WidgetWriter {
+    /** 寫整份模板清單；removePlacedOf 有給的話，同時把桌面上用這個模板的每一份拿掉 */
+    setTemplates: (templates: CustomWidgetTemplate[], removePlacedOf?: string) => Promise<void> | void;
+    requestPlacement: (templateId: string) => void;
+    cancelPlacement: (templateId: string) => void;
+}
+
+export const applyWidgetProposal = async (proposal: AssistantWidgetProposal, data: WidgetData, writer: WidgetWriter): Promise<AssistantWidgetProposal> => {
+    const existing = data.templates.find(t => t.id === proposal.templateId);
+    if (!proposal.isNew && !existing) throw new Error('這個小組件已經不在了');
+    if (proposal.isNew && existing) throw new Error('這個小組件已經建過了');
+    const now = Date.now();
+    const template = { ...proposal.template, updatedAt: now };
+    const next = existing ? data.templates.map(t => (t.id === template.id ? template : t)) : [...data.templates, template];
+    // 先留字條再寫：桌面看到模板出現時字條已經在
+    if (proposal.isNew && proposal.place) writer.requestPlacement(template.id);
+    await writer.setTemplates(next);
+    return { ...proposal, status: 'applied', appliedAt: now, snapshot: { template: existing ? { ...existing } : null, at: now } };
+};
+
+export const widgetChangedSinceApply = (proposal: AssistantWidgetProposal, data: WidgetData): boolean => {
+    if (proposal.status !== 'applied' || !proposal.appliedAt) return false;
+    const current = data.templates.find(t => t.id === proposal.templateId);
+    return !current || current.updatedAt > proposal.appliedAt + 2000;
+};
+
+export const restoreWidgetProposal = async (proposal: AssistantWidgetProposal, data: WidgetData, writer: WidgetWriter): Promise<AssistantWidgetProposal> => {
+    const snapshot = proposal.snapshot;
+    if (!snapshot) throw new Error('這張卡片沒有快照，沒辦法還原');
+    if (snapshot.template === null) {
+        writer.cancelPlacement(proposal.templateId);
+        await writer.setTemplates(data.templates.filter(t => t.id !== proposal.templateId), proposal.templateId);
+    } else {
+        const before = snapshot.template;
+        const next = data.templates.some(t => t.id === before.id)
+            ? data.templates.map(t => (t.id === before.id ? before : t))
+            : [...data.templates, before];
+        await writer.setTemplates(next);
     }
     return { ...proposal, status: 'restored' };
 };
