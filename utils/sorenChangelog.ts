@@ -18,6 +18,7 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_15 = 'changelog-soren-2026-11-15';
 export const CHANGELOG_SOREN_2026_11_14 = 'changelog-soren-2026-11-14';
 export const CHANGELOG_SOREN_2026_11_11 = 'changelog-soren-2026-11-11';
 export const CHANGELOG_SOREN_2026_11_10 = 'changelog-soren-2026-11-10';
@@ -27,6 +28,14 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_15,
+        title: '2026 年 11 月 15 日 · S3.0 Sore 與預設',
+        subtitle: 'AI 助手 Sore（答疑、美化、預設、世界書、小組件，按套用才寫、可還原）· 預設 App 與場景預設，私聊／群聊／電話／見面都能用 · 匯入 ST 角色卡、別家聊天、ST 聊天，私聊與見面匯出 · 世界書全局啟用 · 開場白清單 · 先加好友才能對話開關',
+        date: '2026-11-15',
+        src: 'changelogs/2026-11-15.html',
+        accent: 'from-amber-50 to-orange-50 border-amber-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_14,
         title: '2026 年 11 月 14 日 · S2.0 關係線',

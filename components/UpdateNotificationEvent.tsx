@@ -9,9 +9,9 @@ import { SAR_UPDATE_KEY, SAR_CHANGELOG, sarLaunch } from '../utils/sarUpdate';
 
 import React from 'react';
 import {
-    ArrowRight, Archive, BellRinging, Briefcase, ChatTeardropDots, Coffee, FileText, FolderOpen, PaperPlaneTilt, Sparkle, UsersThree, VideoCamera, Wallet,
+    ArrowRight, Archive, ArrowsLeftRight, BellRinging, BookOpenText, Briefcase, ChatTeardropDots, Coffee, FileText, FolderOpen, PaperPlaneTilt, SlidersHorizontal, SmileyWink, Sparkle, UsersThree, VideoCamera, Wallet,
 } from '@phosphor-icons/react';
-import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
+import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, CHANGELOG_SOREN_2026_11_15, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
 import { useOS } from '../context/OSContext';
 import { AppID } from '../types';
 import { trackEvent } from '../utils/analytics';
@@ -40,6 +40,8 @@ export const NETWORK_TRANSIT_NOTICE_KEY_2026_08 = 'sullyos_notice_2026_08_networ
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_10 = 'soren_update_2026_11_10_seen';
 /** S2.0：桌面＋關係線 */
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_14 = 'soren_update_2026_11_14_v2_seen';
+/** S3.0：Sore、預設 App、聊天紀錄搬家 */
+export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15 = 'soren_update_2026_11_15_v3_seen';
 
 export const FAQ_TARGET_SECTION_KEY = 'sullyos_faq_target_section';
 export const CHANGELOG_2026_04 = 'changelog-2026-04';
@@ -581,6 +583,8 @@ interface SorenRelease {
     lede: string;
     features: ReadonlyArray<{ icon: React.ComponentType<any>; eyebrow: string; text: string }>;
     note?: React.ReactNode;
+    /** 主按鈕直接打開某個 App（有的話「看看更新日誌」退成次要的） */
+    primary?: { label: string; appId: AppID };
 }
 
 const SOREN_FEATURES = [
@@ -619,6 +623,24 @@ const SOREN_RELEASE_S2: SorenRelease = {
     note: <>有用主動消息 2.0 的話，記得到設定頁<b>重新部署一次 Worker</b>，雲端回的訊息才帶得出私下找人。NPC 會在第一次打開時自動搬成配角，舊資料留著備份。</>,
 };
 
+/** S3.0：Sore（11/14～11/15）、預設 App、聊天紀錄搬家（S2.0 之後這一批） */
+const SOREN_RELEASE_S3: SorenRelease = {
+    seenKey: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15,
+    changelogId: CHANGELOG_SOREN_2026_11_15,
+    label: 'SOREN S3.0 · MERIDIAN',
+    eyebrow: '11 月 14 日到現在',
+    title: <>手機裡多了一個<br />會幫你修手機的。</>,
+    lede: '兩個新 App，再加上聊天紀錄終於能搬家。先挑幾個最大的：',
+    features: [
+        { icon: SmileyWink, eyebrow: 'Sore', text: '問怎麼用、查哪裡壞了；也能幫你寫美化、改預設、整理世界書、做小組件。都先給你看，按套用才寫，能一鍵還原。' },
+        { icon: SlidersHorizontal, eyebrow: '預設 App', text: '預設集中一處，私聊、群聊、電話、見面各設場景預設，角色和群也能自己另選。' },
+        { icon: ArrowsLeftRight, eyebrow: '聊天紀錄搬家', text: '匯入 ST 角色卡、別家的私聊群聊、ST 聊天；私聊和見面故事也能匯出。' },
+        { icon: BookOpenText, eyebrow: '世界書全局啟用', text: '整組一鍵打開，所有角色都讀得到，不用一個一個掛。' },
+    ],
+    note: <>這一版<b>不用重新部署 Worker</b>。預設裡的正則目前只在見面生效。</>,
+    primary: { label: '去找 Sore 聊聊', appId: AppID.Assistant },
+};
+
 /**
  * Soren 從上游分出來（2026-09-14）之後的第一則更新提醒：一次講這兩個月，點進去是更新日誌清單
  * （五篇，見 utils/sorenChangelog.ts）。舊的上游提醒都先從隊列拿下來了。
@@ -642,6 +664,13 @@ const SorenUpdatePopup: React.FC<UpdatePopupProps & { release: SorenRelease }> =
         markSeen();
         onDone();
         trackEvent('跳过本次更新说明', { 版本: release.changelogId });
+    };
+    const handlePrimary = () => {
+        if (!release.primary) return;
+        markSeen();
+        openApp(release.primary.appId);
+        onExit();
+        trackEvent('查看更新说明', { 版本: release.changelogId });
     };
 
     return (
@@ -690,8 +719,20 @@ const SorenUpdatePopup: React.FC<UpdatePopupProps & { release: SorenRelease }> =
                     )}
 
                     <div className="soren-update-reveal mt-5" style={{ animationDelay: '490ms' }}>
-                        <button type="button" onClick={handleGuide} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2f3529] px-5 py-3.5 text-[13px] font-extrabold text-white transition-transform active:scale-[.975]">看看更新日誌 <ArrowRight size={16} weight="bold" /></button>
-                        <button type="button" onClick={handleDismiss} className="mt-1.5 w-full rounded-xl py-2.5 text-[11px] font-semibold text-[#8a8c83] active:bg-[#efeee8]">稍後看看</button>
+                        {release.primary ? (
+                            <>
+                                <button type="button" onClick={handlePrimary} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2f3529] px-5 py-3.5 text-[13px] font-extrabold text-white transition-transform active:scale-[.975]">{release.primary.label} <ArrowRight size={16} weight="bold" /></button>
+                                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                                    <button type="button" onClick={handleGuide} className="rounded-xl py-2.5 text-[11px] font-bold text-[#5d7040] active:bg-[#efeee8]">看更新日誌</button>
+                                    <button type="button" onClick={handleDismiss} className="rounded-xl py-2.5 text-[11px] font-semibold text-[#8a8c83] active:bg-[#efeee8]">稍後看看</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <button type="button" onClick={handleGuide} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2f3529] px-5 py-3.5 text-[13px] font-extrabold text-white transition-transform active:scale-[.975]">看看更新日誌 <ArrowRight size={16} weight="bold" /></button>
+                                <button type="button" onClick={handleDismiss} className="mt-1.5 w-full rounded-xl py-2.5 text-[11px] font-semibold text-[#8a8c83] active:bg-[#efeee8]">稍後看看</button>
+                            </>
+                        )}
                     </div>
                 </div>
             </section>
@@ -718,10 +759,10 @@ const SARUpdateAnnouncement: React.FC<UpdatePopupProps> = ({ onDone, onExit }) =
 // 2026-11-10：換成 Soren 自己那則，上游的舊提醒（SAR、聯網說明、Live2D）先拿下來不彈；
 // 元件和 key 留著（備份相容、舊的 QA 腳本還引用），要放回來就加回這個陣列。
 const UPDATE_QUEUE: { key: string; render: (props: UpdatePopupProps) => React.ReactNode }[] = [
-    // S2.0 取代 S1.0 那則：沒看過 S1.0 的新用戶也只彈這一則，舊的五篇都在更新日誌清單裡
-    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_14, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S2} /> },
+    // S3.0 取代 S2.0 那則（S2.0 又取代過 S1.0）：只彈最新這一則，舊的都在更新日誌清單裡
+    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S3} /> },
 ];
-void SOREN_RELEASE_S1;
+void SOREN_RELEASE_S1; void SOREN_RELEASE_S2;
 // 拿下來的那幾則，先標成用到，免得被當成死碼清掉
 void SARUpdateAnnouncement; void NetworkTransitNoticePopup; void Live2DUpdatePopup; void SAR_UPDATE_KEY;
 
