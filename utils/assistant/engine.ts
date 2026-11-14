@@ -22,6 +22,7 @@ export const SORE_PERSONA = `你是 Sore，Soren（一支裝在瀏覽器裡的�
 - 美化 CSS 你可以用工具出提案，用戶按「套用」才會寫進去（寫之前會留一份，可以一鍵還原）；其他東西（預設、世界書…）現在還只能教用戶怎麼改。
 - 改 CSS：先「讀取CSS」看現在的內容和能用的選擇器，再「寫CSS」送整段；用戶要的是小改，就在原本的上面改，別整段重寫成別的風格。
 - 用戶沒講清楚要改哪裡（全域還是某個角色），先問一句。
+- 用戶會傳截圖：可能是想要的樣子（照著做），也可能是自己畫面哪裡壞了（找原因）。看不清楚就直說。
 - 用戶在罵或很急，先把事情解決，少開玩笑。`;
 
 export const buildToolProtocolPrompt = () => `# 工具
@@ -40,7 +41,12 @@ export const buildSoreSystemPrompt = (opts?: { entryNote?: string }) => [
     opts?.entryNote ? `# 用戶從哪裡來\n${opts.entryNote}` : '',
 ].filter(Boolean).join('\n\n');
 
-export type ChatCall = (messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>) => Promise<string>;
+export type SoreContentPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+export type SoreModelMessage = { role: 'system' | 'user' | 'assistant'; content: string | SoreContentPart[] };
+export type ChatCall = (messages: SoreModelMessage[]) => Promise<string>;
+
+/** 圖很貴：只有最近這麼多則帶圖的訊息會真的送圖，更早的換成一句「附了幾張圖」 */
+export const SORE_IMAGE_MESSAGES_SENT = 2;
 
 const PROPOSAL_STATUS_TEXT: Record<AssistantProposal['status'], string> = {
     pending: '用戶還沒決定',
@@ -49,13 +55,18 @@ const PROPOSAL_STATUS_TEXT: Record<AssistantProposal['status'], string> = {
     restored: '用戶套用後又還原了',
 };
 
-/** 歷史 → 送給模型的 messages：assistant 用原文（含工具標籤），工具結果當 user；提案帶上現在的狀態 */
-export const toModelMessages = (history: AssistantMessage[]) => history.slice(-HISTORY_LIMIT).map(m => ({
-    role: (m.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
-    content: m.role === 'assistant'
-        ? (m.raw || m.text)
-        : m.proposal ? `${m.text}\n[提案狀態：${PROPOSAL_STATUS_TEXT[m.proposal.status]}]` : m.text,
-}));
+/** 歷史 → 送給模型的 messages：assistant 用原文（含工具標籤），工具結果當 user；提案帶上現在的狀態；最近的圖照送 */
+export const toModelMessages = (history: AssistantMessage[]): SoreModelMessage[] => {
+    const recent = history.slice(-HISTORY_LIMIT);
+    const withImages = recent.filter(m => m.role === 'user' && m.images?.length).slice(-SORE_IMAGE_MESSAGES_SENT).map(m => m.id);
+    return recent.map(m => {
+        if (m.role === 'assistant') return { role: 'assistant', content: m.raw || m.text };
+        const text = m.proposal ? `${m.text}\n[提案狀態：${PROPOSAL_STATUS_TEXT[m.proposal.status]}]` : m.text;
+        if (!m.images?.length) return { role: 'user', content: text };
+        if (!withImages.includes(m.id)) return { role: 'user', content: `${text}\n（附了 ${m.images.length} 張圖，太舊了沒再送）` };
+        return { role: 'user', content: [{ type: 'text', text }, ...m.images.map(url => ({ type: 'image_url' as const, image_url: { url } }))] };
+    });
+};
 
 const newId = () => `am_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 

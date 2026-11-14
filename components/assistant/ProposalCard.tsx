@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowCounterClockwise, Check, PaintBrush, X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, Check, Eye, PaintBrush, X } from '@phosphor-icons/react';
 import type { AssistantProposal } from '../../types';
 
 /**
@@ -12,6 +12,8 @@ interface Props {
     onApply: () => void;
     onReject: () => void;
     onRestore: () => void;
+    /** 有假資料頁的位置才有（見面沒有） */
+    onPreview?: () => void;
 }
 
 const STATUS_LABEL: Record<AssistantProposal['status'], string> = {
@@ -23,7 +25,7 @@ const STATUS_LABEL: Record<AssistantProposal['status'], string> = {
 
 const lineCount = (css: string) => (css.trim() ? css.trim().split('\n').length : 0);
 
-const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRestore }) => {
+const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRestore, onPreview }) => {
     const [open, setOpen] = useState<'none' | 'after' | 'before'>('none');
     const clearing = !proposal.css.trim();
     const tone = proposal.status === 'applied' ? 'border-emerald-200 bg-emerald-50/60'
@@ -64,6 +66,11 @@ const ProposalCard: React.FC<Props> = ({ proposal, busy, onApply, onReject, onRe
             )}
 
             <div className="flex flex-wrap gap-2 pt-0.5">
+                {onPreview && (
+                    <button type="button" onClick={onPreview} className={`${btn} bg-white border border-amber-200 text-amber-700`}>
+                        <Eye size={13} weight="bold" /> 預覽
+                    </button>
+                )}
                 {proposal.status === 'applied' ? (
                     <button type="button" disabled={busy} onClick={onRestore} className={`${btn} bg-white border border-slate-200 text-slate-600`}>
                         <ArrowCounterClockwise size={13} weight="bold" /> 還原

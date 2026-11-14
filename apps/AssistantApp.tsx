@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, ChatsCircle, Gear, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
+import { CaretLeft, ChatsCircle, Gear, ImageSquare, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import type { AssistantMessage, AssistantProposal, AssistantSession } from '../types';
 import { DB } from '../utils/db';
@@ -12,6 +12,8 @@ import type { SoreToolContext } from '../utils/assistant/tools';
 import type { CssData, CssWrite } from '../utils/assistant/cssLocations';
 import { applyCssProposal, changedSinceApply, restoreCssProposal } from '../utils/assistant/applyProposal';
 import ProposalCard from '../components/assistant/ProposalCard';
+import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
+import { processImage } from '../utils/file';
 
 /**
  * AI 助手 Sore（plans/ai-assistant.md）。第 1 批答疑、第 2 批美化 CSS。
@@ -20,6 +22,9 @@ import ProposalCard from '../components/assistant/ProposalCard';
  */
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
+
+/** 一次最多附幾張圖 */
+const MAX_IMAGES = 3;
 
 const newSessionId = () => `as_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 const newMessageId = () => `am_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -66,6 +71,9 @@ const AssistantApp: React.FC = () => {
     const listRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [proposalBusy, setProposalBusy] = useState('');
+    const [pendingImages, setPendingImages] = useState<string[]>([]);
+    const [preview, setPreview] = useState<{ proposal: AssistantProposal; which: 'after' | 'before' } | null>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
     // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
     const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
     cssDataRef.current = { theme, characters, groups, customThemes };
@@ -110,19 +118,31 @@ const AssistantApp: React.FC = () => {
         cssData: () => cssDataRef.current,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
-    const send = async (text: string) => {
-        const content = text.trim();
+    const addImages = async (files: FileList | null) => {
+        const picked = Array.from(files || []).slice(0, MAX_IMAGES - pendingImages.length);
+        if (!picked.length) { if (files?.length) addToast(`一次最多 ${MAX_IMAGES} 張`, 'info'); return; }
+        try {
+            const urls = await Promise.all(picked.map(file => processImage(file, { maxWidth: 1280, quality: 0.8, forceJpeg: true })));
+            setPendingImages(prev => [...prev, ...urls].slice(0, MAX_IMAGES));
+        } catch (err: any) {
+            addToast(err?.message || '圖片讀不進來', 'error');
+        }
+    };
+
+    const send = async (text: string, images: string[] = []) => {
+        const content = text.trim() || (images.length ? '（看圖）' : '');
         if (!content || running) return;
         if (!api) { setError('還沒有能用的 API：先去「設置 → API 設定」填好，或在記憶宮殿設定副 API。'); return; }
         setError('');
         setInput('');
+        if (images.length) setPendingImages([]);
         const now = Date.now();
         const base: AssistantSession = current || { id: newSessionId(), title: '新對話', messages: [], createdAt: now, updatedAt: now };
-        const userMessage: AssistantMessage = { id: newMessageId(), role: 'user', text: content, at: now };
+        const userMessage: AssistantMessage = { id: newMessageId(), role: 'user', text: content, at: now, ...(images.length ? { images } : {}) };
         let session: AssistantSession = { ...base, messages: [...base.messages, userMessage], updatedAt: now };
         session.title = sessionTitle(session.messages);
         await persist(session);
-        trackEvent('向Sore提问', { 入口: '桌面' });
+        trackEvent('向Sore提问', { 入口: '桌面', 附图: images.length ? '有' : '没有' });
 
         const controller = new AbortController();
         abortRef.current = controller;
@@ -139,7 +159,11 @@ const AssistantApp: React.FC = () => {
                 },
             });
         } catch (err: any) {
-            if (err?.name !== 'AbortError' && !controller.signal.aborted) setError(err?.message || String(err));
+            if (err?.name !== 'AbortError' && !controller.signal.aborted) {
+                // 附了圖就失敗，多半是這組模型不收圖
+                const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length);
+                setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖，到 Sore 設定換一組能看圖的（多半要多模態模型）。' : ''}`);
+            }
         } finally {
             if (abortRef.current === controller) abortRef.current = null;
             setRunning(false);
@@ -255,7 +279,14 @@ const AssistantApp: React.FC = () => {
                 )}
                 {visible.map(m => (m.role === 'user' ? (
                     <div key={m.id} className="flex justify-end">
-                        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-slate-800 text-white px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
+                        <div className="max-w-[80%] flex flex-col items-end gap-1">
+                            {!!m.images?.length && (
+                                <div className="flex flex-wrap justify-end gap-1" data-sore-user-images>
+                                    {m.images.map((url, i) => <img key={i} src={url} alt={`附圖 ${i + 1}`} className="h-24 w-24 rounded-xl object-cover border border-slate-200" />)}
+                                </div>
+                            )}
+                            <div className="rounded-2xl rounded-br-md bg-slate-800 text-white px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
+                        </div>
                     </div>
                 ) : (
                     <div key={m.id} className="flex items-start gap-2" data-sore-reply>
@@ -268,7 +299,8 @@ const AssistantApp: React.FC = () => {
                                 <ProposalCard key={t.id} proposal={t.proposal} busy={!!proposalBusy}
                                     onApply={() => void actOnProposal(t.id, 'apply')}
                                     onReject={() => void actOnProposal(t.id, 'reject')}
-                                    onRestore={() => void actOnProposal(t.id, 'restore')} />
+                                    onRestore={() => void actOnProposal(t.id, 'restore')}
+                                    onPreview={canPreviewProposal(t.proposal) ? () => setPreview({ proposal: t.proposal!, which: t.proposal!.css ? 'after' : 'before' }) : undefined} />
                             ) : (
                                 <div key={t.id} className="text-[11px] text-slate-400 pl-1" data-sore-tool>
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
@@ -290,19 +322,63 @@ const AssistantApp: React.FC = () => {
             </div>
 
             <div className="shrink-0 bg-white/95 border-t border-slate-100 px-3 pt-2" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 0.5rem)' }}>
+                {pendingImages.length > 0 && (
+                    <div className="flex gap-2 pb-2" data-sore-pending-images>
+                        {pendingImages.map((url, i) => (
+                            <div key={i} className="relative">
+                                <img src={url} alt={`要附的圖 ${i + 1}`} className="h-14 w-14 rounded-lg object-cover border border-slate-200" />
+                                <button type="button" aria-label={`拿掉第 ${i + 1} 張圖`} onClick={() => setPendingImages(prev => prev.filter((_, j) => j !== i))}
+                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-slate-700 text-white flex items-center justify-center"><X size={10} weight="bold" /></button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" aria-label="選圖片給 Sore"
+                    onChange={e => { void addImages(e.target.files); e.target.value = ''; }} />
                 <div className="flex items-end gap-2">
+                    <button type="button" onClick={() => imageInputRef.current?.click()} disabled={running || pendingImages.length >= MAX_IMAGES} aria-label="附圖"
+                        className="shrink-0 h-9 w-9 rounded-full hover:bg-black/5 flex items-center justify-center disabled:opacity-40"><ImageSquare size={20} className="text-slate-500" /></button>
                     <textarea ref={textareaRef} value={input} rows={1} aria-label="問 Sore"
                         placeholder={api ? '問點什麼…' : '先設好 API 才能問我'}
                         onChange={e => setInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input); } }}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input, pendingImages); } }}
                         className="flex-1 resize-none max-h-32 rounded-2xl bg-slate-100 px-3.5 py-2 text-[14px] outline-none focus:ring-2 focus:ring-amber-200" />
                     {running ? (
                         <button type="button" onClick={stop} aria-label="停下來" className="shrink-0 h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center"><Stop size={16} weight="fill" className="text-slate-600" /></button>
                     ) : (
-                        <button type="button" onClick={() => void send(input)} disabled={!input.trim()} aria-label="送出" className="shrink-0 h-9 w-9 rounded-full bg-amber-400 flex items-center justify-center disabled:opacity-40"><PaperPlaneRight size={16} weight="fill" className="text-white" /></button>
+                        <button type="button" onClick={() => void send(input, pendingImages)} disabled={!input.trim() && !pendingImages.length} aria-label="送出" className="shrink-0 h-9 w-9 rounded-full bg-amber-400 flex items-center justify-center disabled:opacity-40"><PaperPlaneRight size={16} weight="fill" className="text-white" /></button>
                     )}
                 </div>
             </div>
+
+            {preview && (() => {
+                const doc = buildProposalPreview(preview.proposal, cssDataRef.current, preview.which);
+                const hasBefore = !!preview.proposal.before.trim() || preview.proposal.location.startsWith('chat_chrome_');
+                return (
+                    <div className="absolute inset-0 z-40 bg-slate-900/95 backdrop-blur flex flex-col" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom, 0px)' }} data-sore-preview>
+                        <div className="flex items-center justify-between px-4 py-3 text-white">
+                            <div className="min-w-0">
+                                <div className="text-[13px] font-bold truncate">{preview.proposal.targetLabel}</div>
+                                <div className="text-[10px] opacity-70">示範畫面，不是你真的聊天；網址圖片在這裡看不到</div>
+                            </div>
+                            <button type="button" onClick={() => setPreview(null)} aria-label="關閉預覽" className="p-1.5 rounded-full hover:bg-white/10"><X size={20} /></button>
+                        </div>
+                        {hasBefore && !!preview.proposal.css && (
+                            <div className="flex justify-center gap-2 pb-2">
+                                {(['after', 'before'] as const).map(which => (
+                                    <button key={which} type="button" onClick={() => setPreview({ ...preview, which })}
+                                        className={`rounded-full px-3 py-1 text-[12px] font-bold ${preview.which === which ? 'bg-white text-slate-800' : 'bg-white/15 text-white'}`}>
+                                        {which === 'after' ? '改了之後' : '原本的'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex-1 min-h-0 px-4 pb-4">
+                            {doc ? <iframe title="提案預覽" sandbox="" srcDoc={doc} className="h-full w-full rounded-[24px] border-0 bg-white" /> : null}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {panel !== 'none' && (
                 <div className="absolute inset-0 z-30 bg-black/30 flex flex-col justify-end" onClick={() => setPanel('none')}>

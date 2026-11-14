@@ -5823,6 +5823,8 @@ export interface AssistantMessage {
   toolOk?: boolean;
   /** tool：寫的工具出的提案卡片（按「套用」才寫） */
   proposal?: AssistantProposal;
+  /** user：附的圖（壓過的 data URL）；只有最近幾張會真的送給模型 */
+  images?: string[];
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */

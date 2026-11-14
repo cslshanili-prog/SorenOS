@@ -207,6 +207,11 @@ export const validateLocationCss = (loc: CssLocationDef, css: string): string[] 
 // ─── 寫 ───
 
 const NEW_THEME_SIDE = { borderRadius: 18, opacity: 1 };
+/** 新建氣泡主題的兩側底色（預覽也用這組，看起來才跟套用後一樣） */
+export const NEW_THEME_SIDES = {
+    user: { ...NEW_THEME_SIDE, textColor: '#ffffff', backgroundColor: '#6366f1' },
+    ai: { ...NEW_THEME_SIDE, textColor: '#1e293b', backgroundColor: '#ffffff' },
+};
 
 export const newChatThemeId = () => `sore_theme_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -238,8 +243,8 @@ export const buildCssWrite = (
                 kind: 'chatTheme',
                 theme: {
                     id: newTheme?.id || newChatThemeId(), name: newTheme?.name || 'Sore 做的氣泡', type: 'custom',
-                    user: { ...NEW_THEME_SIDE, textColor: '#ffffff', backgroundColor: '#6366f1' },
-                    ai: { ...NEW_THEME_SIDE, textColor: '#1e293b', backgroundColor: '#ffffff' },
+                    user: { ...NEW_THEME_SIDES.user },
+                    ai: { ...NEW_THEME_SIDES.ai },
                     customCss: next || undefined,
                 },
             };
