@@ -1,3 +1,5 @@
+import DecorationQuickPanel from '../components/decoration/DecorationQuickPanel';
+import { setDecorationHandoff } from '../utils/decorationHandoff';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniversaryGifts';
 import { buildGroupSideMessageNote, buildSideMessagePrompt, newSideBudget, resolveDmTarget, resolvePrivateTarget, sideTargets, type SideBudget } from '../utils/sideMessage';
 import { deliverSideDm, deliverSidePrivate } from '../utils/sideMessageRun';
@@ -508,7 +510,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
+    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
@@ -637,7 +639,7 @@ const GroupChat: React.FC = () => {
     // UI State — 面板狀態對齊私聊 ChatInputArea 的 showPanel 約定
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     const [activeEmojiCategory, setActiveEmojiCategory] = useState('default');
-    const [modalType, setModalType] = useState<'none' | 'create' | 'settings' | 'transfer' | 'member_select' | 'message-options' | 'edit-message' | 'packet-detail' | 'chrome-css' | 'chrome-sound' | 'html-prompt'>('none');
+    const [modalType, setModalType] = useState<'none' | 'create' | 'settings' | 'transfer' | 'member_select' | 'message-options' | 'edit-message' | 'packet-detail' | 'chrome-css' | 'chrome-sound' | 'html-prompt' | 'decoration'>('none');
     const [tempHtmlPrompt, setTempHtmlPrompt] = useState('');
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
@@ -2727,11 +2729,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             <span className="text-xs font-bold">重新生成</span>
                         </button>
 
-                        <button onClick={() => { setModalType('chrome-css'); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                        <button onClick={() => { setModalType('decoration'); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-sky-50 text-sky-500 border-sky-100">
                                 <PaintBrush className="w-6 h-6" weight="bold" />
                             </div>
-                            <span className="text-xs font-bold">白框</span>
+                            <span className="text-xs font-bold">裝扮</span>
                         </button>
 
                         <button onClick={() => { setModalType('chrome-sound'); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
@@ -3536,6 +3538,19 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     );
                 })()}
             </Modal>
+
+            {/* 群的裝扮：選模板（只套 CSS、聲音、我的氣泡）＋連去裝扮 App；還是能直接改白框（plans/decoration-app.md 第 5、6 節） */}
+            {activeGroup && modalType === 'decoration' && (
+                <DecorationQuickPanel
+                    key={activeGroup.id}
+                    target={{ kind: 'group', group: activeGroup }}
+                    theme={osTheme} customThemes={customThemes} addCustomTheme={addCustomTheme}
+                    apply={patch => { updateGroup(activeGroup.id, patch as Partial<GroupProfile>); setActiveGroup({ ...activeGroup, ...(patch as Partial<GroupProfile>) }); }}
+                    onOpenApp={() => { setModalType('none'); const gid = activeGroup.id; setDecorationHandoff({ target: { kind: 'group', id: gid }, from: AppID.GroupChat, onReturn: () => openGroupChat(gid) }); openApp(AppID.ThemeMaker); }}
+                    onClose={() => setModalType('none')}
+                    extra={<button type="button" onClick={() => setModalType('chrome-css')} className="w-full py-1.5 text-[12px] text-slate-500">直接改這個群的白框 CSS</button>}
+                />
+            )}
 
             {/* 群「白框自定義」底部 sheet —— 寫到 group.chromeCustomCss，疊加在全局之上（對齊私聊做法） */}
             {activeGroup && modalType === 'chrome-css' && (

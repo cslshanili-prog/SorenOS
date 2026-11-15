@@ -38,7 +38,8 @@ export interface DecorationTemplate {
 /** 模板形狀的草稿（編輯器裡改的那份，自訂也用它） */
 export type DecorationDraft = Omit<DecorationTemplate, 'id' | 'name' | 'createdAt' | 'updatedAt'>;
 
-export type DecorationTargetRef = { kind: 'global' } | { kind: 'character'; id: string } | { kind: 'group'; id: string };
+/** line：角色的某條關係線（非主線的身份鍵）；沒有＝主線 */
+export type DecorationTargetRef = { kind: 'global' } | { kind: 'character'; id: string; line?: string } | { kind: 'group'; id: string };
 
 const BG_STYLES: ChatBackgroundStyle[] = ['plain', 'grid', 'paper', 'mesh'];
 const LAYOUT_KEYS = Object.keys(LAYOUT_DEFAULTS) as Array<keyof typeof LAYOUT_DEFAULTS>;
@@ -212,6 +213,22 @@ export const templateUsage = (
 ): DecorationTargetRef[] => [
     ...(data.theme.decorationTemplateId === templateId ? [{ kind: 'global' } as const] : []),
     ...data.characters.filter(c => !c.altOf && c.decorationTemplateId === templateId).map(c => ({ kind: 'character', id: c.id } as const)),
+    ...data.groups.filter(g => g.decorationTemplateId === templateId).map(g => ({ kind: 'group', id: g.id } as const)),
+];
+
+/**
+ * 寫穿要寫的全部對象：templateUsage 加上小號、非主線（聊天裡的快捷面板能把某條線綁到模板）。
+ * 非主線沒設的欄位照主線（utils/chatLine.ts），所以模板沒填的項目在那條線上是「跟著主線」。
+ */
+export const templateBindings = (
+    templateId: string,
+    data: { theme: OSTheme; characters: CharacterProfile[]; groups: GroupProfile[] },
+): DecorationTargetRef[] => [
+    ...(data.theme.decorationTemplateId === templateId ? [{ kind: 'global' } as const] : []),
+    ...data.characters.flatMap(c => [
+        ...(c.decorationTemplateId === templateId ? [{ kind: 'character', id: c.id } as const] : []),
+        ...Object.entries(c.lines || {}).filter(([, own]) => own?.decorationTemplateId === templateId).map(([line]) => ({ kind: 'character', id: c.id, line } as const)),
+    ]),
     ...data.groups.filter(g => g.decorationTemplateId === templateId).map(g => ({ kind: 'group', id: g.id } as const)),
 ];
 

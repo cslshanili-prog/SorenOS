@@ -10,11 +10,12 @@ import { portableTree, readDecorationFile, validateDecoration } from '../utils/c
 import {
     characterPatchFromDraft, characterStatus, describeDraft, draftOfTemplate, duplicateTemplate, GROUP_DECORATION_RESET,
     CHARACTER_DECORATION_RESET, groupIgnoredParts, groupPatchFromDraft, groupStatus, makeTemplate, presetToTemplate,
-    templateFromCharacter, templateFromGroup, templateFromTheme, templateToPresetDraft, templateUsage, themePatchFromDraft,
+    templateFromCharacter, templateFromGroup, templateFromTheme, templateToPresetDraft, templateUsage, templateBindings, themePatchFromDraft,
     themeStatus, type DecorationDraft, type DecorationStatus, type DecorationTargetRef, type DecorationTemplate,
 } from '../utils/decorationTemplates';
 import { loadDecorationTemplates, saveDecorationTemplates } from '../utils/decorationTemplateStore';
 import { takeDecorationHandoff } from '../utils/decorationHandoff';
+import { linePatchForChar } from '../utils/chatLine';
 import { migrateChatThemeBlobRefs, migrateDataUrlToRef } from '../utils/blobRef';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { safeShareFileName } from '../utils/pngShare';
@@ -44,7 +45,7 @@ const DecorationApp: React.FC = () => {
     const [targetSheet, setTargetSheet] = useState<DecorationTargetRef | null>(null);
     const [assignFor, setAssignFor] = useState<DecorationTemplate | null>(null);
     const [deleting, setDeleting] = useState<DecorationTemplate | null>(null);
-    const [returnTo, setReturnTo] = useState<AppID | undefined>(undefined);
+    const [returnTo, setReturnTo] = useState<{ app?: AppID; onReturn?: () => void } | undefined>(undefined);
     const fileRef = useRef<HTMLInputElement>(null);
 
     // 最新的資料（寫穿時用，避免拿到舊的 closure）
@@ -65,14 +66,14 @@ const DecorationApp: React.FC = () => {
         }).catch(() => { if (alive) { setLoaded(true); addToast('模板讀不出來，重開一次試試', 'error'); } });
         const handoff = takeDecorationHandoff();
         if (handoff) {
-            setReturnTo(handoff.from);
+            if (handoff.from || handoff.onReturn) setReturnTo({ app: handoff.from, onReturn: handoff.onReturn });
             if (handoff.target) setTargetSheet(handoff.target);
         }
         return () => { alive = false; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const leave = () => (returnTo ? openApp(returnTo) : closeApp());
+    const leave = () => (returnTo?.onReturn ? returnTo.onReturn() : returnTo?.app ? openApp(returnTo.app) : closeApp());
 
     const persist = async (next: DecorationTemplate[]) => {
         setTemplates(next);
@@ -81,15 +82,20 @@ const DecorationApp: React.FC = () => {
 
     // ─── 寫給誰 ───
 
+    /** 角色的某條線（非主線）改的欄位寫進 lines[身份鍵]，沒設的照主線 */
+    const patchCharacter = (target: { id: string; line?: string }, patch: Partial<CharacterProfile>) => (target.line
+        ? updateCharacter(target.id, prev => linePatchForChar(prev, { charId: target.id, personaKey: target.line }, patch))
+        : updateCharacter(target.id, patch));
+
     const writeTemplateTo = async (target: DecorationTargetRef, template: DecorationTemplate) => {
         if (target.kind === 'global') await updateTheme(themePatchFromDraft(template, template.id));
-        else if (target.kind === 'character') await updateCharacter(target.id, characterPatchFromDraft(template, template.id));
+        else if (target.kind === 'character') await patchCharacter(target, characterPatchFromDraft(template, template.id));
         else await updateGroup(target.id, groupPatchFromDraft(template, template.id));
     };
 
     /** 存模板：用它的每個聊天重寫一次 */
     const writeThrough = async (template: DecorationTemplate) => {
-        const usage = templateUsage(template.id, dataRef.current);
+        const usage = templateBindings(template.id, dataRef.current);
         for (const target of usage) await writeTemplateTo(target, template);
         return usage.length;
     };
@@ -119,7 +125,7 @@ const DecorationApp: React.FC = () => {
     };
 
     const editTemplate = (template: DecorationTemplate) => {
-        setView({ kind: 'edit', subject: { kind: 'template', name: template.name, usageCount: templateUsage(template.id, dataRef.current).length }, initial: draftOfTemplate(template), templateId: template.id });
+        setView({ kind: 'edit', subject: { kind: 'template', name: template.name, usageCount: templateBindings(template.id, dataRef.current).length }, initial: draftOfTemplate(template), templateId: template.id });
     };
 
     const newTemplate = (initial: DecorationDraft = {}) => {
@@ -220,9 +226,9 @@ const DecorationApp: React.FC = () => {
     });
 
     const remove = (template: DecorationTemplate) => run(async () => {
-        for (const t of templateUsage(template.id, dataRef.current)) {
+        for (const t of templateBindings(template.id, dataRef.current)) {
             if (t.kind === 'global') await updateTheme({ decorationTemplateId: undefined });
-            else if (t.kind === 'character') await updateCharacter(t.id, { decorationTemplateId: undefined });
+            else if (t.kind === 'character') await patchCharacter(t, { decorationTemplateId: undefined });
             else await updateGroup(t.id, { decorationTemplateId: undefined });
         }
         await persist(templates.filter(t => t.id !== template.id));
@@ -332,7 +338,7 @@ const DecorationApp: React.FC = () => {
                     ) : (
                         <div className="space-y-2.5">
                             {templates.map(t => {
-                                const usage = templateUsage(t.id, { theme, characters, groups });
+                                const usage = templateBindings(t.id, { theme, characters, groups });
                                 return (
                                     <div key={t.id} className="rounded-2xl bg-white border border-slate-100 px-4 py-3" data-decoration-template={t.name}>
                                         <button type="button" onClick={() => editTemplate(t)} className="w-full text-left">
