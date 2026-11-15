@@ -8,6 +8,8 @@ import KnownPersonasSection from './KnownPersonasSection';
 import { Row, Toggle } from './ChatSettingsControls';
 import ReadNoReplySettingsPanel from './ReadNoReplySettings';
 import DelayedReplySettingsPanel from './DelayedReplySettings';
+import ChatLanguageSettings from './ChatLanguageSettings';
+import { cleanChatLanguage } from '../../utils/chatLanguage';
 import { normalizeDelayedReply } from '../../utils/delayedReply';
 import { DB } from '../../utils/db';
 import { getLocalDateKey } from '../../utils/localDate';
@@ -15,7 +17,7 @@ import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
 import { CHAR_BLOCK_COOLDOWNS } from '../../utils/chatBlock';
 import { DEFAULT_TEMP_CHAT_LIMITS, normalizeTempChatLimits, TEMP_CHAT_LIMIT_RANGES } from '../../utils/tempChat';
-import type { CharBlockCooldown, CharacterProfile, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
+import type { CharBlockCooldown, CharacterProfile, ChatLanguageConfig, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import { BUILTIN_PRESET, scenesOfPreset } from '../../utils/presetBinding';
 import { useOS } from '../../context/OSContext';
@@ -25,7 +27,7 @@ export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
     | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
-    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId' | 'callPresetId'>;
+    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId' | 'callPresetId' | 'chatLanguage'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -92,6 +94,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [editingDate, setEditingDate] = useState(false);
     const [readNoReply, setReadNoReply] = useState<ReadNoReplySettings>({ enabled: false });
     const [delayedReply, setDelayedReply] = useState<DelayedReplySettings>(normalizeDelayedReply(undefined));
+    const [chatLanguage, setChatLanguage] = useState<ChatLanguageConfig>({});
     const [dateInvite, setDateInvite] = useState(false);
     const [onlineActions, setOnlineActions] = useState(false);
     const [charCall, setCharCall] = useState(false);
@@ -122,6 +125,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setEditingDate(false);
         setReadNoReply(char.readNoReply ? { ...char.readNoReply } : { enabled: false });
         setDelayedReply(normalizeDelayedReply(char.delayedReply));
+        setChatLanguage({ ...(char.chatLanguage || {}) });
         setDateInvite(!!char.dateInvite);
         setOnlineActions(!!char.onlineActions);
         setCharCall(!!char.charCall);
@@ -182,6 +186,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                 ? { enabled: replyDrafts, withActions: draftActions || undefined } : undefined,
             chatPresetId: presetChoice || undefined,
             callPresetId: callPresetChoice || undefined,
+            chatLanguage: cleanChatLanguage(chatLanguage),
         });
     };
 
@@ -274,6 +279,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                             </Row>
                         </div>
                     </section>
+
+                    {/* 聊天語言：說話語言、夾雜第二語言、翻譯成（plans/chat-language.md） */}
+                    <ChatLanguageSettings value={chatLanguage} onChange={setChatLanguage} />
 
                     {/* Scenario：已讀不回、延遲自動回覆、主動通話、線下邀請、動作描寫、允許角色拉黑你 */}
                     <section>

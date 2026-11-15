@@ -4,7 +4,7 @@ import { lineArgOf, lineMsgFields, lineOf, lineScheduleId } from '../utils/chatL
 import { cloudCharId } from '../utils/amsgCloudLine';
 import { buffsForEvaluation } from '../utils/emotionDecay';
 import { useState, useRef, useEffect, useSyncExternalStore, MutableRefObject } from 'react';
-import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
+import { CharacterProfile, UserProfile, Message, Emoji, EmojiCategory, GroupProfile, RealtimeConfig, ChatLanguageConfig, CharacterBuff, Amsg2ExpiredNoticeRecord } from '../types';
 import { DB } from '../utils/db';
 import { ChatPrompts } from '../utils/chatPrompts';
 import { safeFetchJson, safeResponseJson } from '../utils/safeApi';
@@ -470,7 +470,8 @@ interface UseChatAIProps {
     /** 正式消息接替流式預覽前同步登記 id，避免真實氣泡重新播放入場動畫。 */
     onStreamPreviewHandover?: (charId: string, messageIds: number[]) => void;
     realtimeConfig: RealtimeConfig; // 實時配置（amsg2 工具排程要用，兩個調用點都必傳）
-    translationConfig?: { enabled: boolean; sourceLang: string; targetLang: string };
+    /** 聊天語言（角色卡的 chatLanguage）。 */
+    chatLanguage?: ChatLanguageConfig;
     memoryPalaceConfig?: { embedding: { baseUrl: string; apiKey: string; model: string; dimensions: number }; lightLLM: { baseUrl: string; apiKey: string; model: string } };
     /** 從 OSContext 傳入，用於 palace 自動歸檔寫 char.memories + hideBeforeMessageId */
     updateCharacter: (id: string, partial: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
@@ -495,7 +496,7 @@ export const useChatAI = ({
     setMessages,
     onStreamPreviewHandover,
     realtimeConfig,  // 新增
-    translationConfig,
+    chatLanguage,
     memoryPalaceConfig,
     updateCharacter,
     updateUserProfile,
@@ -900,7 +901,7 @@ export const useChatAI = ({
                 isListeningTogether: !!(music.current && music.playing && music.listeningTogetherWith.includes(char.id)),
                 musicCfg: music.cfg,
                 recentTrackChange: music.recentTrackChange,
-                translationConfig,
+                chatLanguage,
                 htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                 thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                 visionApiConfig: apiConfig.visionApi,

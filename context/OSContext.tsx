@@ -1,4 +1,5 @@
 
+import { legacyChatLanguage, legacyChatLanguageKeys } from '../utils/chatLanguage';
 import { detachCharacterPatch, detachGroupPatch, detachThemePatch } from '../utils/decorationTemplates';
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { isBenched } from '../utils/castRole';
@@ -1823,6 +1824,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
         let resetAutoContextCount = 0;
         let migratedContextCount = 0;
+        const legacyLanguageKeys: string[] = [];
         // 關係線：舊角色補上主線（認識的身份），見 utils/chatLine.ts
         const lineProfileBase = dbUser || ({} as UserProfile);
         finalChars = finalChars.map(c => {
@@ -1832,11 +1834,20 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (migration.resetAutoContext) resetAutoContextCount++;
           const withLines = withLineFields(lineProfileBase, migration.character, { resync: !isPersonaLinesEnabled() });
           if (withLines !== migration.character) migratedContextCount++;
-          return withLines;
+          // 聊天語言：舊版存在這台裝置的「消息翻譯」搬上角色卡（utils/chatLanguage.ts）
+          const legacyKeys = legacyChatLanguageKeys(withLines.id).filter(k => localStorage.getItem(k) !== null);
+          if (!legacyKeys.length) return withLines;
+          legacyLanguageKeys.push(...legacyKeys);
+          const legacyLang = withLines.chatLanguage ? undefined : legacyChatLanguage(withLines.id, k => localStorage.getItem(k));
+          if (!legacyLang) return withLines;
+          migratedContextCount++;
+          return { ...withLines, chatLanguage: legacyLang };
         });
         if (migratedContextCount > 0) {
           await Promise.all(finalChars.map(c => DB.saveCharacter(c)));
         }
+        // 存進角色卡之後才清舊鍵（存失敗下次還能再搬）
+        for (const k of legacyLanguageKeys) { try { localStorage.removeItem(k); } catch { /* ignore */ } }
         if (resetAutoContextCount > 0) {
           setTimeout(() => addToast(
             `上下文範圍已升級：${resetAutoContextCount} 個全自動記憶角色已恢復為自適應模式。需要讀取更多舊原文時，可在聊天設置中手動調整。`,
