@@ -366,7 +366,8 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
 
     // ── 4. 聊天語言：說話語言、夾雜、聊天模型順便翻（utils/chatLanguage.ts） ──
     const language = resolveChatLanguage(chatLanguage);
-    const bilingualActive = language.translating;
+    // 只有「聊天模型順便翻」才要雙語標籤；「先寫再翻」的回覆存好後才交給翻譯 API
+    const bilingualActive = language.inlineTranslate;
     const languagePrompt = buildChatLanguagePrompt(language, { sarEnvelopeActive });
     if (languagePrompt) addMode(languagePrompt);
 

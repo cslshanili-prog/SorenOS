@@ -101,3 +101,20 @@ describe('统计：聊天语言用到哪一层', async () => {
         expect(chatLanguageUsage([ch({ speak: 'English', mix: '日本語' }), ch({ speak: 'English', translateTo: '繁體中文' })])).toBe('翻译+夹杂');
     });
 });
+
+describe('誰來翻與我的訊息自動譯出', () => {
+    it('先寫再翻：不帶雙語標籤，只有語言段', () => {
+        const r = resolveChatLanguage({ speak: 'English', translateTo: '繁體中文', translator: 'api' });
+        expect(r.postTranslate).toBe(true);
+        expect(r.inlineTranslate).toBe(false);
+        const p = buildChatLanguagePrompt(r);
+        expect(p).toContain('你說話用English');
+        expect(p).not.toContain('<翻譯>');
+    });
+
+    it('我的訊息自動譯出要有說話語言才算數；沒翻譯時不存 translator', () => {
+        expect(resolveChatLanguage({ translateMine: true }).translateMine).toBe(false);
+        expect(resolveChatLanguage({ speak: 'English', translateMine: true }).translateMine).toBe(true);
+        expect(cleanChatLanguage({ speak: 'English', translator: 'api', translateMine: true })).toEqual({ speak: 'English', translateMine: true });
+    });
+});

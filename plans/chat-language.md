@@ -117,3 +117,41 @@
   - 原本「翻譯與語音」裡的消息翻譯拿掉，那一組改叫「語音」。
 - **統計**：「当前功能启用」多一格「聊天语言」（`翻译+夹杂`／`翻译`／`夹杂`／`指定语言`／`没设`），不報語言名。舊的「开启聊天翻译」事件跟著設定頁一起拿掉了。
 - Sore 的知識（`utils/assistant/knowledge.ts`）加了聊天語言這一行。
+
+### 第 2 批（2026-11-15）
+
+- **翻譯 API**（系統設置 → 「翻譯 API」，在「識圖 API」下面；`components/settings/TranslationApiSettings.tsx`）：
+  - 存在 `APIConfig.translationApi`（`TranslationApiConfig`），按「保存」才寫。
+  - 服務有四家：
+    - 聊天模型：網址、Key、模型留空就用主 API，可以從模型預設載入。
+    - DeepL。
+    - Google（Cloud Translation v2）。
+    - Azure（Key＋區域）。
+  - 「測試一句」用草稿翻一句固定的英文給你看。
+- **呼叫**在 `utils/translateApi.ts` 的 `translateTexts(texts, to, apiConfig)`：
+  - 一次送一批句子，回傳的句數要跟送出去的一樣。
+  - 各家語言代碼都在 `CODES` 表。表裡查不到（自訂語言，或 DeepL、Google 遇到粵語）就直接說「不支援，換成用聊天模型翻」，不打 API。
+  - 錯誤訊息過 `scrubKeys`。
+  - 聊天模型那家的請求記在 API 調用記錄（appName 消息、purpose 翻譯）。
+- **DeepL 經 Worker**：主動消息 2.0 Worker 新增 `POST /deepl-translate`。
+  - 只轉 DeepL，Key 每次由 App 帶來、Worker 不存；跟其它端點同一道共享密鑰。
+  - Key 結尾是 `:fx` 打 Free 端點。
+  - `/config-check` 多報 `deeplTranslate: true`。
+  - `AMSG_BUNDLE_VERSION` 升到 `2026-11-15`，用戶要更新 Worker 才能用 DeepL。
+- **角色卡多兩個欄位**：
+  - `chatLanguage.translator`：`'chat'` 是聊天模型順便翻（預設），`'api'` 是先寫再翻。
+  - `chatLanguage.translateMine`：我的訊息自動譯出。
+  - `resolveChatLanguage` 多給 `inlineTranslate`、`postTranslate`、`translateMine`。
+  - 提示詞的雙語標籤只在 `inlineTranslate` 時加，`bilingualActive` 也跟著它。
+- **先寫再翻**（`utils/chatTranslateRun.ts`）：
+  - `useChatAI` 在回覆存好之後，把這一輪新存的 TA 的文字氣泡交給 `translateTexts`，改寫成 `原文\n%%BILINGUAL%%\n譯文`。
+  - 不擋這一輪收尾：氣泡先出來，譯文後補。
+  - 翻不成的在 `metadata.translationFailed` 記原因，氣泡下面出現「沒翻成，點一下再翻」（`MessageItem` 的 memo 也比這個欄位）。
+- **我的訊息自動譯出**（`Chat.tsx` 的 `sendText`）：
+  - 純文字訊息送出前翻成說話語言，存的 content 是譯好的那句，你打的原句放在 `metadata.typedOriginal`。
+  - 角色只看到譯好的版本；氣泡下面「看原句／看譯文」切換。
+  - 翻不成就照原句送，跳一個提示。
+  - 沒設翻譯 API 時用主 API 的聊天模型翻。
+- **聊天語言設定頁**：有翻譯時多「誰來翻」二選一；有說話語言時多「我的訊息自動譯出」開關。摘要也會寫出「寫完再翻」「你打的字自動翻成…」。
+- **統計**：「当前功能启用」多一格「翻译API」（`聊天模型`／`deepl`／`google`／`azure`）。
+- **還沒做（第 3 批）**：雲端即時對話、主動消息還是不照說話語言寫，收件後也還不會補譯文。

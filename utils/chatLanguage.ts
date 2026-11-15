@@ -46,6 +46,14 @@ export interface ResolvedChatLanguage {
     translateTo?: string;
     /** 有東西要翻：設了「翻譯成」，而且跟說話語言不一樣（或有夾雜）。 */
     translating: boolean;
+    /** 誰來翻：chat＝聊天模型順便翻（提示詞帶雙語標籤）；api＝先寫再交給翻譯 API。 */
+    translator: 'chat' | 'api';
+    /** 聊天模型順便翻：提示詞要帶 <翻譯> 標籤。 */
+    inlineTranslate: boolean;
+    /** 先寫再翻：回覆存好後交給翻譯 API。 */
+    postTranslate: boolean;
+    /** 我的訊息自動譯出（要有說話語言才知道翻成什麼）。 */
+    translateMine: boolean;
     expanded: boolean;
 }
 
@@ -56,7 +64,14 @@ export const resolveChatLanguage = (cfg: ChatLanguageConfig | undefined): Resolv
     const translateTo = normalizeLanguage(cfg?.translateTo) || undefined;
     const mixLevel: ChatLanguageMixLevel = cfg?.mixLevel && MIX_LEVELS.some(m => m.value === cfg.mixLevel) ? cfg.mixLevel : 'natural';
     const translating = !!translateTo && (translateTo !== speak || !!mix);
-    return { speak, mix, mixLevel, translateTo, translating, expanded: !!cfg?.expanded };
+    const translator = cfg?.translator === 'api' ? 'api' : 'chat';
+    return {
+        speak, mix, mixLevel, translateTo, translating, translator,
+        inlineTranslate: translating && translator === 'chat',
+        postTranslate: translating && translator === 'api',
+        translateMine: !!cfg?.translateMine && !!speak,
+        expanded: !!cfg?.expanded,
+    };
 };
 
 /** 存檔前整理：全空就不寫這個欄位。 */
@@ -70,6 +85,8 @@ export const cleanChatLanguage = (cfg: ChatLanguageConfig): ChatLanguageConfig |
         mixLevel: mix && cfg.mixLevel && cfg.mixLevel !== 'natural' ? cfg.mixLevel : undefined,
         translateTo,
         expanded: translateTo && cfg.expanded ? true : undefined,
+        translator: translateTo && cfg.translator === 'api' ? 'api' : undefined,
+        translateMine: speak && cfg.translateMine ? true : undefined,
     };
     return Object.values(next).some(v => v !== undefined) ? next : undefined;
 };
@@ -137,7 +154,16 @@ const bilingualRules = (r: ResolvedChatLanguage, sarEnvelopeActive: boolean): st
 
 /** 私聊提示詞的語言段（`chatRequestPayload` 第 4 段）。沒設任何東西時回空字串。 */
 export const buildChatLanguagePrompt = (r: ResolvedChatLanguage, opts: { sarEnvelopeActive?: boolean } = {}): string =>
-    speakingRules(r) + (r.translating ? bilingualRules(r, !!opts.sarEnvelopeActive) : '');
+    speakingRules(r) + (r.inlineTranslate ? bilingualRules(r, !!opts.sarEnvelopeActive) : '');
+
+/** 先寫再翻：存好的氣泡內容要不要補譯文（已經是雙語、空的、純表情標記就不用）。 */
+export const needsPostTranslation = (content: string): boolean => {
+    const t = content.trim();
+    return !!t && !t.includes('%%BILINGUAL%%') && !/^\[\[[A-Z_]+[:|]/.test(t);
+};
+
+/** 把譯文接成氣泡認得的雙語格式。 */
+export const joinBilingual = (original: string, translated: string): string => `${original.trim()}\n%%BILINGUAL%%\n${translated.trim()}`;
 
 // ─── 舊版設定搬遷 ───
 

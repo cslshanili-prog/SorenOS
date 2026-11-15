@@ -1,4 +1,6 @@
 
+import { resolveChatLanguage } from '../utils/chatLanguage';
+import { postTranslateRecentReplies } from '../utils/chatTranslateRun';
 import { isOnlinePaused } from '../utils/dateOffline';
 import { lineArgOf, lineMsgFields, lineOf, lineScheduleId } from '../utils/chatLine';
 import { cloudCharId } from '../utils/amsgCloudLine';
@@ -1965,6 +1967,8 @@ export const useChatAI = ({
                 commentAuthorNameCache: commentAuthorNameCacheRef.current,
                 commentParentIdCache: commentParentIdCacheRef.current,
             };
+            // 聊天語言「先寫再翻」：這個時間之後存的 TA 的氣泡，存好再交給翻譯 API
+            const replyStoredFrom = Date.now();
             await applyAssistantPostProcessing(sarReply.canonical, {
                 char,
                 userProfile,
@@ -2005,6 +2009,12 @@ export const useChatAI = ({
                 directives: [],
                 sarModuleSurface: assistantSurfaceMeta,
             });
+            if (resolveChatLanguage(char.chatLanguage).postTranslate) {
+                // 不擋這一輪收尾：氣泡先出來，譯文翻好再補上（翻不成的氣泡下面會有「點一下再翻」）
+                void postTranslateRecentReplies(lineArgOf(char), replyStoredFrom, char.chatLanguage, apiConfig)
+                    .then(async () => setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200)))
+                    .catch(() => {});
+            }
             // 最後一批正式消息已交給 setMessages；同一輪更新撤掉預覽，不再逐條補彈。
             setStreamingBubbles([]);
             setStreamingThinking('');
