@@ -55,6 +55,7 @@ const CHROME_NOTES = `- 頂欄已自動留出狀態列安全區；裝飾要貼�
 - 不要藏掉 .sully-chat-back（返回鍵）、輸入框、送出鍵。
 - 想讓裝飾溢出頂欄，給 .sully-chat-header 加 overflow: visible。
 - .sully-chat-buffs button 帶內聯樣式，要 !important 才蓋得掉。
+- 聊天裡的系統提示（鈴鐺那條，話題盒摘要也是它）是 .sully-chat-system-pill，字在 .sully-chat-system-text；好幾行的長提示多帶 .sully-chat-system-long。日期分隔是 .sully-chat-date-divider。換深色背景時記得一起調它們的底色和字色（原本是淺灰底灰字，要 !important 才蓋得掉）。
 - 每輪頭像放氣泡上方：顯示 .sully-chat-turn-avatar-slot、隱藏 .sully-chat-message-avatar，給 .sully-chat-message-group-first 留頂部空間。
 - 疊加順序：全域白框 → 角色（或群）白框，後面的蓋前面的。`;
 

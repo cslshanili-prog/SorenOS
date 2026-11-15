@@ -100,6 +100,13 @@ export const WHITEBOX_SELECTOR_GROUPS = [
     ],
   },
   {
+    label: '系統提示、日期分隔與戳一戳',
+    selectors: [
+      '.sully-chat-system', '.sully-chat-system-pill', '.sully-chat-system-long', '.sully-chat-system-icon',
+      '.sully-chat-system-text', '.sully-chat-date-divider', '.sully-chat-date-divider-label', '.sully-chat-poke',
+    ],
+  },
+  {
     label: '正式文件附件',
     selectors: [
       '.sully-collaboration-file', '.sully-collaboration-file-icon', '.sully-collaboration-file-meta',
