@@ -1352,8 +1352,8 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
                         type="button"
                         onClick={() => setPreviewCollapsed(v => !v)}
                         className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-500 transition active:scale-95"
-                        aria-label={previewCollapsed ? '展開預覽' : '收起預覽'}
-                    >{previewCollapsed ? '展開預覽' : '收起預覽'}</button>
+                        aria-label={previewCollapsed ? '展開預覽' : '收起預覽，編輯區全螢幕'}
+                    >{previewCollapsed ? '⤡ 看預覽' : '⤢ 全螢幕'}</button>
                 </div>
 
                 <div className="px-8 pb-2 flex items-center gap-2">

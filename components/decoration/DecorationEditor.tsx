@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CaretDown, CaretLeft, CaretUp, PencilSimple, Plus, SmileyWink } from '@phosphor-icons/react';
+import { ArrowsIn, ArrowsOut, CaretLeft, PencilSimple, Plus, SmileyWink } from '@phosphor-icons/react';
 import type { CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
 import DecorationPreview from './DecorationPreview';
 import ChatLayoutSettings from '../chat/ChatLayoutSettings';
@@ -19,7 +19,7 @@ import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
  * 改的是草稿，按「存」才寫；上半是用真元件畫的預覽，可以收起來讓編輯區佔滿。
  */
 export type EditorSubject =
-    | { kind: 'template'; name: string; usageCount: number }
+    | { kind: 'template'; name: string; usageCount: number; /** 還沒存過的新模板：第一次存要先取名 */ isNew?: boolean }
     | { kind: 'global' }
     | { kind: 'character'; char: CharacterProfile }
     | { kind: 'group'; group: GroupProfile };
@@ -92,7 +92,22 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
         set(next);
     };
 
-    const save = () => onSave(draft, subject.kind === 'template' ? (name.trim() || '我的裝扮') : undefined);
+    // 新模板第一次存（或請 Sore 之前）先跳取名：試用時大家都沒發現頂欄的名字可以改，清單變成一排「我的裝扮」
+    const [naming, setNaming] = useState<null | 'save' | 'sore'>(null);
+    const [nameDraft, setNameDraft] = useState('');
+    const isNewTemplate = subject.kind === 'template' && !!subject.isNew;
+    const askName = (then: 'save' | 'sore') => { setNameDraft(name.trim()); setNaming(then); };
+    const finishNaming = () => {
+        const finalName = nameDraft.trim().slice(0, 60);
+        if (!finalName) return;
+        setName(finalName);
+        const then = naming;
+        setNaming(null);
+        if (then === 'save') void onSave(draft, finalName);
+        else if (then === 'sore') void onAskSore?.(draft, finalName, true);
+    };
+    const save = () => (isNewTemplate ? askName('save') : onSave(draft, subject.kind === 'template' ? (name.trim() || subject.name) : undefined));
+    const askSore = () => (isNewTemplate ? askName('sore') : onAskSore?.(draft, subject.kind === 'template' ? (name.trim() || subject.name) : undefined, dirty));
     const back = () => (dirty ? setConfirmLeave(true) : onBack());
 
     return (
@@ -102,23 +117,25 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                     <button type="button" onClick={back} aria-label="返回" className="p-1.5 rounded-full hover:bg-black/5"><CaretLeft size={22} weight="bold" className="text-slate-600" /></button>
                     <div className="min-w-0 flex-1">
                         {subject.kind === 'template'
-                            ? <input value={name} onChange={e => setName(e.target.value.slice(0, 60))} aria-label="模板名字" className="w-full bg-transparent text-[15px] font-bold outline-none" placeholder="模板名字" />
+                            ? (
+                                <label className="flex items-center gap-1 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-2 py-0.5 focus-within:border-violet-400 focus-within:bg-white">
+                                    <input value={name} onChange={e => setName(e.target.value.slice(0, 60))} aria-label="模板名字" className="min-w-0 flex-1 bg-transparent text-[15px] font-bold outline-none placeholder:font-normal placeholder:text-slate-400" placeholder="幫這套取個名字" />
+                                    <PencilSimple size={14} className="shrink-0 text-slate-400" />
+                                </label>
+                            )
                             : <div className="truncate text-[15px] font-bold">{title}</div>}
                         <div className="text-[10px] text-slate-400 truncate">
                             {subject.kind === 'template' ? (subject.usageCount ? `${subject.usageCount} 個聊天在用，存了都會跟著變` : '還沒有聊天在用') : dirty ? '有沒存的改動' : '改完按「存」才會換上'}
                         </div>
                     </div>
-                    <button type="button" onClick={() => setShowPreview(v => !v)} aria-label={showPreview ? '收起預覽' : '展開預覽'} className="p-2 rounded-full hover:bg-black/5 text-slate-500">
-                        {showPreview ? <CaretUp size={18} weight="bold" /> : <CaretDown size={18} weight="bold" />}
-                    </button>
                     {onAskSore && (
-                        <button type="button" disabled={busy} onClick={() => void onAskSore(draft, subject.kind === 'template' ? (name.trim() || '我的裝扮') : undefined, dirty)}
+                        <button type="button" disabled={busy} onClick={() => void askSore()}
                             aria-label="請 Sore 幫忙" data-ask-sore="decoration"
                             className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[12px] font-bold text-amber-700 disabled:opacity-40">
                             <SmileyWink size={14} weight="fill" /> Sore
                         </button>
                     )}
-                    <button type="button" onClick={() => void save()} disabled={busy || !dirty} className="rounded-full bg-violet-500 px-4 py-1.5 text-[13px] font-bold text-white disabled:opacity-40">存</button>
+                    <button type="button" onClick={() => void save()} disabled={busy || (!dirty && !isNewTemplate)} className="rounded-full bg-violet-500 px-4 py-1.5 text-[13px] font-bold text-white disabled:opacity-40">存</button>
                 </div>
             </div>
 
@@ -132,15 +149,21 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
             {onAskSore && (
                 <div className="shrink-0 flex items-center justify-between gap-2 bg-amber-50/70 px-4 py-1.5 text-[11px] text-amber-800">
                     <span className="min-w-0 truncate">說想要的樣子，Sore 寫好給你看，按套用才換{dirty ? '（會先幫你存起來）' : ''}</span>
-                    <button type="button" disabled={busy} onClick={() => void onAskSore(draft, subject.kind === 'template' ? (name.trim() || '我的裝扮') : undefined, dirty)} className="shrink-0 font-bold underline-offset-2 hover:underline">請 Sore 幫忙 →</button>
+                    <button type="button" disabled={busy} onClick={() => void askSore()} className="shrink-0 font-bold underline-offset-2 hover:underline">請 Sore 幫忙 →</button>
                 </div>
             )}
 
-            <nav className="shrink-0 flex border-b border-slate-200 bg-white px-2" aria-label="裝扮分類">
+            <nav className="shrink-0 flex items-center border-b border-slate-200 bg-white pl-2 pr-1.5" aria-label="裝扮分類">
                 {tabs.map(t => (
                     <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}
                         className={`flex-1 py-2.5 text-[13px] border-b-2 ${tab === t ? 'border-violet-500 text-violet-700 font-bold' : 'border-transparent text-slate-500'}`}>{TAB_LABEL[t]}</button>
                 ))}
+                {/* 試用時大家找不到頂欄那顆小箭頭：放在分頁旁邊、寫字 */}
+                <button type="button" onClick={() => setShowPreview(v => !v)} data-decoration-preview-toggle
+                    aria-label={showPreview ? '收起預覽，編輯區全螢幕' : '展開預覽'}
+                    className="ml-1 flex shrink-0 items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 active:scale-95">
+                    {showPreview ? <><ArrowsOut size={13} weight="bold" /> 全螢幕</> : <><ArrowsIn size={13} weight="bold" /> 看預覽</>}
+                </button>
             </nav>
 
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 2rem)' }}>
@@ -212,11 +235,27 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                         </label>
                     )}
                     {isGroup && draft.css !== undefined && <p className="text-[11px] text-slate-400 mb-3">群的 CSS 一律疊在全局 CSS 之上。</p>}
-                    {(isGlobal || draft.css !== undefined) && <ChromeCssEditor value={draft.css || ''} onChange={css => set({ css })} />}
+                    {(isGlobal || draft.css !== undefined) && <ChromeCssEditor value={draft.css || ''} onChange={css => set({ css })} hideMyPresets />}
                 </>)}
 
                 {isGroup && groupIgnoredParts(draft).length > 0 && <p className="mt-4 text-[11px] text-amber-600">群用不到：{groupIgnoredParts(draft).join('、')}</p>}
             </div>
+
+            {naming && (
+                <div className="absolute inset-0 z-30 bg-black/30 flex items-end" onClick={() => setNaming(null)}>
+                    <div className="w-full rounded-t-3xl bg-white p-5 space-y-3" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()} data-decoration-naming>
+                        <div className="text-[15px] font-bold">幫這套裝扮取個名字</div>
+                        <p className="text-[12px] text-slate-400">之後在清單和聊天裡選模板都看這個名字，隨時可以改。</p>
+                        <input autoFocus value={nameDraft} onChange={e => setNameDraft(e.target.value.slice(0, 60))} aria-label="新模板名字"
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) finishNaming(); }}
+                            placeholder="例如：奶茶夜、V 的雨夜" className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[15px] outline-none focus:border-violet-400" />
+                        <button type="button" disabled={busy || !nameDraft.trim()} onClick={finishNaming} className="w-full rounded-2xl bg-violet-500 py-3 text-[14px] font-bold text-white disabled:opacity-40">
+                            {naming === 'save' ? '存起來' : '存起來，再請 Sore 幫忙'}
+                        </button>
+                        <button type="button" onClick={() => setNaming(null)} className="w-full py-2 text-[13px] text-slate-400">先不要</button>
+                    </div>
+                </div>
+            )}
 
             {confirmLeave && (
                 <div className="absolute inset-0 z-30 bg-black/30 flex items-end" onClick={() => setConfirmLeave(false)}>

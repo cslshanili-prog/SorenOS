@@ -166,3 +166,12 @@ describe('舊預設、匯入匯出', () => {
         expect(sanitizeTemplate('x')).toBeNull();
     });
 });
+
+import { uniqueTemplateName } from './decorationTemplates';
+describe('模板名字', () => {
+    it('撞名加編號', () => {
+        expect(uniqueTemplateName('奶茶', [])).toBe('奶茶');
+        expect(uniqueTemplateName('我的裝扮', [{ name: '我的裝扮' }, { name: '我的裝扮 2' }])).toBe('我的裝扮 3');
+        expect(uniqueTemplateName('  ', [])).toBe('我的裝扮');
+    });
+});
