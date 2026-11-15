@@ -2007,6 +2007,7 @@ const MessageItem = React.memo(({
 
         // Clean up text: remove [System:] or [系統:] prefix for display
         const displayText = m.content.replace(/^\[(System|系[统統]|System Log|系[统統][记記][录錄])\s*[:：]?\s*/i, '').replace(/\]$/, '').trim();
+        const isLongSystemText = displayText.length > 40 || displayText.includes('\n');
 
         if (isCallSummary) {
             const durationSec = Math.max(1, Number(m.metadata?.durationSec || 0));
@@ -2053,13 +2054,15 @@ const MessageItem = React.memo(({
                         </div>
                     </div>
                 )}
-                <div className="flex justify-center my-6 px-10 w-full" {...interactionProps}>
-                    <div className="flex items-center gap-1.5 bg-slate-200/40 backdrop-blur-md text-slate-500 px-3 py-1 rounded-full shadow-sm border border-white/20 select-none cursor-pointer active:scale-95 transition-transform">
+                <div className="sully-chat-system flex justify-center my-6 px-10 w-full" {...interactionProps}>
+                    {/* 長的系統提示（話題盒摘要等）不能用 rounded-full：好幾行時會變成一顆大橢圓。
+                        class 鉤子留給白框 CSS（.sully-chat-system*），深色背景才調得動。 */}
+                    <div className={`sully-chat-system-pill ${isLongSystemText ? 'sully-chat-system-long items-start rounded-2xl px-3.5 py-2' : 'items-center rounded-full px-3 py-1'} flex gap-1.5 bg-slate-500/10 backdrop-blur-md text-slate-500 shadow-sm border border-slate-400/20 select-none cursor-pointer active:scale-95 transition-transform`}>
                         {/* Optional Icon based on content */}
                         <img src={includesAnyScript(displayText, '任務') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/2728.png' :
                         includesAnyScript(displayText, '紀念日') || displayText.includes('Event') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4c5.png' :
-                        includesAnyScript(displayText, '轉帳') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b0.png' : 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f514.png'} alt="" className="w-4 h-4" />
-                        <span className="text-[10px] font-medium tracking-wide">{displayText}</span>
+                        includesAnyScript(displayText, '轉帳') ? 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f4b0.png' : 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f514.png'} alt="" className={`sully-chat-system-icon w-4 h-4 shrink-0 ${isLongSystemText ? 'mt-0.5' : ''}`} />
+                        <span className="sully-chat-system-text text-[10px] font-medium tracking-wide">{displayText}</span>
                     </div>
                 </div>
             </div>
@@ -2078,7 +2081,7 @@ const MessageItem = React.memo(({
                 )}
                 <div className="text-[10px] text-slate-400 mb-1 opacity-70">{formatTime(m.timestamp)}</div>
                 <div className="group relative cursor-pointer active:scale-95 transition-transform" {...interactionProps}>
-                        <div className="text-[11px] text-slate-500 bg-slate-200/50 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-1.5 border border-white/40 shadow-sm select-none">
+                        <div className="sully-chat-poke text-[11px] text-slate-500 bg-slate-200/50 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-1.5 border border-white/40 shadow-sm select-none">
                         <img src="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f449.png" alt="poke" className="w-4 h-4 group-hover:animate-bounce" />
                         <span className="font-medium opacity-80">{isUser ? '你' : charName}</span>
                         <span className="opacity-60">戳了戳</span>
