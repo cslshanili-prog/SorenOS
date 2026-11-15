@@ -7629,7 +7629,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-11-13";
+var AMSG_BUNDLE_VERSION = "2026-11-15";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -16253,6 +16253,8 @@ var src_default = {
           backgroundJobs: true,
           // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
           newsFeeds: true,
+          // 有沒有 POST /deepl-translate（聊天翻譯用 DeepL 時的轉發）。
+          deeplTranslate: true,
           workerVersion: AMSG_BUNDLE_VERSION
         }
       });
@@ -16383,6 +16385,37 @@ var src_default = {
       const keys = (new URL(request.url).searchParams.get("keys") || "").split(",").map((k) => k.trim()).filter(Boolean);
       const items = keys.length > 0 ? await fetchNewsFeeds(keys) : [];
       return jsonWithCors(200, { success: true, data: { items } });
+    }
+    if (pathname.endsWith("/deepl-translate")) {
+      if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
+      if (method !== "POST") {
+        return jsonWithCors(405, { success: false, error: { code: "METHOD_NOT_ALLOWED", message: "/deepl-translate \u53EA\u63A5\u53D7 POST" } });
+      }
+      const token = env.AMSG_SERVER_TOKEN?.trim() ?? "";
+      const clientToken = request.headers.get("X-Client-Token") ?? "";
+      if (token && (!clientToken || !await constantTimeEqual2(clientToken, token))) {
+        return jsonWithCors(401, { success: false, error: { code: "INVALID_CLIENT_TOKEN", message: "\u5171\u4EAB\u5BC6\u9470\u7121\u6548\u6216\u7F3A\u5931" } });
+      }
+      const input = await request.json().catch(() => null);
+      const authKey = typeof input?.authKey === "string" ? input.authKey.trim() : "";
+      const texts = Array.isArray(input?.text) ? input.text.filter((t) => typeof t === "string").slice(0, 50) : [];
+      const target = typeof input?.target_lang === "string" ? input.target_lang.trim() : "";
+      if (!authKey || !texts.length || !/^[A-Z]{2}(-[A-Z]{2,4})?$/.test(target)) {
+        return jsonWithCors(400, { success: false, error: { code: "BAD_REQUEST", message: "\u7F3A Key\u3001\u53E5\u5B50\u6216\u76EE\u6A19\u8A9E\u8A00" } });
+      }
+      const host = authKey.endsWith(":fx") ? "https://api-free.deepl.com" : "https://api.deepl.com";
+      const upstream2 = await fetch(`${host}/v2/translate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `DeepL-Auth-Key ${authKey}` },
+        body: JSON.stringify({ text: texts, target_lang: target })
+      }).catch(() => null);
+      if (!upstream2) return jsonWithCors(502, { success: false, error: { code: "UPSTREAM_UNREACHABLE", message: "\u9023\u4E0D\u4E0A DeepL" } });
+      const body = await upstream2.json().catch(() => null);
+      if (!upstream2.ok) {
+        const reason = upstream2.status === 403 ? "Key \u4E0D\u5C0D" : upstream2.status === 456 ? "\u672C\u6708\u984D\u5EA6\u7528\u5B8C\u4E86" : body?.message || `HTTP ${upstream2.status}`;
+        return jsonWithCors(upstream2.status === 403 ? 403 : 502, { success: false, error: { code: "DEEPL_ERROR", message: reason } });
+      }
+      return jsonWithCors(200, { success: true, data: { translations: (body?.translations || []).map((t) => ({ text: t?.text ?? "" })) } });
     }
     if (pathname.endsWith("/instant-chat")) {
       if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });

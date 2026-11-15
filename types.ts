@@ -270,6 +270,10 @@ export interface ChatLanguageConfig {
   translateTo?: string;
   /** 原文與譯文同時展開（不用逐條點）。 */
   expanded?: boolean;
+  /** 誰來翻 TA 的訊息：chat＝聊天模型順便翻（預設）；api＝先寫再交給系統設置的翻譯 API。 */
+  translator?: 'chat' | 'api';
+  /** 我的訊息自動譯出：你用「翻譯成」那個語言打字，送出時翻成 TA 的說話語言。 */
+  translateMine?: boolean;
 }
 
 export interface TranslationConfig {
@@ -295,6 +299,25 @@ export interface VisionApiConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+}
+
+/**
+ * 翻譯 API（系統設置 → 翻譯 API，plans/chat-language.md 第 2 批）。
+ * - llm：OpenAI 相容的聊天模型（建議挑便宜的小模型；網址、Key、模型沒填就用主 API）。
+ * - deepl：瀏覽器不能直接呼叫，經用戶自己的主動消息 2.0 Worker（POST /deepl-translate）轉一手。
+ * - google：Cloud Translation v2（API Key）。azure：Translator（Key＋區域）。
+ */
+export type TranslationProvider = 'llm' | 'deepl' | 'google' | 'azure';
+
+export interface TranslationApiConfig {
+  provider: TranslationProvider;
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  deeplKey?: string;
+  googleKey?: string;
+  azureKey?: string;
+  azureRegion?: string;
 }
 
 /** 全局生圖 API（系統設置 → 生圖API）；OpenAI 兼容的 /images/generations 接口。 */
@@ -393,6 +416,8 @@ export interface APIConfig {
   apiKey: string;
   // 可選識圖中轉：給不支持 image_url 的主模型補視覺能力。
   visionApi?: VisionApiConfig;
+  /** 翻譯 API（聊天語言用）；沒設就用主 API 的聊天模型翻。 */
+  translationApi?: TranslationApiConfig;
   // 生圖：角色/用戶在聊天裡生成圖片用的獨立引擎配置。
   imageGenConfig?: ImageGenApiConfig;
   minimaxApiKey?: string;

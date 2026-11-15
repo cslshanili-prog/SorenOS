@@ -542,6 +542,8 @@ export function collectFeatureFlags(src: FeatureSources): Record<string, string>
         // ── 聊天语言（plans/chat-language.md）──
         // 一格就好（快照行数有成本）：有没有角色开翻译、夹杂、或只是指定说话语言。不报是哪种语言。
         聊天语言: chatLanguageUsage(src.characters),
+        // 翻译 API 用哪家（只报服务商枚举，Key、网址、模型名一律不报）
+        翻译API: ({ deepl: 'deepl', google: 'google', azure: 'azure' } as Record<string, string>)[src.apiConfig.translationApi?.provider || ''] || '聊天模型',
 
         // ── 主动消息 2.0 ──
         // 没报「主动消息 Push 加速」：那一层已经全局下线（proactivePushConfig.ts 的

@@ -72,8 +72,9 @@ const ChatLanguageSettings: React.FC<{ value: ChatLanguageConfig; onChange: (nex
         if (!r.speak && !r.mix && !r.translateTo) return '沒有指定：TA 照人設說話，不翻譯。';
         const speak = r.speak ? `說${languageLabel(r.speak)}` : '照人設說話';
         const mix = r.mix ? `，夾雜${languageLabel(r.mix)}（${MIX_LEVELS.find(m => m.value === r.mixLevel)?.label}）` : '';
-        const tr = r.translating ? `，翻成${languageLabel(r.translateTo)}給你看` : r.translateTo ? '，跟你讀的語言一樣，不用翻' : '';
-        return `${speak}${mix}${tr}。`;
+        const tr = r.translating ? `，翻成${languageLabel(r.translateTo)}給你看${r.postTranslate ? '（寫完再翻）' : ''}` : r.translateTo ? '，跟你讀的語言一樣，不用翻' : '';
+        const mine = r.translateMine ? `；你打的字自動翻成${languageLabel(r.speak)}` : '';
+        return `${speak}${mix}${tr}${mine}。`;
     })();
     const cantonese = [r.speak, r.mix, r.translateTo].some(v => v && /粵|粤|廣東話|cantonese/i.test(v));
 
@@ -118,6 +119,28 @@ const ChatLanguageSettings: React.FC<{ value: ChatLanguageConfig; onChange: (nex
                     value={r.translateTo}
                     onChange={v => set({ translateTo: v })}
                 />
+                {r.translating && (
+                    <div className="px-5 py-4">
+                        <div className="text-[15px] font-bold text-slate-800">誰來翻</div>
+                        <div className="mt-2.5 grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="誰來翻">
+                            {([
+                                { value: 'chat', label: '聊天模型順便翻', hint: '不用另外設，但回覆變兩倍長' },
+                                { value: 'api', label: '先寫再翻', hint: '寫完交給系統設置的「翻譯 API」' },
+                            ] as const).map(o => (
+                                <button key={o.value} type="button" role="radio" aria-checked={r.translator === o.value} onClick={() => set({ translator: o.value })}
+                                    className={`rounded-2xl px-2 py-2 text-center transition-colors ${r.translator === o.value ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                    <span className="block text-[12px] font-bold">{o.label}</span>
+                                    <span className={`block mt-0.5 text-[10px] ${r.translator === o.value ? 'text-white/70' : 'text-slate-400'}`}>{o.hint}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+                {r.speak && (
+                    <Row label="我的訊息自動譯出" hint={`你照平常打字，送出時翻成${languageLabel(r.speak)}再傳給 TA；氣泡上點一下看你打的原句。用系統設置的「翻譯 API」翻。`}>
+                        <Toggle on={r.translateMine} onToggle={() => set({ translateMine: !r.translateMine })} label="我的訊息自動譯出" />
+                    </Row>
+                )}
                 {r.translating && (
                     <Row label="原文與譯文同時展開" hint="不用逐條點，氣泡直接上下顯示兩種語言。">
                         <Toggle on={r.expanded} onToggle={() => set({ expanded: !r.expanded })} label="原文與譯文同時展開" />

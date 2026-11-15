@@ -100,6 +100,8 @@ import { CollaborationStore } from '../features/collaboration/store';
 import { resolveTtsProvider } from '../utils/ttsProvider';
 import { resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
 import { resolveChatLanguage } from '../utils/chatLanguage';
+import { translateMessagesInPlace } from '../utils/chatTranslateRun';
+import { translateTexts } from '../utils/translateApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { trackEvent, noteMessageSent, presetOrCustom } from '../utils/analytics';
 import { generateReplyDrafts } from '../utils/replyDrafts';
@@ -912,6 +914,16 @@ const Chat: React.FC = () => {
         });
     }, []);
 
+    // 聊天語言「先寫再翻」翻不成的那則：點一下再翻（utils/chatTranslateRun.ts）
+    const handleRetryTranslation = useCallback(async (msgId: number) => {
+        // 從資料庫拿最新的那則（氣泡 memo 著，閉包裡的 messages 可能是舊的）
+        const target = (await DB.getRecentMessagesByCharId(chatLineArg, 200)).find(x => x.id === msgId);
+        if (!target || !chatLanguage.translateTo) return;
+        const done = await translateMessagesInPlace([target], chatLanguage.translateTo, apiConfig);
+        if (!done) addToast('還是沒翻成，看看系統設置的「翻譯 API」', 'error');
+        await reloadMessages(visibleCountRef.current);
+    }, [chatLineArg, chatLanguage.translateTo, apiConfig, addToast]);
+
     const loadEmojiData = async () => {
         await DB.initializeEmojiData();
         const [es, cats] = await Promise.all([DB.getEmojis(), DB.getEmojiCategories()]);
@@ -1452,7 +1464,7 @@ const Chat: React.FC = () => {
         // 借用戶"發送"這個手勢解鎖音頻上下文，好讓稍後 AI 回覆時的白框提示音能順利播放（移動端自動播放策略）。
         unlockWhiteboxAudio();
         if (char.chatVoiceEnabled && char.chatVoiceAutoPlay && isTtsReady()) primeVoiceAudio(prepareChatAudio());
-        const text = customContent || input.trim();
+        let text = customContent || input.trim();
         const type = customType || 'text';
 
         // 發消息隱含"回到當前聊天"——退出 windowed 舊消息瀏覽模式
@@ -1494,7 +1506,22 @@ const Chat: React.FC = () => {
         }
 
         if (!customContent) { setInput(''); localStorage.removeItem(draftKey); }
-        
+
+        // 聊天語言「我的訊息自動譯出」：照平常打字，送出時翻成 TA 的說話語言再傳；
+        // 你打的原句留在 metadata.typedOriginal，氣泡上點一下看得到。翻不成就照原句送。
+        if (type === 'text' && chatLanguage.translateMine && chatLanguage.speak) {
+            try {
+                const [out] = await translateTexts([text], chatLanguage.speak, apiConfig);
+                const translated = (out || '').trim();
+                if (translated && translated !== text) {
+                    metadata = { ...(metadata || {}), typedOriginal: text };
+                    text = translated;
+                }
+            } catch (e: any) {
+                addToast(`沒翻成，照原句送出：${e?.message || '翻譯失敗'}`, 'info');
+            }
+        }
+
         // 圖片 / 表情消息存的是短令牌，圖片二進制單獨躺在 blob_assets 裡，省掉 base64 那 ~33%
         // 的膨脹。同一張圖之前存過就直接複用它的令牌；轉不動時原樣還回這條 data URL，圖不會丟。
         // http 外鏈（網絡表情）和已經是令牌的值都原樣通過。
@@ -4516,6 +4543,7 @@ const Chat: React.FC = () => {
                             translationExpanded={translationExpanded}
                             isShowingTarget={showingTargetIds.has(m.id)}
                             onTranslateToggle={handleTranslateToggle}
+                            onRetryTranslation={handleRetryTranslation}
                             voiceData={voiceDataMap[m.id]}
                             voiceLoading={voiceLoading.has(m.id)}
                             isVoicePlaying={playingMsgId === m.id}

@@ -3360,6 +3360,8 @@ export default {
           backgroundJobs: true,
           // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
           newsFeeds: true,
+          // 有沒有 POST /deepl-translate（聊天翻譯用 DeepL 時的轉發）。
+          deeplTranslate: true,
           workerVersion: AMSG_BUNDLE_VERSION,
         },
       });
@@ -3513,6 +3515,40 @@ export default {
       const keys = (new URL(request.url).searchParams.get('keys') || '').split(',').map((k) => k.trim()).filter(Boolean);
       const items = keys.length > 0 ? await fetchNewsFeeds(keys) : [];
       return jsonWithCors(200, { success: true, data: { items } });
+    }
+
+    // DeepL 轉發（plans/chat-language.md 第 2 批）：DeepL 不開 CORS，App 經這台 Worker 翻譯。
+    // 只轉 DeepL 一家（不是開放代理），Key 由 App 每次帶來、不存；跟其它端點同一道門。
+    if (pathname.endsWith('/deepl-translate')) {
+      if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+      if (method !== 'POST') {
+        return jsonWithCors(405, { success: false, error: { code: 'METHOD_NOT_ALLOWED', message: '/deepl-translate 只接受 POST' } });
+      }
+      const token = env.AMSG_SERVER_TOKEN?.trim() ?? '';
+      const clientToken = request.headers.get('X-Client-Token') ?? '';
+      if (token && (!clientToken || !(await constantTimeEqual(clientToken, token)))) {
+        return jsonWithCors(401, { success: false, error: { code: 'INVALID_CLIENT_TOKEN', message: '共享密鑰無效或缺失' } });
+      }
+      const input = (await request.json().catch(() => null)) as { authKey?: unknown; text?: unknown; target_lang?: unknown } | null;
+      const authKey = typeof input?.authKey === 'string' ? input.authKey.trim() : '';
+      const texts = Array.isArray(input?.text) ? input!.text.filter((t): t is string => typeof t === 'string').slice(0, 50) : [];
+      const target = typeof input?.target_lang === 'string' ? input.target_lang.trim() : '';
+      if (!authKey || !texts.length || !/^[A-Z]{2}(-[A-Z]{2,4})?$/.test(target)) {
+        return jsonWithCors(400, { success: false, error: { code: 'BAD_REQUEST', message: '缺 Key、句子或目標語言' } });
+      }
+      const host = authKey.endsWith(':fx') ? 'https://api-free.deepl.com' : 'https://api.deepl.com';
+      const upstream = await fetch(`${host}/v2/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `DeepL-Auth-Key ${authKey}` },
+        body: JSON.stringify({ text: texts, target_lang: target }),
+      }).catch(() => null);
+      if (!upstream) return jsonWithCors(502, { success: false, error: { code: 'UPSTREAM_UNREACHABLE', message: '連不上 DeepL' } });
+      const body = (await upstream.json().catch(() => null)) as { translations?: Array<{ text?: string }>; message?: string } | null;
+      if (!upstream.ok) {
+        const reason = upstream.status === 403 ? 'Key 不對' : upstream.status === 456 ? '本月額度用完了' : (body?.message || `HTTP ${upstream.status}`);
+        return jsonWithCors(upstream.status === 403 ? 403 : 502, { success: false, error: { code: 'DEEPL_ERROR', message: reason } });
+      }
+      return jsonWithCors(200, { success: true, data: { translations: (body?.translations || []).map((t) => ({ text: t?.text ?? '' })) } });
     }
 
     // 即時對話：一個請求把「傳雲端狀態 + 建任務」串完，回 202 之後立刻起一跳。

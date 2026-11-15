@@ -1574,6 +1574,8 @@ interface MessageItemProps {
     translationExpanded?: boolean;
     isShowingTarget?: boolean;
     onTranslateToggle?: (msgId: number) => void;
+    /** 聊天語言「先寫再翻」翻不成時，氣泡下面的「點一下再翻」（plans/chat-language.md）。 */
+    onRetryTranslation?: (msgId: number) => void;
     // Voice TTS
     voiceData?: { url: string; originalText: string; spokenText?: string; lang?: string };
     voiceLoading?: boolean;
@@ -1637,6 +1639,7 @@ const MessageItem = React.memo(({
     translationExpanded,
     isShowingTarget,
     onTranslateToggle,
+    onRetryTranslation,
     voiceData,
     voiceLoading,
     isVoicePlaying,
@@ -3814,7 +3817,11 @@ const MessageItem = React.memo(({
 
     // Display: 默認點擊切換；可選“直接展開”時，上方原文 + 下方譯文同時顯示。
     const showExpandedTranslation = Boolean(translationEnabled && translationExpanded && hasBilingual && langBContent);
-    const displayContent = showExpandedTranslation
+    // 聊天語言「我的訊息自動譯出」：氣泡顯示譯好的那句，點一下看你打的原句（metadata.typedOriginal）
+    const typedOriginal = isUser && m.type === 'text' && typeof m.metadata?.typedOriginal === 'string' ? stripJunk(m.metadata.typedOriginal) : '';
+    const displayContent = typedOriginal && isShowingTarget
+        ? typedOriginal
+        : showExpandedTranslation
         ? langAContent
         : (isShowingTarget && langBContent) ? langBContent : langAContent;
     const showTranslateButton = translationEnabled && !showExpandedTranslation && hasBilingual && langBContent;
@@ -3940,6 +3947,35 @@ const MessageItem = React.memo(({
                                 <span>翻譯</span>
                             </>
                         )}
+                    </button>
+                </div>
+            )}
+
+            {/* Layer 5a: 我的訊息自動譯出 —— 「看原句／看譯文」切換 */}
+            {typedOriginal && (
+                <div className="relative z-10 mt-2 pt-1.5 flex justify-end" style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onTranslateToggle?.(m.id); }}
+                        data-typed-original-toggle
+                        className="text-[10px] font-medium transition-opacity active:opacity-80 select-none"
+                        style={{ color: styleConfig.textColor, opacity: 0.55 }}
+                    >
+                        {isShowingTarget ? '看譯文' : '看原句'}
+                    </button>
+                </div>
+            )}
+
+            {/* Layer 5b: 先寫再翻沒翻成 —— 同一個位置給「點一下再翻」 */}
+            {!isUser && m.type === 'text' && !hasBilingual && !!m.metadata?.translationFailed && onRetryTranslation && (
+                <div className="relative z-10 mt-2 pt-1.5 flex justify-end" style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRetryTranslation(m.id); }}
+                        title={String(m.metadata.translationFailed)}
+                        data-retry-translation
+                        className="text-[10px] font-medium transition-opacity active:opacity-80 select-none"
+                        style={{ color: styleConfig.textColor, opacity: 0.55 }}
+                    >
+                        沒翻成，點一下再翻
                     </button>
                 </div>
             )}
@@ -4142,6 +4178,8 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.pendingPhoto?.attempts === next.msg.metadata?.pendingPhoto?.attempts &&
            prev.msg.metadata?.pendingPhoto?.gaveUp === next.msg.metadata?.pendingPhoto?.gaveUp &&
            prev.msg.metadata?.sarModuleSurface?.surface === next.msg.metadata?.sarModuleSurface?.surface &&
+           // 聊天語言「先寫再翻」翻不成：只改 metadata，不比的話「點一下再翻」出不來
+           prev.msg.metadata?.translationFailed === next.msg.metadata?.translationFailed &&
            prev.isFirstInGroup === next.isFirstInGroup &&
            prev.isLastInGroup === next.isLastInGroup &&
            prev.activeTheme === next.activeTheme &&

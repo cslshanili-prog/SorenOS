@@ -11,6 +11,7 @@ import type { UserHolidayConfig } from '../utils/userHolidays';
 import { shareOrDownloadBlob } from '../utils/shareExport';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
+import TranslationApiSettings from '../components/settings/TranslationApiSettings';
 import ImageGenSettingsPanel from '../components/settings/ImageGenSettingsPanel';
 import { NotionManager, FeishuManager, RealtimeContextManager, fetchOwmWeather, fetchOpenMeteoWeather } from '../utils/realtimeContext';
 import { NEWS_FEED_SOURCES, resolveNewsFeeds } from '../utils/newsFeeds';
@@ -2767,6 +2768,25 @@ const Settings: React.FC = () => {
                     </div>
                 )}
             </div>
+        </SettingsSection>
+
+        {/* 翻譯 API：聊天語言「先寫再翻」與「我的訊息自動譯出」用（plans/chat-language.md 第 2 批） */}
+        <SettingsSection
+            title="翻譯 API"
+            badge={
+                <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? ({ deepl: 'DeepL', google: 'Google', azure: 'Azure' } as Record<string, string>)[apiConfig.translationApi.provider] : '聊天模型'}
+                </span>
+            }
+            icon={
+                <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802" />
+                    </svg>
+                </div>
+            }
+        >
+            <TranslationApiSettings apiConfig={apiConfig} updateApiConfig={updateApiConfig} apiPresets={apiPresets} />
         </SettingsSection>
 
         {/* API 調用記錄入口 — 點開看最近 5 天各 App / 角色 / 用途的調用明細 */}
