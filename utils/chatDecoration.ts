@@ -61,7 +61,7 @@ async function portable(value:string):Promise<string>{
  if(/^(blob:|\/|\.\.?\/)/.test(value)){const response=await fetch(value);if(!response.ok)throw Error('素材無法讀取');return blobToDataUrl(await response.blob());}
  return value;
 }
-async function portableTree(value:any):Promise<any>{
+export async function portableTree(value:any):Promise<any>{
  if(typeof value==='string'){
   if(/^(blobref:|blob:)/.test(value)||/^(\/(?![/*])|\.\.?\/)[^\s{}]+$/.test(value))return portable(value);
   const matches=[...value.matchAll(/url\(\s*['"]?((?:blobref:|blob:|\/|\.\.?\/)[^'"\s)]+)['"]?\s*\)/g)];

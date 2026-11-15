@@ -32,6 +32,7 @@ export const CARD_STRIPPED_FIELDS = [
   'chatSound',
   'chatSoundBound',
   'chatBackground',
+  'decorationTemplateId',    // 裝扮模板：指向本機的模板 id，接收方沒有
   'dateBackground',
   'thinkingChainStyle',
   'thinkingChainCustomColors',

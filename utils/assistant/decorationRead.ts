@@ -45,6 +45,7 @@ export const describeGlobalDecoration = (data: CssData): string => {
     const t = data.theme;
     return [
         '# 全局默認（沒有自己設定的聊天都用這套）',
+        t.decorationTemplateId ? '全局用的是裝扮 App 裡的模板' : '全局是自己的設定（沒用模板）',
         `氣泡主題：${themeName(data, t.chatDefaultBubbleStyle)}`,
         `背景：${bgText(t.chatBackground)}；底紋 ${t.chatBackgroundStyle || 'plain'}`,
         `提示音：${soundText(resolveActiveSound(undefined, undefined, t.chatChromeCustomCss, t.chatSound))}`,
@@ -69,6 +70,7 @@ export const describeCharacterDecoration = (char: CharacterProfile, data: CssDat
     const activeSound = resolveActiveSound(char.chromeCustomCss, char.chatSound, base.chatChromeCustomCss, theme.chatSound);
     return [
         `# ${char.name} 的聊天裝扮`,
+        char.decorationTemplateId ? '用的是裝扮 App 裡的模板（改模板，這個聊天跟著變；在這裡直接改會變成自訂）' : '沒有用模板',
         `氣泡主題：${char.bubbleStyle ? `${themeName(data, char.bubbleStyle)}（自己選的）` : `跟著全局：${themeName(data, theme.chatDefaultBubbleStyle)}`}`,
         `背景：${char.chatBackground !== undefined ? `${bgText(char.chatBackground)}（自己的）` : `跟著全局：${bgText(theme.chatBackground)}`}；底紋 ${effective.chatBackgroundStyle || 'plain'}`,
         `提示音：${soundText(activeSound)}${ownSound ? '（自己的）' : '（跟著全局）'}`,

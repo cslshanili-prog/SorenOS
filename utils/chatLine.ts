@@ -28,7 +28,7 @@ export const LINE_SETTING_FIELDS = [
     'allowCharChangeRelationship', 'tempChatLimits', 'replyDrafts',
     'chatVoiceEnabled', 'chatVoiceAutoPlay', 'chatVoiceLang', 'dateVoiceEnabled', 'dateVoiceLang', 'callVoiceLang',
     'showThinkingChain', 'thinkingChainStyle', 'thinkingChainCustomColors', 'thinkingChainCustomPrompt', 'thinkingChainCustomCss',
-    'htmlModeEnabled', 'htmlModeCustomPrompt', 'chatCollaborationEnabled',
+    'htmlModeEnabled', 'htmlModeCustomPrompt', 'chatCollaborationEnabled', 'decorationTemplateId',
 ] as const satisfies readonly LineSettingField[];
 
 // 兩份清單要剛好蓋滿 types.ts 的聯合型別：少列一個，這兩行就編譯不過。

@@ -1,4 +1,5 @@
 
+import { detachCharacterPatch, detachGroupPatch, detachThemePatch } from '../utils/decorationTemplates';
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
 import { isBenched } from '../utils/castRole';
 import { pendingNpcs } from '../utils/npcMigration';
@@ -3480,7 +3481,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     const sanitizedWidgets = launcherWidgets !== undefined
         ? Object.fromEntries(Object.entries(launcherWidgets).filter(([k]) => k !== 'bl' && k !== 'br'))
         : undefined;
-    const sanitizedUpdates: Partial<OSTheme> = { ...updates, launcherWidgetImage: undefined };
+    // 裝扮模板（plans/decoration-app.md）：別處改了全局的聊天裝扮欄位就解除綁定
+    const sanitizedUpdates: Partial<OSTheme> = { ...detachThemePatch(theme, updates), launcherWidgetImage: undefined };
     if (sanitizedWidgets !== undefined) sanitizedUpdates.launcherWidgets = sanitizedWidgets;
     const newTheme = { ...theme, ...sanitizedUpdates, launcherWidgetImage: undefined };
     if (newTheme.launcherWidgets) {
@@ -3758,7 +3760,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
   const updateCharacter = async (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => {
     setCharacters(prev => {
-      const updated = prev.map(c => c.id === id ? normalizeCharacterImpression({ ...c, ...(typeof updates === 'function' ? updates(c) : updates) }) : c);
+      // 裝扮模板：改了裝扮欄位（又不是模板自己寫的）就解除綁定，變「自訂」
+      const updated = prev.map(c => c.id === id ? normalizeCharacterImpression({ ...c, ...detachCharacterPatch(c, typeof updates === 'function' ? updates(c) : updates) }) : c);
       const target = updated.find(c => c.id === id);
       if (target) {
         const before = prev.find(c => c.id === id);
@@ -3856,7 +3859,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     const line = lineOf(charView);
     if (isPrimaryLine(line)) { updateCharacter(charView.id, updates); return; }
     updateCharacter(charView.id, prev => {
-      const patch = typeof updates === 'function' ? updates(lineView(prev, line)) : updates;
+      const view = lineView(prev, line);
+      const patch = detachCharacterPatch(view, typeof updates === 'function' ? updates(view) : updates);
       return linePatchForChar(prev, line, patch);
     });
   };
@@ -4292,6 +4296,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const updateGroup = async (id: string, updates: Partial<GroupProfile>) => {
       // 先更新內存中的 groups（列表渲染、再次進群都讀這裡），再持久化到 DB。
       // 不更新 context 會導致改了群頭像/群名退出後又讀回舊值（恢復默認）。
+      const current = groups.find(g => g.id === id);
+      if (current) updates = detachGroupPatch(current, updates);
       setGroups(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
       // 持久化對象基於當前已提交的 groups 合成，不在 setGroups 的 updater 裡捕獲——
       // React 不保證 updater 同步執行（eager 求值只是優化），舊寫法會時而拿到舊值、
