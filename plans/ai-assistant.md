@@ -225,3 +225,4 @@ Soren 照這個思路，但：
 ## 13. 之後補的
 
 - 2026-11-15：附件鈕也收 .css／.txt／.json 檔，新增讀的工具「讀取聊天裝扮」。詳見 [`decoration-app.md`](./decoration-app.md) 第 10 節。
+- 2026-11-15：聊天裝扮也能出提案了，新增「讀取裝扮模板」「改裝扮」兩個工具，裝扮模板編輯頁也有「請 Sore 幫忙」。詳見 [`decoration-app.md`](./decoration-app.md) 第 10 節第 4 批。

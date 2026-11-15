@@ -14,6 +14,7 @@ import {
 } from '../../utils/decorationTemplates';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
 import type { SoreHandoff } from '../../utils/assistant/handoff';
+import AskSoreButton from '../assistant/AskSoreButton';
 
 /**
  * 裝扮編輯頁（plans/decoration-app.md 第 4 節）：模板、全局、某個角色或群的「自訂」共用。
@@ -40,6 +41,8 @@ interface Props {
     onBack: () => void;
     /** 去氣泡編輯；existing 給了就編那套，存完回來 onPicked 選上 */
     onOpenBubble: (existing: ChatTheme | undefined, onPicked: (id: string) => void) => void;
+    /** 模板已經存過的話，它的 id（給「請 Sore 幫忙」） */
+    templateId?: string;
 }
 
 const TAB_LABEL: Record<Tab, string> = { layout: '佈局', bubble: '氣泡', background: '背景', sound: '聲音', css: 'CSS' };
@@ -53,7 +56,7 @@ const FollowToggle: React.FC<{ on: boolean; label: string; onChange: (follow: bo
     </label>
 );
 
-const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThemes, previewChar, userAvatar, busy, onSave, onBack, onOpenBubble }) => {
+const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThemes, previewChar, userAvatar, busy, onSave, onBack, onOpenBubble, templateId }) => {
     const [draft, setDraft] = useState<DecorationDraft>(() => structuredClone(initial));
     const [name, setName] = useState(subject.kind === 'template' ? subject.name : '');
     const [tab, setTab] = useState<Tab>(subject.kind === 'group' ? 'bubble' : 'layout');
@@ -201,7 +204,13 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                     )}
                     {isGroup && draft.css !== undefined && <p className="text-[11px] text-slate-400 mb-3">群的 CSS 一律疊在全局 CSS 之上。</p>}
                     {(isGlobal || draft.css !== undefined) && <ChromeCssEditor value={draft.css || ''} onChange={css => set({ css })} assist={assist} />}
-                    {subject.kind === 'template' && <p className="mt-3 text-[11px] text-slate-400">想請 Sore 幫忙寫，可以把這份存好後在 Sore 那邊附上 CSS 檔或貼上；改模板的提案下一批才會有。</p>}
+                    {subject.kind === 'template' && templateId && (
+                        <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-amber-50/60 px-3 py-2">
+                            <span className="text-[11px] text-amber-800">請 Sore 改這份模板（佈局、氣泡、CSS 都行），按套用才換</span>
+                            <AskSoreButton location="decoration" targetId={templateId} targetName={subject.name} compact />
+                        </div>
+                    )}
+                    {subject.kind === 'template' && !templateId && <p className="mt-3 text-[11px] text-slate-400">存好之後可以請 Sore 幫忙改這份模板。</p>}
                 </>)}
 
                 {isGroup && groupIgnoredParts(draft).length > 0 && <p className="mt-4 text-[11px] text-amber-600">群用不到：{groupIgnoredParts(draft).join('、')}</p>}
