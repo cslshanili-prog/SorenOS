@@ -5825,6 +5825,8 @@ export interface AssistantMessage {
   proposal?: AssistantProposal;
   /** user：附的圖（壓過的 data URL）；只有最近幾張會真的送給模型 */
   images?: string[];
+  /** user：附的文字檔（.css／.txt／.json，Key 已換掉），只有最近幾則送全文（utils/assistant/attachments.ts） */
+  files?: Array<{ name: string; text: string; truncated?: boolean }>;
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, ChatsCircle, Gear, ImageSquare, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
+import { CaretLeft, ChatsCircle, FileText, Gear, Paperclip, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { AppID, type AssistantCssProposal, type AssistantMessage, type AssistantPresetBinding, type AssistantProposal, type AssistantSession } from '../types';
 import { DB } from '../utils/db';
@@ -26,6 +26,7 @@ import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import ProposalCard from '../components/assistant/ProposalCard';
 import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
 import { processImage } from '../utils/file';
+import { isSoreImageFile, isSoreTextFile, lineCountOf, readSoreTextFile, SORE_ATTACH_ACCEPT, SORE_MAX_FILES, type SoreFileAttachment } from '../utils/assistant/attachments';
 
 /**
  * AI 助手 Sore（plans/ai-assistant.md）。第 1 批答疑、第 2 批美化 CSS。
@@ -93,6 +94,7 @@ const AssistantApp: React.FC = () => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [proposalBusy, setProposalBusy] = useState('');
     const [pendingImages, setPendingImages] = useState<string[]>([]);
+    const [pendingFiles, setPendingFiles] = useState<SoreFileAttachment[]>([]);
     const [preview, setPreview] = useState<{ proposal: AssistantCssProposal; which: 'after' | 'before' } | null>(null);
     const [widgetPreview, setWidgetPreview] = useState<CustomWidgetTemplate | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -186,31 +188,49 @@ const AssistantApp: React.FC = () => {
         widgetData: () => widgetDataRef.current,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
-    const addImages = async (files: FileList | null) => {
-        const picked = Array.from(files || []).slice(0, MAX_IMAGES - pendingImages.length);
-        if (!picked.length) { if (files?.length) addToast(`一次最多 ${MAX_IMAGES} 張`, 'info'); return; }
+    /** 附件鈕：圖片照舊壓縮，.css／.txt／.json 讀成文字（Key 換掉） */
+    const addAttachments = async (files: FileList | null) => {
+        const all = Array.from(files || []);
+        if (!all.length) return;
+        const images = all.filter(isSoreImageFile);
+        const texts = all.filter(f => !isSoreImageFile(f) && isSoreTextFile(f));
+        const skipped = all.length - images.length - texts.length;
+        if (skipped) addToast('只收圖片和 .css／.txt／.json', 'info');
+        const pickedImages = images.slice(0, MAX_IMAGES - pendingImages.length);
+        const pickedTexts = texts.slice(0, SORE_MAX_FILES - pendingFiles.length);
+        if (images.length > pickedImages.length) addToast(`圖一次最多 ${MAX_IMAGES} 張`, 'info');
+        if (texts.length > pickedTexts.length) addToast(`檔案一次最多 ${SORE_MAX_FILES} 個`, 'info');
         try {
-            const urls = await Promise.all(picked.map(file => processImage(file, { maxWidth: 1280, quality: 0.8, forceJpeg: true })));
-            setPendingImages(prev => [...prev, ...urls].slice(0, MAX_IMAGES));
+            if (pickedImages.length) {
+                const urls = await Promise.all(pickedImages.map(file => processImage(file, { maxWidth: 1280, quality: 0.8, forceJpeg: true })));
+                setPendingImages(prev => [...prev, ...urls].slice(0, MAX_IMAGES));
+            }
+            if (pickedTexts.length) {
+                const keys = [apiConfig?.apiKey, lightLLM?.apiKey, ...apiPresets.map(p => p.config?.apiKey)];
+                const read = await Promise.all(pickedTexts.map(file => readSoreTextFile(file, keys)));
+                if (read.some(f => f.truncated)) addToast('檔案太長，只附了前面一段', 'info');
+                setPendingFiles(prev => [...prev, ...read].slice(0, SORE_MAX_FILES));
+            }
         } catch (err: any) {
-            addToast(err?.message || '圖片讀不進來', 'error');
+            addToast(err?.message || '檔案讀不進來', 'error');
         }
     };
 
-    const send = async (text: string, images: string[] = []) => {
-        const content = text.trim() || (images.length ? '（看圖）' : '');
+    const send = async (text: string, images: string[] = [], files: SoreFileAttachment[] = []) => {
+        const content = text.trim() || (files.length ? '（看附件）' : images.length ? '（看圖）' : '');
         if (!content || running) return;
         if (!api) { setError('還沒有能用的 API：先去「設置 → API 設定」填好，或在記憶宮殿設定副 API。'); return; }
         setError('');
         setInput('');
         if (images.length) setPendingImages([]);
+        if (files.length) setPendingFiles([]);
         const now = Date.now();
         const base: AssistantSession = current || { id: newSessionId(), title: '新對話', messages: [], createdAt: now, updatedAt: now };
-        const userMessage: AssistantMessage = { id: newMessageId(), role: 'user', text: content, at: now, ...(images.length ? { images } : {}) };
+        const userMessage: AssistantMessage = { id: newMessageId(), role: 'user', text: content, at: now, ...(images.length ? { images } : {}), ...(files.length ? { files } : {}) };
         let session: AssistantSession = { ...base, messages: [...base.messages, userMessage], updatedAt: now };
         session.title = sessionTitle(session.messages);
         await persist(session);
-        trackEvent('向Sore提问', { 入口: session.entry ? '捷径' : '桌面', 附图: images.length ? '有' : '没有' });
+        trackEvent('向Sore提问', { 入口: session.entry ? '捷径' : '桌面', 附图: images.length ? '有' : '没有', 附档: files.length ? '有' : '没有' });
 
         const controller = new AbortController();
         abortRef.current = controller;
@@ -426,6 +446,17 @@ const AssistantApp: React.FC = () => {
                                     {m.images.map((url, i) => <img key={i} src={url} alt={`附圖 ${i + 1}`} className="h-24 w-24 rounded-xl object-cover border border-slate-200" />)}
                                 </div>
                             )}
+                            {!!m.files?.length && (
+                                <div className="flex flex-wrap justify-end gap-1" data-sore-user-files>
+                                    {m.files.map((f, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] text-slate-600">
+                                            <FileText size={14} className="text-amber-500" />
+                                            <span className="max-w-[160px] truncate">{f.name}</span>
+                                            <span className="text-slate-400">{lineCountOf(f.text)} 行{f.truncated ? '・截斷' : ''}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             <div className="rounded-2xl rounded-br-md bg-slate-800 text-white px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
                         </div>
                     </div>
@@ -475,20 +506,33 @@ const AssistantApp: React.FC = () => {
                         ))}
                     </div>
                 )}
-                <input ref={imageInputRef} type="file" accept="image/*" multiple className="hidden" aria-label="選圖片給 Sore"
-                    onChange={e => { void addImages(e.target.files); e.target.value = ''; }} />
+                {pendingFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pb-2" data-sore-pending-files>
+                        {pendingFiles.map((f, i) => (
+                            <div key={i} className="relative flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 pl-2 pr-6 py-1.5 text-[11px] text-slate-600">
+                                <FileText size={14} className="text-amber-500" />
+                                <span className="max-w-[150px] truncate">{f.name}</span>
+                                <span className="text-slate-400">{lineCountOf(f.text)} 行</span>
+                                <button type="button" aria-label={`拿掉 ${f.name}`} onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                                    className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-slate-700 text-white flex items-center justify-center"><X size={10} weight="bold" /></button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                <input ref={imageInputRef} type="file" accept={SORE_ATTACH_ACCEPT} multiple className="hidden" aria-label="選圖片或檔案給 Sore"
+                    onChange={e => { void addAttachments(e.target.files); e.target.value = ''; }} />
                 <div className="flex items-end gap-2">
-                    <button type="button" onClick={() => imageInputRef.current?.click()} disabled={running || pendingImages.length >= MAX_IMAGES} aria-label="附圖"
-                        className="shrink-0 h-9 w-9 rounded-full hover:bg-black/5 flex items-center justify-center disabled:opacity-40"><ImageSquare size={20} className="text-slate-500" /></button>
+                    <button type="button" onClick={() => imageInputRef.current?.click()} disabled={running || (pendingImages.length >= MAX_IMAGES && pendingFiles.length >= SORE_MAX_FILES)} aria-label="附圖或檔案"
+                        className="shrink-0 h-9 w-9 rounded-full hover:bg-black/5 flex items-center justify-center disabled:opacity-40"><Paperclip size={20} className="text-slate-500" /></button>
                     <textarea ref={textareaRef} value={input} rows={1} aria-label="問 Sore"
                         placeholder={api ? '問點什麼…' : '先設好 API 才能問我'}
                         onChange={e => setInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input, pendingImages); } }}
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input, pendingImages, pendingFiles); } }}
                         className="flex-1 resize-none max-h-32 rounded-2xl bg-slate-100 px-3.5 py-2 text-[14px] outline-none focus:ring-2 focus:ring-amber-200" />
                     {running ? (
                         <button type="button" onClick={stop} aria-label="停下來" className="shrink-0 h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center"><Stop size={16} weight="fill" className="text-slate-600" /></button>
                     ) : (
-                        <button type="button" onClick={() => void send(input, pendingImages)} disabled={!input.trim() && !pendingImages.length} aria-label="送出" className="shrink-0 h-9 w-9 rounded-full bg-amber-400 flex items-center justify-center disabled:opacity-40"><PaperPlaneRight size={16} weight="fill" className="text-white" /></button>
+                        <button type="button" onClick={() => void send(input, pendingImages, pendingFiles)} disabled={!input.trim() && !pendingImages.length && !pendingFiles.length} aria-label="送出" className="shrink-0 h-9 w-9 rounded-full bg-amber-400 flex items-center justify-center disabled:opacity-40"><PaperPlaneRight size={16} weight="fill" className="text-white" /></button>
                     )}
                 </div>
             </div>
