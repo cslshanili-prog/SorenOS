@@ -151,7 +151,7 @@ interface DecorationTemplate {
 | 1 ✅ | Sore 收文字檔＋「讀取聊天裝扮」（不等 App，同事馬上能用） |
 | 2 ✅ | 裝扮 App 本體：首頁、模板資料與搬遷、編輯頁（預覽、五分頁、全螢幕 CSS）、氣泡工坊嵌進來、桌面圖示改名；寫穿與指定 |
 | 3 ✅ | 聊天裡的快捷入口改版、群聊接上 |
-| 4 | Sore「改裝扮」提案＋知識更新 |
+| 4 ✅ | Sore「改裝扮」提案＋知識更新 |
 
 桌面圖示沿用 `AppID.ThemeMaker`，只改名字和圖示，因為用戶的桌面版面存的是 App id，換 id 會讓圖示從桌面消失。
 
@@ -236,3 +236,27 @@ interface DecorationTemplate {
 - **寫穿對象** `templateBindings`：比 `templateUsage` 多了小號和非主線（`lines[身份鍵].decorationTemplateId`）。
   - 改模板、刪模板都照它；非主線用 `linePatchForChar` 寫。
   - 首頁卡片「N 個聊天在用」也照它算；「指定給…」清單照舊只列主線、非小號。
+
+### 第 4 批（2026-11-15）
+
+- **邏輯**在 `utils/assistant/decorationOps.ts`，工具接在 `utils/assistant/tools.ts`。
+- **讀的工具「讀取裝扮模板」**：不給參數就列出全部模板，寫出誰在用；給 template 回那一份的全部內容，包括每一項佈局和 CSS 全文。
+- **寫的工具「改裝扮」**：template 和 target 只能給一個，出一張提案卡片。
+  - 給 template 是改模板；加 `create: true` 是新建，`from` 可以拿某個聊天現在的樣子當起點。
+  - 給 target 是改某個聊天，可以是角色名、群名或「全局」。
+  - ops 有這些：`layout`、`layout_follow`、`bubble`、`bubble_follow`、`background`（只改底紋；Sore 給不了圖）、`background_no_image`、`background_follow`、`sound`（只收內建音效或 none）、`sound_follow`、`css`、`css_stack`、`css_follow`、`rename`。
+  - 只能用在模板上的：`css`、`css_follow`、`rename`。某個聊天的 CSS 照舊用「寫CSS」。
+  - 只能用在聊天上的：`use_template`、`follow`，而且要單獨一張卡片。
+  - CSS 用 `chat_chrome_char` 的規則檢查。
+  - 群改佈局或背景會直接擋下。全局不能「跟著全局」。
+- **卡片內容**：
+  - 改模板時寫出誰在用，提醒套用後這些聊天會一起變。
+  - 直接改一個綁著模板的聊天時，卡片會寫「會從模板變成自訂」。
+- **套用與還原**：
+  - 改模板：存模板，再用 `templateBindings` 寫穿到所有綁著它的聊天。快照存的是改之前的模板，還原時寫回去再寫穿一次。
+  - 新建模板：還原就把它拿掉；之後才綁上它的聊天，會留著現在的樣子變成自訂。
+  - 改某個聊天：快照存原本的 templateId 和 `templateFrom*` 抽出的草稿。還原時，原本綁著的模板還在就寫回模板，不在了就照草稿寫回。
+- **預覽**：卡片上的「預覽」借用裝扮 App 的 `DecorationPreview`，可以切換「套用後／原本的」看。
+- **捷徑**：裝扮 App 的模板編輯頁，CSS 分頁有「請 Sore 幫忙」（handoff 的 location 是 `'decoration'`），每輪會告訴 Sore 要改哪份模板。
+- **Sore 的規矩**：用戶說「改某某的聊天」時，Sore 要問清楚是改模板，還是只改這一個聊天（會變成自訂）。兩個聊天只差一點點的話，建議新建一份模板。
+- **埋點**：「处理Sore的提案」和「从捷径找Sore」的 `位置` 多了「装扮」。

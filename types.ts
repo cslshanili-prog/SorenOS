@@ -5836,7 +5836,7 @@ export interface AssistantMessage {
 }
 
 /** Sore 的提案卡片（plans/ai-assistant.md 第 3 節）。快照跟著卡片存，「還原」就是把 snapshot 寫回去。 */
-export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal | AssistantWorldbookProposal | AssistantWidgetProposal;
+export type AssistantProposal = AssistantCssProposal | AssistantPresetProposal | AssistantWorldbookProposal | AssistantWidgetProposal | AssistantDecorationProposal;
 
 interface AssistantProposalBase {
   id: string;
@@ -5894,6 +5894,30 @@ export interface AssistantWidgetProposal extends AssistantProposalBase {
   changes: Array<{ label: string; before?: string; after?: string }>;
   /** 套用前的模板（null＝原本沒有，還原＝刪掉，連桌面上那幾份） */
   snapshot?: { template: import('./utils/customWidget').CustomWidgetTemplate | null; at: number };
+}
+
+/**
+ * 聊天裝扮（plans/decoration-app.md 第 7 節，utils/assistant/decorationOps.ts）：改一份模板（或新建），
+ * 或改某個聊天（換模板、跟著全局、直接改成自訂）。
+ */
+export interface AssistantDecorationProposal extends AssistantProposalBase {
+  kind: 'decoration';
+  subject:
+    | { kind: 'template'; templateId: string; isNew: boolean }
+    | { kind: 'target'; target: import('./utils/decorationTemplates').DecorationTargetRef };
+  /** 模板：改好的整份 */
+  template?: import('./utils/decorationTemplates').DecorationTemplate;
+  /** 聊天：換上哪份模板（null＝跟著全局）；沒有這欄就是照 draft 改成自訂 */
+  useTemplateId?: string | null;
+  draft?: import('./utils/decorationTemplates').DecorationDraft;
+  changes: Array<{ label: string; before?: string; after?: string }>;
+  /** 模板：誰在用（改了會跟著變） */
+  usage?: string[];
+  snapshot?: {
+    template?: import('./utils/decorationTemplates').DecorationTemplate | null;
+    target?: { templateId?: string; draft: import('./utils/decorationTemplates').DecorationDraft };
+    at: number;
+  };
 }
 
 /** 預設要設給誰用（場景預設、角色的私聊／電話／見面、群）；presetId 'builtin'＝內建、空字串＝跟著場景預設（角色、群才有） */

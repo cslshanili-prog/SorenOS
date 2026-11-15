@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, ChatsCircle, FileText, Gear, Paperclip, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import { AppID, type AssistantCssProposal, type AssistantMessage, type AssistantPresetBinding, type AssistantProposal, type AssistantSession } from '../types';
+import { AppID, type AssistantCssProposal, type AssistantDecorationProposal, type AssistantMessage, type AssistantPresetBinding, type AssistantProposal, type AssistantSession } from '../types';
 import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
@@ -26,6 +26,11 @@ import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import ProposalCard from '../components/assistant/ProposalCard';
 import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
 import { processImage } from '../utils/file';
+import DecorationPreview from '../components/decoration/DecorationPreview';
+import { applyDecorationProposal, decorationChangedSinceApply, decorationPreviewSim, restoreDecorationProposal, type DecorationData, type DecorationWriter } from '../utils/assistant/decorationOps';
+import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates, saveDecorationTemplates } from '../utils/decorationTemplateStore';
+import type { DecorationTemplate } from '../utils/decorationTemplates';
+import { linePatchForChar } from '../utils/chatLine';
 import { isSoreImageFile, isSoreTextFile, lineCountOf, readSoreTextFile, SORE_ATTACH_ACCEPT, SORE_MAX_FILES, type SoreFileAttachment } from '../utils/assistant/attachments';
 
 /**
@@ -39,8 +44,10 @@ const ENTRY_SUGGESTIONS = ['幫我重新設計一套', '看看現在的 CSS 哪�
 const PRESET_ENTRY_SUGGESTIONS = ['這份預設在幹嘛？幫我看看', '文風改得更口語一點', '加個正則把星號拿掉'];
 const WORLDBOOK_ENTRY_SUGGESTIONS = ['幫我整理一下這組', '補幾條地點和勢力的設定', '把這組掛給角色'];
 const WIDGET_ENTRY_SUGGESTIONS = ['幫我做得更好看', '加一個點一下會變的互動', '看看哪裡跑版了'];
+const DECORATION_ENTRY_SUGGESTIONS = ['整套換成溫柔一點的感覺', '頭像改方形、字大一點', '幫我寫一段頂欄的 CSS'];
 const entrySuggestions = (location: string) => (location === 'preset' ? PRESET_ENTRY_SUGGESTIONS
-    : location === 'worldbook' ? WORLDBOOK_ENTRY_SUGGESTIONS : location === 'widget' ? WIDGET_ENTRY_SUGGESTIONS : ENTRY_SUGGESTIONS);
+    : location === 'worldbook' ? WORLDBOOK_ENTRY_SUGGESTIONS : location === 'widget' ? WIDGET_ENTRY_SUGGESTIONS
+    : location === 'decoration' ? DECORATION_ENTRY_SUGGESTIONS : ENTRY_SUGGESTIONS);
 
 const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主動消息怎麼開？', '怎麼備份資料？', '預設 App 是幹嘛的？'];
 
@@ -80,7 +87,7 @@ const AssistantApp: React.FC = () => {
     const {
         closeApp, openApp, addToast, apiConfig, apiPresets, memoryPalaceConfig, characters, groups, userProfileBase,
         theme, customThemes, updateTheme, updateCharacter, updateGroup, addCustomTheme, removeCustomTheme, updateUserProfile,
-        worldbooks, addWorldbook, updateWorldbook, deleteWorldbooks,
+        worldbooks, addWorldbook, updateWorldbook, deleteWorldbooks, userProfile,
     } = useOS();
     const [sessions, setSessions] = useState<AssistantSession[]>([]);
     const [current, setCurrent] = useState<AssistantSession | null>(null);
@@ -97,6 +104,7 @@ const AssistantApp: React.FC = () => {
     const [pendingFiles, setPendingFiles] = useState<SoreFileAttachment[]>([]);
     const [preview, setPreview] = useState<{ proposal: AssistantCssProposal; which: 'after' | 'before' } | null>(null);
     const [widgetPreview, setWidgetPreview] = useState<CustomWidgetTemplate | null>(null);
+    const [decorationPreview, setDecorationPreview] = useState<{ proposal: AssistantDecorationProposal; which: 'after' | 'before' } | null>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     // 工具和套用都讀最新的那份（轉一輪的中途用戶可能在別處改過）
     const cssDataRef = useRef<CssData>({ theme, characters, groups, customThemes });
@@ -105,6 +113,18 @@ const AssistantApp: React.FC = () => {
     widgetDataRef.current = { templates: theme.launcherCustomWidgets || [], layout: theme.launcherLayout };
     const worldbookDataRef = useRef<WorldbookData>({ worldbooks, characters });
     worldbookDataRef.current = { worldbooks, characters };
+    // 裝扮模板（plans/decoration-app.md 第 7 節）：存在 assets，打開時讀一次，裝扮 App 改了會發事件
+    const decorationTemplatesRef = useRef<DecorationTemplate[]>([]);
+    useEffect(() => {
+        let alive = true;
+        const load = () => void loadDecorationTemplates({ existingBubbles: cssDataRef.current.customThemes, addBubble: addCustomTheme })
+            .then(r => { if (alive) decorationTemplatesRef.current = r.templates; }).catch(() => {});
+        load();
+        window.addEventListener(DECORATION_TEMPLATES_CHANGED_EVENT, load);
+        return () => { alive = false; window.removeEventListener(DECORATION_TEMPLATES_CHANGED_EVENT, load); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    const decorationData = (): DecorationData => ({ ...cssDataRef.current, templates: decorationTemplatesRef.current });
     const sceneDefaultsRef = useRef(userProfileBase.presetSceneDefaults);
     sceneDefaultsRef.current = userProfileBase.presetSceneDefaults;
 
@@ -186,6 +206,7 @@ const AssistantApp: React.FC = () => {
         presetData: loadPresetData,
         worldbookData: () => worldbookDataRef.current,
         widgetData: () => widgetDataRef.current,
+        decorationData,
     }), [apiConfig, lightLLM, apiPresets, characters, groups, userProfileBase.presetSceneDefaults, api?.label]);
 
     /** 附件鈕：圖片照舊壓縮，.css／.txt／.json 讀成文字（Key 換掉） */
@@ -287,6 +308,14 @@ const AssistantApp: React.FC = () => {
         setMounted: (charId, mounted) => updateCharacter(charId, { mountedWorldbooks: mounted }),
     };
 
+    const decorationWriter: DecorationWriter = {
+        saveTemplates: async templates => { decorationTemplatesRef.current = templates; await saveDecorationTemplates(templates); },
+        writeTarget: (target, patch) => (target.kind === 'global' ? updateTheme(patch)
+            : target.kind === 'group' ? updateGroup(target.id, patch)
+                : target.line ? updateCharacter(target.id, prev => linePatchForChar(prev, { charId: target.id, personaKey: target.line }, patch))
+                    : updateCharacter(target.id, patch)),
+    };
+
     const widgetWriter: WidgetWriter = {
         setTemplates: (templates, removePlacedOf) => {
             const layout = widgetDataRef.current.layout;
@@ -310,6 +339,7 @@ const AssistantApp: React.FC = () => {
         const changedSince = proposal.kind === 'css' ? changedSinceApply(proposal, cssData)
             : proposal.kind === 'worldbook' ? worldbookChangedSinceApply(proposal, wbData)
             : proposal.kind === 'widget' ? widgetChangedSinceApply(proposal, widgetDataRef.current)
+            : proposal.kind === 'decoration' ? decorationChangedSinceApply(proposal, decorationData())
             : presetChangedSinceApply(proposal, presetData!);
         if (action === 'restore' && changedSince
             && !window.confirm('套用之後這裡又被改過了，還原會把那些改動一起蓋掉。還是要還原？')) return;
@@ -321,6 +351,8 @@ const AssistantApp: React.FC = () => {
                 next = action === 'apply' ? await applyCssProposal(proposal, cssData, writeCss) : await restoreCssProposal(proposal, cssData, writeCss);
             } else if (proposal.kind === 'widget') {
                 next = action === 'apply' ? await applyWidgetProposal(proposal, widgetDataRef.current, widgetWriter) : await restoreWidgetProposal(proposal, widgetDataRef.current, widgetWriter);
+            } else if (proposal.kind === 'decoration') {
+                next = action === 'apply' ? await applyDecorationProposal(proposal, decorationData(), decorationWriter) : await restoreDecorationProposal(proposal, decorationData(), decorationWriter);
             } else if (proposal.kind === 'worldbook') {
                 next = action === 'apply' ? await applyWorldbookProposal(proposal, wbData, worldbookWriter) : await restoreWorldbookProposal(proposal, wbData, worldbookWriter);
             } else {
@@ -338,6 +370,7 @@ const AssistantApp: React.FC = () => {
             const where = proposal.kind === 'css' ? LOCATION_EVENT_LABEL[proposal.location] || '其他'
                 : proposal.kind === 'worldbook' ? '世界书'
                 : proposal.kind === 'widget' ? '小组件'
+                : proposal.kind === 'decoration' ? '装扮'
                 : proposal.presetKind === 'story' ? '剧情预设' : '通用预设';
             trackEvent('处理Sore的提案', { 动作: action === 'apply' ? '套用' : action === 'restore' ? '还原' : '不要', 位置: where });
         } catch (err: any) {
@@ -416,6 +449,7 @@ const AssistantApp: React.FC = () => {
                             ? '來啦。想讓它哪裡不一樣？說說角色現在哪裡不對勁，我先翻翻這份預設 📜'
                             : current.entry.location === 'worldbook' ? '來啦。要補設定、整理，還是掛給誰？先說好，條目我只能停用不能刪 📚'
                             : current.entry.location === 'widget' ? '來啦。想讓它長怎樣、會做什麼？丟張參考圖也行 🧩'
+                            : current.entry.location === 'decoration' ? '來啦。這份模板想改成什麼感覺？用它的聊天會一起變，先說好 🎀'
                             : '來啦。想改成什麼樣？說個感覺、丟張截圖都行，我先看看現在長怎樣 🎨'}</p>
                         <div className="flex flex-wrap justify-center gap-2 pt-1">
                             {entrySuggestions(current.entry.location).map(s => (
@@ -473,7 +507,8 @@ const AssistantApp: React.FC = () => {
                                     onReject={() => void actOnProposal(t.id, 'reject')}
                                     onRestore={() => void actOnProposal(t.id, 'restore')}
                                     onPreview={canPreviewProposal(t.proposal) ? () => { const p = t.proposal as AssistantCssProposal; setPreview({ proposal: p, which: p.css ? 'after' : 'before' }); }
-                                        : t.proposal.kind === 'widget' ? () => setWidgetPreview((t.proposal as { template: CustomWidgetTemplate }).template) : undefined} />
+                                        : t.proposal.kind === 'widget' ? () => setWidgetPreview((t.proposal as { template: CustomWidgetTemplate }).template)
+                                        : t.proposal.kind === 'decoration' ? () => setDecorationPreview({ proposal: t.proposal as AssistantDecorationProposal, which: 'after' }) : undefined} />
                             ) : (
                                 <div key={t.id} className="text-[11px] text-slate-400 pl-1" data-sore-tool>
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
@@ -561,6 +596,28 @@ const AssistantApp: React.FC = () => {
                         )}
                         <div className="flex-1 min-h-0 px-4 pb-4">
                             {doc ? <iframe title="提案預覽" sandbox="" srcDoc={doc} className="h-full w-full rounded-[24px] border-0 bg-white" /> : null}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {decorationPreview && (() => {
+                const sim = decorationPreviewSim(decorationPreview.proposal, decorationData(), decorationPreview.which);
+                return (
+                    <div className="absolute inset-0 z-40 bg-slate-900/95 backdrop-blur flex flex-col" style={{ paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom, 0px)' }} data-sore-decoration-preview>
+                        <div className="flex items-center gap-2 px-4 py-3 text-white">
+                            <div className="min-w-0 flex-1 text-[13px] font-bold truncate">{decorationPreview.proposal.targetLabel}</div>
+                            <div className="flex rounded-full bg-white/10 p-0.5 text-[12px]">
+                                {(['after', 'before'] as const).map(w => (
+                                    <button key={w} type="button" onClick={() => setDecorationPreview({ ...decorationPreview, which: w })}
+                                        className={`rounded-full px-3 py-1 ${decorationPreview.which === w ? 'bg-white text-slate-800 font-bold' : 'text-white/70'}`}>{w === 'after' ? '套用後' : '原本的'}</button>
+                                ))}
+                            </div>
+                            <button type="button" onClick={() => setDecorationPreview(null)} aria-label="關閉預覽" className="p-1.5 rounded-full hover:bg-white/10"><X size={20} /></button>
+                        </div>
+                        <div className="flex-1 min-h-0 px-3 pb-3">
+                            {sim ? <DecorationPreview simTheme={sim.simTheme} simChar={sim.simChar} customThemes={customThemes} userAvatar={userProfile?.avatar} className="h-full rounded-2xl" />
+                                : <div className="text-center text-white/60 text-[13px] pt-10">這份已經不在了，看不到原本的樣子</div>}
                         </div>
                     </div>
                 );

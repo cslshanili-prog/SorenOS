@@ -6,6 +6,7 @@
  * - 讀取CSS：各處美化有沒有設；給位置就回現在的內容＋可用選擇器＋規矩
  * - 寫CSS／清除CSS：檢查過了出提案卡片，用戶按「套用」才寫（第 2 批）
  * - 讀取聊天裝扮：某個聊天的氣泡、背景、提示音、佈局（plans/decoration-app.md，utils/assistant/decorationRead.ts）
+ * - 讀取裝扮模板：讀；改裝扮：改模板／換某個聊天用的模板／直接改某個聊天，出提案（utils/assistant/decorationOps.ts）
  * - 列出預設／讀取預設／讀取條目：讀；改預設／新建預設／設定預設用途：出提案（第 3 批，utils/assistant/presetOps.ts）
  * - 列出世界書／讀取世界書／讀取角色：讀；改世界書：出提案（第 4 批，utils/assistant/worldbookOps.ts）
  * - 列出小組件／讀取小組件：讀；寫小組件：出提案（第 4 批，utils/assistant/widgetOps.ts）
@@ -26,6 +27,7 @@ import { buildWorldbookProposal, describeCharacter, describeWorldbook, describeW
 import { buildWidgetProposal, describeWidget, describeWidgetList, findWidget, WIDGET_GUIDE, type WidgetData } from './widgetOps';
 import { BUILTIN_PRESET, PRESET_SCENE_LABEL } from '../presetBinding';
 import { describeChatDecoration } from './decorationRead';
+import { buildDecorationProposal, DECORATION_OPS_USAGE, describeDecorationTemplates, type DecorationData } from './decorationOps';
 
 export interface SoreSettingsInput {
     apiConfig: APIConfig;
@@ -52,6 +54,8 @@ export interface SoreToolContext {
     worldbookData?: () => WorldbookData;
     /** 桌面小組件模板與版面（第 4 批）；沒給就不能用小組件工具 */
     widgetData?: () => WidgetData;
+    /** 裝扮模板與各聊天（plans/decoration-app.md 第 7 節）；沒給就不能讀模板、出「改裝扮」 */
+    decorationData?: () => DecorationData;
 }
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -206,12 +210,40 @@ export const SORE_TOOLS: SoreToolDef[] = [
         usage: '參數 {"target": "角色名／群名／id，或「全局」"}。某個聊天現在穿什麼：氣泡主題、背景、提示音、佈局各項的值（標出哪些是這個角色自己的）、CSS 幾行。不給 target＝全局默認＋哪些角色有自己的裝扮。用戶說「這個聊天的樣子」「換佈局」之前先讀。',
         run: async (args, ctx) => (ctx.cssData ? describeChatDecoration(args.target, ctx.cssData()) : { ok: false, content: '這裡不能讀裝扮。' }),
     },
+    ...DECORATION_TOOLS(),
     ...PRESET_TOOLS(),
     ...WORLDBOOK_TOOLS(),
     ...WIDGET_TOOLS(),
 ];
 
 export const findSoreTool = (name: string) => SORE_TOOLS.find(t => t.name === name);
+
+// ─── 聊天裝扮模板（plans/decoration-app.md 第 7 節） ───
+
+function DECORATION_TOOLS(): SoreToolDef[] {
+    const noData = { ok: false, content: '這裡不能讀裝扮模板。' };
+    return [
+        {
+            name: '讀取裝扮模板',
+            usage: '參數 {} 列出裝扮 App 裡的模板（有什麼、誰在用）；{"template": "名字或 id"}＝那份的全部內容（佈局每一項、CSS 全文）。改模板前先讀。',
+            run: async (args, ctx) => (ctx.decorationData ? describeDecorationTemplates(args.template, ctx.decorationData()) : noData),
+        },
+        {
+            name: '改裝扮',
+            usage: `改模板：參數 {"template": "模板名", "ops": [...], "summary": "一句話"}；新建模板加 "create": true（"from": "角色名" 可以拿那個聊天現在的樣子當起點）。改某個聊天：{"target": "角色名／群名／全局", "ops": [...]}，可以換模板、跟著全局，或直接改它的佈局、氣泡、背景、提示音（會變成自訂，脫離模板）。一張卡片只動一份模板或一個聊天；出提案卡片，用戶按「套用」才寫，改模板時用它的聊天全部跟著變。${DECORATION_OPS_USAGE}`,
+            run: async (args, ctx) => {
+                if (!ctx.decorationData) return noData;
+                const built = buildDecorationProposal(args, ctx.decorationData());
+                if ('errors' in built) return { ok: false, content: `沒辦法照做，改好再送：\n${built.errors.slice(0, 8).map(e => `- ${e}`).join('\n')}` };
+                return {
+                    ok: true,
+                    content: `${PROPOSED_NOTE}\n改動：\n${built.draft.changes.slice(0, 12).map(c => `- ${c.label}`).join('\n')}${built.draft.usage?.length ? `\n（用這份的：${built.draft.usage.join('、')}，套用後一起變）` : ''}`,
+                    proposal: built.draft,
+                };
+            },
+        },
+    ];
+}
 
 // ─── 預設（第 3 批） ───
 

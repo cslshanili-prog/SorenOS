@@ -276,7 +276,7 @@ const DecorationApp: React.FC = () => {
                 <DecorationEditor
                     key={view.templateId || (view.target ? targetKey(view.target) : 'new')}
                     subject={view.subject} initial={view.initial} theme={theme} customThemes={customThemes}
-                    previewChar={visibleChars[0]} userAvatar={userProfile?.avatar} busy={busy}
+                    previewChar={visibleChars[0]} userAvatar={userProfile?.avatar} busy={busy} templateId={view.templateId}
                     onSave={saveEditor} onBack={() => setView({ kind: 'home' })}
                     onOpenBubble={(existing, onPicked) => setView({ kind: 'bubble', theme: existing, onPicked, back: view })}
                 />
