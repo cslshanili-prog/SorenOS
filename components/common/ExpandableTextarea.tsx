@@ -1,6 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+/**
+ * 鍵盤彈起來時可見的那一塊（visualViewport）：iOS 的 fixed inset-0 會延伸到鍵盤底下，
+ * 游標那行被蓋住、整頁也滑不動，所以全螢幕編輯框的高度跟著可見區走（plans/decoration-app.md 第 4 節）。
+ */
+const useVisibleViewport = (active: boolean) => {
+    const [box, setBox] = useState<{ top: number; height: number } | null>(null);
+    useEffect(() => {
+        if (!active || typeof window === 'undefined' || !window.visualViewport) return;
+        const vv = window.visualViewport;
+        const update = () => setBox({ top: vv.offsetTop, height: vv.height });
+        update();
+        vv.addEventListener('resize', update);
+        vv.addEventListener('scroll', update);
+        return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); setBox(null); };
+    }, [active]);
+    return box;
+};
+
 type NativeProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'title'>;
 
 /**
@@ -28,6 +46,7 @@ const ExpandableTextarea: React.FC<NativeProps & {
     const [draft, setDraft] = useState(value);
     const ref = useRef<HTMLTextAreaElement>(null);
     const locked = !!(disabled || readOnly);
+    const viewport = useVisibleViewport(open);
     useEffect(() => {
         if (!open) return;
         setDraft(value);
@@ -66,7 +85,8 @@ const ExpandableTextarea: React.FC<NativeProps & {
                 ⤢
             </button>
             {open && createPortal(
-                <div role="dialog" aria-label={title} className={`fixed inset-0 z-[10050] flex flex-col ${dark ? 'bg-[#17161c] text-white' : 'bg-slate-50 text-slate-800'}`}>
+                <div role="dialog" aria-label={title} className={`fixed inset-x-0 top-0 z-[10050] flex flex-col ${dark ? 'bg-[#17161c] text-white' : 'bg-slate-50 text-slate-800'}`}
+                    style={viewport ? { top: viewport.top, height: viewport.height } : { bottom: 0 }}>
                     <div className={`flex items-center gap-2 px-4 border-b ${dark ? 'border-white/10' : 'border-slate-200'}`} style={{ paddingTop: 'calc(0.75rem + var(--safe-top, 0px))', paddingBottom: '0.75rem' }}>
                         {!locked && <button type="button" onClick={() => setOpen(false)} className={`px-2 py-1 text-sm ${dark ? 'text-white/60' : 'text-slate-500'}`}>取消</button>}
                         <div className="min-w-0 flex-1 truncate text-center text-sm font-bold">{title}</div>

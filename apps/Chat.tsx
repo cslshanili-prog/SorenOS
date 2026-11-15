@@ -55,6 +55,8 @@ import { resolveChatTheme } from '../utils/groupChat/theme';
 import ChatHeader from '../components/chat/ChatHeaderShell';
 import CharacterEntryTransition from '../components/chat/CharacterEntryTransition';
 import {resolveDecorationTheme} from '../utils/chatDecoration';
+import { chatRootLook } from '../utils/chatRootLook';
+import { setDecorationHandoff } from '../utils/decorationHandoff';
 import ChatDecorationAnnouncement from '../components/chat/ChatDecorationAnnouncement';
 import ChatDecorationPanel, {DecorationTab} from '../components/chat/ChatDecorationPanel';
 import ChatInputArea from '../components/chat/ChatInputArea';
@@ -3906,46 +3908,8 @@ const Chat: React.FC = () => {
 
     // 動森彩蛋模式（受「聊天聯動」開關控制：關掉則聊天保持原樣式）
     const acnh = osTheme.skin === 'animalcrossing' && osTheme.acnhChatSync !== false;
-    const chatChromeStyle = osTheme.chatChromeStyle || 'soft';
-    const chatBackgroundStyle = osTheme.chatBackgroundStyle || 'plain';
-    const chatRootClass =
-        chatChromeStyle === 'pixel'
-            ? 'flex flex-col h-full bg-[#efe1cf] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
-            : chatChromeStyle === 'flat'
-              ? 'flex flex-col h-full bg-white overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
-              : chatChromeStyle === 'floating'
-                ? 'flex flex-col h-full bg-[#eef2ff] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500'
-                : 'flex flex-col h-full bg-[#f1f5f9] overflow-hidden relative font-sans transition-[background-image,background-color] duration-500';
-    // 令牌還在讀盤、或者圖已經丟了時 resolvedChatBackground 是 undefined，這一幀按「沒設背景」
-    // 的樣式走，免得渲染出一個 url("undefined")。
-    const chatRootStyle: React.CSSProperties = resolvedChatBackground
-        ? {
-            backgroundImage: `url("${resolvedChatBackground}")`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-        }
-        : chatBackgroundStyle === 'grid'
-          ? {
-              backgroundColor: chatChromeStyle === 'pixel' ? '#efe1cf' : '#f8fafc',
-              backgroundImage:
-                  'linear-gradient(rgba(148,163,184,0.14) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.14) 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
-            }
-          : chatBackgroundStyle === 'paper'
-            ? {
-                backgroundColor: chatChromeStyle === 'pixel' ? '#f4e8d9' : '#f9f7f2',
-                backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.12) 1px, transparent 0)',
-                backgroundSize: '16px 16px',
-              }
-            : chatBackgroundStyle === 'mesh'
-              ? {
-                  backgroundColor: '#f8fafc',
-                  backgroundImage:
-                      'radial-gradient(circle at 15% 20%, rgba(59,130,246,0.18), transparent 28%), radial-gradient(circle at 85% 15%, rgba(244,114,182,0.18), transparent 24%), radial-gradient(circle at 60% 75%, rgba(45,212,191,0.18), transparent 26%)',
-                }
-              : {
-                  backgroundImage: 'none',
-                };
+    // 底色、底紋、背景圖跟裝扮 App 的預覽共用一份（utils/chatRootLook.ts）
+    const { className: chatRootClass, style: chatRootStyle } = chatRootLook(osTheme, resolvedChatBackground);
     // 動森彩蛋：淺奶油米黃中心（上下綠條由 header/輸入欄負責），配色參考 Pocket Camp。
     const acnhRootClass = 'flex flex-col h-full overflow-hidden relative font-sans transition-[background-color] duration-500';
     const acnhRootStyle: React.CSSProperties = {
@@ -4972,7 +4936,7 @@ const Chat: React.FC = () => {
                 character={char} theme={baseOsTheme} onSaveBubble={addCustomTheme} themes={[...Object.values(PRESET_THEMES), ...customThemes]}
                 initialTab={decorationTab} updateCharacter={patch=>updateCharacter(char.id,patch)}
                 updateTheme={updateTheme} onBgUpload={handleBgUpload} backgroundUrl={resolvedChatBackground}
-                onOpenWorkshop={()=>{setModalType('none');openApp(AppID.ThemeMaker);}}
+                onOpenWorkshop={()=>{setModalType('none');setDecorationHandoff({target:{kind:'character',id:char.id},from:AppID.Chat});openApp(AppID.ThemeMaker);}}
                 onClose={()=>setModalType('none')}
             />}
 

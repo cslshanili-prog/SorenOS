@@ -71,7 +71,7 @@ export default function ChatDecorationPanel({character:char,theme,themes,updateC
       <h3>氣泡主題</h3>
       {!global&&<button className="chat-decoration-link" onClick={()=>updateCharacter({bubbleStyle:undefined})}>跟隨全局氣泡</button>}
       {<div className="chat-decoration-bubbles">{themes.map(item=><button key={item.id} type="button" aria-pressed={activeBubble?.id===item.id} onClick={()=>global?updateTheme({chatDefaultBubbleStyle:item.id}):updateCharacter({bubbleStyle:item.id})}><span className="chat-decoration-bubble-sample" style={{background:item.user.backgroundColor,color:item.user.textColor,borderRadius:Math.min(item.user.borderRadius,16)}}>你好呀</span><span>{item.name}</span></button>)}</div>}
-      <button className="chat-decoration-link" onClick={onOpenWorkshop}>打開氣泡工坊 · 製作與導入 →</button>
+      <button className="chat-decoration-link" onClick={onOpenWorkshop}>到裝扮 App 做氣泡、存成模板 →</button>
      </>}
      {tab==='background'&&<>
       <h3>聊天背景</h3>

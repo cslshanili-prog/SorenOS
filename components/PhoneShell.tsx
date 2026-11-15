@@ -31,7 +31,8 @@ const Character = lazyApp(() => import('../apps/Character'));
 const Chat = lazyApp(() => import('../apps/Chat'));
 const ChatHub = lazyApp(() => import('../apps/ChatHub'));
 const GroupChat = lazyApp(() => import('../apps/GroupChat'));
-const ThemeMaker = lazyApp(() => import('../apps/ThemeMaker'));
+// 桌面的「氣泡工坊」換成裝扮 App（plans/decoration-app.md），AppID 沿用 ThemeMaker，用戶桌面版面存的是 id
+const ThemeMaker = lazyApp(() => import('../apps/DecorationApp'));
 const Appearance = lazyApp(() => import('../apps/Appearance'));
 const Gallery = lazyApp(() => import('../apps/Gallery'));
 const DateApp = lazyApp(() => import('../apps/DateApp'));

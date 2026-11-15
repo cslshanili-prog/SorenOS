@@ -485,10 +485,21 @@ const PREVIEW_SCENES: PreviewScene[] = [
     }
 ];
 
-const ThemeMaker: React.FC = () => {
-    const { closeApp, addCustomTheme, removeCustomTheme, addToast, characters, updateCharacter, customThemes } = useOS();
+/**
+ * 嵌在裝扮 App 裡（plans/decoration-app.md 第 4 節）：返回／存完回裝扮 App，不跳「套用給角色」
+ * （誰穿哪套改由裝扮模板管）。theme 給了就直接編那套。
+ */
+export interface ThemeMakerEmbed {
+    theme?: ChatTheme;
+    onExit: (savedThemeId?: string) => void;
+}
+
+const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
+    const { closeApp: closeOsApp, addCustomTheme, removeCustomTheme, addToast, characters, updateCharacter, customThemes } = useOS();
     const [initialThemeId] = useState(() => `theme-${Date.now()}`);
-    const [editingTheme, setEditingTheme] = useState<ChatTheme>({ ...DEFAULT_THEME, id: initialThemeId });
+    const [editingTheme, setEditingTheme] = useState<ChatTheme>(() => (embedded?.theme ? cloneTheme(embedded.theme) : { ...DEFAULT_THEME, id: initialThemeId }));
+    const savedIdRef = useRef<string | undefined>(undefined);
+    const closeApp = () => (embedded ? embedded.onExit(savedIdRef.current) : closeOsApp());
     const [activeTab, setActiveTab] = useState<'user' | 'ai' | 'css'>('user');
     const [toolSection, setToolSection] = useState<'base' | 'sticker' | 'avatar'>('base'); 
     const [previewSceneId, setPreviewSceneId] = useState(PREVIEW_SCENES[0].id);
@@ -496,13 +507,13 @@ const ThemeMaker: React.FC = () => {
     const [isPreviewDark, setIsPreviewDark] = useState(false);
     const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
     const [userFollowAi, setUserFollowAi] = useState(false);
-    const [lastSavedTheme, setLastSavedTheme] = useState<ChatTheme>(() => cloneTheme({ ...DEFAULT_THEME, id: initialThemeId }));
+    const [lastSavedTheme, setLastSavedTheme] = useState<ChatTheme>(() => cloneTheme(embedded?.theme || { ...DEFAULT_THEME, id: initialThemeId }));
     const [isDirty, setIsDirty] = useState(false);
     const [pendingDiscardAction, setPendingDiscardAction] = useState<(() => void) | null>(null);
     const [pendingDeleteTheme, setPendingDeleteTheme] = useState<ChatTheme | null>(null);
     const [showLowContrastConfirm, setShowLowContrastConfirm] = useState(false);
     const [pendingSaveExit, setPendingSaveExit] = useState(false);
-    const [isAppliedToPreview, setIsAppliedToPreview] = useState(false);
+    const [isAppliedToPreview, setIsAppliedToPreview] = useState(!!embedded?.theme);
     const [undoStack, setUndoStack] = useState<ChatTheme[]>([]);
     const [redoStack, setRedoStack] = useState<ChatTheme[]>([]);
     const [previewCompareMode, setPreviewCompareMode] = useState<'single' | 'split' | 'toggle'>('single');
@@ -521,7 +532,7 @@ const ThemeMaker: React.FC = () => {
     const [themeLibrarySearch, setThemeLibrarySearch] = useState('');
     
     // Local state for sliders
-    const [paddingVal, setPaddingVal] = useState(12);
+    const [paddingVal, setPaddingVal] = useState(() => (embedded?.theme ? extractPaddingFromCss(embedded.theme.customCss || "") : 12));
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const themeImportInputRef = useRef<HTMLInputElement>(null);
@@ -820,11 +831,14 @@ const ThemeMaker: React.FC = () => {
 
     const doSaveTheme = (exitAfterSave: boolean) => {
         addCustomTheme(editingTheme);
+        savedIdRef.current = editingTheme.id;
         setLastSavedTheme(cloneTheme(editingTheme));
         setIsDirty(false);
         setIsAppliedToPreview(true);
         addToast('已保存到氣泡庫', 'success');
         if (exitAfterSave) { closeApp(); return; }
+        // 嵌在裝扮 App 裡：誰穿這套由模板決定，不跳「套用給角色」
+        if (embedded) return;
         // 保存 ≠ 生效：氣泡要指派給角色才會在聊天裡出現。保存完直接彈「應用到角色」，
         // 預勾選已經在用這套氣泡的角色（再次保存同名主題時不打亂現狀）。
         if (characters.length > 0) {
@@ -1188,7 +1202,7 @@ const ThemeMaker: React.FC = () => {
                         </svg>
                     </button>
                     <div className="flex flex-col">
-                        <h1 className="text-xl font-medium text-slate-700">氣泡工坊</h1>
+                        <h1 className="text-xl font-medium text-slate-700">{embedded ? '氣泡編輯' : '氣泡工坊'}</h1>
                         <div className="text-[10px] flex items-center gap-1.5 text-slate-500">
                             <span className={`inline-flex w-2 h-2 rounded-full ${isAppliedToPreview && !isDirty ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
                             {isAppliedToPreview && !isDirty ? '已保存到氣泡庫' : '有未保存的改動'}

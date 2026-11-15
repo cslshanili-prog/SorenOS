@@ -211,6 +211,8 @@ export interface OSTheme {
   chatSound?: { src: string; volume?: number };
   /** 隱藏頂欄的情緒 buff 欄。 */
   chatHideHeaderBuffs?: boolean;
+  /** 全局默認用的裝扮模板（plans/decoration-app.md）；沒有＝全局自己的設定。改了上面那些聊天欄位就自動解除 */
+  decorationTemplateId?: string;
 }
 
 /** 聊天細節微調字段（外觀 App「聊天細節微調」區塊），可整組按角色覆蓋。
@@ -3344,6 +3346,8 @@ export interface CharacterProfile {
   chatAppearance?: Partial<OSTheme>;
   chatDecorationCssIsolated?: boolean;
   chatBackground?: string;
+  /** 這個聊天用的裝扮模板（plans/decoration-app.md）：模板內容寫穿到上面那些欄位；別處改了裝扮欄位就自動解除變「自訂」 */
+  decorationTemplateId?: string;
   contextLimit?: number;
   /**
    * AI 原文讀取範圍策略：
@@ -3939,6 +3943,8 @@ export interface GroupProfile {
     chatSound?: { src: string; volume?: number };
     /** 提示音是否綁定進白框 CSS（跟著白框分享碼走） */
     chatSoundBound?: boolean;
+    /** 這個群用的裝扮模板（plans/decoration-app.md 第 5 節）：只寫群吃得到的白框 CSS、提示音、我的氣泡 */
+    decorationTemplateId?: string;
     /** HTML 模塊模式：開啟后角色可輸出 [html] 卡片 */
     htmlModeEnabled?: boolean;
     /** HTML 模式自定義提示詞（追加在內置提示詞之後） */
@@ -5189,7 +5195,7 @@ export type LineSettingField =
     | 'allowCharChangeRelationship' | 'tempChatLimits' | 'replyDrafts'
     | 'chatVoiceEnabled' | 'chatVoiceAutoPlay' | 'chatVoiceLang' | 'dateVoiceEnabled' | 'dateVoiceLang' | 'callVoiceLang'
     | 'showThinkingChain' | 'thinkingChainStyle' | 'thinkingChainCustomColors' | 'thinkingChainCustomPrompt' | 'thinkingChainCustomCss'
-    | 'htmlModeEnabled' | 'htmlModeCustomPrompt' | 'chatCollaborationEnabled';
+    | 'htmlModeEnabled' | 'htmlModeCustomPrompt' | 'chatCollaborationEnabled' | 'decorationTemplateId';
 export type LineField = LineStateField | LineSettingField;
 /** 主線以外一條線存的值（CharacterProfile.lines[personaKey]）。 */
 export type CharLineFields = Partial<Pick<CharacterProfile, LineField>>;

@@ -149,7 +149,7 @@ interface DecorationTemplate {
 | 批 | 內容 |
 |---|---|
 | 1 ✅ | Sore 收文字檔＋「讀取聊天裝扮」（不等 App，同事馬上能用） |
-| 2 | 裝扮 App 本體：首頁、模板資料與搬遷、編輯頁（預覽、五分頁、全螢幕 CSS）、氣泡工坊嵌進來、桌面圖示改名；寫穿與指定 |
+| 2 ✅ | 裝扮 App 本體：首頁、模板資料與搬遷、編輯頁（預覽、五分頁、全螢幕 CSS）、氣泡工坊嵌進來、桌面圖示改名；寫穿與指定 |
 | 3 | 聊天裡的快捷入口改版、群聊接上 |
 | 4 | Sore「改裝扮」提案＋知識更新 |
 
@@ -181,3 +181,40 @@ interface DecorationTemplate {
   - 現在裝扮在「＋→聊天裝扮」。
   - 附件怎麼看（別處的 CSS 要對選擇器改寫）。
   - 佈局、氣泡、背景、提示音只能讀不能改。
+
+### 第 2 批（2026-11-15）
+
+- **純邏輯**在 `utils/decorationTemplates.ts`：
+  - 寫穿的 patch：`characterPatchFromDraft`／`themePatchFromDraft`／`groupPatchFromDraft`。都會先清回「跟著全局」再寫模板有的項目；全局沒填的項目回系統默認。
+  - 抽出現在的樣子：`templateFrom*`。抽出來再寫回去，畫面一樣（有測試鎖著）。
+  - 狀態：模板／自訂／跟著全局。
+  - 誰在用：小號不算。
+  - 複製一份、舊預設轉模板。內嵌的氣泡跟已有的一模一樣（不看欄位順序）就沿用。
+  - 匯出成 `sullyos-chat-decoration` v1。
+- **解除綁定**：`detachCharacterPatch`／`detachThemePatch`／`detachGroupPatch` 接在 OSContext 的 `updateCharacter`、`updateLine`（非主線先換成線的視角再判斷）、`updateTheme`、`updateGroup`。
+  - patch 動到裝扮欄位、值真的變了、又沒帶 `decorationTemplateId`，就清掉綁定，變自訂。
+  - 舊的半窗面板、Sore 套 CSS、聊天裡換氣泡都自動算數。
+- **欄位**：`decorationTemplateId` 加在 `OSTheme`、`CharacterProfile`（也進 `LINE_SETTING_FIELDS`，跟著線走）、`GroupProfile`。角色卡分享時剝掉。
+- **儲存**：`utils/decorationTemplateStore.ts`，assets 表 `decoration_templates_v1` 一列 JSON。
+  - 第一次打開就把 `chat_decoration_presets_v1` 搬過來，舊的那列不刪。
+  - 完整和媒體備份會帶上；只備份文字那種不帶，跟其他 assets 一樣。
+- **預覽**：`components/decoration/DecorationPreview.tsx`。
+  - 用 `ChatHeaderShell`、`MessageItem`、`ChatInputArea` 配假訊息。
+  - 根容器的底色、底紋跟聊天共用 `utils/chatRootLook.ts`（Chat.tsx 改用它）。
+  - 外層 `transform` 把 fixed 關在框裡，整塊 `inert`。
+- **App**：`apps/DecorationApp.tsx`。
+  - 桌面圖示沿用 `AppID.ThemeMaker`，名字改「裝扮」，PhoneShell 和 preload 改指到這裡。
+  - 首頁三段。「正在用」點一行可以：換模板、跟著全局、編輯現在的樣子／只改這個聊天、存成模板。
+  - 模板卡片：指定給…、編輯、複製一份、匯出、刪除。刪掉時用它的聊天留著現在的樣子，變自訂。
+  - 指定：取消勾的留著樣子變自訂，勾上的自訂聊天會提醒被換掉。
+  - 匯入：裝扮檔、CSS／TXT、圖片當背景。
+- **編輯頁**：`components/decoration/DecorationEditor.tsx`。
+  - 草稿制，按「存」才寫，沒存要離開會問。
+  - 預覽可以收起來。
+  - 除了全局，每一項都有「跟著全局」開關。
+  - CSS 可以選疊在全局上；群一律疊。
+  - 群只有氣泡、聲音、CSS 三頁。
+- **氣泡**：`ThemeMaker` 多了 `embedded`。返回、存完回裝扮 App，存完自動選上那套，不跳「套用給角色」。
+- **全螢幕編輯框**（`ExpandableTextarea`）高度跟著 `visualViewport` 走，鍵盤彈起來游標那行不會被蓋住。所有用它的地方都受惠。
+- 聊天裡「氣泡」分頁的連結改成打開裝扮 App，並帶上這個角色（`utils/decorationHandoff.ts`），返回回到聊天。
+- **還沒做（第 3 批）**：聊天裡的「＋→聊天裝扮」改成只選模板的小面板、群設定那頭的入口。
