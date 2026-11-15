@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CaretDown, CaretLeft, CaretUp, PencilSimple, Plus } from '@phosphor-icons/react';
+import { CaretDown, CaretLeft, CaretUp, PencilSimple, Plus, SmileyWink } from '@phosphor-icons/react';
 import type { CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
 import DecorationPreview from './DecorationPreview';
 import ChatLayoutSettings from '../chat/ChatLayoutSettings';
@@ -13,8 +13,6 @@ import {
     type ChatBackgroundStyle, type DecorationDraft,
 } from '../../utils/decorationTemplates';
 import { putImageBlob, useBlobRefUrl } from '../../utils/blobRef';
-import type { SoreHandoff } from '../../utils/assistant/handoff';
-import AskSoreButton from '../assistant/AskSoreButton';
 
 /**
  * 裝扮編輯頁（plans/decoration-app.md 第 4 節）：模板、全局、某個角色或群的「自訂」共用。
@@ -41,8 +39,8 @@ interface Props {
     onBack: () => void;
     /** 去氣泡編輯；existing 給了就編那套，存完回來 onPicked 選上 */
     onOpenBubble: (existing: ChatTheme | undefined, onPicked: (id: string) => void) => void;
-    /** 模板已經存過的話，它的 id（給「請 Sore 幫忙」） */
-    templateId?: string;
+    /** 「請 Sore 幫忙」：有改動先存，再打開 Sore 帶上這份（模板或這個聊天） */
+    onAskSore?: (draft: DecorationDraft, name: string | undefined, dirty: boolean) => void | Promise<void>;
 }
 
 const TAB_LABEL: Record<Tab, string> = { layout: '佈局', bubble: '氣泡', background: '背景', sound: '聲音', css: 'CSS' };
@@ -56,7 +54,7 @@ const FollowToggle: React.FC<{ on: boolean; label: string; onChange: (follow: bo
     </label>
 );
 
-const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThemes, previewChar, userAvatar, busy, onSave, onBack, onOpenBubble, templateId }) => {
+const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThemes, previewChar, userAvatar, busy, onSave, onBack, onOpenBubble, onAskSore }) => {
     const [draft, setDraft] = useState<DecorationDraft>(() => structuredClone(initial));
     const [name, setName] = useState(subject.kind === 'template' ? subject.name : '');
     const [tab, setTab] = useState<Tab>(subject.kind === 'group' ? 'bubble' : 'layout');
@@ -84,9 +82,6 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
 
     const tabs: Tab[] = isGroup ? ['bubble', 'sound', 'css'] : ['layout', 'bubble', 'background', 'sound', 'css'];
     const title = subject.kind === 'template' ? '編輯模板' : subject.kind === 'global' ? '全局默認' : subject.kind === 'character' ? `${subject.char.name} · 自訂` : `群「${subject.group.name}」· 自訂`;
-    const assist: Omit<SoreHandoff, 'from'> | undefined = isGlobal ? { location: 'chat_chrome_global' }
-        : subject.kind === 'character' ? { location: 'chat_chrome_char', targetId: subject.char.id }
-            : subject.kind === 'group' ? { location: 'chat_chrome_group', targetId: subject.group.id } : undefined;
 
     const layoutTheme: OSTheme = { ...theme, ...LAYOUT_DEFAULTS, ...(draft.layout || {}), chatBackgroundStyle: draft.background?.style || theme.chatBackgroundStyle };
     const changeLayout = (patch: Partial<OSTheme>) => {
@@ -116,6 +111,13 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                     <button type="button" onClick={() => setShowPreview(v => !v)} aria-label={showPreview ? '收起預覽' : '展開預覽'} className="p-2 rounded-full hover:bg-black/5 text-slate-500">
                         {showPreview ? <CaretUp size={18} weight="bold" /> : <CaretDown size={18} weight="bold" />}
                     </button>
+                    {onAskSore && (
+                        <button type="button" disabled={busy} onClick={() => void onAskSore(draft, subject.kind === 'template' ? (name.trim() || '我的裝扮') : undefined, dirty)}
+                            aria-label="請 Sore 幫忙" data-ask-sore="decoration"
+                            className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[12px] font-bold text-amber-700 disabled:opacity-40">
+                            <SmileyWink size={14} weight="fill" /> Sore
+                        </button>
+                    )}
                     <button type="button" onClick={() => void save()} disabled={busy || !dirty} className="rounded-full bg-violet-500 px-4 py-1.5 text-[13px] font-bold text-white disabled:opacity-40">存</button>
                 </div>
             </div>
@@ -124,6 +126,13 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                 <div className="shrink-0 border-b border-slate-200 bg-white">
                     <DecorationPreview simTheme={simTheme} simChar={simChar} customThemes={customThemes} userAvatar={userAvatar} className="h-[38vh] min-h-[240px]" />
                     {isGroup && <div className="px-3 py-1 text-[10px] text-slate-400">群的預覽用私聊畫面示意：群只套 CSS、聲音、我的氣泡</div>}
+                </div>
+            )}
+
+            {onAskSore && (
+                <div className="shrink-0 flex items-center justify-between gap-2 bg-amber-50/70 px-4 py-1.5 text-[11px] text-amber-800">
+                    <span className="min-w-0 truncate">說想要的樣子，Sore 寫好給你看，按套用才換{dirty ? '（會先幫你存起來）' : ''}</span>
+                    <button type="button" disabled={busy} onClick={() => void onAskSore(draft, subject.kind === 'template' ? (name.trim() || '我的裝扮') : undefined, dirty)} className="shrink-0 font-bold underline-offset-2 hover:underline">請 Sore 幫忙 →</button>
                 </div>
             )}
 
@@ -203,14 +212,7 @@ const DecorationEditor: React.FC<Props> = ({ subject, initial, theme, customThem
                         </label>
                     )}
                     {isGroup && draft.css !== undefined && <p className="text-[11px] text-slate-400 mb-3">群的 CSS 一律疊在全局 CSS 之上。</p>}
-                    {(isGlobal || draft.css !== undefined) && <ChromeCssEditor value={draft.css || ''} onChange={css => set({ css })} assist={assist} />}
-                    {subject.kind === 'template' && templateId && (
-                        <div className="mt-3 flex items-center justify-between gap-2 rounded-2xl bg-amber-50/60 px-3 py-2">
-                            <span className="text-[11px] text-amber-800">請 Sore 改這份模板（佈局、氣泡、CSS 都行），按套用才換</span>
-                            <AskSoreButton location="decoration" targetId={templateId} targetName={subject.name} compact />
-                        </div>
-                    )}
-                    {subject.kind === 'template' && !templateId && <p className="mt-3 text-[11px] text-slate-400">存好之後可以請 Sore 幫忙改這份模板。</p>}
+                    {(isGlobal || draft.css !== undefined) && <ChromeCssEditor value={draft.css || ''} onChange={css => set({ css })} />}
                 </>)}
 
                 {isGroup && groupIgnoredParts(draft).length > 0 && <p className="mt-4 text-[11px] text-amber-600">群用不到：{groupIgnoredParts(draft).join('、')}</p>}

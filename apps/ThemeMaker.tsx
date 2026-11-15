@@ -1,3 +1,4 @@
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { avatarDecorationImageStyle } from '../utils/anniversaryGifts';
 
 
@@ -520,8 +521,8 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
     const [previewToggleTarget, setPreviewToggleTarget] = useState<'A' | 'B'>('A');
     const [lastUsableCss, setLastUsableCss] = useState('');
     const [isPreviewFullscreen, setIsPreviewFullscreen] = useState(false);
-    const [editorPanelOpen, setEditorPanelOpen] = useState(true);
-    const [editorBubblePos, setEditorBubblePos] = useState<{ x: number; y: number } | null>(null);
+    // 預覽在上、編輯在下（不再用浮在預覽上的半屏面板）；預覽可以收起來讓編輯區佔滿
+    const [previewCollapsed, setPreviewCollapsed] = useState(false);
     const [playingVoicePreviewKey, setPlayingVoicePreviewKey] = useState<string | null>(null);
     const [voicePreviewProgress, setVoicePreviewProgress] = useState(0);
     // 保存後的「應用到角色」彈層：勾選 = 該角色 bubbleStyle 指向本主題，取消勾選 = 回落默認氣泡
@@ -539,7 +540,6 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
     const decorationInputRef = useRef<HTMLInputElement>(null);
     const avatarDecoInputRef = useRef<HTMLInputElement>(null);
     const cssTextareaRef = useRef<HTMLTextAreaElement>(null);
-    const editorBubbleDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
 
     const activeStyle = editingTheme[activeTab === 'css' ? 'user' : activeTab];
     // 語音消息只出現在角色側；無論當前在編輯哪個 tab，語音條控件都寫到 ai，
@@ -550,40 +550,6 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
     const HIGH_BG_IMAGE_OPACITY = 0.75;
     const cssValidation = useMemo(() => validateCustomCss(editingTheme.customCss || ''), [editingTheme.customCss]);
 
-    // 與「外觀 → 聊天界面」保持同一套交互：圓形設置鈕可拖動，輕點收起/展開懸浮編輯面板。
-    const EDITOR_BUBBLE_SIZE = 48;
-    const clampEditorBubble = (x: number, y: number) => ({
-        x: Math.max(8, Math.min(window.innerWidth - EDITOR_BUBBLE_SIZE - 8, x)),
-        y: Math.max(56, Math.min(window.innerHeight - EDITOR_BUBBLE_SIZE - 24, y)),
-    });
-    const onEditorBubblePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        editorBubbleDragRef.current = {
-            startX: event.clientX,
-            startY: event.clientY,
-            originX: rect.left,
-            originY: rect.top,
-            moved: false,
-        };
-        event.currentTarget.setPointerCapture(event.pointerId);
-    };
-    const onEditorBubblePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-        const drag = editorBubbleDragRef.current;
-        if (!drag) return;
-        const dx = event.clientX - drag.startX;
-        const dy = event.clientY - drag.startY;
-        if (!drag.moved && Math.hypot(dx, dy) < 6) return;
-        drag.moved = true;
-        setEditorBubblePos(clampEditorBubble(drag.originX + dx, drag.originY + dy));
-    };
-    const onEditorBubblePointerUp = () => {
-        const drag = editorBubbleDragRef.current;
-        editorBubbleDragRef.current = null;
-        if (drag && !drag.moved) {
-            setEditorPanelOpen(open => !open);
-            trackEvent('开关气泡工坊悬浮设置');
-        }
-    };
 
     // 預覽不播放真實音頻，只復刻真實語音條的 8 秒播放態，便於檢查播放背景、按鈕和波形顏色。
     const toggleVoicePreview = (key: string) => {
@@ -1279,7 +1245,7 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
             </section>
 
             {/* Preview Area (Realistic Chat Row) */}
-            <div className={`${isPreviewFullscreen ? 'fixed inset-0 z-[120]' : 'flex-1 min-h-0'} relative overflow-y-auto flex flex-col p-4 pb-20 justify-start sm:justify-center items-center gap-4 no-scrollbar ${isPreviewDark ? 'bg-slate-900' : 'bg-slate-100'}`}>
+            <div className={`${isPreviewFullscreen ? 'fixed inset-0 z-[120] pb-20' : previewCollapsed ? 'hidden' : 'h-[40vh] shrink-0 pb-8'} relative overflow-y-auto flex flex-col p-4 justify-start sm:justify-center items-center gap-4 no-scrollbar ${isPreviewDark ? 'bg-slate-900' : 'bg-slate-100'}`} data-bubble-preview>
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                 {currentScene.wallpaper && (
                     <div className="absolute inset-0" style={{ background: currentScene.wallpaper, opacity: isPreviewDark ? 0.9 : 0.45 }} />
@@ -1369,37 +1335,10 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
                 <div className={`text-[10px] absolute bottom-2 ${isPreviewDark ? 'text-slate-400' : 'text-slate-500'}`}>A 為當前編輯，B 為上次保存版本</div>
             </div>
 
-            {/* 與外觀 App 相同的懸浮設置鈕：點按開關面板，拖動避開想觀察的氣泡。 */}
-            {!isPreviewFullscreen && (
-                <button
-                    type="button"
-                    onPointerDown={onEditorBubblePointerDown}
-                    onPointerMove={onEditorBubblePointerMove}
-                    onPointerUp={onEditorBubblePointerUp}
-                    onPointerCancel={() => { editorBubbleDragRef.current = null; }}
-                    className={`fixed z-[136] flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all active:scale-90 ${editorPanelOpen ? 'bg-primary text-white ring-4 ring-primary/20' : 'bg-white/95 text-primary ring-1 ring-primary/30 backdrop-blur'}`}
-                    style={editorBubblePos
-                        ? { left: editorBubblePos.x, top: editorBubblePos.y, touchAction: 'none' }
-                        : { right: 12, top: 'calc(var(--safe-top, 0px) + 35vh)', touchAction: 'none' }}
-                    aria-label={editorPanelOpen ? '收起氣泡編輯面板' : '展開氣泡編輯面板'}
-                    title="點按開關設置 · 按住拖動"
-                >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-6 w-6" aria-hidden="true">
-                        <path strokeLinecap="round" d="M4 7h10M18 7h2M4 17h2M10 17h10M8 4v6M8 14v6M16 4v6M16 14v6" />
-                    </svg>
-                </button>
-            )}
-
             {/* Editor Controls：懸浮在完整預覽上方，不再擠佔一半預覽高度。 */}
-            {!isPreviewFullscreen && editorPanelOpen && (
-            <div
-                className="fixed left-1/2 z-[135] flex w-[94%] max-w-md -translate-x-1/2 flex-col overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 shadow-[0_14px_50px_rgba(15,23,42,0.24)] ring-1 ring-slate-100 backdrop-blur-xl"
-                style={{
-                    bottom: 'calc(14px + var(--safe-bottom, 0px))',
-                    height: 'min(62vh, 620px)',
-                    maxHeight: 'calc(100dvh - 96px - var(--safe-top, 0px) - var(--safe-bottom, 0px))',
-                }}
-            >
+            {!isPreviewFullscreen && (
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden border-t border-slate-200 bg-white" data-bubble-editor
+                style={{ paddingBottom: 'var(--safe-bottom, 0px)' }}>
                 {/* Main Tabs (User / AI / CSS) */}
                 <div className="flex items-center gap-3 px-5 pt-4 pb-2">
                     <div className="flex min-w-0 flex-1 gap-5 overflow-x-auto no-scrollbar">
@@ -1411,10 +1350,10 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
                     </div>
                     <button
                         type="button"
-                        onClick={() => setEditorPanelOpen(false)}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-lg leading-none text-slate-400 transition active:scale-90"
-                        aria-label="收起氣泡編輯面板"
-                    >×</button>
+                        onClick={() => setPreviewCollapsed(v => !v)}
+                        className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-500 transition active:scale-95"
+                        aria-label={previewCollapsed ? '展開預覽' : '收起預覽'}
+                    >{previewCollapsed ? '展開預覽' : '收起預覽'}</button>
                 </div>
 
                 <div className="px-8 pb-2 flex items-center gap-2">
@@ -1467,13 +1406,13 @@ const ThemeMaker: React.FC<{ embedded?: ThemeMakerEmbed }> = ({ embedded }) => {
                                 <AskSoreButton compact location="bubble_theme"
                                     {...(customThemes.some(t => t.id === editingTheme.id) ? { targetId: editingTheme.id } : { targetName: editingTheme.name || 'Sore 做的氣泡' })} />
                             </div>
-                            <textarea 
-                                ref={cssTextareaRef}
-                                value={editingTheme.customCss || ''} 
-                                onChange={(e) => updateTheme(prev => ({ ...prev, customCss: e.target.value }))}
-                                placeholder="/* 在這裡輸入 CSS 代碼 */"
-                                className="flex-1 w-full bg-slate-800 text-slate-300 font-mono text-xs p-4 rounded-xl resize-none shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
-                                spellCheck={false}
+                            <ExpandableTextarea
+                                inlineRef={cssTextareaRef}
+                                title="氣泡 CSS" mono tone="dark" rows={16}
+                                value={editingTheme.customCss || ''}
+                                onChange={value => updateTheme(prev => ({ ...prev, customCss: value }))}
+                                placeholder="/* 在這裡輸入 CSS 代碼；右上 ⤢ 全螢幕編輯 */"
+                                className="w-full min-h-[40vh] bg-slate-800 text-slate-300 font-mono text-xs p-4 rounded-xl resize-y shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"
                             />
 
                             {!cssValidation.isValid && (

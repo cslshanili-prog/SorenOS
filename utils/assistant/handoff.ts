@@ -38,8 +38,10 @@ export const nonCssEntryLabel = (handoff: SoreHandoff): string | null => {
 };
 
 export const buildSoreEntryNote = (entry: { location: string; target: string; label: string }) => (entry.location === 'decoration' ? [
-    `用戶在裝扮 App 編輯「${entry.label}」時按了「請 Sore 幫忙」。`,
-    entry.target ? `要改的模板：template="${entry.target}"。先用「讀取裝扮模板」看現在的樣子，再用「改裝扮」出提案（改了用它的聊天都會跟著變）。` : '這份模板還沒存過；要做新的就用「改裝扮」加 create: true。',
+    `用戶在裝扮 App 編輯「${entry.label}」時按了「請 Sore 幫忙」（畫面上的改動已經先存好了）。`,
+    entry.target.startsWith('target:')
+        ? `要改的是這個聊天自己的裝扮：target="${entry.target.slice(7)}"。先用「讀取聊天裝扮」看現在的樣子；改佈局、氣泡、底紋、提示音用「改裝扮」（target 填上面那個），改 CSS 用「寫CSS」（${entry.target.slice(7) === '全局' ? 'location="chat_chrome_global"' : '角色用 chat_chrome_char、群用 chat_chrome_group'}）。`
+        : `要改的模板：template="${entry.target.replace(/^template:/, '')}"。先用「讀取裝扮模板」看現在的樣子，再用「改裝扮」出提案（改了用它的聊天都會跟著變；CSS 也用「改裝扮」的 css 操作）。`,
 ].join('\n') : entry.location === 'worldbook' ? [
     `用戶在「${entry.label}」按了「請 Sore 幫忙」。`,
     entry.target ? `要改的世界書組：group="${entry.target}"。用戶沒特別說改哪組的時候，就是這組。開始前先用「讀取世界書」看這組現在的樣子。` : '用戶在世界書 App，可能要開新的一組；先「列出世界書」看看有哪些。',

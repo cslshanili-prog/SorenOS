@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CaretLeft, CaretRight, Check, CopySimple, DownloadSimple, PencilSimple, Plus, ShareNetwork, Trash, UploadSimple, UsersThree } from '@phosphor-icons/react';
+import { CaretDown, CaretLeft, CaretRight, Check, CopySimple, DownloadSimple, PencilSimple, Plus, ShareNetwork, Trash, UploadSimple, UsersThree } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import type { AppID, CharacterProfile, ChatTheme, GroupProfile } from '../types';
+import { AppID, type CharacterProfile, type ChatTheme, type GroupProfile } from '../types';
 import ThemeMaker from './ThemeMaker';
 import DecorationEditor, { type EditorSubject } from '../components/decoration/DecorationEditor';
 import { PRESET_THEMES } from '../components/chat/ChatConstants';
@@ -15,6 +15,7 @@ import {
 } from '../utils/decorationTemplates';
 import { loadDecorationTemplates, saveDecorationTemplates } from '../utils/decorationTemplateStore';
 import { takeDecorationHandoff } from '../utils/decorationHandoff';
+import { setSoreHandoff } from '../utils/assistant/handoff';
 import { linePatchForChar } from '../utils/chatLine';
 import { migrateChatThemeBlobRefs, migrateDataUrlToRef } from '../utils/blobRef';
 import { shareOrDownloadFile } from '../utils/shareExport';
@@ -42,6 +43,8 @@ const DecorationApp: React.FC = () => {
     const [loaded, setLoaded] = useState(false);
     const [view, setView] = useState<View>({ kind: 'home' });
     const [busy, setBusy] = useState(false);
+    // 「正在用」角色一多就很長：預設超過 6 行就收起來，只留全局那一行
+    const [usingOpen, setUsingOpen] = useState<boolean | null>(null);
     const [targetSheet, setTargetSheet] = useState<DecorationTargetRef | null>(null);
     const [assignFor, setAssignFor] = useState<DecorationTemplate | null>(null);
     const [deleting, setDeleting] = useState<DecorationTemplate | null>(null);
@@ -136,6 +139,39 @@ const DecorationApp: React.FC = () => {
         setBusy(true);
         try { await work(); } catch (error: any) { addToast(error?.message || '沒成功，再試一次', 'error'); } finally { setBusy(false); }
     };
+
+    /** 編輯頁的「請 Sore 幫忙」：有改動先存（新模板就建起來），再打開 Sore 帶上這份 */
+    const askSore = (draft: DecorationDraft, name: string | undefined, dirty: boolean) => run(async () => {
+        if (view.kind !== 'edit') return;
+        let targetId: string;
+        let label: string;
+        if (view.subject.kind === 'template') {
+            const now = Date.now();
+            let tpl = view.templateId ? templates.find(t => t.id === view.templateId) : undefined;
+            if (!tpl) {
+                tpl = makeTemplate(name || '我的裝扮', draft, now);
+                await persist([...templates, tpl]);
+            } else if (dirty) {
+                const updated: DecorationTemplate = { ...structuredClone(draft), id: tpl.id, name: name || tpl.name, createdAt: tpl.createdAt, updatedAt: now };
+                await persist(templates.map(t => (t.id === updated.id ? updated : t)));
+                await writeThrough(updated);
+                tpl = updated;
+            }
+            targetId = `template:${tpl.id}`;
+            label = tpl.name;
+        } else {
+            const target = view.target!;
+            if (dirty) {
+                if (target.kind === 'global') await updateTheme(themePatchFromDraft(draft));
+                else if (target.kind === 'character') await updateCharacter(target.id, characterPatchFromDraft(draft));
+                else await updateGroup(target.id, groupPatchFromDraft(draft));
+            }
+            targetId = target.kind === 'global' ? 'target:全局' : `target:${target.id}`;
+            label = nameOf(target);
+        }
+        setSoreHandoff({ location: 'decoration', targetId, targetName: label, from: AppID.ThemeMaker });
+        openApp(AppID.Assistant);
+    });
 
     const saveEditor = (draft: DecorationDraft, name?: string) => run(async () => {
         if (view.kind !== 'edit') return;
@@ -276,7 +312,7 @@ const DecorationApp: React.FC = () => {
                 <DecorationEditor
                     key={view.templateId || (view.target ? targetKey(view.target) : 'new')}
                     subject={view.subject} initial={view.initial} theme={theme} customThemes={customThemes}
-                    previewChar={visibleChars[0]} userAvatar={userProfile?.avatar} busy={busy} templateId={view.templateId}
+                    previewChar={visibleChars[0]} userAvatar={userProfile?.avatar} busy={busy} onAskSore={askSore}
                     onSave={saveEditor} onBack={() => setView({ kind: 'home' })}
                     onOpenBubble={(existing, onPicked) => setView({ kind: 'bubble', theme: existing, onPicked, back: view })}
                 />
@@ -318,12 +354,30 @@ const DecorationApp: React.FC = () => {
 
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-6" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 2rem)' }}>
                 <section>
-                    <h2 className="mb-2 px-1 text-[12px] font-bold text-slate-500">正在用</h2>
-                    <div className="rounded-2xl bg-white border border-slate-100 divide-y divide-slate-100 overflow-hidden">
-                        {row({ kind: 'global' }, '全局默認', '沒有自己設定的聊天都用這套')}
-                        {visibleChars.map(c => row({ kind: 'character', id: c.id }, c.name, undefined, c.avatar || ''))}
-                        {groups.map(g => row({ kind: 'group', id: g.id }, g.name, '群只套 CSS、聲音、我的氣泡', g.avatar || ''))}
-                    </div>
+                    {(() => {
+                        const chatCount = visibleChars.length + groups.length;
+                        const open = usingOpen ?? chatCount <= 5;
+                        return (<>
+                            <button type="button" onClick={() => setUsingOpen(!open)} aria-expanded={open} data-decoration-using-toggle
+                                className="mb-2 flex w-full items-center justify-between px-1 text-left">
+                                <h2 className="text-[12px] font-bold text-slate-500">正在用</h2>
+                                <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                                    {open ? '收起' : `展開 ${chatCount} 個聊天`}
+                                    <CaretDown size={13} weight="bold" className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                                </span>
+                            </button>
+                            <div className="rounded-2xl bg-white border border-slate-100 divide-y divide-slate-100 overflow-hidden">
+                                {row({ kind: 'global' }, '全局默認', '沒有自己設定的聊天都用這套')}
+                                {open && visibleChars.map(c => row({ kind: 'character', id: c.id }, c.name, undefined, c.avatar || ''))}
+                                {open && groups.map(g => row({ kind: 'group', id: g.id }, g.name, '群只套 CSS、聲音、我的氣泡', g.avatar || ''))}
+                                {!open && chatCount > 0 && (
+                                    <button type="button" onClick={() => setUsingOpen(true)} className="w-full px-4 py-2.5 text-left text-[12px] text-slate-400">
+                                        還有 {visibleChars.length} 個角色{groups.length ? `、${groups.length} 個群` : ''}…
+                                    </button>
+                                )}
+                            </div>
+                        </>);
+                    })()}
                 </section>
 
                 <section>

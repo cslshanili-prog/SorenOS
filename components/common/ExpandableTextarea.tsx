@@ -41,7 +41,9 @@ const ExpandableTextarea: React.FC<NativeProps & {
     buttonCorner?: 'top' | 'bottom';
     /** 外層那個 div 的 class（版面要撐滿時用） */
     wrapperClassName?: string;
-}> = ({ value, onChange, title, rows = 3, maxLength, className, tone = 'light', mono, onCommit, buttonCorner = 'top', wrapperClassName, disabled, readOnly, placeholder, ...rest }) => {
+    /** 原本那個小框的 ref（要在游標處插入文字的地方用，例如氣泡編輯的 CSS 片段） */
+    inlineRef?: React.Ref<HTMLTextAreaElement>;
+}> = ({ value, onChange, title, rows = 3, maxLength, className, tone = 'light', mono, onCommit, buttonCorner = 'top', wrapperClassName, disabled, readOnly, placeholder, inlineRef, ...rest }) => {
     const [open, setOpen] = useState(false);
     const [draft, setDraft] = useState(value);
     const ref = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +72,7 @@ const ExpandableTextarea: React.FC<NativeProps & {
             <textarea
                 {...monoProps}
                 {...rest}
+                ref={inlineRef}
                 value={value}
                 onChange={e => onChange(clip(e.target.value))}
                 placeholder={placeholder}
