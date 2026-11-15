@@ -2777,7 +2777,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     void refreshMessages(r.groupId);
                 }
             }} />
-            {modalType === 'settings' && (
+            {/* 掛到 body：群聊頁在 .sully-chat-root 裡，白框 CSS 寫 `.sully-chat-root button` 會連設定頁一起染（私聊設定同理） */}
+            {modalType === 'settings' && createPortal(
             <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" onClick={e => e.stopPropagation()}>
                 {/* 頁首：返回（不存這頁的文字欄位；成員、禁言這些本來就即時生效）／保存 */}
                 <div className="shrink-0 bg-white/85 backdrop-blur-md border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -3354,8 +3355,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 <button onClick={handleUpdateGroupInfo} className="mt-4 w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg shadow-violet-200 active:scale-[0.99]">保存修改</button>
                 </div>
                 </div>
-            </div>
-            )}
+            </div>,
+            document.body)}
 
             {/* Message Options Modal */}
             <Modal isOpen={modalType === 'message-options'} title="消息操作" onClose={() => { setModalType('none'); setSelectedMessage(null); }}>

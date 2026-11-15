@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { isPersonaLinesEnabled } from '../../utils/devDebug';
 import { lineArgOf } from '../../utils/chatLine';
 import { CaretLeft, CalendarBlank } from '@phosphor-icons/react';
@@ -184,7 +185,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         });
     };
 
-    return (
+    // 掛到 body 上：聊天頁本身在 .sully-chat-root 裡，白框 CSS 常寫 `.sully-chat-root button {…}`，
+    // 設定頁留在裡面的話開關、返回鍵都會被染成同一個樣子（開關看不出開還是關）。
+    return createPortal(
         <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div className="shrink-0 bg-white/85 backdrop-blur-md border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
@@ -418,7 +421,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                     )}
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 };
 
