@@ -221,3 +221,7 @@ Soren 照這個思路，但：
 **埋點**：`处理Sore的提案`、`从捷径找Sore` 的位置加上 世界书、小组件。
 **測試**：`utils/assistant/worldbook.test.ts`、`utils/assistant/widget.test.ts`。
 
+
+## 13. 之後補的
+
+- 2026-11-15：附件鈕也收 .css／.txt／.json 檔，新增讀的工具「讀取聊天裝扮」。詳見 [`decoration-app.md`](./decoration-app.md) 第 10 節。

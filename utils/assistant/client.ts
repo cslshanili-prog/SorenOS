@@ -17,18 +17,22 @@ export interface SoreEndpoint {
 const endpoint = (baseUrl: string) => `${baseUrl.trim().replace(/\/+$/, '')}/chat/completions`;
 
 /** 把錯誤訊息裡的 Key（整串或前後一段）換掉 */
-export const scrubSecret = (message: string, apiKey?: string): string => {
-    let text = String(message || '');
-    const key = (apiKey || '').trim();
-    if (key.length >= 6) {
+/** 把 Key 換成 [Key]：給的那幾把整把或頭尾 12 碼，加上常見的 sk-／ak-／key- 開頭長串。不截斷長度 */
+export const scrubKeys = (input: string, apiKeys: Array<string | undefined> = []): string => {
+    let text = String(input || '');
+    for (const raw of apiKeys) {
+        const key = (raw || '').trim();
+        if (key.length < 6) continue;
         text = text.split(key).join('[Key]');
         // 中轉常只印前幾碼或後幾碼
         if (key.length >= 16) {
             text = text.split(key.slice(0, 12)).join('[Key]').split(key.slice(-12)).join('[Key]');
         }
     }
-    return text.replace(/\b(sk|ak|key)-[A-Za-z0-9_\-]{12,}/g, '[Key]').slice(0, 400);
+    return text.replace(/\b(sk|ak|key)-[A-Za-z0-9_\-]{12,}/g, '[Key]');
 };
+
+export const scrubSecret = (message: string, apiKey?: string): string => scrubKeys(message, [apiKey]).slice(0, 400);
 
 /** 只剝有標籤的思考區塊；也收「只有結尾 </think>」那種（前面整段都是思考） */
 export const stripThinkTags = (text: string): string => {

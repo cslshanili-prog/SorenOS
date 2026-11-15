@@ -51,4 +51,5 @@ export const buildSoreEntryNote = (entry: { location: string; target: string; la
     `用戶在「${entry.label}」的編輯頁按了「請 Sore 幫忙」。`,
     `要改的位置：location="${entry.location}"${entry.target ? `，target="${entry.target}"` : ''}。用戶沒特別說改哪裡的時候，就是改這裡。`,
     '開始前先用「讀取CSS」看這裡現在的內容。',
+    ...(entry.location.startsWith('chat_chrome_') ? ['要知道這個聊天整套穿什麼（氣泡、佈局、背景）就用「讀取聊天裝扮」。'] : []),
 ].join('\n'));

@@ -5,6 +5,7 @@
  * - 讀說明：給用戶看的專題說明
  * - 讀取CSS：各處美化有沒有設；給位置就回現在的內容＋可用選擇器＋規矩
  * - 寫CSS／清除CSS：檢查過了出提案卡片，用戶按「套用」才寫（第 2 批）
+ * - 讀取聊天裝扮：某個聊天的氣泡、背景、提示音、佈局（plans/decoration-app.md，utils/assistant/decorationRead.ts）
  * - 列出預設／讀取預設／讀取條目：讀；改預設／新建預設／設定預設用途：出提案（第 3 批，utils/assistant/presetOps.ts）
  * - 列出世界書／讀取世界書／讀取角色：讀；改世界書：出提案（第 4 批，utils/assistant/worldbookOps.ts）
  * - 列出小組件／讀取小組件：讀；寫小組件：出提案（第 4 批，utils/assistant/widgetOps.ts）
@@ -24,6 +25,7 @@ import type { MeetingPresetDoc } from '../meetingPreset/types';
 import { buildWorldbookProposal, describeCharacter, describeWorldbook, describeWorldbookList, type WorldbookData } from './worldbookOps';
 import { buildWidgetProposal, describeWidget, describeWidgetList, findWidget, WIDGET_GUIDE, type WidgetData } from './widgetOps';
 import { BUILTIN_PRESET, PRESET_SCENE_LABEL } from '../presetBinding';
+import { describeChatDecoration } from './decorationRead';
 
 export interface SoreSettingsInput {
     apiConfig: APIConfig;
@@ -198,6 +200,11 @@ export const SORE_TOOLS: SoreToolDef[] = [
                 proposal: { kind: 'css', location: loc.id, targetId: target.id, targetLabel: target.label, css: '', before, summary: '清空' },
             };
         },
+    },
+    {
+        name: '讀取聊天裝扮',
+        usage: '參數 {"target": "角色名／群名／id，或「全局」"}。某個聊天現在穿什麼：氣泡主題、背景、提示音、佈局各項的值（標出哪些是這個角色自己的）、CSS 幾行。不給 target＝全局默認＋哪些角色有自己的裝扮。用戶說「這個聊天的樣子」「換佈局」之前先讀。',
+        run: async (args, ctx) => (ctx.cssData ? describeChatDecoration(args.target, ctx.cssData()) : { ok: false, content: '這裡不能讀裝扮。' }),
     },
     ...PRESET_TOOLS(),
     ...WORLDBOOK_TOOLS(),
