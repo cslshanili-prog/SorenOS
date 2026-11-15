@@ -10,6 +10,8 @@ export interface DecorationHandoff {
     /** 一進去就打開這個聊天的編輯頁（不只停在那一行） */
     edit?: boolean;
     from?: AppID;
+    /** 返回時不只是開回那個 App（例如回到同一個群），給了就用它 */
+    onReturn?: () => void;
 }
 
 let pending: DecorationHandoff | null = null;

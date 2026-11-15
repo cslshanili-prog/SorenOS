@@ -5,7 +5,7 @@ import { mergeChatFineTune } from './chatFineTuneCss';
 import {
     characterPatchFromDraft, characterStatus, detachCharacterPatch, detachGroupPatch, detachThemePatch, duplicateTemplate,
     groupPatchFromDraft, makeTemplate, presetToTemplate, sanitizeTemplate, templateFromCharacter, templateFromGroup,
-    templateFromTheme, templateToPresetDraft, templateUsage, themePatchFromDraft, themeStatus,
+    templateBindings, templateFromTheme, templateToPresetDraft, templateUsage, themePatchFromDraft, themeStatus,
 } from './decorationTemplates';
 
 const theme = { chatAvatarShape: 'circle', chatChromeCustomCss: '.g{}', chatBackgroundStyle: 'grid' } as unknown as OSTheme;
@@ -102,6 +102,13 @@ describe('狀態、誰在用、複製', () => {
     it('誰在用：小號不算', () => {
         const usage = templateUsage('t', { theme: { ...theme, decorationTemplateId: 't' }, characters: [char({ decorationTemplateId: 't' }), char({ id: 'alt', altOf: 'c1', decorationTemplateId: 't' })], groups: [{ id: 'g', decorationTemplateId: 't' } as GroupProfile] });
         expect(usage).toEqual([{ kind: 'global' }, { kind: 'character', id: 'c1' }, { kind: 'group', id: 'g' }]);
+    });
+
+    it('寫穿對象：小號、非主線也算進去', () => {
+        const chars = [char({ decorationTemplateId: 't', lines: { pB: { decorationTemplateId: 't' }, pC: { bubbleStyle: 'x' } } } as Partial<CharacterProfile>), char({ id: 'alt', altOf: 'c1', decorationTemplateId: 't' })];
+        expect(templateBindings('t', { theme, characters: chars, groups: [] })).toEqual([
+            { kind: 'character', id: 'c1' }, { kind: 'character', id: 'c1', line: 'pB' }, { kind: 'character', id: 'alt' },
+        ]);
     });
 
     it('複製一份：新 id、名字加副本、內容一樣', () => {

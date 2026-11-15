@@ -58,7 +58,8 @@ import {resolveDecorationTheme} from '../utils/chatDecoration';
 import { chatRootLook } from '../utils/chatRootLook';
 import { setDecorationHandoff } from '../utils/decorationHandoff';
 import ChatDecorationAnnouncement from '../components/chat/ChatDecorationAnnouncement';
-import ChatDecorationPanel, {DecorationTab} from '../components/chat/ChatDecorationPanel';
+import type {DecorationTab} from '../components/chat/ChatDecorationPanel';
+import DecorationQuickPanel from '../components/decoration/DecorationQuickPanel';
 import ChatInputArea from '../components/chat/ChatInputArea';
 import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/chatInputPreferences';
 import InstantChatRouteNotice from '../components/chat/InstantChatRouteNotice';
@@ -4931,13 +4932,14 @@ const Chat: React.FC = () => {
                 />
             )}
 
-            {char && modalType === 'chrome-css' && <ChatDecorationPanel
+            {/* 聊天裝扮：只選模板＋連去裝扮 App（plans/decoration-app.md 第 6 節）；舊的半窗編輯面板不再從這裡開 */}
+            {char && modalType === 'chrome-css' && <DecorationQuickPanel
                 key={char.id}
-                character={char} theme={baseOsTheme} onSaveBubble={addCustomTheme} themes={[...Object.values(PRESET_THEMES), ...customThemes]}
-                initialTab={decorationTab} updateCharacter={patch=>updateCharacter(char.id,patch)}
-                updateTheme={updateTheme} onBgUpload={handleBgUpload} backgroundUrl={resolvedChatBackground}
-                onOpenWorkshop={()=>{setModalType('none');setDecorationHandoff({target:{kind:'character',id:char.id},from:AppID.Chat});openApp(AppID.ThemeMaker);}}
-                onClose={()=>setModalType('none')}
+                target={{ kind: 'character', char, lineOwn: lineViewPersonaKey(char) ? (rawChar?.lines?.[lineViewPersonaKey(char)!] ?? null) : undefined }}
+                theme={baseOsTheme} customThemes={customThemes} addCustomTheme={addCustomTheme}
+                apply={patch => updateCharacter(char.id, patch)}
+                onOpenApp={() => { setModalType('none'); setDecorationHandoff({ target: { kind: 'character', id: char.id }, from: AppID.Chat }); openApp(AppID.ThemeMaker); }}
+                onClose={() => setModalType('none')}
             />}
 
             {/* 情緒設置已嵌入日程 Modal（與日程強制同步開/關），不再單獨渲染 */}
