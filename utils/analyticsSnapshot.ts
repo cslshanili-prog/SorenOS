@@ -1,3 +1,4 @@
+import { resolveChatLanguage } from './chatLanguage';
 import { loadChatInputPreferences } from './chatInputPreferences';
 import { readSARClubState, sarRoomView } from './vrWorld/sarClub';
 import { ANNIVERSARY_SEEN_KEY } from './anniversaryGifts';
@@ -444,6 +445,17 @@ export interface FeatureSources {
  * 纯函数 + 直接读 localStorage 两种来源都有：能同步读到的（MCP、点单、QQ 桥、
  * 自习室）在这里自己读，OSContext 只需要传它 state 里那几份。
  */
+/** 全部角色里聊天语言用到哪一层：翻译+夹杂 / 翻译 / 夹杂 / 指定语言 / 没设。 */
+export function chatLanguageUsage(characters: CharacterProfile[]): string {
+    const all = characters.map(c => resolveChatLanguage(c.chatLanguage));
+    const tr = all.some(r => r.translating);
+    const mix = all.some(r => r.mix);
+    if (tr && mix) return '翻译+夹杂';
+    if (tr) return '翻译';
+    if (mix) return '夹杂';
+    return all.some(r => r.speak) ? '指定语言' : '没设';
+}
+
 export function collectFeatureFlags(src: FeatureSources): Record<string, string> {
     const rt = src.realtimeConfig;
     const mcpServers = loadMcpServers();
@@ -526,6 +538,10 @@ export function collectFeatureFlags(src: FeatureSources): Record<string, string>
         API线路预设数: bucketFewCount(src.apiPresetCount),
         自习室独立线路: hasLocalJsonConfig('study_api_config') ? '配了' : '没配',
         彼方独立线路: src.vrIndependentApi ? '配了' : '没配',
+
+        // ── 聊天语言（plans/chat-language.md）──
+        // 一格就好（快照行数有成本）：有没有角色开翻译、夹杂、或只是指定说话语言。不报是哪种语言。
+        聊天语言: chatLanguageUsage(src.characters),
 
         // ── 主动消息 2.0 ──
         // 没报「主动消息 Push 加速」：那一层已经全局下线（proactivePushConfig.ts 的

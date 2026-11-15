@@ -13,7 +13,7 @@ import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages 
  * 等價。新增 caller（runProactive）只是補齊了過去缺的字段。
  */
 
-import type { CharacterProfile, UserProfile, GroupProfile, Emoji, EmojiCategory, Message, RealtimeConfig, TranslationConfig, VisionApiConfig, ImageGenApiConfig } from '../types';
+import type { CharacterProfile, UserProfile, GroupProfile, Emoji, EmojiCategory, Message, RealtimeConfig, ChatLanguageConfig, VisionApiConfig, ImageGenApiConfig } from '../types';
 import { ChatPrompts, detectChatModeTransition } from './chatPrompts';
 import { ContextBuilder } from './context';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
@@ -35,7 +35,7 @@ import type { MusicCfg, Song, LyricLine, MusicPlaybackSnapshot, RecentTrackChang
 import { isPromptBuildSkipped, isSystemMessageMergeEnabled } from './devDebug';
 import { mergeSystemMessages } from './systemMessageMerge';
 import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries } from './worldbook';
-import { normalizeTranslationLangLabel } from './translationLang';
+import { buildChatLanguagePrompt, resolveChatLanguage } from './chatLanguage';
 import { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 import { materializeVisionDescriptions } from './visionApi';
 import type { RecallEntryPoint, RecallTrace } from './memoryPalace/trace';
@@ -94,7 +94,8 @@ export interface BuildChatPayloadInput {
     recentTrackChange?: RecentTrackChange | null;
 
     // 模式開關
-    translationConfig?: TranslationConfig | { enabled: boolean; sourceLang: string; targetLang: string };
+    /** 聊天語言（角色卡的 chatLanguage，見 utils/chatLanguage.ts）；不給就不加語言段。 */
+    chatLanguage?: ChatLanguageConfig;
     htmlMode?: { enabled: boolean; customPrompt?: string };
     thinkingChain?: { enabled: boolean; customPrompt?: string };
     /** 可選識圖 API：開啟後先把圖片持久化轉寫為 [圖片：描述]，主模型只接收文字。 */
@@ -234,7 +235,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
     const {
         char, userProfile, groups, historyMsgs, contextLimit,
         realtimeConfig, innerState,
-        translationConfig, htmlMode, thinkingChain, mcdMiniSnap, luckinMiniSnap, luckinChat,
+        chatLanguage, htmlMode, thinkingChain, mcdMiniSnap, luckinMiniSnap, luckinChat,
     } = input;
     // 角色可見性必須在統一載荷層再次收口。UI 聊天、1.0 本地主動消息、2.0 推送、
     // 彼方/小小窩等調用方各自維護篩選很容易漏掉一條路徑；一旦把全量表情傳進來，
@@ -363,37 +364,11 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         : '';
     const sarEnvelopeActive = sarModulePlan?.requiresEnvelope === true;
 
-    // ── 4. 雙語指令注入 ───────────────────────────────────
-    const sourceLang = normalizeTranslationLangLabel(translationConfig?.sourceLang);
-    const targetLang = normalizeTranslationLangLabel(translationConfig?.targetLang);
-    const bilingualActive = !!(translationConfig?.enabled && sourceLang && targetLang);
-    if (bilingualActive && translationConfig) {
-        addMode(`\n\n[CRITICAL: 雙語輸出模式 - 必須嚴格遵守]
-你的每句話都必須用以下XML標籤格式輸出雙語內容：
-<翻譯>
-<原文>${sourceLang}內容</原文>
-<譯文>${targetLang}內容</譯文>
-</翻譯>
-
-規則：
-- 每句話單獨包裹一個<翻譯>標籤
-- 多句話就輸出多個<翻譯>標籤，一句一個
-- ${sarEnvelopeActive
-            ? 'SAR 模塊生效中：最外層必須是 <SAR_MODULE_OUTPUT>；在 CHAR_TRUE 與 CHAR_SURFACE 字段內部，各自用完整的 <翻譯> 標籤包裹每句話。除這個 SAR 容器與字段標籤外，不寫散落文字'
-            : '<翻譯>標籤外不要寫任何文字'}
-- 表情包命令 [[SEND_EMOJI: ...]] 放在所有<翻譯>標籤外面
-- 引用命令 [[QUOTE: ...]] 也放在所有<翻譯>標籤外面；引用內容請原樣照抄用戶說過的原文（不要翻譯、不要包<翻譯>標籤）
-
-示例（${sourceLang}→${targetLang}）：
-<翻譯>
-<原文>こんにちは！</原文>
-<譯文>你好！</譯文>
-</翻譯>
-<翻譯>
-<原文>今日は何する？</原文>
-<譯文>今天做什麼？</譯文>
-</翻譯>`);
-    }
+    // ── 4. 聊天語言：說話語言、夾雜、聊天模型順便翻（utils/chatLanguage.ts） ──
+    const language = resolveChatLanguage(chatLanguage);
+    const bilingualActive = language.translating;
+    const languagePrompt = buildChatLanguagePrompt(language, { sarEnvelopeActive });
+    if (languagePrompt) addMode(languagePrompt);
 
     // ── 5. HTML 卡片模式 ─────────────────────────────────
     const htmlActive = !!htmlMode?.enabled;

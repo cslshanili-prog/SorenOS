@@ -301,7 +301,7 @@ describe('timelyByWorker —— 時效段交給 worker，前端這份不重複�
                 timestamp: Date.now(),
             }] as any[],
             recallEntryPoint: 'chat_app',
-            translationConfig: { enabled: true, sourceLang: '日語', targetLang: '中文' },
+            chatLanguage: { speak: '日本語', translateTo: '繁體中文' },
         });
         const joined = joinMessages(payload.fullMessages);
 

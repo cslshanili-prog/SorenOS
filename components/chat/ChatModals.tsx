@@ -18,7 +18,6 @@ import ChatInputSettings from './ChatInputSettings';
 import ChatSettingsSection from './ChatSettingsSection';
 import ChatSettingsPage, { type ChatBlockAction, type ChatSettingsPatch } from './ChatSettingsPage';
 import type { ChatInputPreferences } from '../../utils/chatInputPreferences';
-import { isTranslationLangPreset, normalizeTranslationLangLabel, TRANSLATION_LANG_MAX_LENGTH, TRANSLATION_LANG_PRESETS } from '../../utils/translationLang';
 import type { ContextRangeMode, ContextRangeSnapshot } from '../../utils/chatContextRange';
 import { trackEvent } from '../../utils/analytics';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS } from '../../utils/voiceLanguage';
@@ -114,15 +113,6 @@ interface ChatModalsProps {
     // Category Visibility
     allCharacters?: CharacterProfile[];
     onSaveCategoryVisibility?: (categoryId: string, allowedCharacterIds: string[] | undefined) => void;
-    // Translation
-    translationEnabled?: boolean;
-    onToggleTranslation?: () => void;
-    translationExpanded?: boolean;
-    onToggleTranslationExpanded?: () => void;
-    translateSourceLang?: string;
-    translateTargetLang?: string;
-    onSetTranslateSourceLang?: (lang: string) => void;
-    onSetTranslateLang?: (lang: string) => void;
     // XHS toggle
     xhsEnabled?: boolean;
     onToggleXhs?: () => void;
@@ -186,84 +176,6 @@ interface ChatModalsProps {
     onClearBuffs?: () => void;
 }
 
-interface TranslationLanguagePickerProps {
-    label: string;
-    value?: string;
-    tone: 'source' | 'target';
-    inputPlaceholder: string;
-    onSelect?: (lang: string) => void;
-}
-
-const TranslationLanguagePicker: React.FC<TranslationLanguagePickerProps> = ({
-    label,
-    value,
-    tone,
-    inputPlaceholder,
-    onSelect,
-}) => {
-    const [customLang, setCustomLang] = useState('');
-    const selectedClass = tone === 'source' ? 'bg-slate-700 text-white' : 'bg-primary text-white';
-    const customSelected = !!value && !isTranslationLangPreset(value);
-    const normalizedCustomLang = normalizeTranslationLangLabel(customLang);
-
-    const applyCustomLang = () => {
-        if (!normalizedCustomLang) return;
-        onSelect?.(normalizedCustomLang);
-        setCustomLang('');
-    };
-
-    return (
-        <div>
-            <label className="text-[10px] font-bold text-slate-400 mb-1.5 block">{label}</label>
-            <div className="flex flex-wrap gap-1.5">
-                {TRANSLATION_LANG_PRESETS.map(lang => (
-                    <button
-                        type="button"
-                        key={`${tone}-${lang}`}
-                        onClick={() => onSelect?.(lang)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-bold transition-all ${value === lang ? selectedClass : 'bg-slate-100 text-slate-500'}`}
-                    >
-                        {lang}
-                    </button>
-                ))}
-                {customSelected && (
-                    <button
-                        type="button"
-                        onClick={() => value && onSelect?.(value)}
-                        className={`max-w-full px-2.5 py-1 rounded-full text-[11px] font-bold transition-all truncate ${selectedClass}`}
-                        title={value}
-                    >
-                        {value}
-                    </button>
-                )}
-            </div>
-            <div className="mt-2 flex gap-1.5">
-                <input
-                    value={customLang}
-                    onChange={e => setCustomLang(e.target.value)}
-                    onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            applyCustomLang();
-                        }
-                    }}
-                    maxLength={TRANSLATION_LANG_MAX_LENGTH}
-                    placeholder={inputPlaceholder}
-                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] text-slate-700 outline-none focus:border-primary"
-                />
-                <button
-                    type="button"
-                    onClick={applyCustomLang}
-                    disabled={!normalizedCustomLang}
-                    className={`shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${normalizedCustomLang ? selectedClass : 'bg-slate-100 text-slate-300'}`}
-                >
-                    套用
-                </button>
-            </div>
-        </div>
-    );
-};
-
 const ChatModals: React.FC<ChatModalsProps> = ({
     modalType, setModalType,
     transferAmt, setTransferAmt,
@@ -289,7 +201,6 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
     onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
-    translationEnabled, onToggleTranslation, translationExpanded, onToggleTranslationExpanded, translateSourceLang, translateTargetLang, onSetTranslateSourceLang, onSetTranslateLang,
     xhsEnabled, onToggleXhs,
     htmlModeEnabled, onToggleHtmlMode, htmlModeCustomPrompt, setHtmlModeCustomPrompt,
     chatVoiceEnabled, onToggleChatVoice, chatVoiceAutoPlay, onToggleChatVoiceAutoPlay, chatVoiceLang, onSetChatVoiceLang,
@@ -597,55 +508,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                             </div>
                         )}
                     </ChatSettingsSection>
-                    <ChatSettingsSection title="翻譯與語音" summary="消息語言、語音與自動播放">
-                        {/* Translation Settings */}
-                        <div className="pt-2 border-t border-slate-100">
-                            <div className="flex justify-between items-center cursor-pointer" onClick={onToggleTranslation}>
-                                <label className="text-xs font-bold text-slate-400 uppercase pointer-events-none">消息翻譯</label>
-                                <div className={`w-10 h-6 rounded-full p-1 transition-colors flex items-center ${translationEnabled ? 'bg-primary' : 'bg-slate-200'}`}>
-                                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${translationEnabled ? 'translate-x-4' : ''}`}></div>
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                                開啟後，AI 消息自動翻譯為「選」的語言顯示，點「譯」切換到目標語言。
-                            </p>
-                            {translationEnabled && (
-                                <div className="mt-3 space-y-3">
-                                    <TranslationLanguagePicker
-                                        label="選（氣泡顯示語言）"
-                                        value={translateSourceLang}
-                                        tone="source"
-                                        inputPlaceholder="自定義，如 粵語"
-                                        onSelect={onSetTranslateSourceLang}
-                                    />
-                                    <TranslationLanguagePicker
-                                        label="譯（翻譯目標語言）"
-                                        value={translateTargetLang}
-                                        tone="target"
-                                        inputPlaceholder="自定義，如 中文（繁體）"
-                                        onSelect={onSetTranslateLang}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={onToggleTranslationExpanded}
-                                        className="w-full flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-left active:bg-slate-50"
-                                    >
-                                        <span>
-                                            <span className="block text-[11px] font-bold text-slate-600">原文與譯文同時展開</span>
-                                            <span className="block mt-0.5 text-[9px] leading-relaxed text-slate-400">開啟後不再逐條點擊切換，雙語氣泡會直接上下顯示兩種語言。</span>
-                                        </span>
-                                        <span className={`shrink-0 w-10 h-6 rounded-full p-1 transition-colors flex items-center ${translationExpanded ? 'bg-primary' : 'bg-slate-200'}`}>
-                                            <span className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${translationExpanded ? 'translate-x-4' : ''}`} />
-                                        </span>
-                                    </button>
-                                    {/* Preview */}
-                                    <div className="text-[11px] text-center text-slate-500 bg-slate-50 rounded-lg py-2">
-                                        選<span className="font-bold text-slate-700">{translateSourceLang || '?'}</span> 譯<span className="font-bold text-primary">{translateTargetLang || '?'}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
+                    <ChatSettingsSection title="語音" summary="語音消息與自動播放（說什麼語言、翻譯在上面的「聊天語言」）">
                         {/* Voice TTS */}
                         <div className="pt-2 border-t border-slate-100">
                             <div className="flex justify-between items-center cursor-pointer" onClick={onToggleChatVoice}>

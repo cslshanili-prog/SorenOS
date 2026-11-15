@@ -73,11 +73,12 @@ describe('用戶反饋迴歸保護', () => {
 
     it('聊天翻譯支持按角色保存直接展開模式，並在氣泡內同時渲染原文和譯文', () => {
         const chat = read('../apps/Chat.tsx');
-        const modals = read('../components/chat/ChatModals.tsx');
+        const settings = read('../components/chat/ChatLanguageSettings.tsx');
         const item = read('../components/chat/MessageItem.tsx');
 
-        expect(chat).toContain('chat_translate_expanded_${activeCharacterId}');
-        expect(modals).toContain('原文與譯文同時展開');
+        // 展開與否改存在角色卡的聊天語言裡（plans/chat-language.md）
+        expect(chat).toContain('const translationExpanded = chatLanguage.expanded');
+        expect(settings).toContain('原文與譯文同時展開');
         expect(item).toContain('showExpandedTranslation');
         expect(item).toContain('{renderContent(langBContent)}');
     });

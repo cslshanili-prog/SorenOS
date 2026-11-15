@@ -253,6 +253,25 @@ export interface ChatLayoutPreset {
   bubbleThemeId?: string;
 }
 
+/** 夾雜第二語言的比例：偶爾冒幾個詞／自然混用（兩到三成）／兩種差不多（首要語言仍是主軸）。 */
+export type ChatLanguageMixLevel = 'light' | 'natural' | 'half';
+
+/**
+ * 聊天語言（plans/chat-language.md）：存在角色卡上，私聊（含雲端）照它寫、照它翻。
+ * 語言欄位存的是給模型看的名稱（English、繁體中文、日本語…或自訂），清單與解析在 utils/chatLanguage.ts。
+ */
+export interface ChatLanguageConfig {
+  /** 角色說話語言（首要，七成以上）。空＝跟著人設，不另外指定。 */
+  speak?: string;
+  /** 夾雜的第二語言（雙語人設自然混用）。空＝不夾雜。 */
+  mix?: string;
+  mixLevel?: ChatLanguageMixLevel;
+  /** 翻譯成（你讀的語言）。空＝不翻譯。 */
+  translateTo?: string;
+  /** 原文與譯文同時展開（不用逐條點）。 */
+  expanded?: boolean;
+}
+
 export interface TranslationConfig {
   enabled: boolean;
   sourceLang: string; // e.g. '日本語' - the language messages are displayed in (選)
@@ -3568,6 +3587,8 @@ export interface CharacterProfile {
   readNoReply?: ReadNoReplySettings;
   /** 聊天設定 · Scenario ·「延遲自動回覆」（邏輯見 utils/delayedReply.ts）。 */
   delayedReply?: DelayedReplySettings;
+  /** 聊天設定 ·「聊天語言」：說話語言、夾雜第二語言、翻譯成（見 utils/chatLanguage.ts、plans/chat-language.md）。 */
+  chatLanguage?: ChatLanguageConfig;
   /** 聊天設定 · Scenario ·「自動線下邀請」：角色可以用 [[ACTION:DATE_INVITE|地點|事由]] 約用戶見面（見 utils/dateInvite.ts）。 */
   dateInvite?: boolean;
   /** 聊天設定 · Scenario ·「線上模式動作描寫」：線上聊天允許角色用括號寫簡短的神態、小動作。 */
