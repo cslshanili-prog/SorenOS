@@ -5,7 +5,7 @@ import type { CharacterProfile, CharLineFields, ChatTheme, GroupProfile, OSTheme
 import { PRESET_THEMES } from '../chat/ChatConstants';
 import {
     CHARACTER_DECORATION_RESET, GROUP_DECORATION_RESET, characterHasOwnDecoration, characterPatchFromDraft, describeDraft,
-    groupIgnoredParts, groupPatchFromDraft, groupStatus, makeTemplate, statusOf, templateFromCharacter, templateFromGroup,
+    groupIgnoredParts, groupPatchFromDraft, groupStatus, makeTemplate, statusOf, uniqueTemplateName, templateFromCharacter, templateFromGroup,
     type DecorationStatus, type DecorationTemplate,
 } from '../../utils/decorationTemplates';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates, saveDecorationTemplates } from '../../utils/decorationTemplateStore';
@@ -97,7 +97,7 @@ const DecorationQuickPanel: React.FC<Props> = ({ target, theme, customThemes, ad
 
     const saveCustomThenApply = (choice: DecorationTemplate | 'follow' | null) => run(async () => {
         const draft = target.kind === 'group' ? templateFromGroup(target.group) : templateFromCharacter(target.char, theme);
-        const created = makeTemplate(`${name} 的裝扮`, draft);
+        const created = makeTemplate(uniqueTemplateName(`${name} 的裝扮`, list), draft);
         const next = [...list, created];
         await saveDecorationTemplates(next);
         setTemplates(next);

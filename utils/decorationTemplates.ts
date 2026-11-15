@@ -263,6 +263,13 @@ export const makeTemplate = (name: string, draft: DecorationDraft, now = Date.no
     ...structuredClone(draft), id: newTemplateId(), name: name.trim().slice(0, 60) || '我的裝扮', createdAt: now, updatedAt: now,
 });
 
+/** 跟現有的撞名就加編號（「我的裝扮 2」），清單裡才分得出來 */
+export const uniqueTemplateName = (name: string, existing: Array<{ name: string }>): string => {
+    const base = name.trim().slice(0, 60) || '我的裝扮';
+    if (!existing.some(t => t.name === base)) return base;
+    for (let i = 2; ; i++) if (!existing.some(t => t.name === `${base} ${i}`)) return `${base} ${i}`;
+};
+
 /** 原地複製一份：誰也沒指定 */
 export const duplicateTemplate = (template: DecorationTemplate, existing: DecorationTemplate[], now = Date.now()): DecorationTemplate => {
     const base = `${template.name}（副本）`;

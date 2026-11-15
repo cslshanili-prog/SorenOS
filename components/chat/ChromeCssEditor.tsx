@@ -294,7 +294,7 @@ const copyText = async (text: string): Promise<boolean> => {
     } catch { return false; }
 };
 
-const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void; /** 有給才出現「請 Sore 幫忙」 */ assist?: Omit<SoreHandoff, 'from'> }> = ({ value, onChange, assist }) => {
+const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void; /** 有給才出現「請 Sore 幫忙」 */ assist?: Omit<SoreHandoff, 'from'>; /** 裝扮 App 裡不放「我的預設」：整套已經是模板，那個只存 CSS，名字跟模板無關，試用時大家以為在幫模板改名 */ hideMyPresets?: boolean }> = ({ value, onChange, assist, hideMyPresets }) => {
     const [copied, setCopied] = useState(false);
     const [custom, setCustom] = useState<Preset[]>([]);
     const presetImageRef = useRef<HTMLInputElement>(null);
@@ -413,7 +413,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
             </div>
 
             {/* 我的預設：全角色通用，存 IndexedDB（隨備份走），可導入導出 */}
-            <div>
+            {!hideMyPresets && <div>
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5">
                     <span className="text-[11px] font-bold text-slate-500">我的預設 <span className="font-normal text-slate-400">· 全角色通用</span></span>
                     <div className="flex items-center gap-1">
@@ -448,7 +448,7 @@ const ChromeCssEditor: React.FC<{ value: string; onChange: (css: string) => void
                         <span className="text-lg leading-none">＋</span>存當前
                     </button>
                 </div>
-            </div>
+            </div>}
 
             {/* CSS 代碼區 */}
             <div>

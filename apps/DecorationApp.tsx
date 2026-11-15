@@ -8,7 +8,7 @@ import { PRESET_THEMES } from '../components/chat/ChatConstants';
 import { isBenched } from '../utils/castRole';
 import { portableTree, readDecorationFile, validateDecoration } from '../utils/chatDecoration';
 import {
-    characterPatchFromDraft, characterStatus, describeDraft, draftOfTemplate, duplicateTemplate, GROUP_DECORATION_RESET,
+    characterPatchFromDraft, characterStatus, describeDraft, uniqueTemplateName, draftOfTemplate, duplicateTemplate, GROUP_DECORATION_RESET,
     CHARACTER_DECORATION_RESET, groupIgnoredParts, groupPatchFromDraft, groupStatus, makeTemplate, presetToTemplate,
     templateFromCharacter, templateFromGroup, templateFromTheme, templateToPresetDraft, templateUsage, templateBindings, themePatchFromDraft,
     themeStatus, type DecorationDraft, type DecorationStatus, type DecorationTargetRef, type DecorationTemplate,
@@ -48,6 +48,7 @@ const DecorationApp: React.FC = () => {
     const [targetSheet, setTargetSheet] = useState<DecorationTargetRef | null>(null);
     const [assignFor, setAssignFor] = useState<DecorationTemplate | null>(null);
     const [deleting, setDeleting] = useState<DecorationTemplate | null>(null);
+    const [renaming, setRenaming] = useState<{ template: DecorationTemplate; name: string } | null>(null);
     const [returnTo, setReturnTo] = useState<{ app?: AppID; onReturn?: () => void } | undefined>(undefined);
     const fileRef = useRef<HTMLInputElement>(null);
 
@@ -132,7 +133,7 @@ const DecorationApp: React.FC = () => {
     };
 
     const newTemplate = (initial: DecorationDraft = {}) => {
-        setView({ kind: 'edit', subject: { kind: 'template', name: '我的裝扮', usageCount: 0 }, initial });
+        setView({ kind: 'edit', subject: { kind: 'template', name: '', usageCount: 0, isNew: true }, initial });
     };
 
     const run = async (work: () => Promise<void>) => {
@@ -149,7 +150,7 @@ const DecorationApp: React.FC = () => {
             const now = Date.now();
             let tpl = view.templateId ? templates.find(t => t.id === view.templateId) : undefined;
             if (!tpl) {
-                tpl = makeTemplate(name || '我的裝扮', draft, now);
+                tpl = makeTemplate(uniqueTemplateName(name || '我的裝扮', templates), draft, now);
                 await persist([...templates, tpl]);
             } else if (dirty) {
                 const updated: DecorationTemplate = { ...structuredClone(draft), id: tpl.id, name: name || tpl.name, createdAt: tpl.createdAt, updatedAt: now };
@@ -187,7 +188,7 @@ const DecorationApp: React.FC = () => {
                 trackEvent('装扮模板保存', { 类型: '修改' });
                 setView({ kind: 'home' });
             } else {
-                const created = makeTemplate(name || '我的裝扮', draft, now);
+                const created = makeTemplate(uniqueTemplateName(name || '我的裝扮', templates), draft, now);
                 await persist([...templates, created]);
                 addToast('新模板存好了，指定給聊天就會換上', 'success');
                 trackEvent('装扮模板保存', { 类型: '新建' });
@@ -221,7 +222,7 @@ const DecorationApp: React.FC = () => {
     });
 
     const saveCustomAsTemplate = (t: DecorationTargetRef) => run(async () => {
-        const created = makeTemplate(`${nameOf(t)} 的裝扮`, currentDraftOf(t));
+        const created = makeTemplate(uniqueTemplateName(`${nameOf(t)} 的裝扮`, templates), currentDraftOf(t));
         await persist([...templates, created]);
         await writeTemplateTo(t, created);
         addToast(`存成模板「${created.name}」，${nameOf(t)} 也改用它了`, 'success');
@@ -247,11 +248,19 @@ const DecorationApp: React.FC = () => {
             }
         }
         if (added) trackEvent('装扮模板指定', { 对象: '批量' });
-        addToast(added || removed ? `換上 ${added} 個${removed ? `，${removed} 個留著現在的樣子變自訂` : ''}` : '沒有變化', added || removed ? 'success' : 'info');
+        // 沒換任何人就安靜關掉：剛存完新模板直接按「好了」時，跳「沒有變化」會讓人以為沒存到
+        if (added || removed) addToast(`換上 ${added} 個${removed ? `，${removed} 個留著現在的樣子變自訂` : ''}`, 'success');
         setAssignFor(null);
     });
 
     // ─── 複製、刪除、匯入匯出 ───
+
+    const renameTemplate = (template: DecorationTemplate, raw: string) => run(async () => {
+        const name = raw.trim().slice(0, 60);
+        if (!name) return;
+        await persist(templates.map(t => (t.id === template.id ? { ...t, name, updatedAt: Date.now() } : t)));
+        setRenaming(null);
+    });
 
     const duplicate = (template: DecorationTemplate) => run(async () => {
         const copy = duplicateTemplate(template, templates);
@@ -398,10 +407,12 @@ const DecorationApp: React.FC = () => {
                                         <button type="button" onClick={() => editTemplate(t)} className="w-full text-left">
                                             <div className="flex items-center gap-2">
                                                 <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-slate-800">{t.name}</span>
+                                                <span role="button" tabIndex={0} aria-label={`改名 ${t.name}`} onClick={e => { e.stopPropagation(); if (!busy) setRenaming({ template: t, name: t.name }); }} className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">改名</span>
                                                 <span className="shrink-0 text-[11px] text-slate-400">{usage.length ? `${usage.length} 個聊天在用` : '沒人用'}</span>
                                                 <span role="button" tabIndex={0} aria-label={`刪除 ${t.name}`} onClick={e => { e.stopPropagation(); if (!busy) setDeleting(t); }} className="shrink-0 -mr-1 p-1 text-slate-300"><Trash size={14} /></span>
                                             </div>
                                             <div className="mt-0.5 truncate text-[11px] text-slate-500">{describeDraft(t, bubbleName)}</div>
+                                            <div className="truncate text-[10px] text-slate-300">改於 {new Date(t.updatedAt || t.createdAt).toLocaleString(undefined, { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                                         </button>
                                         <div className="mt-2.5 flex flex-wrap gap-1.5">
                                             <button type="button" disabled={busy} onClick={() => setAssignFor(t)} className="flex items-center gap-1 rounded-full bg-violet-50 px-3 py-1 text-[12px] font-bold text-violet-700"><UsersThree size={13} /> 指定給…</button>
@@ -474,6 +485,19 @@ const DecorationApp: React.FC = () => {
 
             {assignFor && <AssignSheet template={assignFor} chars={visibleChars} groups={groups} theme={theme} characters={characters} busy={busy}
                 onClose={() => setAssignFor(null)} onApply={picked => applyAssign(assignFor, picked)} />}
+
+            {renaming && (
+                <div className="absolute inset-0 z-30 bg-black/30 flex items-end" onClick={() => setRenaming(null)}>
+                    <div className="w-full rounded-t-3xl bg-white p-5 space-y-3" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 1.25rem)' }} onClick={e => e.stopPropagation()} data-decoration-rename>
+                        <div className="text-[15px] font-bold">改名</div>
+                        <input autoFocus value={renaming.name} onChange={e => setRenaming({ ...renaming, name: e.target.value.slice(0, 60) })} aria-label="模板新名字"
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && renaming.name.trim()) void renameTemplate(renaming.template, renaming.name); }}
+                            className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-[15px] outline-none focus:border-violet-400" />
+                        <button type="button" disabled={busy || !renaming.name.trim()} onClick={() => void renameTemplate(renaming.template, renaming.name)} className="w-full rounded-2xl bg-violet-500 py-3 text-[14px] font-bold text-white disabled:opacity-40">好了</button>
+                        <button type="button" onClick={() => setRenaming(null)} className="w-full py-2 text-[13px] text-slate-400">算了</button>
+                    </div>
+                </div>
+            )}
 
             {deleting && (
                 <div className="absolute inset-0 z-30 bg-black/30 flex items-end" onClick={() => setDeleting(null)}>
