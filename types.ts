@@ -3955,9 +3955,12 @@ export interface GroupProfile {
     archivedThroughMessageId?: number;
     /** 公共話題盒整理模式：auto 滿閾值自動成盒；manual 只累計，用戶手動觸發。默認 auto。 */
     topicArchiveMode?: 'auto' | 'manual';
+    /** 熱區以前累計幾條就成一盒（utils/groupChat/topicBoxes.ts 的 groupTopicSettings，不設默認 50，10～200）。 */
+    topicArchiveThreshold?: number;
     /**
-     * 私聊裡"近期群活動"上下文從這個群最多取最後多少條消息。
-     * 不設默認 80。設大點能讓活躍群更完整，設小點節省 token、避免某個活躍群把其他群擠掉。
+     * 最近幾條留原文（不整理成話題盒的熱區）。不設默認 80。
+     * 私聊裡的「近期群活動」看得到所有還沒成盒的群聊（熱區＋待整理，最多熱區＋成盒條數），
+     * 成了盒就靠送進私聊的話題盒卡片，中間沒有角色看不到的空檔。
      */
     privateContextCap?: number;
     /**

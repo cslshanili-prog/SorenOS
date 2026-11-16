@@ -16,7 +16,7 @@ import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
-import { generateNpcGroupGuestLine } from '../utils/npcGroupGuestLine';
+import { castAsGuestProfile, generateNpcGroupGuestLine, groupGuestCandidates } from '../utils/npcGroupGuestLine';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -75,8 +75,12 @@ import { materializeVisionDescriptions } from '../utils/visionApi';
 import {
     buildGroupTopicContext,
     buildGroupTopicPrompt,
-    GROUP_TOPIC_BUFFER_THRESHOLD,
-    GROUP_TOPIC_HOT_ZONE,
+    GROUP_TOPIC_HOT_ZONE_MAX,
+    GROUP_TOPIC_HOT_ZONE_MIN,
+    GROUP_TOPIC_THRESHOLD_MAX,
+    GROUP_TOPIC_THRESHOLD_MIN,
+    groupTopicSettings,
+    privateGroupContextWindow,
     groupTopicPendingCount,
     makeGroupTopicBox,
     planGroupTopicBatch,
@@ -720,6 +724,8 @@ const GroupChat: React.FC = () => {
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
     const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(DEFAULT_MAX_ROUND_MESSAGES);
+    // 群聊總結：熱區以前幾條成一盒（plans 見 utils/groupChat/topicBoxes.ts 的 groupTopicSettings）
+    const [tempTopicThreshold, setTempTopicThreshold] = useState<number>(() => groupTopicSettings(null).threshold);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
     const [tempMemberBubbleIndependent, setTempMemberBubbleIndependent] = useState(false);
     const [tempUserBubbleThemeId, setTempUserBubbleThemeId] = useState<string>('');
@@ -1025,6 +1031,7 @@ const GroupChat: React.FC = () => {
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
             maxRoundMessages: tempMaxRoundMessages,
+            topicArchiveThreshold: tempTopicThreshold,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
             // 空串 = 默認紫，存 undefined 保持向後兼容語義
@@ -1035,6 +1042,8 @@ const GroupChat: React.FC = () => {
         saveChatInputPreferences(settingsInputPreferences);
         setInputPreferences(settingsInputPreferences);
         setActiveGroup({ ...activeGroup, ...updates });
+        // 留原文條數改了，待整理的條數跟著重算（下一輪生成後自動整理照新的門檻）
+        void loadTopicBoxStats({ ...activeGroup, ...updates });
         setModalType('none');
         addToast('群信息已更新', 'success');
     };
@@ -1310,12 +1319,17 @@ const GroupChat: React.FC = () => {
     /** 你發的訊息（紅包）是哪張卡的名字 */
     const userMsgName = (m: Pick<Message, 'metadata'>) => personaNameForKey(userProfileBase, groupMessagePersonaKey(m, groupPersonaKey));
 
-    // NPC 客串：不是正式群成員，手動觸發才插一句話，不進輪詢/記憶宮殿/成員時間線。
+    // 配角客串：不是正式群成員，手動觸發才插一句話，不進輪詢/記憶宮殿/成員時間線。
+    // NPC 搬成配角之後人選改讀配角（在戲上、不是小號、不在群裡），還沒搬家的舊 NPC 也列著。
+    const guestCandidates = useMemo(() => groupGuestCandidates(characters, npcs, activeGroup), [characters, npcs, activeGroup]);
     const handleNpcGuestLine = async () => {
         if (!activeGroup) return;
-        const npc = npcs.find(n => n.id === npcGuestId);
-        if (!npc) { addToast('請選擇一個 NPC', 'error'); return; }
-        const guestApi = npc.chatApi?.baseUrl ? npc.chatApi : apiConfig;
+        const picked = guestCandidates.find(g => g.id === npcGuestId);
+        if (!picked) { addToast('請選一位配角', 'error'); return; }
+        const npc = picked.kind === 'cast' ? castAsGuestProfile(picked.char) : picked.npc;
+        const guestApi = picked.kind === 'cast'
+            ? resolveCharacterChatApi(picked.char, apiConfig)
+            : (picked.npc.chatApi?.baseUrl ? picked.npc.chatApi : apiConfig);
         if (!guestApi.apiKey) { addToast('請先配置 API', 'error'); return; }
         setNpcGuestGenerating(true);
         try {
@@ -1325,10 +1339,10 @@ const GroupChat: React.FC = () => {
                 .join('\n');
             const line = await generateNpcGroupGuestLine({
                 npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
-                knownUserName: npcKnownUserName(npc),
+                knownUserName: picked.kind === 'cast' ? castKnownUserName(picked.char) : npcKnownUserName(picked.npc),
                 recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
             });
-            if (!line.trim()) { addToast('NPC 沒接上話', 'error'); return; }
+            if (!line.trim()) { addToast(`${npc.name}沒接上話`, 'error'); return; }
             await DB.saveMessage({ charId: npc.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
             await refreshMessages(activeGroup.id);
             setShowNpcGuestModal(false);
@@ -1472,7 +1486,7 @@ const GroupChat: React.FC = () => {
     const loadTopicBoxStats = async (group: GroupProfile) => {
         try {
             const allMsgs = await DB.getGroupMessages(group.id);
-            setTopicPendingCount(groupTopicPendingCount(allMsgs, group.archivedThroughMessageId || 0));
+            setTopicPendingCount(groupTopicPendingCount(allMsgs, group.archivedThroughMessageId || 0, groupTopicSettings(group).hotZone));
         } catch {
             setTopicPendingCount(0);
         }
@@ -1482,7 +1496,8 @@ const GroupChat: React.FC = () => {
         setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
         setTempAnnouncement(activeGroup?.announcement || '');
-        setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
+        setTempPrivateContextCap(groupTopicSettings(activeGroup).hotZone);
+        setTempTopicThreshold(groupTopicSettings(activeGroup).threshold);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
         setTempMaxRoundMessages(activeGroup?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
@@ -1683,6 +1698,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         const key = personaKeyForNpc(userProfileBase, npc, characters);
         return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
     };
+    // 配角客串時它認識的那個你（跟角色同一套：照它自己認識的卡）
+    const castKnownUserName = (char: CharacterProfile) => {
+        const key = personaKeyForChar(userProfileBase, char);
+        return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
+    };
     // NPC 眼中「群裡的你」：它認識的那張在場就是那張，否則第一張在場的（跟角色同一套：認識的才是那個人）
     const npcSceneUserName = (npc: NPCProfile) => {
         const key = personaKeyForNpc(userProfileBase, npc, characters);
@@ -1821,10 +1841,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         if (force) setIsSummarizing(true);
         try {
             const allMsgs = await DB.getGroupMessages(groupForArchive.id);
-            const batchPlan = planGroupTopicBatch(allMsgs, groupForArchive.archivedThroughMessageId || 0, force);
-            setTopicPendingCount(groupTopicPendingCount(allMsgs, groupForArchive.archivedThroughMessageId || 0));
+            const topicSettings = groupTopicSettings(groupForArchive);
+            const batchPlan = planGroupTopicBatch(allMsgs, groupForArchive.archivedThroughMessageId || 0, force, topicSettings);
+            setTopicPendingCount(groupTopicPendingCount(allMsgs, groupForArchive.archivedThroughMessageId || 0, topicSettings.hotZone));
             if (!batchPlan) {
-                if (force) addToast(`最近 ${GROUP_TOPIC_HOT_ZONE} 條會保留原文；熱區以前暫無可整理記錄`, 'info');
+                if (force) addToast(`最近 ${topicSettings.hotZone} 條會保留原文；更早的暫時沒有要整理的`, 'info');
                 return false;
             }
             setGroupPalaceStatus(`正在把 ${batchPlan.messages.length} 條舊群聊整理成公共話題盒…`);
@@ -1882,7 +1903,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             }));
             // 話題盒卡片是直接寫進成員私聊歷史的，也就是 fire_pack 轉寫的直接來源
             markGroupMembersDirty(groupForArchive.members);
-            const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId);
+            const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId, topicSettings.hotZone);
             setTopicPendingCount(remaining);
             addToast(`「${box.title}」已成盒，並送達 ${groupForArchive.members.length} 位成員私聊`, 'success');
             return true;
@@ -2317,7 +2338,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         if (!activeGroup) return;
         // UI 固定只渲染 50 條，但模型仍應拿到完整近期熱區；生成前獨立讀取，
         // 避免“用戶沒點加載歷史 → AI 也只能看見 50 條”的耦合。
-        const promptCap = Math.max(contextLimit, activeGroup.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP, GROUP_TOPIC_HOT_ZONE);
+        const promptCap = Math.max(contextLimit, activeGroup.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP, privateGroupContextWindow(activeGroup));
         const { messages: freshMsgs } = await DB.getRecentGroupMessagesWithCount(activeGroup.id, promptCap);
         // 劇情方向只在旁觀時有，只管這一輪
         const direction = lurking ? plotDirection.trim() : '';
@@ -2778,7 +2799,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
                                 <MaskHappy className="w-6 h-6" weight="bold" />
                             </div>
-                            <span className="text-xs font-bold">NPC 客串</span>
+                            <span className="text-xs font-bold">配角客串</span>
                         </button>
 
                         <button
@@ -3031,7 +3052,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即時生效；移除不會刪掉 ta 說過的歷史消息，只是之後不再參與生成。群主只是頭銜標記，不帶權限。禁言的角色仍在群裡，只是暫時不參與生成，隨時可以取消。</p>
                     </div>
 
-                    {/* NPC 成員：神經鏈接「NPC」分頁的配角，跟角色們一起聊、推劇情；沒有私聊，有自己的輕量記憶 */}
+                    {/* NPC 成員：舊的 NPC 表（搬成配角之前）。搬完就沒有了，配角直接在上面的成員裡加，所以沒有舊 NPC 時整塊不顯示 */}
+                    {(npcs.length > 0 || (activeGroup && groupNpcs(activeGroup, npcs).length > 0)) && (
                     <div className="pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NPC 成員 ({activeGroup ? groupNpcs(activeGroup, npcs).length : 0})</label>
@@ -3078,6 +3100,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         )}
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">NPC 是推劇情的配角：跟角色們一起輪流說話，但沒有跟你的私聊，也不會收到話題盒卡片。群裡攢了一段新對話後，NPC 會自動把這段整理進自己的記憶（在 NPC 編輯頁可以看、可以改）。</p>
                     </div>
+                    )}
 
                     {/* 隱身圍觀模式：用戶消息不進 AI 的群歷史，角色以為群裡只有彼此（預覽開著時併進「在場的身份」） */}
                     {!personaLinesEnabled && (
@@ -3244,10 +3267,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
                     {/* Private Chat Group Context Cap */}
                     <div className="pt-2 border-t border-slate-100">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">私聊裡"近期群活動"取條數 ({tempPrivateContextCap})</label>
-                        <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
-                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>500 (完整)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">本群成員在自己的私聊裡，最多看到本群最近多少條消息作為"近期群活動"上下文。</p>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">最近幾條留原文 ({tempPrivateContextCap})</label>
+                        <input type="range" min={GROUP_TOPIC_HOT_ZONE_MIN} max={GROUP_TOPIC_HOT_ZONE_MAX} step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>{GROUP_TOPIC_HOT_ZONE_MIN} (省流)</span><span>{GROUP_TOPIC_HOT_ZONE_MAX} (完整)</span></div>
+                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">這麼多條最近的群聊不整理、保留原文。成員在自己的私聊裡看得到本群所有還沒成盒的（這些＋待整理的），成了盒就靠送進私聊的話題盒卡片，不會有看不到的空檔。</p>
                     </div>
 
                     {/* Member Timeline Cap */}
@@ -3307,7 +3330,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </div>
                         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
                             {([
-                                { id: 'auto' as const, title: '自動整理', desc: '滿100條自動成盒' },
+                                { id: 'auto' as const, title: '自動整理', desc: `滿${tempTopicThreshold}條自動成盒` },
                                 { id: 'manual' as const, title: '手動整理', desc: '只在點擊時成盒' },
                             ]).map(option => {
                                 const active = (activeGroup?.topicArchiveMode || 'auto') === option.id;
@@ -3327,12 +3350,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-indigo-50 p-3.5 space-y-2">
                             <p className="text-[11px] font-bold text-violet-700">一份總結，全群共同記住</p>
                             <p className="text-[10px] leading-5 text-violet-600/80">
-                                最近 {GROUP_TOPIC_HOT_ZONE} 條始終保留原文；更早的記錄累計 {GROUP_TOPIC_BUFFER_THRESHOLD} 條後{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自動整理' : '等待你手動整理'}成公共話題盒。
+                                最近 {tempPrivateContextCap} 條始終保留原文；更早的記錄累計 {tempTopicThreshold} 條後{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自動整理' : '等待你手動整理'}成公共話題盒。
                                 盒子只屬於本群，同時會作為卡片送到每位成員私聊，之後可被各自的私聊上下文與歸檔正常理解。
                             </p>
                             <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-[10px]">
                                 <span className="text-slate-500">熱區以前待整理</span>
-                                <span className={`font-bold ${topicPendingCount >= GROUP_TOPIC_BUFFER_THRESHOLD ? 'text-amber-500' : 'text-slate-500'}`}>{topicPendingCount} / {GROUP_TOPIC_BUFFER_THRESHOLD} 條</span>
+                                <span className={`font-bold ${topicPendingCount >= tempTopicThreshold ? 'text-amber-500' : 'text-slate-500'}`}>{topicPendingCount} / {tempTopicThreshold} 條</span>
+                            </div>
+                            <div className="rounded-xl bg-white/70 px-3 py-2.5">
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-slate-500">幾條成一盒</span>
+                                    <span className="font-bold text-violet-600">{tempTopicThreshold} 條</span>
+                                </div>
+                                <input type="range" min={GROUP_TOPIC_THRESHOLD_MIN} max={GROUP_TOPIC_THRESHOLD_MAX} step="5" value={tempTopicThreshold} onChange={e => setTempTopicThreshold(parseInt(e.target.value))} aria-label="幾條成一盒" className="mt-1.5 w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                                <div className="flex justify-between text-[9px] text-slate-400 mt-1"><span>{GROUP_TOPIC_THRESHOLD_MIN}（勤快、盒子小）</span><span>{GROUP_TOPIC_THRESHOLD_MAX}（省次數、盒子大）</span></div>
+                                <p className="text-[9px] text-slate-400 mt-1 leading-4">「最近幾條留原文」在上面的上下文設定裡。兩個都按右上角保存才生效。</p>
                             </div>
                         </div>
 
@@ -3466,19 +3498,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             </Modal>
 
             {/* Transfer Modal — 紅包 2.0：拼手氣 / 專屬 */}
-            {/* NPC 客串：不是正式群成員，手動觸發插一句話 */}
-            <Modal isOpen={showNpcGuestModal} title="NPC 客串" onClose={() => setShowNpcGuestModal(false)}
-                footer={<button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句話'}</button>}>
+            {/* 配角客串：不是正式群成員，手動觸發插一句話（人選見 groupGuestCandidates） */}
+            <Modal isOpen={showNpcGuestModal} title="配角客串" onClose={() => setShowNpcGuestModal(false)}
+                footer={guestCandidates.length > 0
+                    ? <button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句話'}</button>
+                    : <button onClick={() => setShowNpcGuestModal(false)} className="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">知道了</button>}>
                 <div className="space-y-4">
-                    {npcs.length > 0 ? (
+                    {guestCandidates.length > 0 ? (
                         <>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">選一個 NPC</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">選一位配角</label>
                                 <select value={npcGuestId} onChange={e => setNpcGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                    <option value="">— 選擇一個 NPC —</option>
-                                    {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                    <option value="">— 選一位配角 —</option>
+                                    {guestCandidates.map(g => <option key={g.id} value={g.id}>{g.name}{g.kind === 'npc' ? '（舊 NPC）' : ''}</option>)}
                                 </select>
-                                <p className="text-[9px] text-slate-400 mt-1">TA 不是這個群的正式成員，只插這一句話，不會被拉進後續輪詢。</p>
+                                <p className="text-[9px] text-slate-400 mt-1">TA 不是這個群的成員，只插這一句話，不會被拉進後續輪詢。想讓 TA 常駐就在群組設置把 TA 加進來。</p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">這次客串的方向提示（可選）</label>
@@ -3489,7 +3523,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </>
                     ) : (
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                            還沒有 NPC——請先去「神經鏈接」→「NPC」分頁建一個，再回來客串。
+                            {characters.some(c => c.castRole === 'supporting' && !c.altOf)
+                                ? '能客串的配角都已經在群裡（或下戲了）。客串是給群外的人插一句話用的。'
+                                : '還沒有配角——去「神經鏈接」→「配角」分頁建一個（或把角色改成配角），再回來客串。'}
                         </p>
                     )}
                 </div>

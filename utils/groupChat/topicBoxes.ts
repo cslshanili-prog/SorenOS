@@ -2,10 +2,40 @@ import type { CharacterProfile, GroupProfile, GroupTopicBox, Message } from '../
 import { isMessageSemanticallyRelevant } from '../messageFormat';
 import { messageLogText } from './format';
 
-export const GROUP_TOPIC_HOT_ZONE = 200;
-export const GROUP_TOPIC_BUFFER_THRESHOLD = 100;
+/** 最近幾條留原文（熱區），跟群設定的 privateContextCap 是同一個數：私聊看得到的就是還沒成盒的 */
+export const GROUP_TOPIC_HOT_ZONE_DEFAULT = 80;
+export const GROUP_TOPIC_HOT_ZONE_MIN = 20;
+export const GROUP_TOPIC_HOT_ZONE_MAX = 500;
+/** 熱區以前累計幾條成一盒 */
+export const GROUP_TOPIC_THRESHOLD_DEFAULT = 50;
+export const GROUP_TOPIC_THRESHOLD_MIN = 10;
+export const GROUP_TOPIC_THRESHOLD_MAX = 200;
 export const GROUP_TOPIC_PROCESS_RATIO = 0.85;
 export const GROUP_TOPIC_MAX_BATCH = 200;
+
+export type GroupTopicSettings = { hotZone: number; threshold: number };
+
+const clampInt = (v: unknown, min: number, max: number, fallback: number): number => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : fallback;
+    return Math.min(max, Math.max(min, n));
+};
+
+/** 這個群的熱區與成盒條數（沒設照預設、超出範圍夾回來）。 */
+export function groupTopicSettings(group: Pick<GroupProfile, 'privateContextCap' | 'topicArchiveThreshold'> | null | undefined): GroupTopicSettings {
+    return {
+        hotZone: clampInt(group?.privateContextCap, GROUP_TOPIC_HOT_ZONE_MIN, GROUP_TOPIC_HOT_ZONE_MAX, GROUP_TOPIC_HOT_ZONE_DEFAULT),
+        threshold: clampInt(group?.topicArchiveThreshold, GROUP_TOPIC_THRESHOLD_MIN, GROUP_TOPIC_THRESHOLD_MAX, GROUP_TOPIC_THRESHOLD_DEFAULT),
+    };
+}
+
+/**
+ * 私聊「近期群活動」從這個群取幾條還沒成盒的：熱區＋成盒條數。
+ * 自動整理時還沒成盒的不會超過這個數，所以角色私聊裡群聊不會有看不到的空檔。
+ */
+export function privateGroupContextWindow(group: Pick<GroupProfile, 'privateContextCap' | 'topicArchiveThreshold'> | null | undefined): number {
+    const { hotZone, threshold } = groupTopicSettings(group);
+    return hotZone + threshold;
+}
 
 export type GroupTopicBatch = {
     messages: Message[];
@@ -13,19 +43,21 @@ export type GroupTopicBatch = {
     hotZoneCount: number;
 };
 
-/** 只規劃公共成盒範圍；最近 200 條永遠保留為原文熱區。 */
+/** 只規劃公共成盒範圍；最近 hotZone 條永遠保留為原文熱區。 */
 export function planGroupTopicBatch(
     allMessages: Message[],
     archivedThroughMessageId: number = 0,
     force: boolean = false,
+    settings: GroupTopicSettings = groupTopicSettings(null),
 ): GroupTopicBatch | null {
+    const { hotZone, threshold: autoThreshold } = settings;
     const semantic = allMessages
         .filter(isMessageSemanticallyRelevant)
         .sort((a, b) => a.id - b.id);
-    if (semantic.length <= GROUP_TOPIC_HOT_ZONE) return null;
-    const hotZoneStartId = semantic[semantic.length - GROUP_TOPIC_HOT_ZONE].id;
+    if (semantic.length <= hotZone) return null;
+    const hotZoneStartId = semantic[semantic.length - hotZone].id;
     const pending = semantic.filter(m => m.id > archivedThroughMessageId && m.id < hotZoneStartId);
-    const threshold = force ? 1 : GROUP_TOPIC_BUFFER_THRESHOLD;
+    const threshold = force ? 1 : autoThreshold;
     if (pending.length < threshold) return null;
     const processCount = Math.min(
         force ? pending.length : Math.ceil(pending.length * GROUP_TOPIC_PROCESS_RATIO),
@@ -34,14 +66,18 @@ export function planGroupTopicBatch(
     return {
         messages: pending.slice(0, processCount),
         pendingCount: pending.length,
-        hotZoneCount: Math.min(GROUP_TOPIC_HOT_ZONE, semantic.length),
+        hotZoneCount: Math.min(hotZone, semantic.length),
     };
 }
 
-export function groupTopicPendingCount(allMessages: Message[], archivedThroughMessageId: number = 0): number {
+export function groupTopicPendingCount(
+    allMessages: Message[],
+    archivedThroughMessageId: number = 0,
+    hotZone: number = GROUP_TOPIC_HOT_ZONE_DEFAULT,
+): number {
     const semantic = allMessages.filter(isMessageSemanticallyRelevant).sort((a, b) => a.id - b.id);
-    if (semantic.length <= GROUP_TOPIC_HOT_ZONE) return 0;
-    const hotZoneStartId = semantic[semantic.length - GROUP_TOPIC_HOT_ZONE].id;
+    if (semantic.length <= hotZone) return 0;
+    const hotZoneStartId = semantic[semantic.length - hotZone].id;
     return semantic.filter(m => m.id > archivedThroughMessageId && m.id < hotZoneStartId).length;
 }
 
