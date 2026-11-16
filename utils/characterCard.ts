@@ -42,6 +42,7 @@ export const CARD_STRIPPED_FIELDS = [
 
   // 3) 語言 / 語音 / 組織類本地偏好
   'groupId',                 // 角色分組是發卡人自己的整理方式，指向的分組 id 在接收方本地也不存在
+  'worldSectionId',          // 世界底下的分組，跟 groupId 一樣是本機的整理方式
   'chatVoiceLang',
   'dateVoiceLang',
   'callVoiceLang',
