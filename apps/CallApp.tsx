@@ -15,6 +15,7 @@ import { FISH_VOICE_ACTING_GUIDE, stripFishMarkupForDisplay } from '../utils/fis
 import { resolveTtsProvider, getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from '../utils/ttsProvider';
 import { getElevenLabsVoiceActingGuide, stripElevenLabsMarkupForDisplay } from '../utils/elevenLabsTts';
 import { canSynthesizeSpeech, stripTtsMarkupForDisplay, synthesizeSpeechDetailed as synthesizeSpeechRoutedDetailed } from '../utils/ttsRouter';
+import { callLanguageFollowHint, callLanguagePlan } from '../utils/chatLanguage';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguagePromptLabel } from '../utils/voiceLanguage';
 import { startStt, isSttSupported, type SttSession } from '../utils/speechToText';
 import { ContextBuilder } from '../utils/context';
@@ -1125,6 +1126,10 @@ const CallApp: React.FC = () => {
   useEffect(() => {
     setVoiceLang(selectedChar?.callVoiceLang || '');
   }, [selectedCharId]);
+  // 聊天語言（plans/chat-language.md 第 4 批）：通話沒另外指定語種時跟著角色的聊天語言——
+  // 說話語言是念出來的、翻譯成是字幕。另外指定了（voiceLang）就照舊。
+  const callLangPlan = !voiceLang ? callLanguagePlan(selectedChar?.chatLanguage) : undefined;
+  const callTtsLang = voiceLang || callLangPlan?.ttsCode || '';
   const resolveVoiceId = () => selectedChar?.voiceProfile?.voiceId?.trim() || '';
   const resolveGroupId = () => (apiConfig.minimaxGroupId || '').trim();
   // ── TTS 服務商分發：MiniMax 保留電話專用分段兜底；Fish / ElevenLabs 走共享適配器。 ──
@@ -1141,7 +1146,7 @@ const CallApp: React.FC = () => {
     if (activeTtsProvider !== 'minimax') {
       if (!selectedChar) throw new Error('未選擇角色');
       const { url } = await synthesizeSpeechRoutedDetailed(rawText, selectedChar, apiConfig, {
-        languageBoost: voiceLang || undefined,
+        languageBoost: callTtsLang || undefined,
         emotion,
       });
       return { url: url || '', traceIds: [] };
@@ -1160,7 +1165,7 @@ const CallApp: React.FC = () => {
         voiceId,
         model,
         emotion,
-        languageBoost: voiceLang || undefined,
+        languageBoost: callTtsLang || undefined,
         groupId: groupId || undefined,
         legacyTransport: 'call',
         textAlreadyPrepared: true,
@@ -1849,6 +1854,7 @@ ${sentencePlan}`;
           voiceLang || undefined,
           callMode,
           resolveCharTimeZone(selectedChar),
+          callLangPlan,
         )
       : buildCallPromptParts(userName, undefined, undefined, voiceLang || undefined, callMode);
     const baseCallPrompt = callParts.text;
@@ -2212,7 +2218,7 @@ ${sentencePlan}`;
         sourceTimestamp: target.bubble.timestamp,
         originalText,
         spokenText: spokenText !== originalText ? spokenText : undefined,
-        language: voiceLang || undefined,
+        language: callTtsLang || undefined,
         blob,
       });
       setVoiceFavoriteSaved(true);
@@ -3861,11 +3867,11 @@ ${sentencePlan}`;
           {/* translate */}
           <button onClick={() => setShowLangPicker(prev => !prev)} title="語音語種" className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}>
             <span className={`${callControlSize} rounded-full border flex items-center justify-center backdrop-blur-md transition mx-auto`}
-              style={voiceLang ? { background: `${accentColor}33`, borderColor: `${accentColor}88`, boxShadow: `0 0 18px ${accentColor}55` } : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}>
+              style={(voiceLang || callLangPlan) ? { background: `${accentColor}33`, borderColor: `${accentColor}88`, boxShadow: `0 0 18px ${accentColor}55` } : { background: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.15)' }}>
               <Translate size={22} weight="fill" className="text-white/90" />
             </span>
             <span className="text-[10px] text-white/70">翻譯</span>
-            {callMode !== 'video' && <span className="text-[8px] tracking-[0.15em]" style={{ color: voiceLang ? accentColor : 'rgba(255,255,255,0.3)' }}>{voiceLang ? 'ON' : 'OFF'}</span>}
+            {callMode !== 'video' && <span className="text-[8px] tracking-[0.15em]" style={{ color: (voiceLang || callLangPlan) ? accentColor : 'rgba(255,255,255,0.3)' }}>{voiceLang ? 'ON' : callLangPlan ? 'AUTO' : 'OFF'}</span>}
           </button>
           {/* end call */}
           <button onClick={handleHangup} className={`flex flex-col items-center transition active:scale-95 ${callMode === 'video' ? 'gap-0.5' : 'gap-1.5'}`}>
@@ -3939,13 +3945,16 @@ ${sentencePlan}`;
         <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end" onClick={() => setShowLangPicker(false)}>
           <div className={`w-full border-t border-white/10 rounded-t-3xl p-5 space-y-3 ${lightTheme ? 'bg-[#f6f4fc]' : 'bg-[#120c22]'}`} onClick={e => e.stopPropagation()}>
             <div className="text-sm text-white/80 font-medium">語音語種</div>
-            <p className="text-xs text-white/40">選擇後，角色會用中文回覆，語音則用對應語種朗讀</p>
+            <p className="text-xs text-white/40">
+              {callLanguageFollowHint(selectedChar?.chatLanguage)}
+              另外指定的話，角色會用中文回覆，語音則用對應語種朗讀。
+            </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {VOICE_LANGUAGE_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => { setVoiceLang(opt.value); if (selectedChar) updateCharacter(selectedChar.id, { callVoiceLang: opt.value }); setShowLangPicker(false); trackEvent('设置通话语音语种', { 语种: voiceLanguageAnalyticsValue(opt.value) }); }}
                   className={`text-xs px-3 py-2 rounded-full font-medium transition-colors text-white ${voiceLang === opt.value ? 'keep-white' : ''}`}
                   style={voiceLang === opt.value ? { backgroundColor: accentColor } : lightTheme ? { background: 'rgba(38,34,57,0.08)' } : { background: 'rgba(255,255,255,0.1)' }}>
-                  {opt.label}
+                  {opt.value === '' ? '跟著聊天語言' : opt.label}
                 </button>
               ))}
             </div>

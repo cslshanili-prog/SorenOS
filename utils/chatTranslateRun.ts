@@ -76,3 +76,29 @@ export async function translateCloudReply(
     const fromPush = recent.filter(m => (m.metadata as any)?.activeMsg2?.messageId === pushMessageId);
     return translateMessagesInPlace(fromPush, lang.translateTo, apiConfig);
 }
+
+/**
+ * 群聊（plans/chat-language.md 第 4 批）：一輪生成收尾後，把 `sinceTs` 之後存的成員文字訊息
+ * 照各自的「翻譯成」補譯文（群裡一律先寫再翻）。回傳翻成的則數；有翻不成的回 -1（讓畫面刷新出「點一下再翻」）。
+ */
+export async function translateGroupReplies(
+    groupId: string,
+    sinceTs: number,
+    characters: Array<{ id: string; chatLanguage?: ChatLanguageConfig }>,
+    apiConfig: APIConfig,
+): Promise<number> {
+    const fresh = (await DB.getGroupMessages(groupId)).filter(m => (m.timestamp || 0) >= sinceTs && isTranslatable(m));
+    if (!fresh.length) return 0;
+    let done = 0;
+    let failed = false;
+    const byChar = new Map<string, Message[]>();
+    for (const m of fresh) byChar.set(m.charId, [...(byChar.get(m.charId) || []), m]);
+    for (const [charId, list] of byChar) {
+        const lang = resolveChatLanguage(characters.find(c => c.id === charId)?.chatLanguage);
+        if (!lang.translating || !lang.translateTo) continue;
+        const n = await translateMessagesInPlace(list, lang.translateTo, apiConfig);
+        if (n === 0) failed = true;
+        done += n;
+    }
+    return failed ? -1 : done;
+}

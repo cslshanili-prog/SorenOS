@@ -1,5 +1,6 @@
 import { Message } from '../../types';
 import { isBlobRef } from '../blobRef';
+import { splitBilingual } from '../chatLanguage';
 
 /**
  * 群聊日誌行裡一條消息的文本表示——非文本類型用佔位符。
@@ -19,5 +20,7 @@ export function messageLogText(m: Message, stickerName?: (url: string) => string
     // 內聯進 prompt 同樣是純噪聲。跟 groupChat/prompts.ts 的同款兜底保持一個口徑。
     const trimmed = rawText.trim();
     if (/^(data:|https?:\/\/)/i.test(trimmed) || isBlobRef(trimmed)) return '[媒體]';
-    return rawText;
+    // 聊天語言：雙語訊息（原文＋譯文）給成員看只留原文，譯文是翻給用戶的（plans/chat-language.md 第 4 批）
+    const bi = splitBilingual(rawText);
+    return bi ? bi.original : rawText;
 }

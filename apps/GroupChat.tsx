@@ -1,3 +1,5 @@
+import { buildSpeakingRulesPrompt, resolveChatLanguage, splitBilingual } from '../utils/chatLanguage';
+import { translateGroupReplies, translateMessagesInPlace } from '../utils/chatTranslateRun';
 import DecorationQuickPanel from '../components/decoration/DecorationQuickPanel';
 import { setDecorationHandoff } from '../utils/decorationHandoff';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../utils/anniversaryGifts';
@@ -145,6 +147,12 @@ const GroupPacketCard = ({ msg, nameOf, onOpen }: {
 };
 
 // --- Sub-Component: Group Message Bubble ---
+/** 成員檔案裡的說話語言（聊天語言設定；沒設就是空字串）。 */
+const memberLanguageBlock = (member: CharacterProfile): string => {
+    const rules = buildSpeakingRulesPrompt(resolveChatLanguage(member.chatLanguage));
+    return rules ? `\n\n${rules}` : '';
+};
+
 const GroupMessageItem = React.memo(({
     msg,
     isUser,
@@ -168,6 +176,7 @@ const GroupMessageItem = React.memo(({
     bubbleVariant = 'modern',
     messageSpacing = 'default',
     showTimestamp = 'always',
+    onRetryTranslation,
 }: {
     msg: Message,
     isUser: boolean,
@@ -193,7 +202,11 @@ const GroupMessageItem = React.memo(({
     bubbleVariant?: 'modern' | 'flat' | 'outline' | 'shadow' | 'wechat' | 'ios',
     messageSpacing?: 'compact' | 'default' | 'spacious',
     showTimestamp?: 'always' | 'hover' | 'never',
+    /** 聊天語言：先寫再翻沒翻成時「點一下再翻」 */
+    onRetryTranslation?: (msg: Message) => void,
 }) => {
+    // 聊天語言（plans/chat-language.md 第 4 批）：雙語訊息預設顯示原文，點「翻譯」切換；成員開了展開就上下都顯示
+    const [showTranslated, setShowTranslated] = React.useState(false);
     const avatar = isUser ? userAvatar : char?.avatar;
     const name = isUser ? '我' : char?.name || '未知成員';
 
@@ -424,7 +437,32 @@ const GroupMessageItem = React.memo(({
                                 <span className="truncate italic">"{buildReplySnapshotContent({ content: msg.replyTo.content })}"</span>
                             </div>
                         )}
-                        <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{msg.content}</div>
+                        {(() => {
+                            const bi = !isUser ? splitBilingual(msg.content) : null;
+                            if (!bi) return <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{msg.content}</div>;
+                            const expanded = !!(char as CharacterProfile | undefined)?.chatLanguage?.expanded;
+                            return (
+                                <>
+                                    <div className="relative z-10 select-text" style={{ color: styleConfig.textColor }}>{expanded ? bi.original : (showTranslated ? bi.translated : bi.original)}</div>
+                                    {expanded ? (
+                                        <div className="relative z-10 mt-1.5 pt-1.5 select-text text-[13px] opacity-75" style={{ color: styleConfig.textColor, borderTop: '1px solid rgba(127,127,127,0.16)' }}>{bi.translated}</div>
+                                    ) : (
+                                        <div className="relative z-10 mt-1.5 pt-1 flex justify-end" style={{ borderTop: '1px solid rgba(127,127,127,0.16)' }}>
+                                            <button onClick={e => { e.stopPropagation(); setShowTranslated(v => !v); }} data-group-translate-toggle className="text-[10px] font-medium select-none" style={{ color: styleConfig.textColor, opacity: 0.5 }}>
+                                                {showTranslated ? '原文' : '翻譯'}
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
+                        {!isUser && !!msg.metadata?.translationFailed && !splitBilingual(msg.content) && onRetryTranslation && (
+                            <div className="relative z-10 mt-1.5 pt-1 flex justify-end" style={{ borderTop: '1px solid rgba(127,127,127,0.16)' }}>
+                                <button onClick={e => { e.stopPropagation(); onRetryTranslation(msg); }} data-retry-translation title={String(msg.metadata.translationFailed)} className="text-[10px] font-medium select-none" style={{ color: styleConfig.textColor, opacity: 0.55 }}>
+                                    沒翻成，點一下再翻
+                                </button>
+                            </div>
+                        )}
                     </div>
                 );
         }
@@ -813,12 +851,30 @@ const GroupChat: React.FC = () => {
     // 發消息/派發氣泡後刷新消息窗口：只取"當前窗口 + 新增"這麼多條並同步總數。
     // 之前每條氣泡都 getGroupMessages 全表讀，且 totalMsgCount 不更新，
     // 導致發送後"加載歷史消息"按鈕的計數失真（甚至消失）
+    // 氣泡是 memo 的：用 ref 拿最新的 refresh，回呼本身保持穩定
+    const refreshMessagesRef = useRef<(groupId: string) => Promise<void>>(async () => {});
+    const handleRetryGroupTranslation = useCallback(async (msg: Message) => {
+        const lang = resolveChatLanguage(characters.find(c => c.id === msg.charId)?.chatLanguage);
+        if (!lang.translateTo || !msg.groupId) return;
+        const done = await translateMessagesInPlace([msg], lang.translateTo, apiConfig);
+        if (!done) addToast('還是沒翻成，看看系統設置的「翻譯 API」', 'error');
+        await refreshMessagesRef.current(msg.groupId);
+    }, [characters, apiConfig, addToast]);
+
+    // 聊天語言（plans/chat-language.md 第 4 批）：群裡一律先寫再翻，收尾後照每個成員自己的「翻譯成」補譯文
+    const translateGroupRoundInBackground = (groupId: string, since: number) => {
+        void translateGroupReplies(groupId, since, characters, apiConfig)
+            .then(n => { if (n > 0 || n < 0) void refreshMessages(groupId); })
+            .catch(() => {});
+    };
+
     const refreshMessages = async (groupId: string) => {
         const { messages: msgs, totalCount } = await DB.getRecentGroupMessagesWithCount(groupId, visibleCount);
         setMessages(msgs);
         setTotalMsgCount(totalCount);
         return msgs;
     };
+    refreshMessagesRef.current = async (groupId: string) => { await refreshMessages(groupId); };
 
     // Chat 主頁「消息」tab 點某個群聊行時的深鏈：外部沒法直接驅動這裡的 view/activeGroup（都是本組件
     // 內部 state），靠 context 那個一次性字段告訴這裡"打開就直接進這個群"，消費掉即清空。
@@ -1588,7 +1644,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
         if (!samePerson) {
             return `
 <<< 角色檔案 START: ${member.name} (ID: ${member.id}) >>>
-${coreContext}
+${coreContext}${memberLanguageBlock(member)}
 
 ${distinctGroupPersonaSection({ groupUserName: presentKeys.map(nameOfKey).join('」「'), knownName: knownProfile.name, timeline: memberTimeline })}${linkNote}
 - 群裡的真人群友你都不認識，不要用 PRIVATE。
@@ -1605,7 +1661,7 @@ ${distinctGroupPersonaSection({ groupUserName: presentKeys.map(nameOfKey).join('
         // CRITICAL FIX: Emphasize Private Context logic
         return `
 <<< 角色檔案 START: ${member.name} (ID: ${member.id}) >>>
-${coreContext}
+${coreContext}${memberLanguageBlock(member)}
 
 [重點：私聊狀態 (Private Context)]:
 - **私聊空窗期**${useNames && focalKey ? `（跟「${nameOfKey(focalKey)}」）` : ''}: ${privateGapInfo}
@@ -1925,6 +1981,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             return;
         }
         setIsTyping(true);
+        // 聊天語言：這一輪之後存的成員訊息，收尾時照各自的「翻譯成」補譯文
+        const roundStoredFrom = Date.now();
         const abort = new AbortController();
         abortRef.current = abort;
 
@@ -2053,6 +2111,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             setIsTyping(false);
             setMcpStatus('');
             abortRef.current = null;
+            translateGroupRoundInBackground(activeGroup.id, roundStoredFrom);
             // 中途報錯 / 用戶點停也照打：已經落庫的那幾條同樣進了成員的私聊背景
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
@@ -2071,6 +2130,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             return;
         }
         setIsTyping(true);
+        // 聊天語言：這一輪之後存的成員訊息，收尾時照各自的「翻譯成」補譯文
+        const roundStoredFrom = Date.now();
         const abort = new AbortController();
         abortRef.current = abort;
 
@@ -2237,6 +2298,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             setIsTyping(false);
             setMcpStatus('');
             abortRef.current = null;
+            translateGroupRoundInBackground(activeGroup.id, roundStoredFrom);
             // 同導演模式：跑到一半被打斷也要打髒，已發言成員的話已經落庫了
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
@@ -2567,6 +2629,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             bubbleVariant={osTheme.chatBubbleStyle}
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={osTheme.chatShowTimestamp}
+                            onRetryTranslation={handleRetryGroupTranslation}
                         />
                         </React.Fragment>
                     );

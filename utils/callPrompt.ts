@@ -8,6 +8,7 @@ import { FISH_VOICE_ACTING_GUIDE } from './fishAudioTts';
 import { getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from './ttsProvider';
 import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
 import { voiceLanguagePromptLabel } from './voiceLanguage';
+import type { CallLanguagePlan } from './chatLanguage';
 import { RealtimeContextManager } from './realtimeContext';
 
 export type CallMode = 'voice' | 'video';
@@ -116,6 +117,8 @@ export const buildCallPromptParts = (
   voiceLang?: string,
   mode: CallMode = 'voice',
   tz?: string,
+  /** 跟著聊天語言（plans/chat-language.md 第 4 批）；通話另外指定了語種（voiceLang）時不用 */
+  languagePlan?: CallLanguagePlan,
 ) => {
   const resolvedCharName = charName || '你的角色';
   // 電話裡角色說的「現在幾點 / 今天什麼日子」是 ta 那邊的時間，跟角色自定義時區走
@@ -155,7 +158,7 @@ ${currentVoiceActingGuide()}
 
 只輸出你在電話裡會**說出口**的話。不要輸出 [通話]、[聊天]、[約會] 這類系統標記，不要輸出時間戳。`;
   const langLabel = voiceLang ? voiceLanguagePromptLabel(voiceLang) : '';
-  const voiceLangPrompt = voiceLang ? `### 語音語種翻譯
+  const voiceLangPrompt = !voiceLang && languagePlan ? buildCallLanguagePlanPrompt(languagePlan) : voiceLang ? `### 語音語種翻譯
 
 用戶開啟了語音語種功能，選擇的語種是：${langLabel}（${voiceLang}）。
 
@@ -179,6 +182,34 @@ ${currentVoiceActingGuide()}
     text: joinCallPrompt({ coreContext: coreContext || '', timeContext, callPrompt, voiceLangPrompt }),
     segments: splitCallPrompt(callPrompt, timeContext, voiceLangPrompt),
   };
+};
+
+/**
+ * 電話跟著聊天語言時的語言段（放在原本「語音語種翻譯」那一段的位置）。
+ * 有字幕語言：先寫字幕、再用 <語音> 寫念出來的那句（跟語音語種同一個格式，解析與 TTS 都不用改）；
+ * 沒有：直接用說話語言講，文字就是念的那句。
+ */
+export const buildCallLanguagePlanPrompt = (plan: CallLanguagePlan): string => {
+    if (!plan.subtitle) {
+        return `### 說話語言
+
+你在電話裡說${plan.spoken}。${plan.mixRule ? `
+${plan.mixRule}` : ''}`;
+    }
+    return `### 說話語言與字幕
+
+你在電話裡說${plan.spoken}；對方看的字幕是${plan.subtitle}。${plan.mixRule ? `
+${plan.mixRule}` : ''}
+
+你的回覆格式必須是：
+1. 先用${plan.subtitle}寫字幕（給對方看的文字）
+2. 然後換行，在 <語音> 標籤裡寫出你真正說出口的${plan.spoken}——這才是會被讀出來的部分。可選地用 emotion 屬性標整句情緒：\`<語音 emotion="happy">…</語音>\`（情緒只能取 happy/sad/angry/fearful/disgusted/surprised/calm/fluent）
+
+要求：
+- <語音> 裡是你本來就會這樣說的話，自然口語、符合你的性格；字幕是它的翻譯
+- <語音> 裡只寫會被朗讀的文字；演出標記繼續遵守上方「當前引擎規則」，不要寫舞台旁白
+- 每條消息只有一個 <語音> 標籤，emotion 屬性可選；情緒不強就別加
+- 字幕和 <語音> 表達的意思要一致`;
 };
 
 /** 內建送出的那一串（參數同 buildCallPromptParts） */

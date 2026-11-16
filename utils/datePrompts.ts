@@ -20,6 +20,7 @@
  * prompt（peek 舊版手搓 mapper 的問題即在此，已統一修掉）。
  */
 
+import { buildDateLanguageRule } from './chatLanguage';
 import { applyClockToHistory, describeClockNote, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { buildLengthLine, buildScenarioBlock } from './dateExtras';
@@ -362,10 +363,12 @@ const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap 
     const povBlock = buildPovBlock(styleConfig, char.name, userName);
     const extraBlock = buildExtraStyleBlock(styleConfig);
     const digBlock = isDigDeeperOn(styleConfig) ? `${DIG_DEEPER_BLOCK}\n` : '';
+    // 聊天語言（plans/chat-language.md 第 4 批）：台詞用說話語言、括號附譯文
+    const dateLanguage = buildDateLanguageRule(char.chatLanguage).split('{{char}}').join(char.name);
     return `${DATE_PROSE_INTRO}
 
 ${DATE_FORMAT_RULES}
-${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : ''}
+${dateLanguage ? `\n${dateLanguage}\n` : ''}${char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : ''}
 
 ${preset.block}
 

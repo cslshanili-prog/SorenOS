@@ -71,6 +71,16 @@ describe('DatePrompts.buildSessionPayload', () => {
         expect(sysOf(firstYou.messages)).toContain('我看向你');
     });
 
+    it('聊天語言：台詞用說話語言、括號附譯文（plans/chat-language.md 第 4 批）', async () => {
+        const { messages } = await DatePrompts.buildSessionPayload(baseInput(makeChar({ chatLanguage: { speak: 'English', translateTo: '繁體中文' } })));
+        const sys = String(messages[0].content);
+        expect(sys).toContain('### 說話語言');
+        expect(sys).toContain('台詞（引號裡的話）用English');
+        expect(sys).not.toContain('{{char}}說出口');
+        const plain = await DatePrompts.buildSessionPayload(baseInput(makeChar()));
+        expect(String(plain.messages[0].content)).not.toContain('### 說話語言');
+    });
+
     it('extra 自定義補充原樣進入提示詞', async () => {
         const char = makeChar({ dateStyleConfig: { extra: '不要寫心理活動，多寫對話。' } });
         const { messages } = await DatePrompts.buildSessionPayload(baseInput(char));
