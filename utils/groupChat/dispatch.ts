@@ -69,6 +69,14 @@ export interface DispatchContext {
      * 對方馬上回一句。不傳就只剝掉標記（沒教這個語法的時候）。
      */
     onMemberDm?: (fromId: string, toName: string, content: string) => Promise<void> | void;
+    /** 一項最多拆成幾個氣泡（群聊節奏：一個人說一下就換人）。多出來的行併進最後一個氣泡。不給＝不限 */
+    maxBubblesPerAction?: number;
+}
+
+/** 一項最多拆成 max 個氣泡：多出來的行併進最後一個氣泡（換行保留），不讓一個人連發一整排。 */
+export function capBubbles(lines: string[], max?: number): string[] {
+    if (!max || max < 1 || lines.length <= max) return lines;
+    return [...lines.slice(0, max - 1), lines.slice(max - 1).join('\n')];
 }
 
 /**
@@ -236,9 +244,10 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
 
         if (textContent) {
             // 只認顯式換行；行內空格屬於正文，不能把混合語言的一句話拆成多條氣泡。
-            const chunks = textContent.split(/(?:\r\n|\r|\n|\u2028|\u2029)+/)
+            const lines = textContent.split(/(?:\r\n|\r|\n|\u2028|\u2029)+/)
                 .map(c => c.trim())
                 .filter(c => c.length > 0);
+            const chunks = capBubbles(lines, ctx.maxBubblesPerAction);
 
             for (const chunk of chunks) {
                 if (signal?.aborted) return;

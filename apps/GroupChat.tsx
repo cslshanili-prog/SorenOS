@@ -42,7 +42,7 @@ import { commitPairToPhones, runPairRound } from '../utils/pairChatRun';
 import { defaultSpeakingKey, focalKnownKey, memberPresence, memberVisibleGroupMessages, presentPersonaKeys } from '../utils/groupChat/presence';
 import { buildKnownPeopleNote, buildKnownPeopleSummaryNote, membersKnownPeople } from '../utils/groupChat/knownPeople';
 import { distinctPersonaNote } from '../utils/personaSpeaker';
-import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock, withoutGroupStyle } from '../utils/groupChat/prompts';
+import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, GroupHistoryBlock, groupRoundBubbles, MAX_BUBBLES_PER_TURN, ROUND_BUBBLES_MAX, ROUND_BUBBLES_MIN, roundBubbleCap, withoutGroupStyle } from '../utils/groupChat/prompts';
 import { assembleGroupPreset, loadGroupPresetDoc } from '../utils/groupPresetSession';
 import GroupPresetSelect from '../components/chat/GroupPresetSelect';
 import { stripLeakedReasoning } from '../utils/reasoningLeak';
@@ -51,7 +51,7 @@ import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs 
 import { resolveNpcApi } from '../utils/npcMemory';
 import { resolveCharacterChatApi } from '../utils/characterApi';
 import { MONEY_SYMBOL } from '../utils/realBalance';
-import { planGroupWaves } from '../utils/groupChat/waves';
+import { buildBeatPlanPrompt, fallbackBeatPlan, maxBeatsFor, memberBrief, parseBeatPlan, resolveBeatPlanApi, type Beat, type BeatMember } from '../utils/groupChat/beatPlan';
 import { refreshNpcMemoryFromGroups } from '../utils/npcMemoryRuntime';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
@@ -553,7 +553,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
+    const { closeApp, openApp, memoryPalaceConfig, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
@@ -724,7 +724,7 @@ const GroupChat: React.FC = () => {
     const [tempAnnouncement, setTempAnnouncement] = useState('');
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
-    const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(DEFAULT_MAX_ROUND_MESSAGES);
+    const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(() => roundBubbleCap(undefined));
     // 群聊總結：熱區以前幾條成一盒（plans 見 utils/groupChat/topicBoxes.ts 的 groupTopicSettings）
     const [tempTopicThreshold, setTempTopicThreshold] = useState<number>(() => groupTopicSettings(null).threshold);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
@@ -1031,7 +1031,7 @@ const GroupChat: React.FC = () => {
             announcement: tempAnnouncement.trim() || undefined,
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
-            maxRoundMessages: tempMaxRoundMessages,
+            roundBubbles: tempMaxRoundMessages,
             topicArchiveThreshold: tempTopicThreshold,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
@@ -1500,7 +1500,7 @@ const GroupChat: React.FC = () => {
         setTempPrivateContextCap(groupTopicSettings(activeGroup).hotZone);
         setTempTopicThreshold(groupTopicSettings(activeGroup).threshold);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
-        setTempMaxRoundMessages(activeGroup?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES);
+        setTempMaxRoundMessages(groupRoundBubbles(activeGroup));
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
         setTempMemberBubbleIndependent(activeGroup?.memberBubbleIndependent ?? false);
         setTempUserBubbleThemeId(activeGroup?.userBubbleThemeId ?? '');
@@ -2052,7 +2052,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, maxRoundMessages: activeGroup.maxRoundMessages, allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
+            const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, roundBubbles: groupRoundBubbles(activeGroup), allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
             const prompt = `${context}\n\n${directorInstruction}${htmlPromptExt}\n`;
             // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，兩段文風聽預設的，導演格式鎖最後
             const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
@@ -2108,6 +2108,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // memberIds 只給非禁言成員：萬一 AI 還是替被禁言的角色編了台詞，dispatch 會按"不在
             // memberIds 裡"的規則靜默丟棄這條 action（複用退群同一套丟棄機制，不用額外校驗）。
             await dispatchMemberActions(actions, {
+                maxBubblesPerAction: MAX_BUBBLES_PER_TURN,
                 groupId: activeGroup.id,
                 memberIds: roundSpeakers.map(c => c.id),
                 characters: speakers,
@@ -2147,8 +2148,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     };
 
     // 各自發言模式（replyMode 'roundRobin'，舊名輪詢模式）：每位成員單獨調用自己的模型，只寫自己的話
-    // （串號天然無解可能 → 天然解決），角色可輸出 [[SKIP]] 本輪沉默。順序每輪隨機、分兩波
-    // （utils/groupChat/waves.ts）。單成員失敗只跳過該成員，不殺整輪。
+    // （串號天然無解可能 → 天然解決），角色可輸出 [[SKIP]] 本輪沉默。先排出場表、再照表一個一個叫，
+    // 每個人看得到前面剛說的話、只說 1～2 個氣泡（utils/groupChat/beatPlan.ts）。單成員失敗只跳過該拍，不殺整輪。
     const triggerRoundRobin = async (currentMsgs: Message[], plotDirection?: string) => {
         if (!activeGroup) return;
         sideBudgetRef.current = newSideBudget();
@@ -2181,25 +2182,22 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             let roundMsgs = [...currentMsgs];
             // 同一實例複用一整輪——見 makeMemberLeaveHandler 上面的註釋
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
-            // 同一波裡誰的 API 先回來誰先說；但落庫一次只讓一個人來，氣泡不會兩人交錯
-            let landing: Promise<void> = Promise.resolve();
-
-            // 分兩波（utils/groupChat/waves.ts）：順序每輪隨機；第一波 1～2 人同時生成，
-            // 第二波其餘的人同時生成、看得到第一波剛說的話
             // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，只寫自己台詞的格式鎖最後
             const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
-            for (const wave of planGroupWaves(turns)) {
-                if (abort.signal.aborted) break;
-                // 同一波的人看到的是同一份群歷史：識圖、歷史塊只做一次。
-                // 隱身圍觀模式只過濾餵給 prompt 的這份視圖，不動 roundMsgs 本身
-                // （後面的 vision 描述回寫、DB 刷新都要基於完整消息列表）。
+            const knownPeopleNote = buildKnownPeopleNote(membersKnownPeople(groupMembers, userProfileBase));
+            const emojiContextStr = buildEmojiContextStr(emojis, categories, activeGroup.members);
+            const htmlPromptExt = activeGroup.htmlModeEnabled
+                ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
+                : '';
+
+            // 這一刻的群歷史（每一拍都重做：前面剛說的話要看得到）。隱身圍觀只過濾餵給 prompt 的這份視圖，
+            // 不動 roundMsgs 本身（vision 描述回寫、DB 刷新都要基於完整消息列表）。
+            const prepareHistory = async () => {
                 const promptMsgs = filterLurkMsgs(roundMsgs);
-                const { header, sharedScene } = buildGroupSystemHeader(promptMsgs, groupMembers);
                 const liveRoundMsgs = promptMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
-                const historyWindow = liveRoundMsgs.slice(-contextLimit);
-                const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
+                const preparedHistory = await materializeVisionDescriptions(liveRoundMsgs.slice(-contextLimit), apiConfig.visionApi);
                 const preparedById = new Map(preparedHistory.map(message => [message.id, message]));
-                // 第二波繼續複用剛寫回的描述，不能每位成員各識圖一次。
+                // 寫回描述，下一拍不用再識圖一次
                 roundMsgs = roundMsgs.map(message => preparedById.get(message.id) || message);
                 const history = buildGroupHistoryBlock(
                     preparedHistory,
@@ -2209,112 +2207,158 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     3,
                     { useVisionDescriptions: apiConfig.visionApi?.enabled === true, userLabel: historyUserLabel, userClaimantName: nameOf },
                 );
-                const emojiContextStr = buildEmojiContextStr(emojis, categories, activeGroup.members);
-                const htmlPromptExt = activeGroup.htmlModeEnabled
-                    ? `\n\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
-                    : '';
+                return { promptMsgs, history };
+            };
 
-                await Promise.all(wave.map(async turn => {
-                    const member = turn.member;
-                    try {
-                        const memberBlock = (turn.kind === 'char'
-                            ? await buildMemberBlock(turn.member, promptMsgs, sharedScene)
-                            : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers))
-                            + buildKnownPeopleNote(membersKnownPeople(groupMembers, userProfileBase));
-                        const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' });
-                        const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
-                        const roundMessages = groupPreset
-                            ? assembleGroupPreset({
-                                doc: groupPreset, mode: 'roundRobin', scene: header, members: memberBlock,
-                                task: buildUserMessageContent(`${roundInstruction}${htmlPromptExt}\n`, history),
-                                memberNames: [member.name], userName: groupUserProfile.name,
-                            })
-                            : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
+            // 群場景和成員檔案一輪只做一次（拍與拍之間只差最新幾句，歷史塊會帶到）
+            const first = await prepareHistory();
+            const { header, sharedScene } = buildGroupSystemHeader(first.promptMsgs, groupMembers);
+            const memberBlockCache = new Map<string, string>();
+            const memberBlockOf = async (turn: typeof turns[number]): Promise<string> => {
+                const cached = memberBlockCache.get(turn.member.id);
+                if (cached !== undefined) return cached;
+                const block = (turn.kind === 'char'
+                    ? await buildMemberBlock(turn.member, first.promptMsgs, sharedScene)
+                    : buildNpcBlockFor(turn.member, first.promptMsgs, roundSpeakers))
+                    + knownPeopleNote;
+                memberBlockCache.set(turn.member.id, block);
+                return block;
+            };
 
-                        // 每個人用自己的模型：角色走聊天設定的「對話模型」，NPC 走 NPC 自己配的，沒配就是全域
-                        const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : resolveCharacterChatApi(turn.member, apiConfig);
-                        const data = await completeGroupChatWithMcp({
-                            url: `${turnApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${turnApi.apiKey}` },
-                            body: {
-                                model: turnApi.model,
-                                messages: roundMessages,
-                                temperature: 0.9,
-                                max_tokens: 2000
-                            },
-                            groupId: activeGroup.id,
-                            userName: groupUserProfile.name,
-                            signal: abort.signal,
-                            onStatus: status => setMcpStatus(status ? `${member.name}：${status}` : ''),
-                        });
-
-                        // Token 統計：整輪累加顯示
-                        if (data.usage?.total_tokens) {
-                            tokenPrompt += data.usage.prompt_tokens || 0;
-                            tokenCompletion += data.usage.completion_tokens || 0;
-                            setLastTokenUsage(tokenPrompt + tokenCompletion);
-                            setTokenBreakdown({
-                                prompt: tokenPrompt,
-                                completion: tokenCompletion,
-                                total: tokenPrompt + tokenCompletion,
-                                msgCount: roundMsgs.length,
-                                pass: 'round-robin',
-                            });
-                        }
-
-                        let text = String(data.choices?.[0]?.message?.content ?? '').trim();
-                        // 剝模型自作主張加的名字前綴（提示詞禁止了，但仍要兜底）
-                        if (text.startsWith(`${member.name}:`) || text.startsWith(`${member.name}：`)) {
-                            text = text.slice(member.name.length + 1).trim();
-                        }
-                        // 漏出來的思考過程先剝掉（見 utils/reasoningLeak.ts）：不剝的話落庫後
-                        // 第二波的人看得到，八九成會跟著寫，滿屏內心戲
-                        const leak = stripLeakedReasoning(text);
-                        if (leak.stripped) console.warn(`[GroupChat] ${member.name} 的回覆夾帶思考過程，已剝掉`);
-                        const { skipped, content } = stripSkipMarker(leak.content);
-                        if (skipped) return; // 本輪潛水（整則都是思考的也算）
-
-                        landing = landing.then(async () => {
-                            if (abort.signal.aborted) return;
-                            try {
-                                await dispatchMemberActions([{ charId: member.id, content }], {
-                                    groupId: activeGroup.id,
-                                    memberIds: roundSpeakers.map(c => c.id),
-                                    characters: speakers,
-                                    npcIds,
-                                    emojis,
-                                    categories,
-                                    refresh: () => refreshMessages(activeGroup.id),
-                                    addToast,
-                                    signal: abort.signal,
-                                    resolveQuote,
-                                    userName: groupUserProfile.name,
-                                    htmlMode: !!activeGroup.htmlModeEnabled,
-                                    onMemberLeave: memberLeaveHandler,
-                                    privateTarget: privateTargetFor,
-                onPrivate: privateHandler,
-                                    userTargets: packetUserTargets,
-                                    onMemberDm: memberDmEnabled ? memberDmHandler : undefined,
-                                });
-                                // 兩個人的話之間留一點隨機間隔，增強真實感
-                                if (!abort.signal.aborted) await new Promise(r => setTimeout(r, 300 + Math.random() * 300));
-                            } catch (e: any) {
-                                if (e?.name === 'AbortError') return;
-                                console.error(`[GroupChat] 各自發言 ${member.name} 落庫失敗:`, e);
-                                failed.push(member.name);
-                            }
-                        });
-                        await landing;
-                    } catch (e: any) {
-                        if (e?.name === 'AbortError') return;
-                        console.error(`[GroupChat] 各自發言 ${member.name} 回覆失敗:`, e);
-                        failed.push(member.name);
+            // 出場表：副 API（沒設用全域）排一次；失敗就每人一拍、順序隨機
+            const beatMembers: BeatMember[] = turns.map(t => ({
+                id: t.member.id,
+                name: t.member.name,
+                brief: t.kind === 'char' ? memberBrief(t.member) : memberBrief({ description: t.member.description }),
+                supporting: t.kind === 'npc' || t.member.castRole === 'supporting',
+            }));
+            const maxBeats = maxBeatsFor(groupRoundBubbles(activeGroup), turns.length);
+            let beats: Beat[] | null = null;
+            const planApi = turns.length > 1 ? resolveBeatPlanApi(apiConfig, memoryPalaceConfig?.lightLLM) : null;
+            if (planApi && !abort.signal.aborted) {
+                try {
+                    setMcpStatus('排出場順序…');
+                    const planPrompt = buildBeatPlanPrompt({
+                        members: beatMembers,
+                        historyText: first.history.text,
+                        maxBeats,
+                        userLurking: lurking,
+                        presentUsers: presentUserNames,
+                        plotDirection,
+                        knownPeopleNote,
+                    });
+                    const res = await fetch(`${planApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${planApi.apiKey}` },
+                        body: JSON.stringify({ model: planApi.model, messages: [{ role: 'user', content: planPrompt }], temperature: 0.8, max_tokens: 600 }),
+                        signal: abort.signal,
+                    });
+                    if (res.ok) {
+                        const data = await safeResponseJson(res);
+                        beats = parseBeatPlan(String(data?.choices?.[0]?.message?.content ?? ''), beatMembers, maxBeats);
                     }
-                }));
-                await landing;
+                    if (!beats) console.warn('[GroupChat] 出場表沒排出來，改成每人一拍、順序隨機');
+                } catch (e: any) {
+                    if (e?.name === 'AbortError') throw e;
+                    console.warn('[GroupChat] 排出場表失敗，改成每人一拍、順序隨機:', e);
+                } finally {
+                    setMcpStatus('');
+                }
+            }
+            if (!beats) beats = fallbackBeatPlan(beatMembers, maxBeats);
 
-                // 下一波看得到這一波剛說的話
-                roundMsgs = await DB.getGroupMessages(activeGroup.id);
+            for (let beatIndex = 0; beatIndex < beats.length; beatIndex++) {
+                if (abort.signal.aborted) break;
+                const beat = beats[beatIndex];
+                const turn = turns.find(t => t.member.id === beat.speakerId);
+                if (!turn) continue;
+                const member = turn.member;
+                try {
+                    const { history } = beatIndex === 0 ? first : await prepareHistory();
+                    const memberBlock = await memberBlockOf(turn);
+                    const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, beatIntent: beat.intent, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' });
+                    const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
+                    const roundMessages = groupPreset
+                        ? assembleGroupPreset({
+                            doc: groupPreset, mode: 'roundRobin', scene: header, members: memberBlock,
+                            task: buildUserMessageContent(`${roundInstruction}${htmlPromptExt}\n`, history),
+                            memberNames: [member.name], userName: groupUserProfile.name,
+                        })
+                        : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
+
+                    // 每個人用自己的模型：角色走聊天設定的「對話模型」，NPC 走 NPC 自己配的，沒配就是全域
+                    const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : resolveCharacterChatApi(turn.member, apiConfig);
+                    const data = await completeGroupChatWithMcp({
+                        url: `${turnApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${turnApi.apiKey}` },
+                        body: {
+                            model: turnApi.model,
+                            messages: roundMessages,
+                            temperature: 0.9,
+                            max_tokens: 2000
+                        },
+                        groupId: activeGroup.id,
+                        userName: groupUserProfile.name,
+                        signal: abort.signal,
+                        onStatus: status => setMcpStatus(status ? `${member.name}：${status}` : ''),
+                    });
+
+                    // Token 統計：整輪累加顯示
+                    if (data.usage?.total_tokens) {
+                        tokenPrompt += data.usage.prompt_tokens || 0;
+                        tokenCompletion += data.usage.completion_tokens || 0;
+                        setLastTokenUsage(tokenPrompt + tokenCompletion);
+                        setTokenBreakdown({
+                            prompt: tokenPrompt,
+                            completion: tokenCompletion,
+                            total: tokenPrompt + tokenCompletion,
+                            msgCount: roundMsgs.length,
+                            pass: 'round-robin',
+                        });
+                    }
+
+                    let text = String(data.choices?.[0]?.message?.content ?? '').trim();
+                    // 剝模型自作主張加的名字前綴（提示詞禁止了，但仍要兜底）
+                    if (text.startsWith(`${member.name}:`) || text.startsWith(`${member.name}：`)) {
+                        text = text.slice(member.name.length + 1).trim();
+                    }
+                    // 漏出來的思考過程先剝掉（見 utils/reasoningLeak.ts）：不剝的話落庫後
+                    // 後面的人看得到，八九成會跟著寫，滿屏內心戲
+                    const leak = stripLeakedReasoning(text);
+                    if (leak.stripped) console.warn(`[GroupChat] ${member.name} 的回覆夾帶思考過程，已剝掉`);
+                    const { skipped, content } = stripSkipMarker(leak.content);
+                    if (skipped) continue; // 這一拍潛水（整則都是思考的也算）
+                    if (abort.signal.aborted) break;
+
+                    await dispatchMemberActions([{ charId: member.id, content }], {
+                        maxBubblesPerAction: MAX_BUBBLES_PER_TURN,
+                        groupId: activeGroup.id,
+                        memberIds: roundSpeakers.map(c => c.id),
+                        characters: speakers,
+                        npcIds,
+                        emojis,
+                        categories,
+                        refresh: () => refreshMessages(activeGroup.id),
+                        addToast,
+                        signal: abort.signal,
+                        resolveQuote,
+                        userName: groupUserProfile.name,
+                        htmlMode: !!activeGroup.htmlModeEnabled,
+                        onMemberLeave: memberLeaveHandler,
+                        privateTarget: privateTargetFor,
+                        onPrivate: privateHandler,
+                        userTargets: packetUserTargets,
+                        onMemberDm: memberDmEnabled ? memberDmHandler : undefined,
+                    });
+                    // 下一拍看得到這一拍剛說的話
+                    roundMsgs = await DB.getGroupMessages(activeGroup.id);
+                    // 兩個人的話之間留一點隨機間隔，增強真實感
+                    if (!abort.signal.aborted) await new Promise(r => setTimeout(r, 300 + Math.random() * 300));
+                } catch (e: any) {
+                    if (e?.name === 'AbortError') break;
+                    console.error(`[GroupChat] 各自發言 ${member.name} 回覆失敗:`, e);
+                    if (!failed.includes(member.name)) failed.push(member.name);
+                }
             }
 
             if (abort.signal.aborted) {
@@ -2713,8 +2757,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </button>
                         <button onClick={() => { void triggerGroupAI(); }}
                             title={isTyping ? '停止' : '讓大家繼續聊'}
-                            className="shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold active:scale-90 transition-transform">
-                            {isTyping ? '■' : '▶'}
+                            aria-label={isTyping ? '停止' : '讓大家繼續聊'}
+                            className={`sully-group-lurk-play shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center font-bold active:scale-90 transition-transform ${isTyping ? 'text-xs' : 'text-lg leading-none pl-0.5'}`}>
+                            {/* \uFE0E 要文字樣式：iOS 會把 ▶ 畫成藍色的表情圖示 */}
+                            {isTyping ? '■\uFE0E' : '\u25B8\uFE0E'}
                         </button>
                     </div>
                     {showPlotDirection && (
@@ -3227,7 +3273,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                 className={`p-3 rounded-xl border cursor-pointer transition-all ${tempReplyMode === 'roundRobin' ? 'border-violet-400 bg-violet-50 ring-1 ring-violet-400' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                             >
                                 <div className="text-xs font-bold text-slate-700">各自發言模式</div>
-                                <p className="text-[9px] text-slate-400 mt-1 leading-tight">每位成員用自己的對話模型單獨生成（沒設就用全域），順序每輪隨機、分兩波：先一兩個人同時開口，其他人看到他們說的再接話；沒話說的人可以沉默。更真實、徹底防串號，但比導演模式慢，token 消耗約為導演模式 × 成員數。</p>
+                                <p className="text-[9px] text-slate-400 mt-1 leading-tight">每位成員用自己的對話模型單獨生成（沒設就用全域）。每輪先排一份出場表（用副 API，沒設用全域），再照表一個一個叫：每次只說 1～2 個氣泡，看得到前面剛說的話，同一個人一輪最多出場兩次；沒話說的人可以沉默。更真實、徹底防串號，但比導演模式慢，token 消耗約為導演模式 × 出場次數。</p>
                             </div>
                         </div>
                     </div>
@@ -3288,12 +3334,12 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <p className="text-[9px] text-slate-400 mt-1 leading-tight">群裡發言時，每位成員參考的"私聊+群聊合併時間線"條數。這條時間線讓角色在群裡的感情與私聊銜接。</p>
                     </div>
 
-                    {/* 一輪最多幾條：只影響導演模式，各自發言模式每人本來就只發或跳過一次 */}
+                    {/* 一輪最多幾個氣泡：導演模式照這個排，各自發言的出場表拍數也從這裡推（utils/groupChat/beatPlan.ts） */}
                     <div className="pt-2 border-t border-slate-100">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">導演模式一輪最多幾條 ({tempMaxRoundMessages})</label>
-                        <input type="range" min="1" max="10" step="1" value={tempMaxRoundMessages} onChange={e => setTempMaxRoundMessages(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
-                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>1 (克制)</span><span>10 (熱鬧)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">下限固定 1 條（"少即是多"，冷場時角色允許只回 1-2 條），這裡調的是上限，默認 5。只影響導演模式；各自發言模式每位成員本來就只會發言或跳過一次。</p>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">一輪最多幾個氣泡 ({tempMaxRoundMessages})</label>
+                        <input type="range" min={ROUND_BUBBLES_MIN} max={ROUND_BUBBLES_MAX} step="1" value={tempMaxRoundMessages} onChange={e => setTempMaxRoundMessages(parseInt(e.target.value))} aria-label="一輪最多幾個氣泡" className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>{ROUND_BUBBLES_MIN} (克制)</span><span>{ROUND_BUBBLES_MAX} (熱鬧)</span></div>
+                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">每次出場只說 1～2 個氣泡就換人，同一個人一輪最多出場兩次，像真人那樣你一句我一句。這裡調的是上限，預設 10；冷場時允許只回 1～2 個。各自發言會先排一份出場表，再照表一個一個叫，拍數也看這個。</p>
                     </div>
 
                     {/* 群聊記憶規則（原本在右上角「?」）：放在記憶相關的設定旁邊，點開才展開 */}
