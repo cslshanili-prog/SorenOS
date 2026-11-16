@@ -21,7 +21,7 @@ export const LINE_STATE_FIELDS = [
 ] as const satisfies readonly LineStateField[];
 
 export const LINE_SETTING_FIELDS = [
-    'chatBackground', 'chatAppearance', 'chatDecorationCssIsolated', 'bubbleStyle', 'chatFineTune',
+    'chatBackground', 'chatAppearance', 'chatDecorationCssIsolated', 'bubbleStyle', 'bubbleOwn', 'chatFineTune',
     'chromeCustomCss', 'chatSound', 'chatSoundBound', 'dateBackground', 'dateAppearance', 'dateOfflineMode',
     'contextLimit', 'contextRangeMode', 'contextFollowsMemoryPalaceHwm', 'contextRangePolicyVersion', 'hideSystemLogs',
     'readNoReply', 'delayedReply', 'dateInvite', 'onlineActions', 'charCall', 'allowCharBlockUser',

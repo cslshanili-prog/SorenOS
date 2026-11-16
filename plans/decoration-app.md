@@ -288,3 +288,17 @@ interface DecorationTemplate {
 - **模板卡片能直接改名**：名字旁邊有「改名」，點了跳小視窗（`data-decoration-rename`）。卡片多一行「改於 …」，同名或相似的也分得出新舊。
 - **裝扮 App 裡的 CSS 編輯器不顯示「我的預設」**：`ChromeCssEditor` 加 `hideMyPresets`。那一塊存的是「一段 CSS」，在裝扮 App 裡跟「模板」重疊，留著只會讓人以為是在存整套。聊天設定裡原本的 CSS 編輯器照舊有。
 - 剛存完新模板會跳「指定給誰」，什麼都不選直接按「好了」不再跳「沒有變化」，免得以為沒存到。
+
+### 角色自己的氣泡（2026-11-16）
+
+氣泡工坊搬進裝扮 App 後，「存好氣泡就問套給誰」那一步拿掉了，綁著模板的角色想換氣泡只能「只改這個聊天」變自訂，整套脫離模板。改成：
+
+- 角色卡（和每條非主線）多一個 `bubbleOwn`：true＝這個聊天穿自己挑的氣泡，蓋在模板上。
+- 規則都在 `utils/decorationTemplates.ts`：
+  - `ownBubblePatch`：綁著模板時寫 `{ bubbleStyle, bubbleOwn: true }`，`detachCharacterPatch` 看到 patch 明講 `bubbleOwn` 就不算動到模板，不解除綁定；沒綁模板就是一般的自訂。
+  - `keepOwnBubble`：改寫或重套**同一份**模板時留住自己的氣泡；換成別份模板就跟新模板走。主線在 `detachCharacterPatch` 裡套，非主線在裝扮 App、Sore 的線寫入（`linePatchForChar` 前）各套一次。
+  - `followTemplateBubblePatch`：回到模板的氣泡。存成自訂（模板 id 是 undefined）時 `CHARACTER_DECORATION_RESET` 會清掉 `bubbleOwn`。
+  - 只給 `bubbleStyle`（舊寫法）照舊解除綁定。
+- 入口：私聊頂端點角色名字的「氣泡樣式 · 當前角色」。綁著模板時多一行說明，自己挑過氣泡的多一顆「跟著模板」。協同工作裝的氣泡主題給角色穿也走 `ownBubblePatch`。
+- 裝扮 App「正在用」那一行，綁模板又自己挑了氣泡的寫「自己的氣泡：…」。
+- 測試：`utils/decorationOwnBubble.test.ts`。

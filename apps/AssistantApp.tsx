@@ -30,7 +30,8 @@ import DecorationPreview from '../components/decoration/DecorationPreview';
 import { applyDecorationProposal, decorationChangedSinceApply, decorationPreviewSim, restoreDecorationProposal, type DecorationData, type DecorationWriter } from '../utils/assistant/decorationOps';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates, saveDecorationTemplates } from '../utils/decorationTemplateStore';
 import type { DecorationTemplate } from '../utils/decorationTemplates';
-import { linePatchForChar } from '../utils/chatLine';
+import { linePatchForChar, lineView } from '../utils/chatLine';
+import { keepOwnBubble } from '../utils/decorationTemplates';
 import { isSoreImageFile, isSoreTextFile, lineCountOf, readSoreTextFile, SORE_ATTACH_ACCEPT, SORE_MAX_FILES, type SoreFileAttachment } from '../utils/assistant/attachments';
 
 /**
@@ -312,7 +313,7 @@ const AssistantApp: React.FC = () => {
         saveTemplates: async templates => { decorationTemplatesRef.current = templates; await saveDecorationTemplates(templates); },
         writeTarget: (target, patch) => (target.kind === 'global' ? updateTheme(patch)
             : target.kind === 'group' ? updateGroup(target.id, patch)
-                : target.line ? updateCharacter(target.id, prev => linePatchForChar(prev, { charId: target.id, personaKey: target.line }, patch))
+                : target.line ? updateCharacter(target.id, prev => { const line = { charId: target.id, personaKey: target.line! }; return linePatchForChar(prev, line, keepOwnBubble(lineView(prev, line), patch)); })
                     : updateCharacter(target.id, patch)),
     };
 

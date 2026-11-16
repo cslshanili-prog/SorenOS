@@ -3381,6 +3381,11 @@ export interface CharacterProfile {
   impression?: UserImpression;
 
   bubbleStyle?: string;
+  /**
+   * 這個聊天自己挑的氣泡，蓋在模板上（plans/decoration-app.md「角色自己的氣泡」）：
+   * true 時 bubbleStyle 是自己選的，套用／改寫模板都不動它，也不會因為換氣泡就解除模板綁定。
+   */
+  bubbleOwn?: boolean;
   /** 聊天細節微調的角色級覆蓋（聊天內「＋」→「聊天裝扮」）。
    *  enabled=true 時已定義的字段逐個覆蓋全局 OSTheme 同名設置，未定義的字段繼續跟隨全局；
    *  enabled 為 false/undefined 或整個字段缺省 = 完全跟隨全局（現狀零變化）。
@@ -5245,7 +5250,7 @@ export type LineStateField =
     | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled' | 'activeMsg2Config';
 /** 聊天設定：這條線沒設就照主線。 */
 export type LineSettingField =
-    | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'chatFineTune'
+    | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'bubbleOwn' | 'chatFineTune'
     | 'chromeCustomCss' | 'chatSound' | 'chatSoundBound' | 'dateBackground' | 'dateAppearance' | 'dateOfflineMode'
     | 'contextLimit' | 'contextRangeMode' | 'contextFollowsMemoryPalaceHwm' | 'contextRangePolicyVersion' | 'hideSystemLogs'
     | 'readNoReply' | 'delayedReply' | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser'
