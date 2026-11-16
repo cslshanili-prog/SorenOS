@@ -66,3 +66,4 @@
 - 歷史：`ChatPrompts.buildMessageHistory`（本機、即時對話、主動消息 fire_pack 都用它）和 `normalizeMessageContent`（記憶宮殿、歸檔）都寫成 `[語音] 內容`。
 - 輸入欄：`components/chat/ChatInputArea.tsx` 給了 `onSendVoice` 才有麥克風鈕（群聊沒給）。點一下進語音條模式（輸入欄上方多一條：說明、辨識語言、離開），再點麥克風開始／停止說話辨識，辨識的字接在已打的字後面、可以改；送出鈕變成波形。這條放在輸入欄外面，跟表情聯想、自動回覆同一層，不動社區 CSS 的 nth-child。
 - 埋點：打开语音条模式、发送语音条（`方式`）、身份卡选了音色。
+- 電話：`apps/CallApp.tsx` 的說話辨識原本寫死 `zh-CN`（出簡體），改讀同一個辨識語言設定，輸入框下面多一個「辨識：…」可以換；`utils/speechToText.ts` 沒給語言時也退回 `zh-TW`。

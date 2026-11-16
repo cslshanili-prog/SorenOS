@@ -7,8 +7,8 @@
  *   - Capacitor app → `@capacitor-community/speech-recognition` (on-device capable),
  *                     loaded via dynamic import so it never enters the web bundle.
  *
- * The user speaks Chinese to the character by default, so the default recognition
- * language is zh-CN regardless of the character's TTS output language.
+ * 辨識語言由呼叫端給（私聊語音條、電話都讀 utils/userVoice.ts 的同一個設定）；
+ * 沒給才退回 zh-TW（Soren 全繁體，zh-CN 會辨識出簡體字）。
  */
 import { Capacitor } from '@capacitor/core';
 
@@ -144,7 +144,7 @@ const startNative = async (lang: string, cb: SttCallbacks): Promise<SttSession> 
  * All transcripts arrive via the callbacks.
  */
 export const startStt = async (lang: string, cb: SttCallbacks): Promise<SttSession> => {
-  const language = lang || 'zh-CN';
+  const language = lang || 'zh-TW';
   if (isNative()) return startNative(language, cb);
   return startWeb(language, cb);
 };
