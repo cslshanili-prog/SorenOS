@@ -4103,15 +4103,15 @@ const MessageItem = React.memo(({
                         </div>
                     ) : voiceLoading ? (
                         <div className="sully-voice-bar sully-voice-bar-loading flex items-center gap-2 px-3 py-2 max-w-[200px] rounded-2xl" style={{ background: vbBg || 'linear-gradient(135deg, rgba(0,0,0,0.02) 0%, rgba(0,0,0,0.04) 100%)', border: '1px solid rgba(0,0,0,0.04)' }}>
-                            <div className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: vbBg ? 'rgba(255,255,255,0.2)' : '#f1f5f9' }}>
+                            <div className="sully-voice-bar-button shrink-0 w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: vbBg ? 'rgba(255,255,255,0.2)' : '#f1f5f9' }}>
                                 <svg className="animate-spin h-3.5 w-3.5" style={{ color: vbBtn || '#94a3b8' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3.5"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                             </div>
-                            <div className="flex-1 flex items-center gap-[3px] h-5 overflow-hidden">
+                            <div className="sully-voice-bar-wave flex-1 flex items-center gap-[3px] h-5 overflow-hidden">
                                 {[...Array(14)].map((_, i) => (
-                                    <div key={i} className="w-[2.5px] rounded-full animate-pulse" style={{ height: `${3 + (i % 3) * 2}px`, backgroundColor: vbWave ? vbWave + '40' : '#e2e8f0', animationDelay: `${i * 100}ms` }} />
+                                    <div key={i} className="sully-voice-bar-wave-segment w-[2.5px] rounded-full animate-pulse" style={{ height: `${3 + (i % 3) * 2}px`, backgroundColor: vbWave ? vbWave + '40' : '#e2e8f0', animationDelay: `${i * 100}ms` }} />
                                 ))}
                             </div>
-                            <span className="text-[10px] shrink-0 animate-pulse" style={{ color: vbText || '#94a3b8' }}>合成中</span>
+                            <span className="sully-voice-bar-label text-[10px] shrink-0 animate-pulse" style={{ color: vbText || '#94a3b8' }}>合成中</span>
                         </div>
                     ) : (hasVoiceTag || isUserVoiceMsg) ? (
                         /* Voice tag exists in content but no audio yet — either TTS is still
@@ -4125,19 +4125,19 @@ const MessageItem = React.memo(({
                             >
                                 <button
                                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); onPlayVoice?.(m.id); }}
-                                    className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center active:scale-[0.92] transition-transform"
+                                    className="sully-voice-bar-button shrink-0 w-7 h-7 rounded-full flex items-center justify-center active:scale-[0.92] transition-transform"
                                     style={{ backgroundColor: vbBg ? 'rgba(255,255,255,0.25)' : 'rgba(148,163,184,0.2)' }}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill={vbBtn || '#64748b'} className="w-3 h-3 ml-0.5"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" /></svg>
                                 </button>
-                                <div className="flex-1 flex items-center gap-[3px] h-5 overflow-hidden">
+                                <div className="sully-voice-bar-wave flex-1 flex items-center gap-[3px] h-5 overflow-hidden">
                                     {[4, 10, 6, 14, 8, 12, 5, 11, 7, 13, 4, 9, 6, 11, 5, 8, 10, 7, 12, 6].map((h, i) => (
-                                        <div key={i} className="w-[2.5px] rounded-full" style={{ height: `${Math.max(2, h * 0.4)}px`, backgroundColor: vbWave ? vbWave + '60' : `rgba(148, 163, 184, ${0.25 + (h / 14) * 0.35})` }} />
+                                        <div key={i} className="sully-voice-bar-wave-segment w-[2.5px] rounded-full" style={{ height: `${Math.max(2, h * 0.4)}px`, backgroundColor: vbWave ? vbWave + '60' : `rgba(148, 163, 184, ${0.25 + (h / 14) * 0.35})` }} />
                                     ))}
                                 </div>
                                 {(voiceTagText || displayContent) ? (
                                     <div
-                                        className={`shrink-0 ml-0.5 px-1.5 py-0.5 rounded-lg text-[9px] font-medium transition-all ${showVoiceText ? 'ring-1 ring-current/20' : ''}`}
+                                        className={`sully-voice-bar-toggle shrink-0 ml-0.5 px-1.5 py-0.5 rounded-lg text-[9px] font-medium transition-all ${showVoiceText ? 'ring-1 ring-current/20' : ''}`}
                                         style={{
                                             color: vbText || 'rgba(100,116,139,0.7)',
                                             backgroundColor: showVoiceText ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.04)',
@@ -4147,7 +4147,7 @@ const MessageItem = React.memo(({
                                         {showVoiceText ? '收起' : '轉文字'}
                                     </div>
                                 ) : (
-                                    <span className="text-[9px] shrink-0" style={{ color: vbText || 'rgba(100,116,139,0.7)' }}>語音</span>
+                                    <span className="sully-voice-bar-label text-[9px] shrink-0" style={{ color: vbText || 'rgba(100,116,139,0.7)' }}>語音</span>
                                 )}
                             </div>
                             {showVoiceText && (voiceTagText || displayContent) && (
