@@ -1,5 +1,6 @@
 // 群聊提示詞構建 —— 從 GroupChat.tsx 抽出的純函數，導演模式模板"搬家不改字"，
 // 供導演模式與輪詢模式（每成員一次調用）共用。
+import { splitBilingual } from '../chatLanguage';
 import { leakedBubbleIds, stripLeakedReasoning } from '../reasoningLeak';
 import { Message, EmojiCategory } from '../../types';
 import { stickerNameFromUrl } from '../messageFormat';
@@ -166,7 +167,8 @@ export function buildGroupHistoryBlock(
         } else if (m.role === 'assistant') {
             // 以前漏進群裡的思考過程（<thinking>、「讓我看看現在的狀況…」）不再當範例傳給下一位，
             // 整則都是思考的就當沒這行（見 reasoningLeak.ts）
-            content = stripLeakedReasoning(rawText).content;
+            // 雙語訊息（聊天語言補的譯文）給成員看只留原文
+            content = stripLeakedReasoning(splitBilingual(rawText)?.original ?? rawText).content;
             if (!content) return;
         } else {
             content = rawText;

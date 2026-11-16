@@ -169,8 +169,78 @@ export const needsPostTranslation = (content: string): boolean => {
     return !!t && !t.includes('%%BILINGUAL%%') && !/^\[\[[A-Z_]+[:|]/.test(t);
 };
 
+/** 拆開雙語格式（`原文\n%%BILINGUAL%%\n譯文`）；不是雙語回 null。 */
+export const splitBilingual = (content: string): { original: string; translated: string } | null => {
+    const i = content.toLowerCase().indexOf('%%bilingual%%');
+    if (i < 0) return null;
+    return { original: content.slice(0, i).trim(), translated: content.slice(i + '%%BILINGUAL%%'.length).trim() };
+};
+
 /** 把譯文接成氣泡認得的雙語格式。 */
 export const joinBilingual = (original: string, translated: string): string => `${original.trim()}\n%%BILINGUAL%%\n${translated.trim()}`;
+
+// ─── 電話（plans/chat-language.md 第 4 批）───
+
+/** 說話語言對到 TTS 的語種代碼（跟 utils/voiceLanguage.ts 同一組）；中文與自訂語言回空字串＝照預設念。 */
+export const ttsLangCode = (lang: string | undefined): string => {
+    if (!lang) return '';
+    if (CANTONESE.test(lang)) return 'yue';
+    return ({ 'English': 'en', '日本語': 'ja', '한국어': 'ko', 'Français': 'fr' } as Record<string, string>)[lang] || '';
+};
+
+export interface CallLanguagePlan {
+    /** 電話裡念出來的語言（說話語言） */
+    spoken: string;
+    /** 字幕語言（翻譯成）；沒設就是字幕照說話語言寫 */
+    subtitle?: string;
+    /** 夾雜第二語言的規矩（沒夾雜是空的） */
+    mixRule?: string;
+    /** TTS 語種代碼 */
+    ttsCode: string;
+}
+
+/** 電話跟著聊天語言：沒設說話語言就回 undefined（照舊）。 */
+export const callLanguagePlan = (cfg: ChatLanguageConfig | undefined): CallLanguagePlan | undefined => {
+    const r = resolveChatLanguage(cfg);
+    if (!r.speak) return undefined;
+    return {
+        spoken: r.speak + cantoneseNote(r.speak),
+        subtitle: r.translating ? r.translateTo + cantoneseNote(r.translateTo as string) : undefined,
+        mixRule: r.mix ? `你會夾雜${r.mix}：${MIX_TEXT[r.mixLevel]}；像真的雙語者那樣自然換，不要一句一句輪流換。` : undefined,
+        ttsCode: ttsLangCode(r.speak),
+    };
+};
+
+/** 通話語種選單上「跟著聊天語言」那顆的說明。 */
+export const callLanguageFollowHint = (cfg: ChatLanguageConfig | undefined): string => {
+    const r = resolveChatLanguage(cfg);
+    if (!r.speak) return '「跟著聊天語言」：這個角色的聊天語言沒指定說話語言，照預設。';
+    return r.translating
+        ? `「跟著聊天語言」：說${languageLabel(r.speak)}、字幕是${languageLabel(r.translateTo)}。`
+        : `「跟著聊天語言」：說${languageLabel(r.speak)}，字幕也是${languageLabel(r.speak)}。`;
+};
+
+// ─── 見面（plans/chat-language.md 第 4 批，定案 A）───
+
+/**
+ * 見面的語言規則：台詞（引號裡的話）用說話語言（含夾雜），有翻譯就在引號後面括號附譯文；
+ * 旁白、動作、心理描寫用你讀的語言。沒設說話語言回空字串（照舊）。
+ */
+export const buildDateLanguageRule = (cfg: ChatLanguageConfig | undefined): string => {
+    const r = resolveChatLanguage(cfg);
+    if (!r.speak) return '';
+    const lines = [
+        `- ${'{{char}}'}說出口的台詞（引號裡的話）用${r.speak}${cantoneseNote(r.speak)}。`,
+        ...(r.mix ? [`- 台詞會夾雜${r.mix}：${MIX_TEXT[r.mixLevel]}；像真的雙語者那樣自然換，不要一句一句輪流換。`] : []),
+        ...(r.translating ? [
+            `- 每句台詞的引號後面，緊接著用全形括號附上${r.translateTo}翻譯，例如：「……」（${r.translateTo}譯文）。翻譯只放在括號裡，不另起一行，也不放進引號裡。`,
+            `- 旁白、動作、心理描寫用${r.translateTo}寫。`,
+        ] : [
+            '- 旁白、動作、心理描寫照你平常寫故事的語言。',
+        ]),
+    ];
+    return `### 說話語言\n${lines.join('\n')}`;
+};
 
 // ─── 舊版設定搬遷 ───
 

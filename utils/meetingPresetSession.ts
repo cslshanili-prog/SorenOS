@@ -17,6 +17,7 @@
  * 內建模式的格式規則、文風預設、「說出口／旁白」標記、表達底線都不帶——這些交給預設自己決定。
  */
 
+import { buildDateLanguageRule } from './chatLanguage';
 import { describeClockNote, formatStoryClock, type DateClock } from './dateStoryTime';
 import type { CharacterProfile, Emoji, Message, UserProfile } from '../types';
 import { ContextBuilder } from './context';
@@ -96,7 +97,8 @@ export const buildMeetingPresetPayload = async (input: {
         // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
         length: lengthGlobals.mapped ? '' : buildLengthLine(char),
         voice: char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : '',
-        soren: join(sections.impression, sections.relations, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines),
+        // 聊天語言（plans/chat-language.md 第 4 批）：台詞用說話語言、括號附譯文；{{char}} 交給巨集展開
+        soren: join(sections.impression, sections.relations, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines, buildDateLanguageRule(char.chatLanguage)),
     };
 
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話

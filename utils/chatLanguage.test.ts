@@ -133,3 +133,26 @@ describe('雲端', async () => {
         expect(p).not.toContain('<翻譯>');
     });
 });
+
+describe('見面與群聊（第 4 批）', async () => {
+    const { buildDateLanguageRule, splitBilingual } = await import('./chatLanguage');
+    const { messageLogText } = await import('./groupChat/format');
+    it('見面：台詞用說話語言、括號附譯文、旁白用你讀的語言', () => {
+        const rule = buildDateLanguageRule({ speak: 'English', mix: '繁體中文', translateTo: '繁體中文' });
+        expect(rule).toContain('台詞（引號裡的話）用English');
+        expect(rule).toContain('全形括號附上繁體中文翻譯');
+        expect(rule).toContain('旁白、動作、心理描寫用繁體中文寫');
+        expect(rule).toContain('夾雜繁體中文');
+    });
+    it('見面：沒翻譯就不附括號；沒說話語言就整段沒有', () => {
+        const rule = buildDateLanguageRule({ speak: '日本語' });
+        expect(rule).not.toContain('括號');
+        expect(rule).toContain('照你平常寫故事的語言');
+        expect(buildDateLanguageRule({ translateTo: '繁體中文' })).toBe('');
+    });
+    it('群聊歷史：雙語訊息給成員只看原文', () => {
+        expect(splitBilingual('Hey\n%%BILINGUAL%%\n嘿')).toEqual({ original: 'Hey', translated: '嘿' });
+        expect(splitBilingual('普通訊息')).toBeNull();
+        expect(messageLogText({ type: 'text', content: 'Hey\n%%BILINGUAL%%\n嘿' } as any)).toBe('Hey');
+    });
+});
