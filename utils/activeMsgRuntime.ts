@@ -1,5 +1,7 @@
 import { loadCharacterContextMessages } from './chatContextRange';
 import { lineArgOf } from './chatLine';
+import { resolveChatLanguage } from './chatLanguage';
+import { translateCloudReply } from './chatTranslateRun';
 import { cloudCharPatch, cloudLocalCharId, findCloudChar } from './amsgCloudLine';
 import { ActiveMsg2InboxMessage, ActiveMsg2TaskRecord, APIConfig, RealtimeConfig, UserProfile } from '../types';
 import { DB } from './db';
@@ -769,6 +771,14 @@ const processInboxMessageWithPostProcessing = async (
     // App 在前台時收到的實時消息照舊慢放——那才是「角色正在你眼前打字」的場景。
     instantRender: shouldRenderInstantly(message.metadata, message.receivedAt, Date.now()),
   });
+
+  // ─── 聊天語言：雲端回覆收件後補譯文（plans/chat-language.md 第 3 批）───
+  // 雲端一律只照說話語言寫，有設翻譯的角色在本機翻；不擋後面的收尾，翻好（或翻不成）再刷一次畫面。
+  if (resolveChatLanguage(char.chatLanguage).translating) {
+    void translateCloudReply(lineArgOf(char), message.messageId, char.chatLanguage, apiConfig)
+      .catch(() => 0)
+      .then(() => dispatchProgress());
+  }
 
   // ─── 即時對話（amsg2）的情緒評估結果 ───
   // 雲端跟主回覆並行跑完的那份，掛在最後一條 push 的 metadata 上（裝不下時挪進

@@ -966,6 +966,15 @@ describe('buildFirePack 的時區參照系與模板（①）', () => {
     expect(systemPromptSpy.mock.calls[0][11]).toEqual({ forFirePack: true });
   });
 
+  it('聊天語言：模板帶說話語言與夾雜，不帶雙語標籤（譯文收件後在本機補）', async () => {
+    const out = await pack(baseChar({ chatLanguage: { speak: 'English', mix: '日本語', translateTo: '繁體中文' } }));
+    expect(out.template).toContain('[語言設定]');
+    expect(out.template).toContain('主要用English');
+    expect(out.template).not.toContain('<翻譯>');
+    const plain = await pack(baseChar());
+    expect(plain.template).not.toContain('[語言設定]');
+  });
+
   it('當前時間槽位保留：worker 到點現算填入（1.0 提示塊的「現在是」也是槽位）', async () => {
     const out = await pack(baseChar());
     expect(out.template).toContain(`當前本地時間（你所在地）：${AMSG_SLOT_CURRENT_TIME}`);

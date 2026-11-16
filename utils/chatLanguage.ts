@@ -156,6 +156,13 @@ const bilingualRules = (r: ResolvedChatLanguage, sarEnvelopeActive: boolean): st
 export const buildChatLanguagePrompt = (r: ResolvedChatLanguage, opts: { sarEnvelopeActive?: boolean } = {}): string =>
     speakingRules(r) + (r.inlineTranslate ? bilingualRules(r, !!opts.sarEnvelopeActive) : '');
 
+/** 只有說話語言與夾雜的指令（雲端主動消息 fire_pack 用：雲端一律不帶雙語標籤，收件後在本機補譯文）。 */
+export const buildSpeakingRulesPrompt = (r: ResolvedChatLanguage): string => speakingRules(r).trim();
+
+/** 雲端即時對話用的設定：有翻譯就改成「先寫再翻」，提示詞不帶標籤，譯文收件後在本機補。 */
+export const chatLanguageForCloud = (cfg: ChatLanguageConfig | undefined): ChatLanguageConfig | undefined =>
+    cfg && resolveChatLanguage(cfg).translating ? { ...cfg, translator: 'api' } : cfg;
+
 /** 先寫再翻：存好的氣泡內容要不要補譯文（已經是雙語、空的、純表情標記就不用）。 */
 export const needsPostTranslation = (content: string): boolean => {
     const t = content.trim();
