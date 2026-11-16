@@ -66,7 +66,7 @@ export const BUBBLE_SELECTOR_GROUPS = [
       '.sully-voice-bar', '.sully-voice-bar-shell', '.sully-voice-bar-button',
       '.sully-voice-bar-toggle', '.sully-voice-bar-loading', '.sully-voice-bar-placeholder',
       '.sully-voice-bar-transcript', '.sully-voice-bar-wave', '.sully-voice-bar-wave-segment',
-      '.sully-voice-bar-label', '.sully-voice-bar-user',
+      '.sully-voice-bar-label', '.sully-voice-bar-user', '.sully-voice-bar-ai',
     ],
   },
 ] as const;
