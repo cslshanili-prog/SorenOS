@@ -4,6 +4,8 @@
 
 這份文件只做一件事：**告訴你遇到某類問題該去翻哪份文檔**，別在代碼裡瞎逛。
 
+> **分支：PR 一律開到 `dev`（正式站從 `dev` 部署），`master` 不動**——它是跟上游同步用的，不要往 master 開 PR、合併或推送。
+
 > 包管理器統一用 **pnpm**：裝依賴 `pnpm install`、跑測試 `pnpm vitest run`、跑腳本 `pnpm <script>`。別用 npm / yarn（倉庫裡是 `pnpm-lock.yaml`）。
 
 ## 文檔地圖
