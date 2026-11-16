@@ -1,5 +1,6 @@
 import { isUserVoiceMessage, USER_VOICE_PREFIX } from './userVoice';
 import { privateGroupContextWindow } from './groupChat/topicBoxes';
+import { buildGroupOthersKnownNote, membersKnownPeople } from './groupChat/knownPeople';
 import { isOnlinePaused } from './dateOffline';
 import { isImageFeatureOff } from './imageStyle';
 import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
@@ -529,6 +530,14 @@ export const ChatPrompts = {
                 // 你在群裡的身份可能跟這個角色私下認識的不同：那是另一個人（見 plans/multi-persona-isolation-design.md）
                 const personaBase = await DB.getUserProfile().catch(() => null);
                 const charPersonaKey = personaBase ? personaKeyForChar(personaBase, char) : undefined;
+                // 同群其他成員私下認識的人（名字不同就是不同的人），他們說「他／她」時多半指的是自己那位
+                const registered = getRegisteredCharacters<CharacterProfile>();
+                const groupOthersKnown = personaBase
+                    ? membersKnownPeople(
+                        registered.filter(c => c.id !== char.id && memberGroups.some(g => g.members.includes(c.id))),
+                        personaBase,
+                    ).filter(p => p.key !== charPersonaKey)
+                    : [];
                 const perGroup = await Promise.all(
                     memberGroups.map(g => DB.getGroupMessages(g.id).then(msgs => {
                         // 在場的身份（關係線第 5 批）：旁觀中你說的話它都看不到；在場時也藏旁觀那陣子打的
@@ -585,8 +594,12 @@ export const ChatPrompts = {
                     return `[${dateStr}${relativeAge}] [群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
                 }).join('\n');
                 const knownOthers = [...new Set(knownOtherNames)].map(n => `「${n}」`).join('、');
+                // 只提這段記錄裡真的有說話的成員
+                const spokeIds = new Set(recentGroupMsgs.map(m => m.charId));
+                const sameIdentityNow = personaBase && charPersonaKey ? new Set(sameIdentityKeys(char, personaBase, charPersonaKey)) : new Set<string>();
                 const personaNote = [
                     distinctPersonaNote(otherPersonaNames, userProfile.name, '群裡'),
+                    buildGroupOthersKnownNote(userProfile.name, groupOthersKnown.filter(p => spokeIds.has(p.memberId) && !sameIdentityNow.has(p.key))),
                     knownOthers ? `（群裡的${knownOthers}是你也認識的人，你們私下另有一段關係；TA 跟正在跟你私聊的「${userProfile.name}」是不同的人，別把兩邊的話和默契混在一起。）` : '',
                 ].filter(Boolean).join('\n');
                 return `\n### 【群聊背景 · 你親歷的近期群聊】
