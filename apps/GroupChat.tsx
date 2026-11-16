@@ -2757,8 +2757,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </button>
                         <button onClick={() => { void triggerGroupAI(); }}
                             title={isTyping ? '停止' : '讓大家繼續聊'}
-                            className="shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center text-xs font-bold active:scale-90 transition-transform">
-                            {isTyping ? '■' : '▶'}
+                            aria-label={isTyping ? '停止' : '讓大家繼續聊'}
+                            className={`sully-group-lurk-play shrink-0 w-8 h-8 rounded-full bg-violet-500 text-white flex items-center justify-center font-bold active:scale-90 transition-transform ${isTyping ? 'text-xs' : 'text-lg leading-none pl-0.5'}`}>
+                            {/* \uFE0E 要文字樣式：iOS 會把 ▶ 畫成藍色的表情圖示 */}
+                            {isTyping ? '■\uFE0E' : '\u25B8\uFE0E'}
                         </button>
                     </div>
                     {showPlotDirection && (
