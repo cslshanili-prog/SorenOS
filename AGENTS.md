@@ -6,6 +6,8 @@
 
 > **分支：PR 一律開到 `dev`（正式站從 `dev` 部署），`master` 不動**——它是跟上游同步用的，不要往 master 開 PR、合併或推送。
 
+> **不要半窗**：從底部跳出、只佔半個螢幕的面板（bottom sheet）一律不用，新做的頁面直接全螢幕；改到舊的半窗就順手換成全螢幕。半窗清單見 [`plans/chat-switcher.md`](./plans/chat-switcher.md) 文末。
+
 > 包管理器統一用 **pnpm**：裝依賴 `pnpm install`、跑測試 `pnpm vitest run`、跑腳本 `pnpm <script>`。別用 npm / yarn（倉庫裡是 `pnpm-lock.yaml`）。
 
 ## 文檔地圖
@@ -20,6 +22,7 @@
 | **你的聲音（身份卡音色＋私聊語音條）** | [`plans/user-voice.md`](./plans/user-voice.md) | 改身份卡的聲音、私聊裡你發的語音條、輸入欄的語音條模式或說話辨識前必讀：聲音存在 `UserPersona.voiceProfile`／`UserProfile.voiceProfile`，照身份卡走（`utils/userPersona.ts` 套用），合成時用 `utils/userVoice.ts` 的 `userVoiceShell` 把角色的 voiceProfile 換成你的，沒設就沒有、絕不借角色的；你的語音條是 `type: 'text'`＋`metadata.userVoice`，內容是純文字、不塞 `<語音>` 標籤，歷史與記憶一律寫成 `[語音] 內容`；音色欄位角色頁和身份卡共用 `components/voice/VoiceProfileFields.tsx`；群聊還沒接 |
 | **聊天中私下找人（PRIVATE／DM）** | [`plans/side-messages.md`](./plans/side-messages.md) | 改群聊、角色私聊、你的私聊裡角色私下傳訊息給你某張卡（`[[PRIVATE\|名字: 內容]]`）或私訊別的角色（`[[DM\|名字: 內容]]`）前必讀：名單、上限、拉黑擋、標記解析只在 `utils/sideMessage.ts` 一份，送出去走 `utils/sideMessageRun.ts`；認識才找得到、一輪各 1 條、被私訊後回的那句不再觸發；拉黑中的那條線一律不落 |
 | **群聊節奏（你一句我一句）** | [`plans/group-chat-rhythm.md`](./plans/group-chat-rhythm.md) | 改群聊導演／各自發言的生成方式、一輪幾個氣泡、出場表前必讀：一次出場只寫 1～2 個氣泡（`MAX_BUBBLES_PER_TURN`，派發層 `maxBubblesPerAction` 兜底），群設定 `roundBubbles`（舊的 `maxRoundMessages` ×2 換算，`groupRoundBubbles`）；各自發言先排出場表再依序叫（`utils/groupChat/beatPlan.ts`，排班用副 API，失敗退回每人一拍） |
+| **切換聊天＋世界底下的分組** | [`plans/chat-switcher.md`](./plans/chat-switcher.md) | 改私聊頂端點名字（全螢幕 `ChatSwitcherPage`、氣泡頁 `ChatBubblePickerPage`）、選角色的清單或世界底下的分組前必讀：世界是 `CharacterGroup`（介面上叫「世界」），分組是 `CharacterGroup.sections`＋角色的 `worldSectionId`，一人一組，換世界或刪分組就當沒分組；排列、搜尋、最近聊過在 `utils/worldSections.ts` |
 | **身份卡 · 世界預設與同世界多身份隔離** | [`plans/multi-persona-isolation-design.md`](./plans/multi-persona-isolation-design.md) | 改身份卡、分世界／分角色／群聊身份指定，或朋友圈、群聊、查手機對聊裡「用戶是誰」前必讀；解析一律走 `utils/userPersona.ts`，同一世界裡不同身份卡是**完全不同的人** |
 | **協同工作私聊銜接與轉發** | [`docs/collaboration-chat-bridge.md`](./docs/collaboration-chat-bridge.md) | 改協同讀取 ChatApp 範圍或轉發消息前必讀；每輪讀 DB，空範圍不回退，多選只發當前窗口 |
 | **開發調試面板 / 開關** | [`docs/dev-debug.md`](./docs/dev-debug.md) | 加 dev-only 開關、加調試日誌、排查"角色怎麼又不說話了"。含逐步指南 |

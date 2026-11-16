@@ -3,7 +3,9 @@ import { liveStyleId, STYLE_NONE, styleLabel } from '../utils/imageStyle';
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
-import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment, type LineField } from '../types';
+import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment, type CharacterGroup, type LineField } from '../types';
+import { groupForSwitcher, newSectionId } from '../utils/worldSections';
+import WorldSectionsEditor from '../components/character/WorldSectionsEditor';
 import { Books, BookOpen } from '@phosphor-icons/react';
 import Modal from '../components/os/Modal';
 import { processImage } from '../utils/file';
@@ -116,7 +118,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -211,7 +213,8 @@ const Character: React.FC = () => {
   // 掛載世界書彈窗：搜索詞 + 當前展開的分組（分組默認摺疊，避免全量條目一次性渲染卡爆）
   const [wbModalSearch, setWbModalSearch] = useState('');
   const [wbModalExpandedCategory, setWbModalExpandedCategory] = useState<string | null>(null);
-  const [showGroupModal, setShowGroupModal] = useState(false); // 角色分組管理
+  const [showGroupModal, setShowGroupModal] = useState(false); // 世界與分組管理
+  const [sectionDraft, setSectionDraft] = useState<string | null>(null); // 編輯頁「新建分組並指派」
   const [newGroupName, setNewGroupName] = useState('');
   // 編輯頁「新建分組並指派」的內聯輸入
   const [detailGroupDraft, setDetailGroupDraft] = useState<string | null>(null);
@@ -1244,7 +1247,7 @@ ${isInitialGeneration ? `
                        )}
                    </div>
                    <div className="flex gap-3 pt-1">
-                        <ToolButton label="分組" title="角色分組管理" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
+                        <ToolButton label="世界" title="世界與分組" onClick={() => { setShowGroupModal(true); trackEvent('打开角色分组管理弹窗'); }}>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
                             </svg>
@@ -1307,12 +1310,14 @@ ${isInitialGeneration ? `
                                ...sortCharacterGroups(characterGroups).map(g => ({
                                    id: g.id,
                                    name: g.name,
+                                   world: g as CharacterGroup | undefined,
                                    chars: listChars.filter(c => c.groupId === g.id),
                                })),
                                {
                                    id: GROUP_FILTER_UNGROUPED,
-                                   name: '未分組',
-                                   // groupId 指向已刪分組的角色也歸到未分組，不會憑空消失
+                                   name: '沒有世界',
+                                   world: undefined as CharacterGroup | undefined,
+                                   // groupId 指向已刪世界的角色也歸到這裡，不會憑空消失
                                    chars: listChars.filter(c => !c.groupId || !knownGroupIds.has(c.groupId)),
                                },
                            ].filter(s => s.id !== GROUP_FILTER_UNGROUPED || s.chars.length > 0);
@@ -1334,20 +1339,28 @@ ${isInitialGeneration ? `
                                                </button>
                                                {expanded && (
                                                    <div className="flex flex-col gap-3 mt-3">
-                                                       {section.chars.map(char => (
-                                                           <CharacterCard
-                                                               key={char.id}
-                                                               char={char}
-                                                               active={char.id === activeCharacterId}
-                                                               onClick={() => { setEditingId(char.id); setView('detail'); }}
-                                                               onDelete={(e) => {
-                                                                   e.stopPropagation();
-                                                                   setDeleteConfirmTarget(char.id);
-                                                               }}
-                                                           />
+                                                       {/* 世界底下有分組（plans/chat-switcher.md）就照分組列，每組一條小標題 */}
+                                                       {groupForSwitcher(section.chars, section.world ? [section.world] : []).flatMap(w => w.sections).map(part => (
+                                                           <React.Fragment key={part.section?.id || 'rest'}>
+                                                               {section.world?.sections?.length ? (
+                                                                   <div className="px-2 pt-1 text-[11px] font-bold text-violet-400" data-world-section-heading>{part.section?.name || '其他'}<span className="ml-1.5 font-normal text-slate-300">{part.chars.length}</span></div>
+                                                               ) : null}
+                                                               {part.chars.map(char => (
+                                                                   <CharacterCard
+                                                                       key={char.id}
+                                                                       char={char}
+                                                                       active={char.id === activeCharacterId}
+                                                                       onClick={() => { setEditingId(char.id); setView('detail'); }}
+                                                                       onDelete={(e) => {
+                                                                           e.stopPropagation();
+                                                                           setDeleteConfirmTarget(char.id);
+                                                                       }}
+                                                                   />
+                                                               ))}
+                                                           </React.Fragment>
                                                        ))}
                                                        {section.chars.length === 0 && (
-                                                           <div className="text-xs text-violet-300 px-3 pb-1">空分組——在角色「設定」頁裡指派</div>
+                                                           <div className="text-xs text-violet-300 px-3 pb-1">還沒有人——在角色「設定」頁裡選世界</div>
                                                        )}
                                                    </div>
                                                )}
@@ -1488,14 +1501,15 @@ ${isInitialGeneration ? `
                            </div>
 
                            <div>
-                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">分組</label>
+                               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界</label>
                                <div className="flex gap-2 items-center">
                                    <select
+                                       aria-label="世界"
                                        value={formData.groupId && characterGroups.some(g => g.id === formData.groupId) ? formData.groupId : ''}
-                                       onChange={e => handleChange('groupId', e.target.value || undefined)}
+                                       onChange={e => { handleChange('groupId', e.target.value || undefined); handleChange('worldSectionId', undefined); }}
                                        className="flex-1 bg-white rounded-2xl px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-primary/20 outline-none appearance-none"
                                    >
-                                       <option value="">未分組</option>
+                                       <option value="">沒有世界</option>
                                        {sortCharacterGroups(characterGroups).map(g => (
                                            <option key={g.id} value={g.id}>{g.name}</option>
                                        ))}
@@ -1512,17 +1526,62 @@ ${isInitialGeneration ? `
                                                setDetailGroupDraft(null);
                                                if (!name) return;
                                                const existing = characterGroups.find(g => g.name === name);
-                                               // 同名分組直接指派進去，不重複創建
+                                               // 同名世界直接指派進去，不重複創建
                                                const group = existing || await createCharacterGroup(name);
-                                               if (group) handleChange('groupId', group.id);
+                                               if (group) { handleChange('groupId', group.id); handleChange('worldSectionId', undefined); }
                                            }}
                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                           placeholder="分組名，回車確認"
+                                           placeholder="世界名，回車確認"
                                            className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-primary/20 shrink-0"
                                        />
                                    )}
                                </div>
                            </div>
+
+                           {/* 世界底下的分組（plans/chat-switcher.md）：一個角色只屬於一個分組 */}
+                           {(() => {
+                               const world = characterGroups.find(g => g.id === formData.groupId);
+                               if (!world) return null;
+                               const sections = world.sections || [];
+                               return (
+                                   <div>
+                                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">分組</label>
+                                       <div className="flex gap-2 items-center">
+                                           <select
+                                               aria-label="分組"
+                                               value={formData.worldSectionId && sections.some(s => s.id === formData.worldSectionId) ? formData.worldSectionId : ''}
+                                               onChange={e => handleChange('worldSectionId', e.target.value || undefined)}
+                                               className="flex-1 bg-white rounded-2xl px-4 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-1 focus:ring-primary/20 outline-none appearance-none"
+                                           >
+                                               <option value="">沒分組</option>
+                                               {sections.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                           </select>
+                                           {sectionDraft === null ? (
+                                               <button onClick={() => setSectionDraft('')} className="px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-500 shadow-sm active:scale-95 transition-transform shrink-0">＋新建</button>
+                                           ) : (
+                                               <input
+                                                   autoFocus
+                                                   value={sectionDraft}
+                                                   onChange={e => setSectionDraft(e.target.value)}
+                                                   onBlur={async () => {
+                                                       const name = sectionDraft.trim();
+                                                       setSectionDraft(null);
+                                                       if (!name) return;
+                                                       const existing = sections.find(s => s.name === name);
+                                                       const section = existing || { id: newSectionId(), name };
+                                                       if (!existing) await setCharacterGroupSections(world.id, [...sections, section]);
+                                                       handleChange('worldSectionId', section.id);
+                                                   }}
+                                                   onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                                   placeholder="分組名，回車確認"
+                                                   className="w-36 px-3 py-2.5 rounded-2xl bg-white text-xs text-slate-700 shadow-sm outline-none focus:ring-1 focus:ring-primary/20 shrink-0"
+                                               />
+                                           )}
+                                       </div>
+                                       <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">「{world.name}」底下的分組，例如家族、勢力。切換聊天和角色列表會照分組收起來。</p>
+                                   </div>
+                               );
+                           })()}
 
                            {personaLinesEnabled && formData.altOf && (() => {
                                const owner = characters.find(c => c.id === formData.altOf);
@@ -2129,20 +2188,20 @@ ${isInitialGeneration ? `
         </Modal>
 
         {/* 角色分組管理 */}
-        <Modal isOpen={showGroupModal} title="角色分組管理" onClose={() => { setShowGroupModal(false); setNewGroupName(''); }}>
+        <Modal isOpen={showGroupModal} title="世界與分組" onClose={() => { setShowGroupModal(false); setNewGroupName(''); }}>
             <div className="space-y-3">
                 <div className="flex gap-2">
                     <input
                         value={newGroupName}
                         onChange={e => setNewGroupName(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
-                        placeholder="新分組名稱"
+                        placeholder="新世界名稱"
                         className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
                     />
                     <button onClick={handleAddGroup} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-sm shadow-primary/30 active:scale-95 transition-transform shrink-0">添加</button>
                 </div>
                 {characterGroups.length === 0 ? (
-                    <div className="text-center text-xs text-slate-400 py-6">還沒有分組。建一個試試——角色列表和各處選角色的地方都會按組展示。</div>
+                    <div className="text-center text-xs text-slate-400 py-6">還沒有世界。建一個試試——角色列表和各處選角色的地方都會按世界展示，世界底下還能再分組（例如家族、勢力）。</div>
                 ) : (
                     <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
                         {sortCharacterGroups(characterGroups).map(g => (
@@ -2156,7 +2215,7 @@ ${isInitialGeneration ? `
                                 />
                                 <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 個角色{npcs.some(n => n.groupId === g.id) ? ` · ${npcs.filter(n => n.groupId === g.id).length} 個 NPC` : ''}</span>
                                 <button
-                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`分組「${g.name}」已刪除，組內角色回到未分組`, 'info'); }}
+                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`世界「${g.name}」已刪除，裡面的角色回到沒有世界`, 'info'); }}
                                     className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -2172,11 +2231,12 @@ ${isInitialGeneration ? `
                                     {(apiConfig.imageGenConfig?.stylePresets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                                 </select>
                             </div>
+                            <WorldSectionsEditor world={g} />
                             </div>
                         ))}
                     </div>
                 )}
-                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除分組不會刪除角色或 NPC，組內的都會回到「未分組」。給角色指派分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派。</p>
+                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除世界不會刪除角色或 NPC，裡面的都會回到「沒有世界」；刪除世界底下的分組，裡面的角色回到沒分組。給角色選世界和分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派世界。</p>
             </div>
         </Modal>
 

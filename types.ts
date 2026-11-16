@@ -3158,6 +3158,8 @@ export interface CharacterProfile {
    * 配角跟主角同一套資料和能力，差別只在神經鏈接有自己的分頁、可以下戲、主動消息預設關。
    */
   castRole?: 'lead' | 'supporting';
+  /** 在自己世界（groupId）裡屬於哪個分組（WorldSection.id）；換世界或分組被刪就當沒分組 */
+  worldSectionId?: string;
   /** 下戲的時間：有值 ＝ 下戲中，主動的東西都停（見 utils/castRole.ts 的 isOnStage），記憶和紀錄都留著 */
   benchedAt?: number;
   /** 跟別人的關係（從 NPC 的關係清單搬來；主角配角都能用）。targetId 是角色 id，或 'user' */
@@ -3865,6 +3867,14 @@ export interface CharacterGroup {
     /** 排序權重（暫未在 UI 暴露，缺省按 createdAt 先後） */
     order?: number;
     createdAt?: number;
+    /** 世界底下的分組（家族、勢力…，名字自取），清單順序就是顯示順序；角色用 worldSectionId 指過來 */
+    sections?: WorldSection[];
+}
+
+/** 世界底下的一個分組（plans/chat-switcher.md） */
+export interface WorldSection {
+    id: string;
+    name: string;
 }
 
 /**

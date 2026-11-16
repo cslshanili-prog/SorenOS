@@ -11,7 +11,7 @@ import { isPrimaryLine, knowsPersona, lineArgOf, lineFor, lineKey, lineMsgFields
 import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
-import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags, ChatLine } from '../types';
+import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, WorldSection, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags, ChatLine } from '../types';
 import { applyActivePersona, globalPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../utils/userHolidays';
 import { DB } from '../utils/db';
@@ -409,6 +409,8 @@ interface OSContextType {
   renameCharacterGroup: (id: string, name: string) => Promise<void>;
   /** 世界的畫風（畫風庫 id，'none'＝不套，undefined＝跟全域） */
   setCharacterGroupStyle: (id: string, imageStyleId: string | undefined) => Promise<void>;
+  /** 換掉一個世界的分組清單；被拿掉的分組，裡面的角色回到沒分組 */
+  setCharacterGroupSections: (id: string, sections: WorldSection[]) => Promise<void>;
   deleteCharacterGroup: (id: string) => Promise<void>;
   
   // Worldbooks
@@ -4246,6 +4248,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (target) await DB.saveCharacterGroup(target);
   };
 
+  const setCharacterGroupSections = async (id: string, sections: WorldSection[]) => {
+      const clean = sections.map(s => ({ id: s.id, name: s.name.trim() })).filter(s => s.name);
+      const keep = new Set(clean.map(s => s.id));
+      let target: CharacterGroup | undefined;
+      setCharacterGroups(prev => {
+          const updated = prev.map(g => g.id === id ? { ...g, sections: clean.length ? clean : undefined } : g);
+          target = updated.find(g => g.id === id);
+          return updated;
+      });
+      if (target) await DB.saveCharacterGroup(target);
+      setCharacters(prev => prev.map(c => {
+          if (c.groupId !== id || !c.worldSectionId || keep.has(c.worldSectionId)) return c;
+          const next = { ...c, worldSectionId: undefined };
+          DB.saveCharacter(next);
+          return next;
+      }));
+  };
+
   const renameCharacterGroup = async (id: string, name: string) => {
       const trimmed = name.trim();
       if (!trimmed) return;
@@ -6413,6 +6433,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     characterGroups,
     createCharacterGroup,
     renameCharacterGroup,
+    setCharacterGroupSections,
     setCharacterGroupStyle,
     deleteCharacterGroup,
     worldbooks,

@@ -162,6 +162,8 @@ import {
 import { upsertMountedWorldbooks } from '../utils/worldbook';
 import { equalsAnyScript } from '../utils/scriptKey';
 import { followTemplateBubblePatch, ownBubblePatch, type DecorationTemplate } from '../utils/decorationTemplates';
+import ChatSwitcherPage from '../components/chat/ChatSwitcherPage';
+import ChatBubblePickerPage from '../components/chat/ChatBubblePickerPage';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../utils/decorationTemplateStore';
 
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
@@ -207,6 +209,9 @@ const Chat: React.FC = () => {
     const [input, setInput] = useState('');
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
+    // 頂端點名字：全螢幕切換聊天＋這個聊天的氣泡（plans/chat-switcher.md，不用半窗）
+    const [switcherOpen, setSwitcherOpen] = useState(false);
+    const [bubblePickerOpen, setBubblePickerOpen] = useState(false);
     const [collaborationOpen, setCollaborationOpen] = useState(false);
     const [collaborationPreviewAssetId, setCollaborationPreviewAssetId] = useState<string | null>(null);
     const [memoryRepairOpen, setMemoryRepairOpen] = useState(false);
@@ -4241,6 +4246,39 @@ const Chat: React.FC = () => {
                 />
             )}
              </>, document.body)}
+            {switcherOpen && char && (
+                <ChatSwitcherPage
+                    characters={characters}
+                    worlds={characterGroups}
+                    activeId={activeCharacterId}
+                    unread={unreadMessages}
+                    onPick={id => { setSwitcherOpen(false); if (id !== activeCharacterId) setActiveCharacterId(id); }}
+                    onClose={() => setSwitcherOpen(false)}
+                    header={(
+                        <button type="button" onClick={() => setBubblePickerOpen(true)} data-switcher-bubble
+                            className="w-full flex items-center justify-between gap-3 rounded-2xl bg-white border border-slate-100 px-4 py-3 text-left">
+                            <span className="min-w-0">
+                                <span className="block text-[12px] text-slate-400">{char.name}的氣泡</span>
+                                <span className="block truncate text-[14px] font-bold text-slate-700">{activeTheme?.name || '預設'}{boundTemplate ? (char.bubbleOwn ? ' · 自己挑的' : ` · 跟著模板「${boundTemplate.name}」`) : ''}</span>
+                            </span>
+                            <span className="shrink-0 text-slate-300">›</span>
+                        </button>
+                    )}
+                />
+            )}
+            {bubblePickerOpen && char && (
+                <ChatBubblePickerPage
+                    charName={char.name}
+                    activeThemeId={currentThemeId}
+                    customThemes={customThemes}
+                    characters={characters}
+                    onPick={id => updateCharacter(char.id, ownBubblePatch(char, id))}
+                    onRemove={removeCustomTheme}
+                    onClose={() => setBubblePickerOpen(false)}
+                    templateName={boundTemplate?.name}
+                    onFollowTemplate={boundTemplate && char.bubbleOwn ? () => updateCharacter(char.id, followTemplateBubblePatch(boundTemplate)) : undefined}
+                />
+            )}
             <ChatModals
                 modalType={modalType} setModalType={setModalType}
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
@@ -4386,7 +4424,7 @@ const Chat: React.FC = () => {
                 hideTrigger={inputPreferences.sendButtonGenerates}
                 // 聊天設置放右上角（跟群聊的「群組設置」一樣）；「＋」裡那格拿掉了
                 extraAction={{ label: '聊天設置', icon: <GearSix className="w-5 h-5" weight="bold" />, onClick: () => handlePanelAction('settings') }}
-                onShowCharsPanel={() => setShowPanel('chars')}
+                onShowCharsPanel={() => { setShowPanel('none'); setSwitcherOpen(true); }}
                 onDeleteBuff={(buffId) => {
                     // 只拿掉這一條：當下情緒總結留著，提示詞那行「此刻還在的情緒」會跟著少掉它（utils/emotionDecay.ts）
                     const newBuffs = (char.activeBuffs || []).filter(b => b.id !== buffId);
@@ -4870,8 +4908,6 @@ const Chat: React.FC = () => {
                     onCharSelect={handleCharSelectCallback}
                     unreadMessages={unreadMessages}
                     customThemes={customThemes} onUpdateTheme={(id) => updateCharacter(char.id, ownBubblePatch(char, id))}
-                    bubbleTemplateName={boundTemplate?.name}
-                    onFollowTemplateBubble={boundTemplate && char.bubbleOwn ? () => updateCharacter(char.id, followTemplateBubblePatch(boundTemplate)) : undefined}
                     onRemoveTheme={removeCustomTheme} activeThemeId={currentThemeId}
                     onPanelAction={handlePanelAction}
                     onImageSelect={handleImageSelect}

@@ -299,6 +299,6 @@ interface DecorationTemplate {
   - `keepOwnBubble`：改寫或重套**同一份**模板時留住自己的氣泡；換成別份模板就跟新模板走。主線在 `detachCharacterPatch` 裡套，非主線在裝扮 App、Sore 的線寫入（`linePatchForChar` 前）各套一次。
   - `followTemplateBubblePatch`：回到模板的氣泡。存成自訂（模板 id 是 undefined）時 `CHARACTER_DECORATION_RESET` 會清掉 `bubbleOwn`。
   - 只給 `bubbleStyle`（舊寫法）照舊解除綁定。
-- 入口：私聊頂端點角色名字的「氣泡樣式 · 當前角色」。綁著模板時多一行說明，自己挑過氣泡的多一顆「跟著模板」。協同工作裝的氣泡主題給角色穿也走 `ownBubblePatch`。
+- 入口：私聊頂端點角色名字 → 全螢幕「切換聊天」最上面「○○的氣泡」→ 全螢幕氣泡頁（`components/chat/ChatBubblePickerPage.tsx`，原本的半窗已拿掉，見 plans/chat-switcher.md）。綁著模板時多一行說明，自己挑過氣泡的多一顆「跟著模板」。協同工作裝的氣泡主題給角色穿也走 `ownBubblePatch`。
 - 裝扮 App「正在用」那一行，綁模板又自己挑了氣泡的寫「自己的氣泡：…」。
 - 測試：`utils/decorationOwnBubble.test.ts`。
