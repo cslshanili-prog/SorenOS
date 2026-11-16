@@ -84,7 +84,8 @@ export const WHITEBOX_SELECTOR_GROUPS = [
     label: '輸入與功能面板',
     selectors: [
       '.sully-chat-inputbar', '.sully-chat-panel', '.sully-chat-panel button',
-      '.sully-chat-voice-button', '.sully-chat-voice-mode-strip', '.sully-chat-composer-voice',
+      '.sully-chat-voice-button', '.sully-chat-voice-listening', '.sully-chat-voice-dot',
+      '.sully-chat-voice-mode-strip', '.sully-chat-composer-voice',
     ],
   },
   {
