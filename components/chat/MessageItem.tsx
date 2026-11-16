@@ -3996,7 +3996,7 @@ const MessageItem = React.memo(({
                 // 外語語音消息頂部正文已隱藏（交給語音條渲染），同樣按純語音處理，去掉多餘上間距。
                 const isVoiceOnly = isUserVoiceMsg || (!!voiceData?.url && (!displayContent || isForeignVoiceMsg));
                 return (
-                <div className={`sully-voice-bar-shell relative z-10 ${isVoiceOnly ? '' : 'mt-2.5'}${isUserVoiceMsg ? ' sully-voice-bar-user ml-auto' : ''}`}>
+                <div className={`sully-voice-bar-shell relative z-10 ${isVoiceOnly ? '' : 'mt-2.5'}${isUserVoiceMsg ? ' sully-voice-bar-user ml-auto' : ' sully-voice-bar-ai'}`}>
                     {voiceData?.url ? (
                         <div className="max-w-[260px]">
                             <button
