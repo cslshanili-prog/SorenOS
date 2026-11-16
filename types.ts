@@ -3969,11 +3969,15 @@ export interface GroupProfile {
      */
     memberTimelineCap?: number;
     /**
-     * 導演模式一輪最多生成幾條消息（下限固定 1，"少即是多"，只有上限可調）。
-     * 不設默認 5（utils/groupChat/prompts.ts 的 DEFAULT_MAX_ROUND_MESSAGES）。
-     * 只影響導演模式；輪詢模式每位成員本來就只會發或跳過一次，沒有這個上限概念。
+     * 舊欄位：導演模式一輪最多幾「條」（發言人次）。2026-11-16 起改用 roundBubbles，
+     * 只在沒存過 roundBubbles 的舊群拿來換算（×2，utils/groupChat/prompts.ts 的 groupRoundBubbles）。
      */
     maxRoundMessages?: number;
+    /**
+     * 一輪最多幾個氣泡（4～16，不設默認 10）。導演模式照這個排；各自發言的出場表拍數也從這裡推。
+     * 冷場時允許只回 1～2 個，這裡只管上限。
+     */
+    roundBubbles?: number;
     /**
      * 群回覆生成模式：director = 一次調用生成整輪（默認，快、省 token）；
      * roundRobin = 每位成員單獨調用一次 API，按成員順序逐個發言（更真實、防串號，token ≈ 成員數倍）。

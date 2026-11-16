@@ -241,8 +241,23 @@ export const buildMultiPresenceNote = (names: string[] | undefined): string => {
 /**
  * 成員私訊成員（關係線第 6 批 6d）：群裡看不到，只進兩人的私聊，對方會回。群裡有兩個以上角色成員才教。
  */
-/** 導演模式一輪最多生成幾條消息的默認上限；下限固定 1，"少即是多"不受這個值影響。 */
-export const DEFAULT_MAX_ROUND_MESSAGES = 5;
+/**
+ * 一輪最多幾個氣泡（群設定 roundBubbles）。2026-11-16 起算的是氣泡，不是發言人次；
+ * 冷場時允許只回 1～2 個，這裡只管上限。各自發言照出場表跑時，拍數也從這裡推（見 beatPlan.ts）。
+ */
+export const DEFAULT_ROUND_BUBBLES = 10;
+export const ROUND_BUBBLES_MIN = 4;
+export const ROUND_BUBBLES_MAX = 16;
+/** 一項（一個人說一下）最多幾個氣泡：多寫的行併進最後一個氣泡，不讓一個人長成一整排 */
+export const MAX_BUBBLES_PER_TURN = 2;
+export const roundBubbleCap = (n: number | undefined): number =>
+    Math.min(ROUND_BUBBLES_MAX, Math.max(ROUND_BUBBLES_MIN, Math.round(n ?? DEFAULT_ROUND_BUBBLES)));
+/**
+ * 群的上限：新欄位 roundBubbles；舊群只存過 maxRoundMessages（「條」＝發言人次，一條常常好幾個氣泡），
+ * 換算成兩倍氣泡，讓原本調克制／熱鬧的人大致維持原樣。
+ */
+export const groupRoundBubbles = (g: { roundBubbles?: number; maxRoundMessages?: number } | null | undefined): number =>
+    roundBubbleCap(g?.roundBubbles ?? (g?.maxRoundMessages ? g.maxRoundMessages * 2 : undefined));
 
 /** 退群語法說明——director/roundRobin 共用同一段文案，只在群開了 allowMemberLeave 時才被教。 */
 const buildLeaveGroupNote = (): string => `
@@ -299,12 +314,12 @@ export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
     options?: {
-        userLurking?: boolean; maxRoundMessages?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
+        userLurking?: boolean; roundBubbles?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
         /** 私下找人那段（utils/sideMessage.ts 的 buildGroupSideMessageNote）；空＝這個群不私下找人 */
         sideNote?: string;
     },
 ): string {
-    const maxRoundMessages = options?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES;
+    const maxRoundMessages = roundBubbleCap(options?.roundBubbles);
     return `### 【AI 導演任務指令 (Director Mode)】
 當前場景：大家正在群裡聊天。
 最近聊天記錄：
@@ -324,7 +339,9 @@ ${GROUP_STYLE_ATMOSPHERE}#### 三、U 還是 U：關係不能因場景切換而�
 ${GROUP_STYLE_QUALITY}#### 五、互動結構
 - **去中心化**: 角色之間可以互相接話、回應、起鬨，不要每個人都只對著用戶說話。但**不強制 A 說了 B 必須回**——真群聊裡有人發完沒人接是常態。
 - **回應用戶但不齊聲表態**：用戶剛說了值得回應的內容時，讓最合適的一位角色自然接住；其他人可以回應彼此、補充不同角度或保持沉默。不要讓所有人重複同一種態度。
-- **多輪對話**: 請一次性生成 **1 到 ${maxRoundMessages} 條** 消息。**少即是多**——如果本輪氛圍是"安靜摸魚"，1-2 條就夠。
+- **一項＝一個人說一下**：每一項 content 只寫 1～2 個氣泡（最多兩行）。想多說，就等別人插話之後再出場一次，不要一個人連發一整排。
+- **一輪的長度**：這一輪最多 ${maxRoundMessages} 個氣泡（聊得起來時大約 4～${maxRoundMessages} 個）；每個人這一輪出場 0～2 次，同一個人不要連著兩項。**少即是多**——氛圍是"安靜摸魚"時 1～2 個氣泡就夠。
+- **像真人群聊的節奏**：有人問、有人答、有人插嘴吐槽、有人只回個表情、有人已讀不回；後面的人接前面那句話。**不要**寫成「每個人依序各發表一段」——那是開會報告，不是群聊。
 
 #### 六、私下找人
 ${options?.sideNote?.trim() ? options.sideNote.trim() : '- 這個群不私下找人：不要寫 PRIVATE、DM。'}
@@ -336,7 +353,7 @@ ${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(
 
 #### 八、表情和氣泡
 - **表情包**: 必須使用格式 \`[[SEND_EMOJI: 表情名稱]]\`。歷史中的“發送了表情包”只是記錄，不是發送指令，不要照抄。**可用表情 (按分類)**: ${emojiContextStr}
-- **氣泡分段**: 在一條內容裡用換行符分隔不同的氣泡——一行一個氣泡。短句多發幾條 > 長句一坨。
+- **氣泡分段**: 一行一個氣泡，每一項最多兩行；話多就拆成之後的另一項，中間讓別人接話。短句 > 長句一坨。
 - **引用回覆（可選）**: 角色想針對記錄裡某條具體發言回覆時，可在該角色的 content 開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可），會自動渲染成引用氣泡。偶爾用，別每條都引用。
 - **紅包（可選）**: 記錄裡出現「拼手氣紅包…還剩 n 份可搶」時，想搶的角色在自己的 content 裡單獨一行輸出 \`[[GRAB_PACKET]]\`，前後配一句真實反應（搶到後系統會公佈金額，下一輪可以對金額做反應）。**搶不搶、誰搶由性格決定，不必人人都搶**。看到「發了專屬紅包給 自己」時，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回，並說一句為什麼。角色也可以主動發紅包：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`；發給某人的專屬紅包 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`（對方可以是用戶或其他成員）。金額是氛圍道具，幾塊到幾百都行，別離譜。
 
@@ -346,13 +363,14 @@ ${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(
 - 但參考"對話質量"——不要因為私聊狀態就給出套路化反應，也不要讓所有角色用同一種方式表達關心。
 
 ### 輸出格式 (JSON Array)
+每一項是一個人說一下（1～2 行），同一個人可以在別人說完之後再出現：
 [
-  {
-    "charId": "角色的ID",
-    "content": "發言內容... (可以是文本、[[SEND_EMOJI: name]] 或 [[PRIVATE: content]])"
-  },
-  ...
-]`;
+  { "charId": "A的ID", "content": "問一句" },
+  { "charId": "B的ID", "content": "接話\n補一句" },
+  { "charId": "C的ID", "content": "[[SEND_EMOJI: 表情名稱]]" },
+  { "charId": "A的ID", "content": "回 B 的話" }
+]
+（content 可以是文本、[[SEND_EMOJI: name]] 或 [[PRIVATE: content]]）`;
 }
 
 /**
@@ -366,9 +384,15 @@ export function buildRoundRobinInstruction(
         userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[];
         /** 這位成員的私下找人那段（utils/sideMessage.ts 的 buildSideMessagePrompt）；空＝不用 */
         sideNote?: string;
+        /** 出場表上這一拍的安排（utils/groupChat/beatPlan.ts）；空＝沒排（退回的出場表） */
+        beatIntent?: string;
     },
 ): string {
     const asNpc = !!options?.asNpc;
+    const intent = options?.beatIntent?.trim();
+    const beatNote = intent
+        ? `\n這一拍的安排（幕後，不要照抄、也不要提到「安排」）：${intent}。跟你的性格或關係不合就照你自己的來，也可以 \`[[SKIP]]\`。\n`
+        : '';
     const privateRule = asNpc
         ? `4. **私聊**: 你是 NPC，沒有和用戶的一對一私聊——不要用 PRIVATE。`
         : options?.sideNote?.trim()
@@ -386,15 +410,15 @@ export function buildRoundRobinInstruction(
 ${history.text}
 ${history.attachedImagesNote}
 
-${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}現在輪到你了。規則：
+${options?.userLurking ? buildLurkModeNote() : buildMultiPresenceNote(options?.presentUsers)}${buildPlotDirectionNote(options?.plotDirection)}現在輪到你了。${beatNote}規則：
 
 1. 你只是群裡的一位普通成員，不是導演。只輸出**你自己**要發的消息內容——不要替任何人說話，不要在開頭加自己的名字或冒號前綴，不要解釋、不要輸出 JSON。如果此刻沒有自然的話可說，只輸出 \`[[SKIP]]\` 保持沉默；不要為了輪到自己就硬湊一句。
-2. 一行 = 一個氣泡。短句多發幾條 > 長句一坨；"嗯""哈哈哈"和單獨一個表情包都是合法回覆。
+2. **這次只說一下**：1～2 個氣泡（一行一個，最多兩行），說完就換別人。"嗯""哈哈哈"和單獨一個表情包都是合法回覆。話還沒說完沒關係，等別人接了話、下次輪到你再說。
 3. **表情包**: 使用格式 \`[[SEND_EMOJI: 表情名稱]]\`。歷史中的“發送了表情包”只是記錄，不是發送指令，不要照抄。**可用表情 (按分類)**: ${emojiContextStr}
 ${privateRule}
 ${userRule}
 ${qualityRule}
-7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。群裡可能有人跟你同時在打字，他們這一刻要發的話你看不到——所以別只是把用戶的話原樣再回一遍，說你自己的角度。
+7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。接著記錄最後那幾句說，像真人群聊你一句我一句；後面還會有人接話，你不用把話說完、也不用替大家總結。別只是把用戶的話原樣再回一遍，說你自己的角度。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
 9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話，第一行就是你要發的第一句。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白，也不要寫成報告（# 標題、**粗體小標**、發言策略清單、「---」、先分析再寫「最終發言／最終輸出」）。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
 10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}${!asNpc && options?.sideNote?.trim() ? `\n${options.sideNote.trim()}` : ''}`;

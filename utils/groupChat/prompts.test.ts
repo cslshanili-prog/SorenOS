@@ -3,7 +3,10 @@ import {
     buildDirectorInstruction,
     buildGroupHistoryBlock,
     buildRoundRobinInstruction,
-    DEFAULT_MAX_ROUND_MESSAGES,
+    DEFAULT_ROUND_BUBBLES,
+    ROUND_BUBBLES_MIN,
+    ROUND_BUBBLES_MAX,
+    groupRoundBubbles,
     GROUP_HISTORY_GAP_THRESHOLD_MS,
 } from './prompts';
 import type { Message, CharacterProfile } from '../../types';
@@ -94,23 +97,32 @@ describe('群聊中的 U 與關係連續性', () => {
     });
 });
 
-describe('導演模式一輪最多幾條：maxRoundMessages 選項', () => {
+describe('導演模式一輪最多幾個氣泡：roundBubbles', () => {
     const history = { text: '小夏: 今天天氣不錯', attachedImages: [], attachedImagesNote: '' };
 
-    it('不傳時用默認值（DEFAULT_MAX_ROUND_MESSAGES）', () => {
+    it('不傳時用默認值（DEFAULT_ROUND_BUBBLES）', () => {
         const prompt = buildDirectorInstruction(history, '無');
-        expect(prompt).toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 條`);
+        expect(prompt).toContain(`最多 ${DEFAULT_ROUND_BUBBLES} 個氣泡`);
     });
 
-    it('傳了 maxRoundMessages 時用群裡配置的那個數，不用默認值', () => {
-        const prompt = buildDirectorInstruction(history, '無', { maxRoundMessages: 8 });
-        expect(prompt).toContain('1 到 8 條');
-        expect(prompt).not.toContain(`1 到 ${DEFAULT_MAX_ROUND_MESSAGES} 條`);
+    it('傳了就用群裡配置的數，超出範圍會夾回 4～16', () => {
+        expect(buildDirectorInstruction(history, '無', { roundBubbles: 8 })).toContain('最多 8 個氣泡');
+        expect(buildDirectorInstruction(history, '無', { roundBubbles: 1 })).toContain(`最多 ${ROUND_BUBBLES_MIN} 個氣泡`);
+        expect(buildDirectorInstruction(history, '無', { roundBubbles: 99 })).toContain(`最多 ${ROUND_BUBBLES_MAX} 個氣泡`);
     });
 
-    it('下限固定是 1，不受 maxRoundMessages 影響', () => {
-        const prompt = buildDirectorInstruction(history, '無', { maxRoundMessages: 2 });
-        expect(prompt).toContain('1 到 2 條');
+    it('一項只寫 1～2 個氣泡，不寫成每人依序一段', () => {
+        const prompt = buildDirectorInstruction(history, '無');
+        expect(prompt).toContain('每一項 content 只寫 1～2 個氣泡');
+        expect(prompt).toContain('不要**寫成「每個人依序各發表一段」');
+    });
+
+    it('舊群只存過 maxRoundMessages（條）：換算成兩倍氣泡；新欄位優先', () => {
+        expect(groupRoundBubbles(undefined)).toBe(DEFAULT_ROUND_BUBBLES);
+        expect(groupRoundBubbles({ maxRoundMessages: 5 })).toBe(10);
+        expect(groupRoundBubbles({ maxRoundMessages: 1 })).toBe(ROUND_BUBBLES_MIN);
+        expect(groupRoundBubbles({ maxRoundMessages: 10 })).toBe(ROUND_BUBBLES_MAX);
+        expect(groupRoundBubbles({ maxRoundMessages: 5, roundBubbles: 6 })).toBe(6);
     });
 });
 

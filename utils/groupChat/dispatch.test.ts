@@ -9,7 +9,7 @@ vi.mock('../db', () => ({
     },
 }));
 
-import { dispatchMemberActions, DispatchContext } from './dispatch';
+import { capBubbles, dispatchMemberActions, DispatchContext } from './dispatch';
 import { DB } from '../db';
 import type { CharacterProfile } from '../../types';
 
@@ -183,5 +183,26 @@ describe('成員私訊成員（關係線第 6 批 6d）', () => {
     it('沒傳 handler：只剝掉標記', async () => {
         await dispatchMemberActions([{ charId: 'c1', content: '嗯\n[[DM|阿方: 偷偷說]]' }], baseCtx());
         expect(calls().map(c => c[0].content)).toEqual(['嗯']);
+    });
+});
+
+describe('一項最多幾個氣泡（群聊節奏）', () => {
+    beforeEach(() => {
+        saveMessage.mockClear();
+    });
+
+    it('capBubbles：超過上限的行併進最後一個氣泡，沒超過照舊', () => {
+        expect(capBubbles(['a', 'b', 'c', 'd'], 2)).toEqual(['a', 'b\nc\nd']);
+        expect(capBubbles(['a', 'b'], 2)).toEqual(['a', 'b']);
+        expect(capBubbles(['a', 'b', 'c'], undefined)).toEqual(['a', 'b', 'c']);
+    });
+
+    it('dispatch 帶 maxBubblesPerAction：一個人寫四行也只落兩個氣泡', async () => {
+        await dispatchMemberActions(
+            [{ charId: 'c1', content: '第一句\n第二句\n第三句\n第四句' }],
+            baseCtx({ maxBubblesPerAction: 2 }),
+        );
+        const contents = (saveMessage.mock.calls as any[]).map(c => c[0].content);
+        expect(contents).toEqual(['第一句', '第二句\n第三句\n第四句']);
     });
 });
