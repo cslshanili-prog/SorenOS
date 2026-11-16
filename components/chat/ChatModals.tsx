@@ -1,5 +1,6 @@
 
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import { pickOptions } from '../image/ImageStylePicker';
 import { ArrowsClockwise, DownloadSimple, PencilSimple, X } from '@phosphor-icons/react';
@@ -292,7 +293,9 @@ const ChatModals: React.FC<ChatModalsProps> = ({
         setModalType('none');
     };
 
-    return (
+    // 全部掛到 body：聊天頁在 .sully-chat-root 裡，白框 CSS 常寫 `.sully-chat-root button {…}`，
+    // 彈窗留在裡面的話開關底色、按鈕陰影都會被一起蓋掉（日程／情緒的總開關、心聲／好感度那排鈕）。
+    return createPortal(
         <>
             <Modal 
                 isOpen={modalType === 'transfer'} title="Credits 轉帳" onClose={() => setModalType('none')}
@@ -1280,7 +1283,8 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     )}
                 </div>
             </Modal>
-        </>
+        </>,
+        document.body,
     );
 };
 
