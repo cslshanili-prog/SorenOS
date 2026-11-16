@@ -15,14 +15,16 @@ export function castRelationLines(args: {
     others: ReadonlyArray<RelationSource>;
     nameOf: (id: string) => string | null | undefined;
     userName: string;
+    /** 跟「你」的那條只在主線上算（寫的是主線那張卡；別條線上的你是另一個人）。不給＝算 */
+    includeUser?: boolean;
 }): string[] {
-    const { char, others, nameOf, userName } = args;
+    const { char, others, nameOf, userName, includeUser = true } = args;
     const lines: string[] = [];
     const seen = new Set<string>();
     for (const r of char.relationships || []) {
         const desc = r.description?.trim();
         if (!desc) continue;
-        if (r.targetId === 'user') { lines.push(`跟「${userName}」：${desc}`); continue; }
+        if (r.targetId === 'user') { if (includeUser) lines.push(`跟「${userName}」：${desc}`); continue; }
         const name = nameOf(r.targetId);
         if (!name) continue;
         seen.add(r.targetId);

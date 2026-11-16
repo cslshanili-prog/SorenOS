@@ -341,7 +341,12 @@ export const ContextBuilder = {
         }
 
         // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）
-        sections.relations = formatCastRelationsBlock({ char, others: getCharRelations(), nameOf: getCharNameById, userName: user.name });
+        const viewKey = lineViewPersonaKey(char);
+        sections.relations = formatCastRelationsBlock({
+            char, others: getCharRelations(), nameOf: getCharNameById, userName: user.name,
+            // 跟「你」的關係寫的是主線那張卡：別條線上的你是另一個人，不帶
+            includeUser: !viewKey || viewKey === char.primaryPersonaKey,
+        });
 
         // 4b. 底色認知（記憶宮殿門牌）— 常駐語義層
         // 與召回記憶不同：這是每輪都在的"你早已知道的背景"，不走相似度抽取。

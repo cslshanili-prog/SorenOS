@@ -67,7 +67,7 @@ const KnownPersonasSection: React.FC<{ char: CharacterProfile }> = ({ char }) =>
                             <TokenImg value={card.avatar} className="w-8 h-8 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
                             <span className="flex-1 min-w-0">
                                 <span className="block text-[15px] text-slate-700 truncate">{card.name}</span>
-                                {isPrimary && <span className="block text-[11px] text-slate-400">原本那條線，不能拿掉</span>}
+                                {isPrimary && <span className="block text-[11px] text-slate-400">主線，不能拿掉（要換成別張卡，在神經鏈接的角色頁「主線是跟誰」）</span>}
                             </span>
                             <span className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${on ? 'bg-primary text-white' : 'border border-slate-200'}`}>
                                 {on && <Check size={13} weight="bold" />}
