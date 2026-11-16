@@ -16,7 +16,7 @@ import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { AppID, Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
-import { generateNpcGroupGuestLine } from '../utils/npcGroupGuestLine';
+import { castAsGuestProfile, generateNpcGroupGuestLine, groupGuestCandidates } from '../utils/npcGroupGuestLine';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -1310,12 +1310,17 @@ const GroupChat: React.FC = () => {
     /** 你發的訊息（紅包）是哪張卡的名字 */
     const userMsgName = (m: Pick<Message, 'metadata'>) => personaNameForKey(userProfileBase, groupMessagePersonaKey(m, groupPersonaKey));
 
-    // NPC 客串：不是正式群成員，手動觸發才插一句話，不進輪詢/記憶宮殿/成員時間線。
+    // 配角客串：不是正式群成員，手動觸發才插一句話，不進輪詢/記憶宮殿/成員時間線。
+    // NPC 搬成配角之後人選改讀配角（在戲上、不是小號、不在群裡），還沒搬家的舊 NPC 也列著。
+    const guestCandidates = useMemo(() => groupGuestCandidates(characters, npcs, activeGroup), [characters, npcs, activeGroup]);
     const handleNpcGuestLine = async () => {
         if (!activeGroup) return;
-        const npc = npcs.find(n => n.id === npcGuestId);
-        if (!npc) { addToast('請選擇一個 NPC', 'error'); return; }
-        const guestApi = npc.chatApi?.baseUrl ? npc.chatApi : apiConfig;
+        const picked = guestCandidates.find(g => g.id === npcGuestId);
+        if (!picked) { addToast('請選一位配角', 'error'); return; }
+        const npc = picked.kind === 'cast' ? castAsGuestProfile(picked.char) : picked.npc;
+        const guestApi = picked.kind === 'cast'
+            ? resolveCharacterChatApi(picked.char, apiConfig)
+            : (picked.npc.chatApi?.baseUrl ? picked.npc.chatApi : apiConfig);
         if (!guestApi.apiKey) { addToast('請先配置 API', 'error'); return; }
         setNpcGuestGenerating(true);
         try {
@@ -1325,10 +1330,10 @@ const GroupChat: React.FC = () => {
                 .join('\n');
             const line = await generateNpcGroupGuestLine({
                 npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
-                knownUserName: npcKnownUserName(npc),
+                knownUserName: picked.kind === 'cast' ? castKnownUserName(picked.char) : npcKnownUserName(picked.npc),
                 recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
             });
-            if (!line.trim()) { addToast('NPC 沒接上話', 'error'); return; }
+            if (!line.trim()) { addToast(`${npc.name}沒接上話`, 'error'); return; }
             await DB.saveMessage({ charId: npc.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
             await refreshMessages(activeGroup.id);
             setShowNpcGuestModal(false);
@@ -1681,6 +1686,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     // NPC 認識的那個你（手動指定，或從它的關係清單推）；跟群身份同一張卡就回群裡的名字
     const npcKnownUserName = (npc: NPCProfile) => {
         const key = personaKeyForNpc(userProfileBase, npc, characters);
+        return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
+    };
+    // 配角客串時它認識的那個你（跟角色同一套：照它自己認識的卡）
+    const castKnownUserName = (char: CharacterProfile) => {
+        const key = personaKeyForChar(userProfileBase, char);
         return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
     };
     // NPC 眼中「群裡的你」：它認識的那張在場就是那張，否則第一張在場的（跟角色同一套：認識的才是那個人）
@@ -2778,7 +2788,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
                                 <MaskHappy className="w-6 h-6" weight="bold" />
                             </div>
-                            <span className="text-xs font-bold">NPC 客串</span>
+                            <span className="text-xs font-bold">配角客串</span>
                         </button>
 
                         <button
@@ -3031,7 +3041,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即時生效；移除不會刪掉 ta 說過的歷史消息，只是之後不再參與生成。群主只是頭銜標記，不帶權限。禁言的角色仍在群裡，只是暫時不參與生成，隨時可以取消。</p>
                     </div>
 
-                    {/* NPC 成員：神經鏈接「NPC」分頁的配角，跟角色們一起聊、推劇情；沒有私聊，有自己的輕量記憶 */}
+                    {/* NPC 成員：舊的 NPC 表（搬成配角之前）。搬完就沒有了，配角直接在上面的成員裡加，所以沒有舊 NPC 時整塊不顯示 */}
+                    {(npcs.length > 0 || (activeGroup && groupNpcs(activeGroup, npcs).length > 0)) && (
                     <div className="pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NPC 成員 ({activeGroup ? groupNpcs(activeGroup, npcs).length : 0})</label>
@@ -3078,6 +3089,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         )}
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">NPC 是推劇情的配角：跟角色們一起輪流說話，但沒有跟你的私聊，也不會收到話題盒卡片。群裡攢了一段新對話後，NPC 會自動把這段整理進自己的記憶（在 NPC 編輯頁可以看、可以改）。</p>
                     </div>
+                    )}
 
                     {/* 隱身圍觀模式：用戶消息不進 AI 的群歷史，角色以為群裡只有彼此（預覽開著時併進「在場的身份」） */}
                     {!personaLinesEnabled && (
@@ -3466,19 +3478,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             </Modal>
 
             {/* Transfer Modal — 紅包 2.0：拼手氣 / 專屬 */}
-            {/* NPC 客串：不是正式群成員，手動觸發插一句話 */}
-            <Modal isOpen={showNpcGuestModal} title="NPC 客串" onClose={() => setShowNpcGuestModal(false)}
-                footer={<button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句話'}</button>}>
+            {/* 配角客串：不是正式群成員，手動觸發插一句話（人選見 groupGuestCandidates） */}
+            <Modal isOpen={showNpcGuestModal} title="配角客串" onClose={() => setShowNpcGuestModal(false)}
+                footer={guestCandidates.length > 0
+                    ? <button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句話'}</button>
+                    : <button onClick={() => setShowNpcGuestModal(false)} className="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">知道了</button>}>
                 <div className="space-y-4">
-                    {npcs.length > 0 ? (
+                    {guestCandidates.length > 0 ? (
                         <>
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">選一個 NPC</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">選一位配角</label>
                                 <select value={npcGuestId} onChange={e => setNpcGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                    <option value="">— 選擇一個 NPC —</option>
-                                    {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                                    <option value="">— 選一位配角 —</option>
+                                    {guestCandidates.map(g => <option key={g.id} value={g.id}>{g.name}{g.kind === 'npc' ? '（舊 NPC）' : ''}</option>)}
                                 </select>
-                                <p className="text-[9px] text-slate-400 mt-1">TA 不是這個群的正式成員，只插這一句話，不會被拉進後續輪詢。</p>
+                                <p className="text-[9px] text-slate-400 mt-1">TA 不是這個群的成員，只插這一句話，不會被拉進後續輪詢。想讓 TA 常駐就在群組設置把 TA 加進來。</p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">這次客串的方向提示（可選）</label>
@@ -3489,7 +3503,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </>
                     ) : (
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                            還沒有 NPC——請先去「神經鏈接」→「NPC」分頁建一個，再回來客串。
+                            {characters.some(c => c.castRole === 'supporting' && !c.altOf)
+                                ? '能客串的配角都已經在群裡（或下戲了）。客串是給群外的人插一句話用的。'
+                                : '還沒有配角——去「神經鏈接」→「配角」分頁建一個（或把角色改成配角），再回來客串。'}
                         </p>
                     )}
                 </div>

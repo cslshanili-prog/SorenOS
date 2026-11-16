@@ -2,6 +2,7 @@ import { NPCProfile, CharacterProfile } from '../types';
 import { safeResponseJson, extractContent } from './safeApi';
 import { buildNpcMemoryBlock } from './npcMemory';
 import { userRelationLabel } from './personaSpeaker';
+import { isOnStage, isSupporting } from './castRole';
 
 export interface NpcGroupGuestLineOptions {
     npc: NPCProfile;
@@ -54,4 +55,44 @@ ${hint ? `【這次客串的方向提示，供參考】\n${hint}\n` : ''}
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const data = await safeResponseJson(response);
     return extractContent(data).trim();
+}
+
+/**
+ * 群聊客串的人選（NPC 搬成配角之後，plans/persona-line-batch6.md）：
+ * 配角（在戲上、不是小號、還不在這個群裡），再加上還沒搬家的舊 NPC。
+ */
+export type GuestCandidate =
+    | { kind: 'cast'; id: string; name: string; char: CharacterProfile }
+    | { kind: 'npc'; id: string; name: string; npc: NPCProfile };
+
+export function groupGuestCandidates(
+    characters: CharacterProfile[],
+    npcs: NPCProfile[],
+    group: { members: string[]; npcMemberIds?: string[] } | null | undefined,
+): GuestCandidate[] {
+    const inGroup = new Set([...(group?.members || []), ...(group?.npcMemberIds || [])]);
+    const cast: GuestCandidate[] = characters
+        .filter(c => isSupporting(c) && isOnStage(c) && !c.altOf && !inGroup.has(c.id))
+        .map(char => ({ kind: 'cast', id: char.id, name: char.name, char }));
+    const legacy: GuestCandidate[] = npcs
+        .filter(n => !n.migratedToCharAt && !inGroup.has(n.id) && !cast.some(c => c.id === n.id))
+        .map(npc => ({ kind: 'npc', id: npc.id, name: npc.name, npc }));
+    return [...cast, ...legacy];
+}
+
+/** 配角用客串那套輕量提示詞：設定（人設）＋世界觀＋關係＋最近一段整理好的記憶。 */
+export function castAsGuestProfile(char: CharacterProfile): NPCProfile {
+    const refined = Object.entries(char.refinedMemories || {}).sort(([a], [b]) => a.localeCompare(b));
+    const latest = refined.length ? refined[refined.length - 1][1] : '';
+    return {
+        id: char.id,
+        name: char.name,
+        avatar: char.avatar,
+        description: (char.systemPrompt || char.description || '').trim(),
+        ...(char.worldview ? { worldview: char.worldview } : {}),
+        relationships: (char.relationships || []).map(r => ({ ...r })),
+        ...(latest ? { memory: latest.trim().slice(0, 1200) } : {}),
+        createdAt: 0,
+        updatedAt: 0,
+    } as NPCProfile;
 }
