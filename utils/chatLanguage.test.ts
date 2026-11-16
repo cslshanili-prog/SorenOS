@@ -118,3 +118,18 @@ describe('誰來翻與我的訊息自動譯出', () => {
         expect(cleanChatLanguage({ speak: 'English', translator: 'api', translateMine: true })).toEqual({ speak: 'English', translateMine: true });
     });
 });
+
+describe('雲端', async () => {
+    const { chatLanguageForCloud, buildSpeakingRulesPrompt } = await import('./chatLanguage');
+    it('有翻譯就改成先寫再翻（不帶標籤）；沒翻譯原樣', () => {
+        expect(chatLanguageForCloud({ speak: 'English', translateTo: '繁體中文' })).toMatchObject({ translator: 'api' });
+        expect(chatLanguageForCloud({ speak: 'English' })).toEqual({ speak: 'English' });
+        expect(chatLanguageForCloud(undefined)).toBeUndefined();
+    });
+    it('fire_pack 只帶說話語言與夾雜', () => {
+        const p = buildSpeakingRulesPrompt(resolveChatLanguage({ speak: 'English', mix: '日本語', translateTo: '繁體中文' }));
+        expect(p.startsWith('[語言設定]')).toBe(true);
+        expect(p).toContain('夾雜日本語');
+        expect(p).not.toContain('<翻譯>');
+    });
+});

@@ -113,6 +113,7 @@ import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
 import { listRecallableMonths } from './agenticTools';
 import { ChatPrompts } from './chatPrompts';
 import { loadChatPresetDoc, renderChatPresetSystemText } from './chatPresetSession';
+import { buildSpeakingRulesPrompt, resolveChatLanguage } from './chatLanguage';
 import { nowInTimeZone, resolveCharTimeZone, tzAwarenessNote } from './timezone';
 import { DB } from './db';
 import { copyWorkerBundleToClipboard } from './workerDeploy';
@@ -851,6 +852,7 @@ export const buildFirePack = async (
     ? `- 你的記憶庫裡存著這些月份的經歷：${recallableMonths.join('、')}。想聊起其中某段時，先輸出 [[RECALL: 年-月]] 把細節取回來再寫，別憑印象編。`
     : null;
 
+  const languageRules = buildSpeakingRulesPrompt(resolveChatLanguage(char.chatLanguage));
   const template = templateStub ? AMSG2_INSTANT_STUB_TEMPLATE : [
     '你將代表下面這個角色，生成一條“主動發給用戶”的私聊消息。',
     '',
@@ -863,6 +865,8 @@ export const buildFirePack = async (
     '- 語氣更像真人突然想起對方時發來的私聊，不要像在完成任務。',
     '- 角色設定裡描述的查記憶、讀日記、聯網搜索、逛小紅書等能力照常可用：需要時正常輸出對應標籤，系統會取回結果後讓你繼續寫。',
     ...(recallHint ? [recallHint] : []),
+    // 聊天語言（plans/chat-language.md 第 3 批）：只帶說話語言與夾雜，雙語譯文收件後在本機補
+    ...(languageRules ? ['', languageRules] : []),
     '',
     '【角色系統設定】',
     systemPrompt,

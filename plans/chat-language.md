@@ -154,4 +154,18 @@
   - 沒設翻譯 API 時用主 API 的聊天模型翻。
 - **聊天語言設定頁**：有翻譯時多「誰來翻」二選一；有說話語言時多「我的訊息自動譯出」開關。摘要也會寫出「寫完再翻」「你打的字自動翻成…」。
 - **統計**：「当前功能启用」多一格「翻译API」（`聊天模型`／`deepl`／`google`／`azure`）。
-- **還沒做（第 3 批）**：雲端即時對話、主動消息還是不照說話語言寫，收件後也還不會補譯文。
+
+### 第 3 批（2026-11-16）
+
+雲端一律只照說話語言寫，不帶雙語標籤；有設翻譯的角色收件後在本機補譯文。這樣 Worker 不用懂 `<翻譯>` 標籤，也不怕雲端把一組標籤拆到兩條 push 裡。
+
+- **即時對話**：`useChatAI` 走雲端那一輪，`chatLanguage` 先過 `chatLanguageForCloud`。有翻譯就改成先寫再翻，提示詞裡只有語言段。本地那一輪照舊。
+- **主動消息 fire_pack**（`utils/activeMsgClient.ts`）：模板的【重要規則】後面多一段 `buildSpeakingRulesPrompt`，只有說話語言與夾雜。
+  - 改聊天語言走 `updateCharacter`，本來就會打髒，雲端會重新打包。
+- **收件補譯**（`utils/activeMsgRuntime.ts`）：
+  - `applyAssistantPostProcessing` 落庫之後呼叫 `translateCloudReply`，用這條 push 的 `metadata.activeMsg2.messageId` 認出它拆出來的氣泡。這跟 `findInboxArtifacts` 是同一個認法。
+  - 不管角色選的是順便翻還是先寫再翻，都會翻。已經是雙語的不重翻。
+  - 不擋收尾，翻好或翻不成都會再發一次 `active-msg-progress` 刷畫面。翻不成一樣出「點一下再翻」。
+  - 即時對話、主動消息、chat_outbox 補收、延遲回覆交給雲端的那條，都走同一個收件函式。
+- **測試**：`utils/chatTranslateRun.test.ts`（真庫：只翻這條 push、選順便翻也補、翻不成標記與重翻、收件接線順序）、`utils/activeMsgClient.test.ts`（模板帶語言段、不帶標籤）。
+- **之後**：群聊、電話、見面改讀同一份設定，拿掉它們各自記的翻譯語言。

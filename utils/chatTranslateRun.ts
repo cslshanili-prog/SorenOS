@@ -59,3 +59,20 @@ export async function postTranslateRecentReplies(
     const fresh = recent.filter(m => (m.timestamp || 0) >= sinceTs);
     return translateMessagesInPlace(fresh, lang.translateTo, apiConfig);
 }
+
+/**
+ * 雲端回覆（即時對話、主動消息）收件後補譯文：雲端一律只照說話語言寫，
+ * 有設翻譯的角色在這裡翻（不管選的是順便翻還是先寫再翻）。只翻這一條 push 拆出來的氣泡。
+ */
+export async function translateCloudReply(
+    lineArg: LineArg,
+    pushMessageId: string | undefined,
+    chatLanguage: ChatLanguageConfig | undefined,
+    apiConfig: APIConfig,
+): Promise<number> {
+    const lang = resolveChatLanguage(chatLanguage);
+    if (!lang.translating || !lang.translateTo || !pushMessageId) return 0;
+    const recent = await DB.getRecentMessagesByCharId(lineArg, 40);
+    const fromPush = recent.filter(m => (m.metadata as any)?.activeMsg2?.messageId === pushMessageId);
+    return translateMessagesInPlace(fromPush, lang.translateTo, apiConfig);
+}

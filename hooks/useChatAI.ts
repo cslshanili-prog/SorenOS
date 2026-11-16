@@ -1,5 +1,5 @@
 
-import { resolveChatLanguage } from '../utils/chatLanguage';
+import { chatLanguageForCloud, resolveChatLanguage } from '../utils/chatLanguage';
 import { postTranslateRecentReplies } from '../utils/chatTranslateRun';
 import { isOnlinePaused } from '../utils/dateOffline';
 import { lineArgOf, lineMsgFields, lineOf, lineScheduleId } from '../utils/chatLine';
@@ -903,7 +903,8 @@ export const useChatAI = ({
                 isListeningTogether: !!(music.current && music.playing && music.listeningTogetherWith.includes(char.id)),
                 musicCfg: music.cfg,
                 recentTrackChange: music.recentTrackChange,
-                chatLanguage,
+                // 即時對話在雲端生成：不帶雙語標籤，譯文收件後在本機補（utils/chatTranslateRun.ts）
+                chatLanguage: instantChatRoute ? chatLanguageForCloud(chatLanguage) : chatLanguage,
                 htmlMode: { enabled: !!(char as any).htmlModeEnabled, customPrompt: (char as any).htmlModeCustomPrompt },
                 thinkingChain: { enabled: !!(char as any).showThinkingChain, customPrompt: (char as any).thinkingChainCustomPrompt },
                 visionApiConfig: apiConfig.visionApi,
