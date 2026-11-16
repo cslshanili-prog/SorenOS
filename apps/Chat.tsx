@@ -4035,6 +4035,8 @@ const Chat: React.FC = () => {
              )}
 
 
+             {/* 彈窗、全螢幕頁一律掛到 body：白框 CSS 常寫 `.sully-chat-root button {…}`，留在聊天頁裡面會被一起蓋（開關底色、按鈕陰影） */}
+             {createPortal(<>
              {/* 記憶整理結果 — 彈窗（高級感） */}
              {memoryPalaceResult && (
                  <div
@@ -4162,6 +4164,7 @@ const Chat: React.FC = () => {
                     addToast={addToast}
                 />
             )}
+             </>, document.body)}
             <ChatModals
                 modalType={modalType} setModalType={setModalType}
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
@@ -4818,6 +4821,8 @@ const Chat: React.FC = () => {
             </div>
 
 
+            {/* 同上：設定彈窗、小程式、轉發都掛到 body，不吃白框 CSS */}
+            {createPortal(<>
             {/* Proactive Settings Modal */}
             {char && (
                 <ProactiveSettingsModal
@@ -5077,6 +5082,7 @@ const Chat: React.FC = () => {
                     );
                 })()}
             </Modal>
+            </>, document.body)}
         </div>
     );
 };
