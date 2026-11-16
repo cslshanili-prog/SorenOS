@@ -216,6 +216,7 @@ const Character: React.FC = () => {
   const [showGroupModal, setShowGroupModal] = useState(false); // 世界與分組管理
   const [sectionDraft, setSectionDraft] = useState<string | null>(null); // 編輯頁「新建分組並指派」
   const [newGroupName, setNewGroupName] = useState('');
+  const [pendingWorldDelete, setPendingWorldDelete] = useState<string | null>(null); // 刪世界要按兩下
   // 編輯頁「新建分組並指派」的內聯輸入
   const [detailGroupDraft, setDetailGroupDraft] = useState<string | null>(null);
 
@@ -327,7 +328,7 @@ const Character: React.FC = () => {
       const name = newGroupName.trim();
       if (!name) return;
       if (characterGroups.some(g => g.name === name)) {
-          addToast('已有同名分組', 'error');
+          addToast('已有同名的世界', 'error');
           return;
       }
       await createCharacterGroup(name);
@@ -2187,58 +2188,81 @@ ${isInitialGeneration ? `
             </div>
         </Modal>
 
-        {/* 角色分組管理 */}
-        <Modal isOpen={showGroupModal} title="世界與分組" onClose={() => { setShowGroupModal(false); setNewGroupName(''); }}>
-            <div className="space-y-3">
-                <div className="flex gap-2">
-                    <input
-                        value={newGroupName}
-                        onChange={e => setNewGroupName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
-                        placeholder="新世界名稱"
-                        className="flex-1 px-4 py-2.5 bg-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    <button onClick={handleAddGroup} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl shadow-sm shadow-primary/30 active:scale-95 transition-transform shrink-0">添加</button>
-                </div>
-                {characterGroups.length === 0 ? (
-                    <div className="text-center text-xs text-slate-400 py-6">還沒有世界。建一個試試——角色列表和各處選角色的地方都會按世界展示，世界底下還能再分組（例如家族、勢力）。</div>
-                ) : (
-                    <div className="space-y-2 max-h-64 overflow-y-auto no-scrollbar">
-                        {sortCharacterGroups(characterGroups).map(g => (
-                            <div key={g.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    defaultValue={g.name}
-                                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) renameCharacterGroup(g.id, v); else e.target.value = g.name; }}
-                                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                    className="flex-1 min-w-0 bg-transparent text-sm text-slate-700 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
-                                />
-                                <span className="text-xs text-slate-400 tabular-nums shrink-0">{characters.filter(c => c.groupId === g.id).length} 個角色{npcs.some(n => n.groupId === g.id) ? ` · ${npcs.filter(n => n.groupId === g.id).length} 個 NPC` : ''}</span>
-                                <button
-                                    onClick={() => { deleteCharacterGroup(g.id); addToast(`世界「${g.name}」已刪除，裡面的角色回到沒有世界`, 'info'); }}
-                                    className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-                                </button>
-                            </div>
-                            {/* 世界的畫風（plans/image-style-presets.md）：這個世界的人生圖都用這套，角色自己指定的優先 */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400 shrink-0">畫風</span>
-                                <select aria-label={`${g.name}的畫風`} value={g.imageStyleId && g.imageStyleId !== STYLE_NONE ? (liveStyleId(apiConfig.imageGenConfig, g.imageStyleId) || '') : (g.imageStyleId || '')} onChange={e => { void setCharacterGroupStyle(g.id, e.target.value || undefined); }}
-                                    className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1 text-[11px] text-slate-600">
-                                    <option value="">跟全域</option>
-                                    <option value={STYLE_NONE}>不套畫風</option>
-                                    {(apiConfig.imageGenConfig?.stylePresets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
-                                </select>
-                            </div>
-                            <WorldSectionsEditor world={g} />
-                            </div>
-                        ))}
+        {/* 世界與分組（plans/chat-switcher.md）：全螢幕，不用彈窗 */}
+        {showGroupModal && (
+            <div className="fixed inset-0 z-[100] flex flex-col bg-slate-50 animate-fade-in" data-world-manager>
+                <div className="shrink-0 bg-white/90 backdrop-blur-md border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <div className="relative flex items-center justify-between px-3 py-3">
+                        <button type="button" onClick={() => { setShowGroupModal(false); setNewGroupName(''); setPendingWorldDelete(null); }} aria-label="返回" className="p-1.5 rounded-full hover:bg-black/5">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 text-slate-600"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+                        </button>
+                        <h1 className="absolute left-1/2 -translate-x-1/2 text-base font-bold text-slate-800">世界與分組</h1>
+                        <span className="w-8" />
                     </div>
-                )}
-                <p className="text-[10px] text-slate-400 leading-relaxed bg-slate-50 p-2.5 rounded-xl">刪除世界不會刪除角色或 NPC，裡面的都會回到「沒有世界」；刪除世界底下的分組，裡面的角色回到沒分組。給角色選世界和分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派世界。</p>
+                    <div className="flex gap-2 px-4 pb-3">
+                        <input
+                            value={newGroupName}
+                            onChange={e => setNewGroupName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') handleAddGroup(); }}
+                            placeholder="新世界名稱"
+                            aria-label="新世界名稱"
+                            className="flex-1 min-w-0 px-4 py-2.5 bg-slate-100 rounded-2xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        <button onClick={handleAddGroup} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-2xl shadow-sm shadow-primary/30 active:scale-95 transition-transform shrink-0">新增世界</button>
+                    </div>
+                </div>
+                <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-3" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 24px)' }}>
+                    {characterGroups.length === 0 ? (
+                        <div className="text-center text-sm text-slate-400 py-16 leading-relaxed">還沒有世界。建一個試試——<br />角色列表和各處選角色的地方都會照世界收起來，<br />世界底下還能再分組（例如家族、勢力）。</div>
+                    ) : sortCharacterGroups(characterGroups).map(g => {
+                        const charCount = characters.filter(c => c.groupId === g.id).length;
+                        const npcCount = npcs.filter(n => n.groupId === g.id).length;
+                        return (
+                            <section key={g.id} className="rounded-3xl bg-white border border-slate-100 p-4 space-y-3" data-world-card={g.name}>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        defaultValue={g.name}
+                                        aria-label={`世界「${g.name}」的名字`}
+                                        onBlur={e => { const v = e.target.value.trim(); if (v && v !== g.name) renameCharacterGroup(g.id, v); else e.target.value = g.name; }}
+                                        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                        className="flex-1 min-w-0 bg-transparent text-[16px] font-bold text-slate-800 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
+                                    />
+                                    <span className="text-xs text-slate-400 tabular-nums shrink-0">{charCount} 個角色{npcCount ? ` · ${npcCount} 個 NPC` : ''}</span>
+                                    {pendingWorldDelete === g.id ? (
+                                        <button
+                                            onClick={() => { setPendingWorldDelete(null); deleteCharacterGroup(g.id); addToast(`世界「${g.name}」已刪除，裡面的角色回到沒有世界`, 'info'); }}
+                                            className="shrink-0 rounded-full bg-red-500 px-3 py-1 text-[11px] font-bold text-white"
+                                        >
+                                            確定刪
+                                        </button>
+                                    ) : (
+                                        <button
+                                            aria-label={`刪掉世界「${g.name}」`}
+                                            onClick={() => { setPendingWorldDelete(g.id); setTimeout(() => setPendingWorldDelete(cur => (cur === g.id ? null : cur)), 3000); }}
+                                            className="p-1.5 rounded-full text-slate-300 hover:bg-red-50 hover:text-red-400 transition-all shrink-0"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    )}
+                                </div>
+                                {/* 世界的畫風（plans/image-style-presets.md）：這個世界的人生圖都用這套，角色自己指定的優先 */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-slate-400 shrink-0 w-8">畫風</span>
+                                    <select aria-label={`${g.name}的畫風`} value={g.imageStyleId && g.imageStyleId !== STYLE_NONE ? (liveStyleId(apiConfig.imageGenConfig, g.imageStyleId) || '') : (g.imageStyleId || '')} onChange={e => { void setCharacterGroupStyle(g.id, e.target.value || undefined); }}
+                                        className="flex-1 min-w-0 bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 text-[12px] text-slate-600">
+                                        <option value="">跟全域</option>
+                                        <option value={STYLE_NONE}>不套畫風</option>
+                                        {(apiConfig.imageGenConfig?.stylePresets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                                    </select>
+                                </div>
+                                <WorldSectionsEditor world={g} />
+                            </section>
+                        );
+                    })}
+                    <p className="text-[11px] text-slate-400 leading-relaxed px-1">刪除世界不會刪除角色或 NPC，裡面的都會回到「沒有世界」；刪除世界底下的分組，裡面的角色回到沒分組。給角色選世界和分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派世界。</p>
+                </div>
             </div>
-        </Modal>
+        )}
 
         <Modal
             isOpen={!!deleteConfirmTarget}

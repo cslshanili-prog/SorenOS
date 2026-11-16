@@ -23,11 +23,11 @@ export const WorldSectionsEditor: React.FC<{ world: CharacterGroup }> = ({ world
 
     return (
         <div className="space-y-1.5" data-world-sections={world.name}>
-            <span className="text-[10px] font-bold text-slate-400">分組</span>
+            <span className="text-[11px] font-bold text-slate-400">分組</span>
             {sections.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                     {sections.map(s => (
-                        <span key={s.id} className="flex items-center gap-1 rounded-full bg-white border border-slate-200/70 pl-2.5 pr-1 py-0.5">
+                        <span key={s.id} className="flex items-center gap-1 rounded-full bg-slate-50 border border-slate-200/70 pl-3 pr-1 py-1">
                             <input
                                 defaultValue={s.name}
                                 aria-label={`分組「${s.name}」的名字`}
@@ -38,9 +38,9 @@ export const WorldSectionsEditor: React.FC<{ world: CharacterGroup }> = ({ world
                                 }}
                                 onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                 size={Math.max(2, s.name.length + 1)}
-                                className="bg-transparent text-[11px] text-slate-600 outline-none"
+                                className="bg-transparent text-[13px] text-slate-700 outline-none"
                             />
-                            <span className="text-[10px] text-slate-300 tabular-nums">{countOf(s.id)}</span>
+                            <span className="text-[11px] text-slate-400 tabular-nums">{countOf(s.id)}</span>
                             <button
                                 type="button"
                                 aria-label={`刪掉分組「${s.name}」`}
@@ -63,9 +63,9 @@ export const WorldSectionsEditor: React.FC<{ world: CharacterGroup }> = ({ world
                     onKeyDown={e => { if (e.key === 'Enter') add(); }}
                     placeholder="新分組，例如「林家」"
                     aria-label={`${world.name}的新分組`}
-                    className="flex-1 min-w-0 bg-white border border-slate-200/60 rounded-lg px-2 py-1 text-[11px] text-slate-600 outline-none"
+                    className="flex-1 min-w-0 bg-slate-50 border border-slate-200/60 rounded-xl px-2.5 py-1.5 text-[12px] text-slate-600 outline-none"
                 />
-                <button type="button" onClick={add} className="shrink-0 rounded-lg bg-violet-50 px-2.5 py-1 text-[11px] font-bold text-violet-600">加</button>
+                <button type="button" onClick={add} className="shrink-0 rounded-xl bg-violet-50 px-3 py-1.5 text-[12px] font-bold text-violet-600">加</button>
             </div>
         </div>
     );
