@@ -18,6 +18,7 @@ import { canSynthesizeSpeech, stripTtsMarkupForDisplay, synthesizeSpeechDetailed
 import { callLanguageFollowHint, callLanguagePlan } from '../utils/chatLanguage';
 import { CANTONESE_VOICE_SUPPORT_NOTE, VOICE_LANGUAGE_OPTIONS, voiceLanguageAnalyticsValue, voiceLanguagePromptLabel } from '../utils/voiceLanguage';
 import { startStt, isSttSupported, type SttSession } from '../utils/speechToText';
+import { USER_VOICE_STT_LANGS, readUserVoiceSttLang, saveUserVoiceSttLang } from '../utils/userVoice';
 import { ContextBuilder } from '../utils/context';
 import { injectWorldbookDepthEntries, resolveWorldbookDepthEntries } from '../utils/worldbook';
 import { resolveCharTimeZone } from '../utils/timezone';
@@ -456,6 +457,8 @@ const CallApp: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const sttSessionRef = useRef<SttSession | null>(null);
   const sttSupported = useMemo(() => isSttSupported(), []);
+  // 說話辨識的語言：跟私聊語音條同一個設定（預設中文（台灣），出繁體字）
+  const [sttLang, setSttLang] = useState(readUserVoiceSttLang);
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [traceId, setTraceId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -1343,7 +1346,7 @@ const CallApp: React.FC = () => {
     try {
       setIsListening(true);
       trackEvent('切换语音输入', { action: 'start' });
-      sttSessionRef.current = await startStt('zh-CN', {
+      sttSessionRef.current = await startStt(sttLang, {
         onPartial: (t) => setDraftInput(t),
         onFinal: (t) => setDraftInput(t),
         onError: (m) => { if (m) addToast(m, 'info'); },
@@ -3836,7 +3839,21 @@ ${sentencePlan}`;
             <button onClick={handleTurn} disabled={sendingBusy} className="keep-white shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition active:scale-95" style={{ backgroundColor: accentColor, boxShadow: `0 0 16px ${accentColor}66` }}>{sendingBusy ? '…' : '發送'}</button>
           </div>
           {!sendingBusy && pendingCallRetryText && !draftInput.trim() && <div className="text-[10px] text-amber-200/70 mt-1 px-1">上一句話還沒得到回覆，點擊重試即可繼續</div>}
-          {isListening && <div className="text-[10px] text-white/40 mt-1 px-1 animate-pulse">正在聆聽，點麥克風結束</div>}
+          {sttSupported && (
+            <div className="flex items-center gap-2 mt-1 px-1 text-[10px] text-white/40">
+              {isListening && <span className="animate-pulse">正在聆聽，點麥克風結束</span>}
+              <select
+                value={sttLang}
+                onChange={(e) => { setSttLang(e.target.value); saveUserVoiceSttLang(e.target.value); }}
+                disabled={isListening}
+                aria-label="說話辨識語言"
+                data-testid="call-stt-lang"
+                className="ml-auto bg-transparent text-[10px] text-white/45 outline-none disabled:opacity-50"
+              >
+                {USER_VOICE_STT_LANGS.map(l => <option key={l.code} value={l.code} className="text-slate-800">辨識：{l.label}</option>)}
+              </select>
+            </div>
+          )}
         </div>
       )}
       <div className={`shrink-0 ${callMode === 'video' ? 'px-3 pb-2 pt-0.5' : 'px-7 pb-2 pt-1.5'}`} data-testid={callMode === 'video' ? 'video-call-compact-controls' : undefined}>
