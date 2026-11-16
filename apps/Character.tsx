@@ -33,6 +33,7 @@ import { resolveBlobRefsDeep, migrateDataUrlToRef } from '../utils/blobRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { safeFetchJson, extractContent } from '../utils/safeApi';
 import VoiceProfileFields from '../components/voice/VoiceProfileFields';
+import { CharRelationsField, PrimaryPersonaField } from '../components/character/CastLineFields';
 import { normalizeUserImpression } from '../utils/impression';
 import { parseGeneratedImpression } from '../utils/impressionGeneration';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -1580,6 +1581,12 @@ ${isInitialGeneration ? `
                                    </p>
                                </div>
                            )}
+
+                           {personaLinesEnabled && !formData.altOf && (
+                               <PrimaryPersonaField char={formData} onChange={handleChange} />
+                           )}
+
+                           {!formData.altOf && <CharRelationsField char={formData} onChange={handleChange} />}
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">核心指令 (System Prompt)</label>

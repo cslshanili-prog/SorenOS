@@ -201,3 +201,20 @@ export function parseLineScheduleId(id: string): ChatLine {
     const personaKey = id.slice(at + LINE_SCHEDULE_SEPARATOR.length);
     return personaKey ? { charId: id.slice(0, at), personaKey } : { charId: id.slice(0, at) };
 }
+
+/**
+ * 換主線那張卡（神經鏈接角色編輯頁「主線是跟誰」）：主線的訊息本來就不寫 personaKey，
+ * 換的只是「這條線上的你是誰」，聊天記錄、記憶都留在主線上。
+ * 舊的那張不再認識（NPC 搬來的配角常常掛在當時唯一那張卡上，換過去就不用了）；其他線照舊。
+ * 新的那張不能已經是這個角色的另一條線（呼叫端另外查有沒有藏起來的舊紀錄）。
+ */
+export function switchPrimaryPersona(
+    char: Pick<CharacterProfile, 'primaryPersonaKey' | 'knownPersonaKeys'>,
+    nextKey: string,
+): { primaryPersonaKey: string; knownPersonaKeys: string[] } | null {
+    const prev = char.primaryPersonaKey;
+    if (!nextKey || nextKey === prev) return null;
+    const known = char.knownPersonaKeys?.length ? char.knownPersonaKeys : (prev ? [prev] : []);
+    if (known.includes(nextKey)) return null;
+    return { primaryPersonaKey: nextKey, knownPersonaKeys: [nextKey, ...known.filter(k => k !== prev && k !== nextKey)] };
+}
