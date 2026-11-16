@@ -871,12 +871,12 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                 aria-label={voiceModeOn ? (isListening ? '停止說話辨識' : '開始說話辨識') : '發語音條'}
                                 aria-pressed={voiceModeOn ? isListening : false}
                                 data-voice-toggle
-                                className={`sully-chat-voice-button relative p-2 shrink-0 ${voiceModeOn
+                                className={`sully-chat-voice-button${isListening ? ' sully-chat-voice-listening' : ''} relative p-2 shrink-0 ${voiceModeOn
                                     ? (isListening ? 'text-rose-500' : (isDiscordStyle ? 'text-sky-300' : 'text-primary'))
                                     : (isDiscordStyle ? 'text-slate-400 hover:text-sky-300' : isPixelStyle ? 'text-[#8f674a] hover:text-[#a16207]' : 'text-slate-400 hover:text-primary')}`}
                             >
                                 <Microphone className={`w-6 h-6 ${isListening ? 'animate-pulse' : ''}`} weight={voiceModeOn ? 'fill' : 'regular'} />
-                                {isListening && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+                                {isListening && <span className="sully-chat-voice-dot absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
                             </button>
                         )}
                         <button onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')} className={`p-2 shrink-0 ${isDiscordStyle ? 'text-slate-400 hover:text-sky-300' : isPixelStyle ? 'text-[#8f674a] hover:text-[#a16207]' : 'text-slate-400 hover:text-primary'}`}>
