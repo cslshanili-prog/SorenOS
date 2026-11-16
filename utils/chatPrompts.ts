@@ -1,3 +1,4 @@
+import { isUserVoiceMessage, USER_VOICE_PREFIX } from './userVoice';
 import { isOnlinePaused } from './dateOffline';
 import { isImageFeatureOff } from './imageStyle';
 import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
@@ -1736,6 +1737,8 @@ ${voiceActingGuide()}`);
                     // 複用 normalizeMessageContent 翻成完整文本，讓角色"記得"一起玩過/寫過什麼。
                     content = `${timeStr} ${normalizeMessageContent(m, char?.name || '你', userProfile?.name || '用戶')}`;
                 }
+                // 你發的語音條（plans/user-voice.md）：標成 [語音]，角色知道你是用說的
+                else if (isUserVoiceMessage(m)) content = `${timeStr} ${sourceTag} ${USER_VOICE_PREFIX} ${content}`;
                 else content = `${timeStr} ${sourceTag} ${content}`;
 
                 if (blockPeriods.length && isRejectedByBlock(m, blockPeriods)) content = `${REJECTED_HISTORY_PREFIX}${content}`;

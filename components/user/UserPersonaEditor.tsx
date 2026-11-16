@@ -9,7 +9,12 @@ import { trackEvent } from '../../utils/analytics';
 import type { CharacterProfile, UserGender } from '../../types';
 import CharacterImageGenPanel from '../character/CharacterImageGenPanel';
 import PersonaLinksSection from './PersonaLinksSection';
+import VoiceProfileFields from '../voice/VoiceProfileFields';
 import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
+
+/** 有填任何一家的音色才存；全空就不留一個空殼 */
+const hasAnyVoice = (vp: CharacterProfile['voiceProfile']): boolean =>
+    !!(vp && (vp.voiceId?.trim() || vp.fishReferenceId?.trim() || vp.elevenLabsVoiceId?.trim() || vp.timberWeights?.length));
 
 const GENDER_OPTIONS: UserGender[] = ['男', '女', '保密', '二次元', '其他'];
 
@@ -35,10 +40,13 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
     const [draftOtherDetails, setDraftOtherDetails] = useState('');
     // 長相（生圖參考圖＋外觀提示詞），見面「拍下這一刻」用
     const [draftImageGen, setDraftImageGen] = useState<CharacterProfile['imageGenCharConfig']>(undefined);
+    // 聲音（私聊發語音條用，plans/user-voice.md）
+    const [draftVoice, setDraftVoice] = useState<CharacterProfile['voiceProfile']>(undefined);
     const uploadRef = useRef<HTMLInputElement>(null);
 
-    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig'] }) => {
+    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig']; voiceProfile?: CharacterProfile['voiceProfile'] }) => {
         setDraftImageGen(source.imageGenConfig);
+        setDraftVoice(source.voiceProfile);
         setDraftName(source.name);
         setDraftBio(source.bio);
         setDraftAvatar(source.avatar);
@@ -100,6 +108,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
             customSetting: draftCustomSetting.trim() || undefined,
             otherDetails: draftOtherDetails.trim() || undefined,
             imageGenConfig: draftImageGen && (draftImageGen.referenceImage || draftImageGen.characterPrompt?.trim()) ? draftImageGen : undefined,
+            voiceProfile: hasAnyVoice(draftVoice) ? draftVoice : undefined,
         };
         if (editingId === 'real') {
             updateUserProfile(fields);
@@ -134,7 +143,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                 <div className="text-sm font-bold text-slate-800">
                     {editingId === 'new' ? '添加身份' : editingId === 'real' ? '編輯真實身份' : '編輯身份卡'}
                 </div>
-                <button onClick={handleSave} className="w-8 h-8 flex items-center justify-center text-primary">
+                <button onClick={handleSave} aria-label="保存" className="w-8 h-8 flex items-center justify-center text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.4} stroke="currentColor" className="w-5 h-5">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                     </svg>
@@ -220,6 +229,21 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                         value={draftImageGen}
                         onChange={setDraftImageGen}
                         globalImageGenEnabled={!!apiConfig.imageGenConfig?.charImageGenEnabled}
+                    />
+                </div>
+
+                <div className="mt-5">
+                    <VoiceProfileFields
+                        value={draftVoice}
+                        onChange={setDraftVoice}
+                        apiConfig={apiConfig}
+                        addToast={addToast}
+                        speakerName={draftName.trim() || '我'}
+                        title={editingId === 'real' ? '我的聲音' : '這張卡的聲音'}
+                        hint="私聊裡你發語音條時，用這個聲音念出來。跟角色同一套：用哪家看設置 → 其他 API 的語音服務商，下面填那一家的音色就行。"
+                        speedOwner={editingId === 'real' ? '你' : '這張卡'}
+                        showPreview
+                        onVoiceApplied={() => trackEvent('身份卡选了音色')}
                     />
                 </div>
 

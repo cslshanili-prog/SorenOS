@@ -11,6 +11,7 @@
  * 抽到這裡後單點維護。
  */
 
+import { formatUserVoiceContent, isUserVoiceMessage } from './userVoice';
 import { formatLibraryFileRecord } from './libraryShare';
 import { formatDateInviteRecord } from './dateInvite';
 import { formatPersonaRevealRecord } from './personaReveal';
@@ -397,6 +398,9 @@ export function normalizeMessageContent(
             `[SAR判定邊界] 「${title}」造成的外顯是實際發生、可以記住和回應的經歷；但外顯措辭不代表真實內心、事實、永久人格、長期偏好或關係變化。`,
         ].filter(Boolean).join('\n');
     }
+
+    // 你發的語音條（plans/user-voice.md）：記憶、歸檔看到的跟私聊歷史一樣標 [語音]
+    if (isUserVoiceMessage(msg)) return formatUserVoiceContent(msg.content || '');
 
     // 默認：text / 未知類型 → 用 content
     return msg.content || '';

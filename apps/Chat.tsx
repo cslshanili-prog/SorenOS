@@ -99,7 +99,8 @@ import { fetchBlobForShare, shareOrDownloadBlob } from '../utils/shareExport';
 import { CollaborationStore } from '../features/collaboration/store';
 import { resolveTtsProvider } from '../utils/ttsProvider';
 import { resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
-import { resolveChatLanguage } from '../utils/chatLanguage';
+import { resolveChatLanguage, ttsLangCode } from '../utils/chatLanguage';
+import { isUserVoiceMessage, userVoiceMeta, userVoiceShell, type UserVoiceVia } from '../utils/userVoice';
 import { translateMessagesInPlace } from '../utils/chatTranslateRun';
 import { translateTexts } from '../utils/translateApi';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
@@ -642,6 +643,8 @@ const Chat: React.FC = () => {
     };
 
     const handleManualTts = async (msg: Message, autoTriggered = false): Promise<GeneratedVoiceData | null> => {
+        // 你發的語音條用你那張卡的聲音念（plans/user-voice.md），不走角色那套
+        if (isUserVoiceMessage(msg)) return autoTriggered ? null : synthUserVoice(msg, true);
         if (voiceRequestsRef.current.has(msg.id)) return null;
         if (voiceDataMap[msg.id]) {
             if (autoTriggered) return null;
@@ -768,6 +771,54 @@ const Chat: React.FC = () => {
         } catch (err: any) {
             // 記一筆失敗：自動那條路下次掃到就跳過（見 voiceFailedRef 的說明）。
             voiceFailedRef.current.add(msg.id);
+            addToast(`語音生成失敗: ${err?.message || '未知錯誤'}`, 'error');
+            return null;
+        } finally {
+            voiceRequestsRef.current.delete(msg.id);
+            setVoiceLoading(prev => { const next = new Set(prev); next.delete(msg.id); return next; });
+        }
+    };
+
+    // 你發的語音條（plans/user-voice.md）：用這條線那張卡的聲音念「送出去的那句」。
+    // 開了「我的訊息自動譯出」就念譯好的、轉文字裡附上你打的原句。沒配音色就留著無聲的語音條（看得到文字）。
+    const userVoiceWarnedRef = useRef(false);
+    const synthUserVoice = async (msg: Message, play: boolean): Promise<GeneratedVoiceData | null> => {
+        if (!char || voiceRequestsRef.current.has(msg.id)) return null;
+        if (voiceDataMap[msg.id]) discardVoiceForMessages([msg.id]);
+        const shell = userVoiceShell(char, chatUserProfile);
+        if (!canSynthesizeSpeech(shell, apiConfig)) {
+            if (play || !userVoiceWarnedRef.current) {
+                userVoiceWarnedRef.current = true;
+                addToast('這張身份卡還沒設聲音（身份卡編輯頁 →「聲音」），語音條先只看得到文字', 'info');
+            }
+            return null;
+        }
+        const spoken = cleanTextForTtsProvider(msg.content || '', apiConfig);
+        if (!spoken) return null;
+        const typed = typeof msg.metadata?.typedOriginal === 'string' ? msg.metadata.typedOriginal.trim() : '';
+        const lang = typed ? (ttsLangCode(chatLanguage.speak) || undefined) : undefined;
+        if (play) primeVoiceAudio(prepareChatAudio());
+        voiceRequestsRef.current.add(msg.id);
+        setVoiceLoading(prev => new Set(prev).add(msg.id));
+        try {
+            const { url: blobUrl, blob } = await synthesizeSpeechDetailed(spoken, shell, apiConfig, {
+                languageBoost: lang,
+                groupId: apiConfig.minimaxGroupId || undefined,
+            });
+            const displaySpoken = stripTtsMarkupForDisplay(spoken, apiConfig);
+            const originalText = typed || displaySpoken;
+            const storedSpokenText = typed ? displaySpoken : undefined;
+            const storedLang = typed ? (lang || chatLanguage.speak || undefined) : undefined;
+            persistVoice(msg.id, blobUrl, blob, originalText, storedSpokenText, storedLang);
+            if (!voiceMountedRef.current || activeCharIdRef.current !== msg.charId) {
+                if (blobUrl.startsWith('blob:')) URL.revokeObjectURL(blobUrl);
+                return null;
+            }
+            if (blobUrl.startsWith('blob:')) voiceBlobUrlsRef.current.add(blobUrl);
+            setVoiceDataMap(prev => ({ ...prev, [msg.id]: { url: blobUrl, originalText, spokenText: storedSpokenText, lang: storedLang } }));
+            if (play) playChatVoice(msg.id, blobUrl);
+            return { url: blobUrl, originalText, spokenText: storedSpokenText, lang: storedLang, blob };
+        } catch (err: any) {
             addToast(`語音生成失敗: ${err?.message || '未知錯誤'}`, 'error');
             return null;
         } finally {
@@ -942,7 +993,7 @@ const Chat: React.FC = () => {
     useEffect(() => {
         if (!messages.length) return;
         const map = voiceDataMap;
-        const toFetch = messages.filter(m => m.id && m.type === 'text' && m.role !== 'user' && !map[m.id]);
+        const toFetch = messages.filter(m => m.id && m.type === 'text' && (m.role !== 'user' || isUserVoiceMessage(m)) && !map[m.id]);
         if (!toFetch.length) return;
         let cancelled = false;
         (async () => {
@@ -1466,6 +1517,8 @@ const Chat: React.FC = () => {
         if (char.chatVoiceEnabled && char.chatVoiceAutoPlay && isTtsReady()) primeVoiceAudio(prepareChatAudio());
         let text = customContent || input.trim();
         const type = customType || 'text';
+        // 你發的語音條（plans/user-voice.md）：只是換個樣子送出去，口令、連結卡片那些都不認
+        const isUserVoice = type === 'text' && !!metadata?.userVoice;
 
         // 發消息隱含"回到當前聊天"——退出 windowed 舊消息瀏覽模式
         if (windowedFocusMsgId !== null) {
@@ -1481,7 +1534,7 @@ const Chat: React.FC = () => {
 
         // 用戶手打"麥請求"三個字 → 等價於點擊麥克風按鈕 (拉起麥當勞菜單)
         // 不落庫, 跟按鈕點擊行為完全一致, 避免出現"banner 在但菜單沒拉起"的詭異狀態
-        if (!customContent && type === 'text' && equalsAnyScript(text, MCD_ACTIVATE_TRIGGER)) {
+        if (!customContent && type === 'text' && !isUserVoice && equalsAnyScript(text, MCD_ACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             if (!isMcdConfigured()) {
                 addToast('請先到設置 → 麥當勞 啟用並填入 MCP Token', 'info');
@@ -1494,12 +1547,12 @@ const Chat: React.FC = () => {
         }
 
         // 用戶手打"瑞一杯" → 激活角色瑞幸點單模式 (注入提示詞+工具+定位, 角色自己點)
-        if (!customContent && type === 'text' && equalsAnyScript(text, LUCKIN_ACTIVATE_TRIGGER)) {
+        if (!customContent && type === 'text' && !isUserVoice && equalsAnyScript(text, LUCKIN_ACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             activateLuckin();
             return;
         }
-        if (!customContent && type === 'text' && equalsAnyScript(text, LUCKIN_DEACTIVATE_TRIGGER)) {
+        if (!customContent && type === 'text' && !isUserVoice && equalsAnyScript(text, LUCKIN_DEACTIVATE_TRIGGER)) {
             setInput(''); localStorage.removeItem(draftKey);
             deactivateLuckin();
             return;
@@ -1557,6 +1610,11 @@ const Chat: React.FC = () => {
         }
 
         const savedUserMsgId = await DB.saveMessage(msgPayload);
+        if (isUserVoice && typeof savedUserMsgId === 'number') {
+            trackEvent('发送语音条', { 方式: metadata.userVoice.via === 'spoken' ? '说话' : '打字' });
+            // 送出當下就用你的聲音念好；不自動播（跟角色發來的一樣，點了才響）
+            void synthUserVoice({ ...msgPayload, id: savedUserMsgId, timestamp: Date.now() } as Message, false);
+        }
 
         // 從資料庫挑的照片（utils/libraryShare.ts）本來就在資料庫裡，不再多存一張
         if (type === 'image' && !metadata?.libraryImageId) {
@@ -1583,7 +1641,7 @@ const Chat: React.FC = () => {
         // 小紅書鏈接 → xhs_card。主路徑不依賴任何後端：小紅書分享文案自帶標題（【標題】）
         // 和筆記 id/token，直接解析就能建卡，讓「沒部署小紅書 MCP」的用戶也能讓角色看到分享了哪篇筆記。
         // 配了 MCP 的話再抓詳情補正文/封面/作者（錦上添花，抓失敗也不影響基礎卡）。
-        if (type === 'text') {
+        if (type === 'text' && !isUserVoice) {
             let xhsCardCreated = false;
             let webpageCardCreated = false;
             const xhsFullNote = extractXhsNoteLink(text);
@@ -3844,6 +3902,8 @@ const Chat: React.FC = () => {
 
     // Memoize ChatInputArea callbacks
     const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
+    // 你發語音條（plans/user-voice.md）：跟打字同一條送出路，只多帶 metadata.userVoice
+    const handleSendVoiceCallback = useCallback((via: UserVoiceVia) => handleSendText(undefined, undefined, userVoiceMeta(via)), [char, input, replyTarget, inputPreferences]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
         // 開了「延遲自動回覆」的角色改走那一套（幾分鐘內自己回），不再疊加全域的 2 秒自動回覆
@@ -4775,6 +4835,8 @@ const Chat: React.FC = () => {
                     isTyping={isTyping} selectionMode={selectionMode}
                     showPanel={showPanel} setShowPanel={setShowPanel}
                     onSend={handleSendCallback}
+                    onSendVoice={handleSendVoiceCallback}
+                    onVoiceNotice={addToast}
                     onGenerate={handleLightning}
                     sendButtonGenerates={inputPreferences.sendButtonGenerates}
                     enterToSend={inputPreferences.enterToSend}

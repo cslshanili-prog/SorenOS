@@ -1239,6 +1239,9 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 导入ST角色卡（`格式`：PNG / JSON；`有世界书`：是 / 否）：神经链接匯入 SillyTavern 角色卡、真的建好角色时发一次（plans/chat-import-export.md）；不带角色名、卡片内容
 - 导入聊天记录（`来源`：另一家 / SillyTavern；`类型`：私聊 / 群聊 / 见面故事；`目标`：新建 / 现有；`重复`：无 / 跳过 / 覆盖）：从别的 App 的匯出檔匯入聊天紀錄（SillyTavern 的 .jsonl 進見面故事）、真的寫進去時發一次（plans/chat-import-export.md）；不帶角色名、訊息內容、則數
 - 导出聊天记录（`类型`：私聊 / 见面故事；`格式`：Soren JSON / TXT / ST jsonl；`范围`：全部 / 日期区间；`含记忆`：是 / 否）：私聊設置匯出聊天紀錄、見面記錄把一場故事匯出成 SillyTavern 檔，真的匯出時發一次（plans/chat-import-export.md）；不帶角色名、內容、則數
+- 打开语音条模式（無屬性）：私聊輸入欄點麥克風切到「發語音條」（plans/user-voice.md）
+- 发送语音条（`方式`：打字 / 说话）：私聊裡你發了一條語音條；`说话` 是這則草稿用過說話辨識。不帶內容、角色名
+- 身份卡选了音色（無屬性）：身份卡編輯頁「聲音」從拉取的 MiniMax 音色清單點了一個（plans/user-voice.md）
 - 私聊开场白送出（無屬性）：一條線還沒有私聊訊息、打開聊天時角色自動傳了神經鏈接設的開場白（utils/chatGreeting.ts）；不帶角色名、內容
 - 跳过好友申请直接聊天（`来源`：加好友页 / 开关关闭）：加好友頁點「直接聊天」，或「先加好友才能對話」關著時點了不認識你的角色（plans/persona-line-batch4.md 後續）
 - 世界书整组全局启用（`状态`：开 / 关）：世界書 App 某一組切換「全局啟用」時（docs/worldbook-management.md）

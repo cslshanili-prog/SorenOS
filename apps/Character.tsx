@@ -4,7 +4,7 @@ import { liveStyleId, STYLE_NONE, styleLabel } from '../utils/imageStyle';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOS } from '../context/OSContext';
 import { AppID, CharacterProfile, CharacterExportData, UserImpression, MemoryFragment, type LineField } from '../types';
-import { SlidersHorizontal, SpeakerHigh, Books, BookOpen } from '@phosphor-icons/react';
+import { Books, BookOpen } from '@phosphor-icons/react';
 import Modal from '../components/os/Modal';
 import { processImage } from '../utils/file';
 import { DB } from '../utils/db';
@@ -32,9 +32,7 @@ import TokenImg from '../components/os/TokenImg';
 import { resolveBlobRefsDeep, migrateDataUrlToRef } from '../utils/blobRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { safeFetchJson, extractContent } from '../utils/safeApi';
-import { fetchMiniMaxVoices, MiniMaxVoiceItem } from '../utils/minimaxVoice';
-import { resolveMiniMaxApiKey } from '../utils/minimaxApiKey';
-import { normalizeElevenLabsVoiceId, synthesizeSpeechElevenLabsDetailed } from '../utils/elevenLabsTts';
+import VoiceProfileFields from '../components/voice/VoiceProfileFields';
 import { normalizeUserImpression } from '../utils/impression';
 import { parseGeneratedImpression } from '../utils/impressionGeneration';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -235,95 +233,8 @@ const Character: React.FC = () => {
   const [showPromptEditor, setShowPromptEditor] = useState(false);
 
   // Impression State
+
   const [isGeneratingImpression, setIsGeneratingImpression] = useState(false);
-  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
-  const [isTestingElevenLabsVoice, setIsTestingElevenLabsVoice] = useState(false);
-  const [voiceOptions, setVoiceOptions] = useState<Record<'system' | 'voice_cloning' | 'voice_generation', MiniMaxVoiceItem[]>>({
-      system: [],
-      voice_cloning: [],
-      voice_generation: [],
-  });
-
-  const handleLoadMiniMaxVoices = async () => {
-      const minimaxApiKey = resolveMiniMaxApiKey(apiConfig);
-      if (!minimaxApiKey) {
-          addToast('請先在設置中填入 MiniMax API Key（未填寫時會回退使用通用 API Key）', 'error');
-          return;
-      }
-
-      setIsLoadingVoices(true);
-      try {
-          const result = await fetchMiniMaxVoices(minimaxApiKey, 'all');
-          setVoiceOptions({
-              system: result.system_voice,
-              voice_cloning: result.voice_cloning,
-              voice_generation: result.voice_generation,
-          });
-          addToast(`已拉取音色：系統 ${result.system_voice.length} / 復刻 ${result.voice_cloning.length} / 文生 ${result.voice_generation.length}`, 'success');
-      } catch (e: any) {
-          console.error('[MiniMax Voice] load failed', e);
-          addToast(e?.message || '拉取 MiniMax 音色失敗', 'error');
-      } finally {
-          setIsLoadingVoices(false);
-      }
-  };
-
-  const applyVoiceToCharacter = (voice: MiniMaxVoiceItem, source: 'system' | 'voice_cloning' | 'voice_generation') => {
-      if (!formData) return;
-      handleChange('voiceProfile', {
-          ...(formData.voiceProfile || {}),
-          provider: 'minimax',
-          voiceId: voice.voice_id,
-          voiceName: voice.voice_name || '',
-          source,
-          model: formData.voiceProfile?.model || 'speech-2.8-hd',
-          notes: formData.voiceProfile?.notes || '',
-      });
-      addToast(`已應用音色：${voice.voice_name || voice.voice_id}`, 'success');
-      trackEvent('应用音色到角色', { source });
-  };
-
-  const handleTestElevenLabsVoice = async () => {
-      if (!formData || isTestingElevenLabsVoice) return;
-      const voiceId = normalizeElevenLabsVoiceId(formData.voiceProfile?.elevenLabsVoiceId);
-      if (!voiceId) {
-          addToast('請先填寫 ElevenLabs Voice ID', 'info');
-          return;
-      }
-      if (!apiConfig.elevenLabsApiKey?.trim()) {
-          addToast('請先在設置 → 其他 API 保存 ElevenLabs Key', 'info');
-          return;
-      }
-      setIsTestingElevenLabsVoice(true);
-      let previewUrl = '';
-      const releasePreviewUrl = () => {
-          if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
-          previewUrl = '';
-      };
-      try {
-          const previewChar: CharacterProfile = {
-              ...formData,
-              voiceProfile: { ...(formData.voiceProfile || {}), elevenLabsVoiceId: voiceId },
-          };
-          const { url } = await synthesizeSpeechElevenLabsDetailed(
-              `你好，我是${formData.name || '你的角色'}。現在能聽見我的聲音嗎？`,
-              previewChar,
-              apiConfig,
-          );
-          previewUrl = url;
-          const audio = new Audio(url);
-          audio.onended = releasePreviewUrl;
-          audio.onerror = releasePreviewUrl;
-          await audio.play();
-          addToast('ElevenLabs 試聽已開始', 'success');
-      } catch (error: any) {
-          releasePreviewUrl();
-          addToast(error?.message || 'ElevenLabs 試聽失敗', 'error');
-      } finally {
-          setIsTestingElevenLabsVoice(false);
-      }
-  };
-
   // Load archive prompts from localStorage (shared with ChatApp)
   useEffect(() => {
       const savedPrompts = localStorage.getItem('chat_archive_prompts');
@@ -1827,182 +1738,15 @@ ${isInitialGeneration ? `
                                </div>
                            </div>
 
-                           <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-3">
-                               <div className="flex items-center justify-between">
-                                   <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1"><SpeakerHigh size={12} /> 角色語音音色</label>
-                                   <div className="flex gap-1.5">
-                                       <button
-                                           onClick={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
-                                           className="text-[10px] bg-violet-50 text-violet-700 px-2 py-1 rounded font-bold hover:bg-violet-100 flex items-center gap-0.5"
-                                       >
-                                           <SlidersHorizontal size={10} weight="bold" /> 捏聲音
-                                       </button>
-                                       <button
-                                           onClick={handleLoadMiniMaxVoices}
-                                           className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-1 rounded font-bold hover:bg-emerald-100 disabled:opacity-60"
-                                           disabled={isLoadingVoices}
-                                       >
-                                           {isLoadingVoices ? '拉取中...' : '拉取可用音色'}
-                                       </button>
-                                   </div>
-                               </div>
-                               <p className="text-[11px] text-slate-500">已有 voice_id 可直接填，不依賴查詢。聊天角色配置後，後續接 TTS 可直接讀取。</p>
-
-                               <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-2">
-                                   <div className="flex items-center justify-between gap-2">
-                                       <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">MiniMax 合成參數</span>
-                                       <span className="text-[9px] text-slate-400">老角色默認經典</span>
-                                   </div>
-                                   <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/80 p-1">
-                                       {([
-                                           ['legacy', '經典參數'],
-                                           ['natural-v2', '新版自然參數'],
-                                       ] as const).map(([version, label]) => {
-                                           const activeVersion = formData.voiceProfile?.minimaxParamVersion === 'natural-v2' ? 'natural-v2' : 'legacy';
-                                           return (
-                                               <button
-                                                   key={version}
-                                                   type="button"
-                                                   onClick={() => handleChange('voiceProfile', {
-                                                       ...(formData.voiceProfile || {}),
-                                                       minimaxParamVersion: version,
-                                                   })}
-                                                   className={`rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${activeVersion === version ? 'bg-violet-500 text-white shadow-sm' : 'text-slate-400'}`}
-                                               >
-                                                   {label}
-                                               </button>
-                                           );
-                                       })}
-                                   </div>
-                                   <p className="text-[10px] text-slate-400 leading-relaxed">
-                                       {formData.voiceProfile?.minimaxParamVersion === 'natural-v2'
-                                           ? '對齊捏聲音試聽與聊天、見面、電話參數，保留模型原生韻律，不再自動給每個標點插停頓。'
-                                           : '保留現有自動停頓、參數限幅和動態情感優先規則，歷史效果不會改變。'}
-                                   </p>
-                               </div>
-
-                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                   <input
-                                       value={formData.voiceProfile?.voiceId || ''}
-                                       onChange={(e) => handleChange('voiceProfile', {
-                                           ...(formData.voiceProfile || {}),
-                                           provider: 'minimax',
-                                           voiceId: e.target.value,
-                                           voiceName: formData.voiceProfile?.voiceName || '',
-                                           source: formData.voiceProfile?.source || 'custom',
-                                           model: formData.voiceProfile?.model || 'speech-2.8-hd',
-                                           notes: formData.voiceProfile?.notes || '',
-                                       })}
-                                       className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="voice_id（可直接貼）"
-                                   />
-                                   <input
-                                       value={formData.voiceProfile?.model || 'speech-2.8-hd'}
-                                       onChange={(e) => handleChange('voiceProfile', {
-                                           ...(formData.voiceProfile || {}),
-                                           provider: 'minimax',
-                                           voiceId: formData.voiceProfile?.voiceId || '',
-                                           voiceName: formData.voiceProfile?.voiceName || '',
-                                           source: formData.voiceProfile?.source || 'custom',
-                                           model: e.target.value,
-                                           notes: formData.voiceProfile?.notes || '',
-                                       })}
-                                       className="w-full bg-slate-50 rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="TTS 模型（默認 speech-2.8-hd）"
-                                   />
-                               </div>
-
-                               {/* 魚聲 Fish Audio 音色：僅當全局語音服務商切到魚聲時生效（設置 → 其他 API） */}
-                               <div className="rounded-2xl border border-sky-200/60 bg-sky-50/40 p-2.5 space-y-1.5">
-                                   <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">魚聲 Fish 音色</div>
-                                   <input
-                                       value={formData.voiceProfile?.fishReferenceId || ''}
-                                       onChange={(e) => handleChange('voiceProfile', {
-                                           ...(formData.voiceProfile || {}),
-                                           fishReferenceId: e.target.value,
-                                       })}
-                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="粘貼 reference_id 或整條 fish.audio 鏈接"
-                                   />
-                                   <p className="text-[10px] text-slate-400">從 fish.audio 選好音色後，把那一頁的鏈接（含 ?modelId=…）或 32 位 id 直接貼進來都行，會自動識別。設置里語音選「魚聲 Fish」後該角色就用它合成；與上面的 MiniMax voice_id 各存各的。</p>
-                               </div>
-
-                               {/* ElevenLabs 音色：角色獨立保存，設置頁只負責 Key / 模型。 */}
-                               <div className="rounded-2xl border border-violet-200/60 bg-violet-50/40 p-2.5 space-y-1.5">
-                                   <div className="flex items-center justify-between gap-2">
-                                       <div className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">ElevenLabs 音色</div>
-                                       <button
-                                           type="button"
-                                           onClick={() => void handleTestElevenLabsVoice()}
-                                           disabled={isTestingElevenLabsVoice}
-                                           className="text-[10px] rounded-lg border border-violet-200 bg-white px-2 py-1 font-bold text-violet-600 disabled:opacity-50"
-                                       >
-                                           {isTestingElevenLabsVoice ? '試聽中…' : '試聽'}
-                                       </button>
-                                   </div>
-                                   <input
-                                       value={formData.voiceProfile?.elevenLabsVoiceId || ''}
-                                       onChange={(e) => handleChange('voiceProfile', {
-                                           ...(formData.voiceProfile || {}),
-                                           elevenLabsVoiceId: e.target.value,
-                                       })}
-                                       className="w-full bg-white rounded-2xl px-3 py-2 text-xs border border-slate-200"
-                                       placeholder="粘貼 Voice ID 或 ElevenLabs 音色頁面鏈接"
-                                   />
-                                   <p className="text-[10px] text-slate-400">從 ElevenLabs Voices / Voice Library 複製 Voice ID；也可直接粘貼含 voiceId 的頁面鏈接。設置里語音選 ElevenLabs 後使用，與 MiniMax、魚聲音色分別保存。</p>
-                               </div>
-
-                               {/* 語速：三家 TTS 共用 voiceProfile.speed */}
-                               <div className="space-y-1 pt-1">
-                                   <div className="flex items-center justify-between">
-                                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">語速</label>
-                                       <span className="text-[11px] font-mono text-slate-500">{(formData.voiceProfile?.speed ?? 1).toFixed(2)}×</span>
-                                   </div>
-                                   <input
-                                       type="range"
-                                       min={0.5}
-                                       max={1.5}
-                                       step={0.05}
-                                       value={formData.voiceProfile?.speed ?? 1}
-                                       onChange={(e) => handleChange('voiceProfile', {
-                                           ...(formData.voiceProfile || {}),
-                                           speed: parseFloat(e.target.value),
-                                       })}
-                                       className="w-full accent-primary"
-                                   />
-                                   <p className="text-[10px] text-slate-400">越小越慢、越像娓娓道來。1.0 正常；覺得“趕”就拉到 0.85–0.95。MiniMax、魚聲與 ElevenLabs 共用該角色的語速。</p>
-                               </div>
-
-                               {(voiceOptions.system.length + voiceOptions.voice_cloning.length + voiceOptions.voice_generation.length) > 0 && (
-                                   <div className="space-y-2 pt-1">
-                                       {([
-                                           ['system', '系統音色'],
-                                           ['voice_cloning', '復刻音色'],
-                                           ['voice_generation', '文生音色'],
-                                       ] as const).map(([source, label]) => {
-                                           const list = voiceOptions[source];
-                                           if (!list.length) return null;
-                                           return (
-                                               <div key={source}>
-                                                   <div className="text-[10px] text-slate-400 mb-1">{label}</div>
-                                                   <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
-                                                       {list.slice(0, 50).map((v) => (
-                                                           <button
-                                                               key={`${source}-${v.voice_id}`}
-                                                               onClick={() => applyVoiceToCharacter(v, source)}
-                                                               className="w-full text-left px-2 py-1 rounded-xl text-xs border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/40"
-                                                           >
-                                                               <div className="font-medium text-slate-700 truncate">{v.voice_name || '未命名音色'}</div>
-                                                               <div className="text-[10px] text-slate-400 truncate">{v.voice_id}</div>
-                                                           </button>
-                                                       ))}
-                                                   </div>
-                                               </div>
-                                           );
-                                       })}
-                                   </div>
-                               )}
-                           </div>
+                           <VoiceProfileFields
+                               value={formData.voiceProfile}
+                               onChange={(next) => handleChange('voiceProfile', next)}
+                               apiConfig={apiConfig}
+                               addToast={addToast}
+                               speakerName={formData.name}
+                               onOpenDesigner={() => { setActiveCharacterId(formData.id); openApp(AppID.VoiceDesigner); }}
+                               onVoiceApplied={(source) => trackEvent('应用音色到角色', { source })}
+                           />
 
                            {/* Image Generation Section — 該角色專屬生圖設定 */}
                            <div>
