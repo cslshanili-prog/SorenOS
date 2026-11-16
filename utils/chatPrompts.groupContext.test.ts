@@ -42,4 +42,22 @@ describe('群聊背景注入 · 發言人真實標註', () => {
         expect(injected).toContain('群友: 幽靈發言');
         expect(injected).not.toContain('Member');
     });
+
+    it('群友私下認識的是別人時，提醒他們說的「他／她」不是你認識的那位', async () => {
+        await DB.saveUserProfile({
+            name: '真我', avatar: '', bio: '',
+            personas: [
+                { id: 'pA', name: '小雨', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+                { id: 'pB', name: '阿晴', avatar: '', bio: '', createdAt: 0, updatedAt: 0 },
+            ],
+        } as any);
+        const a = { id: 'kp-a', name: '亞當', primaryPersonaKey: 'pA', knownPersonaKeys: ['pA'] } as any;
+        const b = { id: 'kp-b', name: 'Susu', primaryPersonaKey: 'pB', knownPersonaKeys: ['pB'] } as any;
+        setCharNameRegistry([a, b]);
+        const g = [{ id: 'g-kp', name: '週末群', members: ['kp-a', 'kp-b'] }] as any;
+        await DB.saveMessage({ charId: 'kp-b', groupId: 'g-kp', role: 'assistant', type: 'text', content: '他今天說要早點回家' } as any);
+        const parts = await ChatPrompts.buildSystemPromptParts(a, { name: '小雨' } as any, g, [], [], []);
+        expect(parts.volatileState).toContain('Susu的「阿晴」');
+        expect(parts.volatileState).toContain('不是你認識的「小雨」');
+    });
 });

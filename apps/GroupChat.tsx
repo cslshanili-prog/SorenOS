@@ -40,6 +40,7 @@ import { knowsPersona, lineArgOf, lineFor, lineView } from '../utils/chatLine';
 import { presentLinkLines } from '../utils/personaLinks';
 import { commitPairToPhones, runPairRound } from '../utils/pairChatRun';
 import { defaultSpeakingKey, focalKnownKey, memberPresence, memberVisibleGroupMessages, presentPersonaKeys } from '../utils/groupChat/presence';
+import { buildKnownPeopleNote, buildKnownPeopleSummaryNote, membersKnownPeople } from '../utils/groupChat/knownPeople';
 import { distinctPersonaNote } from '../utils/personaSpeaker';
 import { buildEmojiContextStr, buildGroupHistoryBlock, buildDirectorInstruction, buildRoundRobinInstruction, DEFAULT_MAX_ROUND_MESSAGES, GroupHistoryBlock, withoutGroupStyle } from '../utils/groupChat/prompts';
 import { assembleGroupPreset, loadGroupPresetDoc } from '../utils/groupPresetSession';
@@ -1683,7 +1684,7 @@ ${coreContext}${memberLanguageBlock(member)}
 - **重要指令**: 如果 [私聊空窗期] 顯示 "剛剛" 或 "幾小時前"，請【忽略】群聊的時間流逝感知。哪怕群裡很久沒說話，只要你和用戶私底下剛聊過，就【嚴禁】說 "好久不見" 或表現出疏離感。
 - 你的近期互動時間線（按時間排序；${useNames ? '[私聊·名字]=你和那個人單獨聊的' : '[私聊]=你和用戶單獨聊的'}，別人看不見；[群聊]=本群公開記錄。僅作為你內心狀態的底色，不要變成默認反應模板）：
 ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaNote}` : ''}${extraLinesBlock}${linkNote}
-- **先認清 U**：${useNames && focalKey ? `群裡的「${nameOfKey(focalKey)}」就是你上面角色檔案裡的那個人${extraLines.length ? `；${extraLines.map(l => `「${l.name}」`).join('')}也是你認識的人，見上面那段` : ''}${known.length < presentKeys.length ? '；其他真人群友你不認識，是群友' : ''}。對你認識的人` : '群聊裡的用戶，就是你一直在私聊、記憶和印象裡認識的同一個人。'}已經建立的關係、承諾和親密程度繼續成立；公開場合可以換一種表達方式，但不能重置關係或突然把 U 當成普通陌生群友。
+- **先認清 U**：${useNames && focalKey ? `群裡的「${nameOfKey(focalKey)}」就是你上面角色檔案裡的那個人${extraLines.length ? `；${extraLines.map(l => `「${l.name}」`).join('')}也是你認識的人，見上面那段` : ''}${known.length < presentKeys.length ? '；其他真人群友你不認識，是群友' : ''}。對你認識的人` : `你私下認識的人是「${knownProfile.name}」${lurking ? '（這一刻不在群裡）；提到TA時說名字或讓人聽得出是TA，別只說「他／她」' : '，群聊裡的用戶就是TA——你一直在私聊、記憶和印象裡認識的同一個人'}。`}已經建立的關係、承諾和親密程度繼續成立；公開場合可以換一種表達方式，但不能重置關係或突然把 U 當成普通陌生群友。
 - **關於私聊狀態如何影響群聊表現**：
   · 私聊在吵架 → **可能**有點彆扭/冷淡/借題發揮，但**強度由你的性格決定**。情緒穩定的人不會因為私下鬧矛盾就在群裡失態；脾氣大的人才會帶情緒到群裡。絕大多數情況是"心裡有點疙瘩"而不是"擺臉色給所有人看"。
   · 私聊在甜蜜 → **可能**想低調、不好意思聲張，或者反而想隱隱顯擺一下，看你性格。**不必每次都"支支吾吾"**——這是套路化反應，不真實。
@@ -1858,6 +1859,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 groupUserProfile.name,
                 groupNpcs(groupForArchive, npcsRef.current),
                 m => personaNameForKey(userProfileBase, groupMessagePersonaKey(m, groupPersonaKey)),
+                buildKnownPeopleSummaryNote(membersKnownPeople(
+                    charactersRef.current.filter(c => groupForArchive.members.includes(c.id)), userProfileBase,
+                )),
             );
             const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
@@ -2026,6 +2030,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             for (const npc of npcMembers) {
                 memberBlocks += buildNpcBlockFor(npc, currentMsgs, roundSpeakers);
             }
+            // 成員各自私下認識不同的人：列出誰認識誰，提到時要讓人聽得出是誰（不然大家都說「他」）
+            memberBlocks += buildKnownPeopleNote(membersKnownPeople(groupMembers, userProfileBase));
             context += memberBlocks;
 
             // 3. Group History + 導演任務指令（模板原文照搬進 utils/groupChat/prompts.ts）
@@ -2211,9 +2217,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 await Promise.all(wave.map(async turn => {
                     const member = turn.member;
                     try {
-                        const memberBlock = turn.kind === 'char'
+                        const memberBlock = (turn.kind === 'char'
                             ? await buildMemberBlock(turn.member, promptMsgs, sharedScene)
-                            : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers);
+                            : buildNpcBlockFor(turn.member, promptMsgs, roundSpeakers))
+                            + buildKnownPeopleNote(membersKnownPeople(groupMembers, userProfileBase));
                         const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' });
                         const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
                         const roundMessages = groupPreset
