@@ -1,4 +1,5 @@
 import { isUserVoiceMessage, USER_VOICE_PREFIX } from './userVoice';
+import { privateGroupContextWindow } from './groupChat/topicBoxes';
 import { isOnlinePaused } from './dateOffline';
 import { isImageFeatureOff } from './imageStyle';
 import { buildMemoryLineLabels } from './memoryPalace/lineLabels';
@@ -535,7 +536,8 @@ export const ChatPrompts = {
                         return {
                             groupName: g.name,
                             groupPersonaKey: personaBase ? (present?.[0] ?? personaKeyForGroup(personaBase, g, getCharRefs())) : undefined,
-                            cap: g.privateContextCap ?? 80,
+                            // 還沒成盒的全看得到（熱區＋待整理），成了盒靠私聊裡的話題盒卡片——中間不留空檔
+                            cap: privateGroupContextWindow(g),
                             // 已經進入公共話題盒的舊原文不再重複塞進私聊背景；成盒時送達的
                             // group_topic_card 會沿私聊自身的歷史/歸檔鏈繼續被角色感知。
                             msgs: memberVisibleGroupMessages(

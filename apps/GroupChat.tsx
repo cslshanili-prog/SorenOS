@@ -75,8 +75,12 @@ import { materializeVisionDescriptions } from '../utils/visionApi';
 import {
     buildGroupTopicContext,
     buildGroupTopicPrompt,
-    GROUP_TOPIC_BUFFER_THRESHOLD,
-    GROUP_TOPIC_HOT_ZONE,
+    GROUP_TOPIC_HOT_ZONE_MAX,
+    GROUP_TOPIC_HOT_ZONE_MIN,
+    GROUP_TOPIC_THRESHOLD_MAX,
+    GROUP_TOPIC_THRESHOLD_MIN,
+    groupTopicSettings,
+    privateGroupContextWindow,
     groupTopicPendingCount,
     makeGroupTopicBox,
     planGroupTopicBatch,
@@ -720,6 +724,8 @@ const GroupChat: React.FC = () => {
     const [tempPrivateContextCap, setTempPrivateContextCap] = useState<number>(80);
     const [tempMemberTimelineCap, setTempMemberTimelineCap] = useState<number>(DEFAULT_MEMBER_TIMELINE_CAP);
     const [tempMaxRoundMessages, setTempMaxRoundMessages] = useState<number>(DEFAULT_MAX_ROUND_MESSAGES);
+    // 群聊總結：熱區以前幾條成一盒（plans 見 utils/groupChat/topicBoxes.ts 的 groupTopicSettings）
+    const [tempTopicThreshold, setTempTopicThreshold] = useState<number>(() => groupTopicSettings(null).threshold);
     const [tempReplyMode, setTempReplyMode] = useState<'director' | 'roundRobin'>('director');
     const [tempMemberBubbleIndependent, setTempMemberBubbleIndependent] = useState(false);
     const [tempUserBubbleThemeId, setTempUserBubbleThemeId] = useState<string>('');
@@ -1025,6 +1031,7 @@ const GroupChat: React.FC = () => {
             privateContextCap: tempPrivateContextCap,
             memberTimelineCap: tempMemberTimelineCap,
             maxRoundMessages: tempMaxRoundMessages,
+            topicArchiveThreshold: tempTopicThreshold,
             replyMode: tempReplyMode,
             memberBubbleIndependent: tempMemberBubbleIndependent,
             // 空串 = 默認紫，存 undefined 保持向後兼容語義
@@ -1035,6 +1042,8 @@ const GroupChat: React.FC = () => {
         saveChatInputPreferences(settingsInputPreferences);
         setInputPreferences(settingsInputPreferences);
         setActiveGroup({ ...activeGroup, ...updates });
+        // 留原文條數改了，待整理的條數跟著重算（下一輪生成後自動整理照新的門檻）
+        void loadTopicBoxStats({ ...activeGroup, ...updates });
         setModalType('none');
         addToast('群信息已更新', 'success');
     };
@@ -1477,7 +1486,7 @@ const GroupChat: React.FC = () => {
     const loadTopicBoxStats = async (group: GroupProfile) => {
         try {
             const allMsgs = await DB.getGroupMessages(group.id);
-            setTopicPendingCount(groupTopicPendingCount(allMsgs, group.archivedThroughMessageId || 0));
+            setTopicPendingCount(groupTopicPendingCount(allMsgs, group.archivedThroughMessageId || 0, groupTopicSettings(group).hotZone));
         } catch {
             setTopicPendingCount(0);
         }
@@ -1487,7 +1496,8 @@ const GroupChat: React.FC = () => {
         setSettingsInputPreferences(loadChatInputPreferences());
         setTempGroupName(activeGroup?.name || '');
         setTempAnnouncement(activeGroup?.announcement || '');
-        setTempPrivateContextCap(activeGroup?.privateContextCap ?? 80);
+        setTempPrivateContextCap(groupTopicSettings(activeGroup).hotZone);
+        setTempTopicThreshold(groupTopicSettings(activeGroup).threshold);
         setTempMemberTimelineCap(activeGroup?.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP);
         setTempMaxRoundMessages(activeGroup?.maxRoundMessages ?? DEFAULT_MAX_ROUND_MESSAGES);
         setTempReplyMode(activeGroup?.replyMode ?? 'director');
@@ -1831,10 +1841,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         if (force) setIsSummarizing(true);
         try {
             const allMsgs = await DB.getGroupMessages(groupForArchive.id);
-            const batchPlan = planGroupTopicBatch(allMsgs, groupForArchive.archivedThroughMessageId || 0, force);
-            setTopicPendingCount(groupTopicPendingCount(allMsgs, groupForArchive.archivedThroughMessageId || 0));
+            const topicSettings = groupTopicSettings(groupForArchive);
+            const batchPlan = planGroupTopicBatch(allMsgs, groupForArchive.archivedThroughMessageId || 0, force, topicSettings);
+            setTopicPendingCount(groupTopicPendingCount(allMsgs, groupForArchive.archivedThroughMessageId || 0, topicSettings.hotZone));
             if (!batchPlan) {
-                if (force) addToast(`最近 ${GROUP_TOPIC_HOT_ZONE} 條會保留原文；熱區以前暫無可整理記錄`, 'info');
+                if (force) addToast(`最近 ${topicSettings.hotZone} 條會保留原文；更早的暫時沒有要整理的`, 'info');
                 return false;
             }
             setGroupPalaceStatus(`正在把 ${batchPlan.messages.length} 條舊群聊整理成公共話題盒…`);
@@ -1892,7 +1903,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             }));
             // 話題盒卡片是直接寫進成員私聊歷史的，也就是 fire_pack 轉寫的直接來源
             markGroupMembersDirty(groupForArchive.members);
-            const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId);
+            const remaining = groupTopicPendingCount(allMsgs, box.sourceEndMessageId, topicSettings.hotZone);
             setTopicPendingCount(remaining);
             addToast(`「${box.title}」已成盒，並送達 ${groupForArchive.members.length} 位成員私聊`, 'success');
             return true;
@@ -2327,7 +2338,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         if (!activeGroup) return;
         // UI 固定只渲染 50 條，但模型仍應拿到完整近期熱區；生成前獨立讀取，
         // 避免“用戶沒點加載歷史 → AI 也只能看見 50 條”的耦合。
-        const promptCap = Math.max(contextLimit, activeGroup.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP, GROUP_TOPIC_HOT_ZONE);
+        const promptCap = Math.max(contextLimit, activeGroup.memberTimelineCap ?? DEFAULT_MEMBER_TIMELINE_CAP, privateGroupContextWindow(activeGroup));
         const { messages: freshMsgs } = await DB.getRecentGroupMessagesWithCount(activeGroup.id, promptCap);
         // 劇情方向只在旁觀時有，只管這一輪
         const direction = lurking ? plotDirection.trim() : '';
@@ -3256,10 +3267,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
                     {/* Private Chat Group Context Cap */}
                     <div className="pt-2 border-t border-slate-100">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">私聊裡"近期群活動"取條數 ({tempPrivateContextCap})</label>
-                        <input type="range" min="20" max="500" step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
-                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>20 (省流)</span><span>500 (完整)</span></div>
-                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">本群成員在自己的私聊裡，最多看到本群最近多少條消息作為"近期群活動"上下文。</p>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">最近幾條留原文 ({tempPrivateContextCap})</label>
+                        <input type="range" min={GROUP_TOPIC_HOT_ZONE_MIN} max={GROUP_TOPIC_HOT_ZONE_MAX} step="10" value={tempPrivateContextCap} onChange={e => setTempPrivateContextCap(parseInt(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                        <div className="flex justify-between text-[10px] text-slate-400 mt-1"><span>{GROUP_TOPIC_HOT_ZONE_MIN} (省流)</span><span>{GROUP_TOPIC_HOT_ZONE_MAX} (完整)</span></div>
+                        <p className="text-[9px] text-slate-400 mt-1 leading-tight">這麼多條最近的群聊不整理、保留原文。成員在自己的私聊裡看得到本群所有還沒成盒的（這些＋待整理的），成了盒就靠送進私聊的話題盒卡片，不會有看不到的空檔。</p>
                     </div>
 
                     {/* Member Timeline Cap */}
@@ -3319,7 +3330,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         </div>
                         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1.5">
                             {([
-                                { id: 'auto' as const, title: '自動整理', desc: '滿100條自動成盒' },
+                                { id: 'auto' as const, title: '自動整理', desc: `滿${tempTopicThreshold}條自動成盒` },
                                 { id: 'manual' as const, title: '手動整理', desc: '只在點擊時成盒' },
                             ]).map(option => {
                                 const active = (activeGroup?.topicArchiveMode || 'auto') === option.id;
@@ -3339,12 +3350,21 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <div className="rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 to-indigo-50 p-3.5 space-y-2">
                             <p className="text-[11px] font-bold text-violet-700">一份總結，全群共同記住</p>
                             <p className="text-[10px] leading-5 text-violet-600/80">
-                                最近 {GROUP_TOPIC_HOT_ZONE} 條始終保留原文；更早的記錄累計 {GROUP_TOPIC_BUFFER_THRESHOLD} 條後{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自動整理' : '等待你手動整理'}成公共話題盒。
+                                最近 {tempPrivateContextCap} 條始終保留原文；更早的記錄累計 {tempTopicThreshold} 條後{(activeGroup?.topicArchiveMode || 'auto') === 'auto' ? '自動整理' : '等待你手動整理'}成公共話題盒。
                                 盒子只屬於本群，同時會作為卡片送到每位成員私聊，之後可被各自的私聊上下文與歸檔正常理解。
                             </p>
                             <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2 text-[10px]">
                                 <span className="text-slate-500">熱區以前待整理</span>
-                                <span className={`font-bold ${topicPendingCount >= GROUP_TOPIC_BUFFER_THRESHOLD ? 'text-amber-500' : 'text-slate-500'}`}>{topicPendingCount} / {GROUP_TOPIC_BUFFER_THRESHOLD} 條</span>
+                                <span className={`font-bold ${topicPendingCount >= tempTopicThreshold ? 'text-amber-500' : 'text-slate-500'}`}>{topicPendingCount} / {tempTopicThreshold} 條</span>
+                            </div>
+                            <div className="rounded-xl bg-white/70 px-3 py-2.5">
+                                <div className="flex items-center justify-between text-[10px]">
+                                    <span className="text-slate-500">幾條成一盒</span>
+                                    <span className="font-bold text-violet-600">{tempTopicThreshold} 條</span>
+                                </div>
+                                <input type="range" min={GROUP_TOPIC_THRESHOLD_MIN} max={GROUP_TOPIC_THRESHOLD_MAX} step="5" value={tempTopicThreshold} onChange={e => setTempTopicThreshold(parseInt(e.target.value))} aria-label="幾條成一盒" className="mt-1.5 w-full h-2 bg-slate-200 rounded-full appearance-none accent-violet-500" />
+                                <div className="flex justify-between text-[9px] text-slate-400 mt-1"><span>{GROUP_TOPIC_THRESHOLD_MIN}（勤快、盒子小）</span><span>{GROUP_TOPIC_THRESHOLD_MAX}（省次數、盒子大）</span></div>
+                                <p className="text-[9px] text-slate-400 mt-1 leading-4">「最近幾條留原文」在上面的上下文設定裡。兩個都按右上角保存才生效。</p>
                             </div>
                         </div>
 
