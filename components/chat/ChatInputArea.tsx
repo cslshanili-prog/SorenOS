@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive, MagnifyingGlass } from '@phosphor-icons/react';
+import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive, MagnifyingGlass, Microphone, Waveform, X } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import { PRESET_THEMES } from './ChatConstants';
 import TokenImg from '../os/TokenImg';
@@ -12,6 +12,9 @@ import ReplyDraftStrip, { type ReplyDraftState } from './ReplyDraftStrip';
 
 const EMOJI_PAGE_SIZE = 40;
 const ACTION_PAGE_SIZE = 8;
+
+import { isSttSupported, startStt, type SttSession } from '../../utils/speechToText';
+import { USER_VOICE_STT_LANGS, readUserVoiceSttLang, saveUserVoiceSttLang, type UserVoiceVia } from '../../utils/userVoice';
 
 interface ChatInputAreaProps {
     input: string;
@@ -82,6 +85,10 @@ interface ChatInputAreaProps {
     replyDrafts?: ReplyDraftState | null;
     onReplyDraftPicked?: (text: string) => void;
     onCloseReplyDrafts?: () => void;
+    /** 你發語音條（plans/user-voice.md）：給了才有麥克風鈕；語音條模式下送出走這個，不走 onSend */
+    onSendVoice?: (via: UserVoiceVia) => void;
+    /** 語音條模式的提醒（辨識不支援、權限被拒…） */
+    onVoiceNotice?: (message: string, type: 'info' | 'error') => void;
 }
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
@@ -109,6 +116,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     chromeStyle = 'soft',
     acnh = false,
     replyDraftsEnabled = false, altGuessEnabled = false, replyDrafts = null, onReplyDraftPicked, onCloseReplyDrafts,
+    onSendVoice, onVoiceNotice,
 }) => {
     const chatImageInputRef = useRef<HTMLInputElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -134,9 +142,55 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     useEffect(() => {
         setDismissedSuggestionInput(null);
     }, [input, activeCharacterId]);
+    // —— 語音條模式（plans/user-voice.md）：打字或說話辨識成文字，送出去是你聲音的語音條 ——
+    const [voiceMode, setVoiceMode] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [sttLang, setSttLang] = useState(readUserVoiceSttLang);
+    const sttSessionRef = useRef<SttSession | null>(null);
+    // 這則草稿有沒有用說的（用來記「發送語音條」是打字還是說話）；清空就重來
+    const spokenDraftRef = useRef(false);
+    const inputRef = useRef(input);
+    inputRef.current = input;
+    useEffect(() => { if (!input.trim()) spokenDraftRef.current = false; }, [input]);
+    useEffect(() => () => { sttSessionRef.current?.stop(); }, []);
+    const stopListening = () => { sttSessionRef.current?.stop(); };
+    const toggleVoiceMode = () => {
+        if (voiceMode) stopListening();
+        setVoiceMode(v => !v);
+        if (!voiceMode) trackEvent('打开语音条模式');
+    };
+    const toggleListening = async () => {
+        if (isListening) { stopListening(); return; }
+        if (!isSttSupported()) { onVoiceNotice?.('這個瀏覽器不支援說話辨識，打字也一樣會變成語音條', 'info'); return; }
+        // 接在已經打的字後面
+        const base = inputRef.current.trim();
+        const join = (t: string) => (base ? `${base}${/[\u3000-\u9fff\uff00-\uffef]$/.test(base) ? '' : ' '}${t}` : t);
+        try {
+            setIsListening(true);
+            sttSessionRef.current = await startStt(sttLang, {
+                onPartial: (t) => { if (t) { spokenDraftRef.current = true; setInput(join(t)); } },
+                onFinal: (t) => { if (t) { spokenDraftRef.current = true; setInput(join(t)); } },
+                onError: (m) => { if (m) onVoiceNotice?.(m, 'info'); },
+                onEnd: () => { setIsListening(false); sttSessionRef.current = null; },
+            });
+        } catch (e: any) {
+            setIsListening(false);
+            sttSessionRef.current = null;
+            onVoiceNotice?.(e?.message || '沒辦法開始說話辨識', 'error');
+        }
+    };
+    const sendVoice = () => {
+        if (!onSendVoice || !input.trim()) return;
+        stopListening();
+        onSendVoice(spokenDraftRef.current ? 'spoken' : 'typed');
+        spokenDraftRef.current = false;
+    };
+    const voiceModeOn = voiceMode && !!onSendVoice;
+
     const canSwitchToGenerate = sendButtonGenerates && !!onGenerate;
     const canEndEditing = canSwitchToGenerate || autoReplyEnabled;
-    const isGenerateButton = canSwitchToGenerate && !isInputFocused;
+    // 語音條模式下說完話輸入框沒聚焦，有字就還是「送出」，別變成生成鈕
+    const isGenerateButton = canSwitchToGenerate && !isInputFocused && !(voiceModeOn && !!input.trim());
     const primaryButtonDisabled = isGenerateButton ? isTyping : !input.trim();
 
     useEffect(() => {
@@ -194,7 +248,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         }
         if (enterToSend && e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            onSend();
+            if (voiceModeOn) sendVoice(); else onSend();
         }
     };
 
@@ -741,6 +795,25 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                     onClose={() => onCloseReplyDrafts?.()}
                 />
             )}
+                {voiceModeOn && !selectionMode && (
+                    <div className={`sully-chat-voice-mode-strip shrink-0 relative z-40 flex min-h-9 items-center gap-2 px-4 text-[11px] ${shellClass}`} data-voice-mode-strip>
+                        <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-bold ${isDiscordStyle ? 'text-sky-300' : 'text-primary'}`}>
+                            <Waveform className="w-3.5 h-3.5" weight="bold" /> 語音條
+                        </span>
+                        <span className="min-w-0 truncate text-slate-400">打字或按麥克風說話，用你的聲音送出</span>
+                        <select
+                            value={sttLang}
+                            onChange={(e) => { setSttLang(e.target.value); saveUserVoiceSttLang(e.target.value); }}
+                            aria-label="說話辨識語言"
+                            className="ml-auto shrink-0 bg-transparent text-[11px] text-slate-500 outline-none"
+                        >
+                            {USER_VOICE_STT_LANGS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                        </select>
+                        <button type="button" onClick={toggleVoiceMode} aria-label="離開語音條模式" className="p-0.5 text-slate-400">
+                            <X className="w-3.5 h-3.5" weight="bold" />
+                        </button>
+                    </div>
+                )}
             {autoReplySeconds !== null && !selectionMode && (
                 <div className={`sully-chat-auto-reply shrink-0 relative z-40 flex min-h-10 items-center justify-center gap-1 px-4 text-xs text-slate-500 ${shellClass}`}>
                     <span role="status">即將回復 · {autoReplySeconds} 秒</span>
@@ -769,7 +842,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                     </button>
                 </div>
             ) : (
-                <div className="sully-chat-composer p-3 px-4 flex gap-3 items-end relative">
+                <div className={`sully-chat-composer p-3 px-4 flex gap-3 items-end relative${voiceModeOn ? ' sully-chat-composer-voice' : ''}`}>
                     <button aria-label="聊天功能" aria-expanded={showPanel === 'actions'} onClick={() => setShowPanel(showPanel === 'actions' ? 'none' : 'actions')} className={`sully-chat-actions-button ${actionButtonClass}`}>
                         <Plus className="w-6 h-6" weight="bold" />
                     </button>
@@ -789,8 +862,23 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             autoCorrect="on"
                             autoCapitalize="sentences"
                             className={`sully-chat-textarea flex-1 min-w-0 bg-transparent px-4 py-3 ${useIOSStandaloneInputFix ? 'text-[16px]' : 'text-[15px]'} resize-none max-h-32 overflow-y-auto overscroll-contain no-scrollbar ${isDiscordStyle ? 'text-white placeholder:text-slate-500' : isPixelStyle ? 'text-[#6a4c35] placeholder:text-[#9b8677]' : ''}`}
-                            placeholder="Message..."
+                            placeholder={voiceModeOn ? (isListening ? '正在聽…' : '要說的話…') : 'Message...'}
                         />
+                        {onSendVoice && (
+                            <button
+                                type="button"
+                                onClick={voiceModeOn ? toggleListening : toggleVoiceMode}
+                                aria-label={voiceModeOn ? (isListening ? '停止說話辨識' : '開始說話辨識') : '發語音條'}
+                                aria-pressed={voiceModeOn ? isListening : false}
+                                data-voice-toggle
+                                className={`sully-chat-voice-button relative p-2 shrink-0 ${voiceModeOn
+                                    ? (isListening ? 'text-rose-500' : (isDiscordStyle ? 'text-sky-300' : 'text-primary'))
+                                    : (isDiscordStyle ? 'text-slate-400 hover:text-sky-300' : isPixelStyle ? 'text-[#8f674a] hover:text-[#a16207]' : 'text-slate-400 hover:text-primary')}`}
+                            >
+                                <Microphone className={`w-6 h-6 ${isListening ? 'animate-pulse' : ''}`} weight={voiceModeOn ? 'fill' : 'regular'} />
+                                {isListening && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+                            </button>
+                        )}
                         <button onClick={() => setShowPanel(showPanel === 'emojis' ? 'none' : 'emojis')} className={`p-2 shrink-0 ${isDiscordStyle ? 'text-slate-400 hover:text-sky-300' : isPixelStyle ? 'text-[#8f674a] hover:text-[#a16207]' : 'text-slate-400 hover:text-primary'}`}>
                             <Smiley className="w-6 h-6" weight="regular" />
                         </button>
@@ -803,17 +891,19 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                             // 保留點下時的發送模式與光標，避免 blur 先於 click 把這一下變成生成。
                             if (canEndEditing && isInputFocused && e.button === 0) e.preventDefault();
                         }}
-                        onClick={isGenerateButton ? onGenerate : onSend}
+                        onClick={isGenerateButton ? onGenerate : (voiceModeOn ? sendVoice : onSend)}
                         disabled={primaryButtonDisabled}
-                        aria-label={isGenerateButton ? (isTyping ? '正在生成回覆' : '生成回覆') : '發送文字'}
-                        title={isGenerateButton ? (isTyping ? '正在生成回覆' : '讓對方回覆已發送的消息') : '發送文字'}
+                        aria-label={isGenerateButton ? (isTyping ? '正在生成回覆' : '生成回覆') : (voiceModeOn ? '發送語音條' : '發送文字')}
+                        title={isGenerateButton ? (isTyping ? '正在生成回覆' : '讓對方回覆已發送的消息') : (voiceModeOn ? '發送語音條' : '發送文字')}
                         className={`sully-chat-send-button ${sendButtonClass} ${primaryButtonDisabled ? 'opacity-45 shadow-none' : ''}`}
                     >
                         {sendButtonStyle === 'pill'
-                            ? <span>{isGenerateButton ? (isTyping ? '生成中' : '生成') : '發送'}</span>
+                            ? <span>{isGenerateButton ? (isTyping ? '生成中' : '生成') : (voiceModeOn ? '發語音' : '發送')}</span>
                             : isGenerateButton
                                 ? <Lightning className={`w-5 h-5 ${isTyping ? 'animate-pulse' : ''}`} weight="fill" />
-                                : <PaperPlaneTilt className="w-5 h-5" weight="fill" />}
+                                : voiceModeOn
+                                    ? <Waveform className="w-5 h-5" weight="bold" />
+                                    : <PaperPlaneTilt className="w-5 h-5" weight="fill" />}
                     </button>
 
                     {emojiSelectionMode && (

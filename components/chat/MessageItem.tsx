@@ -1,3 +1,4 @@
+import { isUserVoiceMessage } from '../../utils/userVoice';
 import { effectiveCallStatus } from '../../utils/charCall';
 import { MONEY_SYMBOL } from '../../utils/realBalance';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
@@ -3833,11 +3834,13 @@ const MessageItem = React.memo(({
         ? sarSurfaceText
         : m.content;
     const hasVoiceTag = !isUser && /<[语語語]音[^>]*>/.test(voiceMarkupContent);
+    // 你發的語音條（plans/user-voice.md）：內容是純文字，整則畫成你這邊的語音條
+    const isUserVoiceMsg = isUserVoiceMessage(m);
     // Spoken text inside the <語音> tag — lets the placeholder bar offer a 轉文字 toggle
     // even when no audio was synthesized (e.g. character has no MiniMax voice configured),
     // so fake voice messages stay readable just like real ones.
     // 配對優先; 配不上 (未閉合) 就取開標籤之後的全部內容。
-    const voiceTagText = hasVoiceTag ? cleanVoiceText((
+    const voiceTagText = isUserVoiceMsg ? cleanVoiceText(m.content || '') : hasVoiceTag ? cleanVoiceText((
         voiceMarkupContent.match(/<[语語語]音[^>]*>([\s\S]*?)<\/\s*[语語語]音\s*>/)?.[1]
         ?? voiceMarkupContent.match(/<[语語語]音[^>]*>([\s\S]*)$/)?.[1]
         ?? ''
@@ -3851,12 +3854,12 @@ const MessageItem = React.memo(({
     const generatedVoiceSubtitle = showSarTruth && hasSarSurface
         ? voiceSubtitleText
         : cleanVoiceText(voiceData?.originalText);
-    const hasVoiceContent = voiceData?.url || voiceLoading || hasVoiceTag;
+    const hasVoiceContent = voiceData?.url || voiceLoading || hasVoiceTag || isUserVoiceMsg;
     // Don't render empty bubbles (e.g. messages that were just "---"), unless voice data exists or pending
     if (!displayContent && !hasVoiceContent) return null;
 
     // Voice-only messages (no display text, only voice bar): skip bubble styling
-    const isVoiceOnlyMsg = !displayContent && hasVoiceContent && !isUser && m.type === 'text';
+    const isVoiceOnlyMsg = isUserVoiceMsg || (!displayContent && hasVoiceContent && !isUser && m.type === 'text');
 
     // 外語語音消息：語音條展開區（轉文字）本身就完整呈現「口播原文 + 中文翻譯」兩行，
     // 頂部氣泡再渲染一遍 displayContent 就成了重複——翻譯模式下頂部是中文、語音條翻譯行
@@ -3906,7 +3909,7 @@ const MessageItem = React.memo(({
 
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
             {/* 外語語音消息把雙語文字交給下方語音條渲染，頂部不再重複正文 */}
-            {displayContent && !isForeignVoiceMsg && (
+            {displayContent && !isForeignVoiceMsg && !isUserVoiceMsg && (
             <div className="relative z-10 text-[15px] leading-relaxed whitespace-pre-wrap break-all select-text" style={{ color: styleConfig.textColor }}>
                 {renderContent(displayContent)}
                 {showExpandedTranslation && (
@@ -3952,7 +3955,7 @@ const MessageItem = React.memo(({
             )}
 
             {/* Layer 5a: 我的訊息自動譯出 —— 「看原句／看譯文」切換 */}
-            {typedOriginal && (
+            {typedOriginal && !isUserVoiceMsg && (
                 <div className="relative z-10 mt-2 pt-1.5 flex justify-end" style={{ borderTop: '1px solid rgba(127, 127, 127, 0.16)' }}>
                     <button
                         onClick={(e) => { e.stopPropagation(); e.preventDefault(); onTranslateToggle?.(m.id); }}
@@ -3981,17 +3984,19 @@ const MessageItem = React.memo(({
             )}
 
             {/* Layer 6: Voice Bar */}
-            {(voiceData?.url || voiceLoading || hasVoiceTag) && !isUser && m.type === 'text' && (() => {
-                const vbBg = styleConfig.voiceBarBg;
+            {(voiceData?.url || voiceLoading || hasVoiceTag || isUserVoiceMsg) && (!isUser || isUserVoiceMsg) && m.type === 'text' && (() => {
+                // 你這邊的語音條沒單獨設顏色時，借你氣泡的底色和字色（顏色要是 #rrggbb 才能疊透明度）
+                const hex6 = (c?: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : undefined);
+                const vbBg = styleConfig.voiceBarBg || (isUserVoiceMsg ? styleConfig.backgroundColor : undefined);
                 const vbActiveBg = styleConfig.voiceBarActiveBg;
-                const vbBtn = styleConfig.voiceBarBtnColor;
-                const vbWave = styleConfig.voiceBarWaveColor;
-                const vbText = styleConfig.voiceBarTextColor;
+                const vbBtn = styleConfig.voiceBarBtnColor || (isUserVoiceMsg ? hex6(styleConfig.textColor) : undefined);
+                const vbWave = styleConfig.voiceBarWaveColor || (isUserVoiceMsg ? hex6(styleConfig.textColor) : undefined);
+                const vbText = styleConfig.voiceBarTextColor || (isUserVoiceMsg ? styleConfig.textColor : undefined);
                 // Voice-only mode: no visible text, voice bar is primary content.
                 // 外語語音消息頂部正文已隱藏（交給語音條渲染），同樣按純語音處理，去掉多餘上間距。
-                const isVoiceOnly = !!voiceData?.url && (!displayContent || isForeignVoiceMsg);
+                const isVoiceOnly = isUserVoiceMsg || (!!voiceData?.url && (!displayContent || isForeignVoiceMsg));
                 return (
-                <div className={`sully-voice-bar-shell relative z-10 ${isVoiceOnly ? '' : 'mt-2.5'}`}>
+                <div className={`sully-voice-bar-shell relative z-10 ${isVoiceOnly ? '' : 'mt-2.5'}${isUserVoiceMsg ? ' sully-voice-bar-user ml-auto' : ''}`}>
                     {voiceData?.url ? (
                         <div className="max-w-[260px]">
                             <button
@@ -4108,7 +4113,7 @@ const MessageItem = React.memo(({
                             </div>
                             <span className="text-[10px] shrink-0 animate-pulse" style={{ color: vbText || '#94a3b8' }}>合成中</span>
                         </div>
-                    ) : hasVoiceTag ? (
+                    ) : (hasVoiceTag || isUserVoiceMsg) ? (
                         /* Voice tag exists in content but no audio yet — either TTS is still
                            pending (app restart / auto-TTS) or the character has no MiniMax voice
                            configured. Offer a 轉文字 toggle here too so the text stays readable,

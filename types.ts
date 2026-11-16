@@ -4083,6 +4083,8 @@ export interface UserProfile {
     otherDetails?: string;
     /** 生圖用的參考圖（鎖臉）和外觀提示詞，結構跟角色的 imageGenCharConfig 一樣；見面「拍下這一刻」用。身份卡各有各的 */
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];
+    /** 真實身份的聲音（私聊發語音條用，plans/user-voice.md）；身份卡各有各的 */
+    voiceProfile?: CharacterProfile['voiceProfile'];
     /** 分角色聊天頭像（檔案 App 設置）：charId → 頭像（http(s) URL 或 data:image）。
      *  私聊裡「你」的頭像取 perCharAvatars[charId] || avatar（上面的整體頭像作宏觀默認）；
      *  群聊/其他場合仍用整體頭像。刪角色留下的孤兒鍵無害，讀取端永遠按當前 charId 取。 */
@@ -4500,6 +4502,8 @@ export interface UserPersona {
     otherDetails?: string;
     /** 這張身份卡的長相（生圖參考圖＋外觀提示詞）；同一世界裡不同身份卡是不同的人，不跟真實身份共用 */
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];
+    /** 這張身份卡的聲音（私聊發語音條用，plans/user-voice.md）；結構跟角色的 voiceProfile 一樣 */
+    voiceProfile?: CharacterProfile['voiceProfile'];
     createdAt: number;
     updatedAt: number;
 }
