@@ -161,6 +161,8 @@ import {
 } from '../features/collaboration/makers';
 import { upsertMountedWorldbooks } from '../utils/worldbook';
 import { equalsAnyScript } from '../utils/scriptKey';
+import { followTemplateBubblePatch, ownBubblePatch, type DecorationTemplate } from '../utils/decorationTemplates';
+import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../utils/decorationTemplateStore';
 
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
@@ -435,6 +437,20 @@ const Chat: React.FC = () => {
         updateCharacter,
     ]);
     const currentThemeId = char?.bubbleStyle || osTheme.chatDefaultBubbleStyle || 'default';
+    // 這個聊天綁的裝扮模板：頂端點名字那個面板換氣泡時，只換氣泡、模板留著（plans/decoration-app.md「角色自己的氣泡」）
+    const boundTemplateId = char?.decorationTemplateId;
+    const [boundTemplate, setBoundTemplate] = useState<DecorationTemplate | null>(null);
+    useEffect(() => {
+        if (!boundTemplateId) { setBoundTemplate(null); return; }
+        let alive = true;
+        const load = () => void loadDecorationTemplates({ existingBubbles: customThemes, addBubble: addCustomTheme })
+            .then(r => { if (alive) setBoundTemplate(r.templates.find(t => t.id === boundTemplateId) || null); })
+            .catch(() => { if (alive) setBoundTemplate(null); });
+        load();
+        window.addEventListener(DECORATION_TEMPLATES_CHANGED_EVENT, load);
+        return () => { alive = false; window.removeEventListener(DECORATION_TEMPLATES_CHANGED_EVENT, load); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [boundTemplateId]);
     // 解析邏輯抽到 utils/groupChat/theme.ts（群聊共用），行為不變
     const activeTheme = useMemo(
         () => resolveChatTheme(currentThemeId, customThemes, PRESET_THEMES),
@@ -3738,7 +3754,7 @@ const Chat: React.FC = () => {
         if (artifact.kind === 'bubble-theme') {
             const nextTheme = installableToChatTheme(artifact);
             await addCustomTheme(nextTheme);
-            if (targetCharacterId) await updateCharacter(targetCharacterId, { bubbleStyle: nextTheme.id });
+            if (targetCharacterId) await updateCharacter(targetCharacterId, ownBubblePatch(characters.find(item => item.id === targetCharacterId) || {}, nextTheme.id));
             const target = characters.find(item => item.id === targetCharacterId);
             return target ? `氣泡主題已保存，並給 ${target.name} 穿上` : '氣泡主題已保存到氣泡工坊';
         }
@@ -4853,7 +4869,9 @@ const Chat: React.FC = () => {
                     characters={characters} activeCharacterId={activeCharacterId}
                     onCharSelect={handleCharSelectCallback}
                     unreadMessages={unreadMessages}
-                    customThemes={customThemes} onUpdateTheme={(id) => updateCharacter(char.id, { bubbleStyle: id })}
+                    customThemes={customThemes} onUpdateTheme={(id) => updateCharacter(char.id, ownBubblePatch(char, id))}
+                    bubbleTemplateName={boundTemplate?.name}
+                    onFollowTemplateBubble={boundTemplate && char.bubbleOwn ? () => updateCharacter(char.id, followTemplateBubblePatch(boundTemplate)) : undefined}
                     onRemoveTheme={removeCustomTheme} activeThemeId={currentThemeId}
                     onPanelAction={handlePanelAction}
                     onImageSelect={handleImageSelect}

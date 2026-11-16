@@ -47,6 +47,10 @@ interface ChatInputAreaProps {
     unreadMessages?: Record<string, number>;
     customThemes?: ChatTheme[];
     onUpdateTheme?: (id: string) => void;
+    /** 這個聊天綁著模板、又自己挑了氣泡時才給：按了回到跟著模板的氣泡 */
+    onFollowTemplateBubble?: () => void;
+    /** 綁著的模板名字（給「跟著模板」那顆鈕和說明用）；沒綁就不給 */
+    bubbleTemplateName?: string;
     onRemoveTheme?: (id: string) => void;
     activeThemeId?: string;
     /** 提供時整體替換內置 actions 雙頁網格——群聊傳自己的功能格。不傳 = 原行為 */
@@ -99,7 +103,7 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     emojis, characters = [], activeCharacterId = '', onCharSelect = () => {},
     emojiSuggestionsEnabled = false, suggestionEmojis = emojis,
     unreadMessages = {},
-    customThemes = [], onUpdateTheme = () => {}, onRemoveTheme = () => {}, activeThemeId = '',
+    customThemes = [], onUpdateTheme = () => {}, onRemoveTheme = () => {}, activeThemeId = '', onFollowTemplateBubble, bubbleTemplateName,
     actionsContent,
     onPanelAction, onImageSelect, isSummarizing,
     categories = [], activeCategory = 'default',
@@ -1114,8 +1118,18 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
                                     <span className={`text-slate-400 transition-transform ${isBubbleSectionOpen ? 'rotate-180' : ''}`} aria-hidden>⌄</span>
                                 </button>
                                 {isBubbleSectionOpen && <div className="mt-3">
+                                {bubbleTemplateName && (
+                                    <div className="flex items-center justify-between gap-2 px-1 mb-2" data-bubble-template-note>
+                                        <span className="text-[10px] text-slate-500 leading-snug">
+                                            {onFollowTemplateBubble ? `這個聊天穿自己挑的氣泡，模板「${bubbleTemplateName}」的其他部分照舊。` : `跟著模板「${bubbleTemplateName}」。在這裡換氣泡只換氣泡，模板照舊。`}
+                                        </span>
+                                        {onFollowTemplateBubble && (
+                                            <button type="button" onClick={onFollowTemplateBubble} className="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-50 text-violet-600 border border-violet-100">跟著模板</button>
+                                        )}
+                                    </div>
+                                )}
                                 <div className="flex justify-end px-1 mb-2">
-                                    <span className="text-[10px] text-slate-400">新氣泡去「氣泡工坊」App 製作</span>
+                                    <span className="text-[10px] text-slate-400">新氣泡去「裝扮」App 製作</span>
                                 </div>
                                 {customThemes.length > 6 && (
                                     <input

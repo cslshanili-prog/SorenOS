@@ -10,13 +10,13 @@ import { portableTree, readDecorationFile, validateDecoration } from '../utils/c
 import {
     characterPatchFromDraft, characterStatus, describeDraft, uniqueTemplateName, draftOfTemplate, duplicateTemplate, GROUP_DECORATION_RESET,
     CHARACTER_DECORATION_RESET, groupIgnoredParts, groupPatchFromDraft, groupStatus, makeTemplate, presetToTemplate,
-    templateFromCharacter, templateFromGroup, templateFromTheme, templateToPresetDraft, templateUsage, templateBindings, themePatchFromDraft,
+    keepOwnBubble, templateFromCharacter, templateFromGroup, templateFromTheme, templateToPresetDraft, templateUsage, templateBindings, themePatchFromDraft,
     themeStatus, type DecorationDraft, type DecorationStatus, type DecorationTargetRef, type DecorationTemplate,
 } from '../utils/decorationTemplates';
 import { loadDecorationTemplates, saveDecorationTemplates } from '../utils/decorationTemplateStore';
 import { takeDecorationHandoff } from '../utils/decorationHandoff';
 import { setSoreHandoff } from '../utils/assistant/handoff';
-import { linePatchForChar } from '../utils/chatLine';
+import { linePatchForChar, lineView } from '../utils/chatLine';
 import { migrateChatThemeBlobRefs, migrateDataUrlToRef } from '../utils/blobRef';
 import { shareOrDownloadFile } from '../utils/shareExport';
 import { safeShareFileName } from '../utils/pngShare';
@@ -88,7 +88,7 @@ const DecorationApp: React.FC = () => {
 
     /** 角色的某條線（非主線）改的欄位寫進 lines[身份鍵]，沒設的照主線 */
     const patchCharacter = (target: { id: string; line?: string }, patch: Partial<CharacterProfile>) => (target.line
-        ? updateCharacter(target.id, prev => linePatchForChar(prev, { charId: target.id, personaKey: target.line }, patch))
+        ? updateCharacter(target.id, prev => { const line = { charId: target.id, personaKey: target.line }; return linePatchForChar(prev, line, keepOwnBubble(lineView(prev, line), patch)); })
         : updateCharacter(target.id, patch));
 
     const writeTemplateTo = async (target: DecorationTargetRef, template: DecorationTemplate) => {
@@ -377,7 +377,7 @@ const DecorationApp: React.FC = () => {
                             </button>
                             <div className="rounded-2xl bg-white border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                                 {row({ kind: 'global' }, '全局默認', '沒有自己設定的聊天都用這套')}
-                                {open && visibleChars.map(c => row({ kind: 'character', id: c.id }, c.name, undefined, c.avatar || ''))}
+                                {open && visibleChars.map(c => row({ kind: 'character', id: c.id }, c.name, c.decorationTemplateId && c.bubbleOwn ? `自己的氣泡：${bubbleName(c.bubbleStyle || 'default')}` : undefined, c.avatar || ''))}
                                 {open && groups.map(g => row({ kind: 'group', id: g.id }, g.name, '群只套 CSS、聲音、我的氣泡', g.avatar || ''))}
                                 {!open && chatCount > 0 && (
                                     <button type="button" onClick={() => setUsingOpen(true)} className="w-full px-4 py-2.5 text-left text-[12px] text-slate-400">

@@ -53,6 +53,7 @@ const ownSound = (s?: WhiteboxSound | null): WhiteboxSound | undefined => (s && 
 export const CHARACTER_DECORATION_RESET: Partial<CharacterProfile> = {
     chatAppearance: undefined, chatFineTune: undefined, bubbleStyle: undefined, chatBackground: undefined,
     chromeCustomCss: undefined, chatSound: undefined, chatSoundBound: undefined, chatDecorationCssIsolated: undefined,
+    bubbleOwn: undefined,
 };
 
 export const GROUP_DECORATION_RESET: Partial<GroupProfile> = {
@@ -242,10 +243,34 @@ const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a ?? null) ==
 const touches = <T extends object>(prev: T, patch: Partial<T>, keys: Array<keyof T>) =>
     keys.some(k => Object.prototype.hasOwnProperty.call(patch, k) && !same(prev[k], patch[k]));
 
-/** patch 動到了裝扮欄位、又不是模板自己寫的 → 順手解除綁定 */
-export const detachCharacterPatch = (prev: CharacterProfile, patch: Partial<CharacterProfile>): Partial<CharacterProfile> =>
-    (prev.decorationTemplateId && !Object.prototype.hasOwnProperty.call(patch, 'decorationTemplateId') && touches(prev, patch, CHARACTER_DECORATION_KEYS)
-        ? { ...patch, decorationTemplateId: undefined } : patch);
+const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/**
+ * 角色自己的氣泡（bubbleOwn）蓋在模板上：模板改寫、重套同一份模板時，留住自己挑的那套；換成別份模板就跟新模板走。
+ * 換掉自己的氣泡走 ownBubblePatch／followTemplateBubblePatch（不帶模板 id）；存成自訂（模板 id 是 undefined）會清掉 bubbleOwn。
+ * prev 要是那條線的樣子（非主線用 lineView）。
+ */
+export const keepOwnBubble = (prev: CharacterProfile, patch: Partial<CharacterProfile>): Partial<CharacterProfile> =>
+    (prev.bubbleOwn && patch.decorationTemplateId && patch.decorationTemplateId === prev.decorationTemplateId
+        ? { ...patch, bubbleStyle: prev.bubbleStyle, bubbleOwn: true } : patch);
+
+/** 選「這個聊天自己的氣泡」：模板綁定留著，換的只有氣泡 */
+export const ownBubblePatch = (char: Pick<CharacterProfile, 'decorationTemplateId'>, bubbleId: string): Partial<CharacterProfile> =>
+    (char.decorationTemplateId ? { bubbleStyle: bubbleId, bubbleOwn: true } : { bubbleStyle: bubbleId, bubbleOwn: undefined });
+
+/** 回到跟著模板的氣泡 */
+export const followTemplateBubblePatch = (template: Pick<DecorationTemplate, 'bubbleThemeId'>): Partial<CharacterProfile> =>
+    ({ bubbleStyle: template.bubbleThemeId, bubbleOwn: undefined });
+
+const BUBBLE_KEYS: Array<keyof CharacterProfile> = ['bubbleStyle', 'bubbleOwn'];
+
+/** patch 動到了裝扮欄位、又不是模板自己寫的 → 順手解除綁定（明講 bubbleOwn 的只換氣泡，不算） */
+export const detachCharacterPatch = (prev: CharacterProfile, rawPatch: Partial<CharacterProfile>): Partial<CharacterProfile> => {
+    const patch = keepOwnBubble(prev, rawPatch);
+    if (!prev.decorationTemplateId || has(patch, 'decorationTemplateId')) return patch;
+    const keys = has(patch, 'bubbleOwn') ? CHARACTER_DECORATION_KEYS.filter(k => !BUBBLE_KEYS.includes(k)) : CHARACTER_DECORATION_KEYS;
+    return touches(prev, patch, keys) ? { ...patch, decorationTemplateId: undefined } : patch;
+};
 
 export const detachThemePatch = (prev: OSTheme, patch: Partial<OSTheme>): Partial<OSTheme> =>
     (prev.decorationTemplateId && !Object.prototype.hasOwnProperty.call(patch, 'decorationTemplateId') && touches(prev, patch, THEME_DECORATION_KEYS)
