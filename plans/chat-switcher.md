@@ -20,7 +20,7 @@
 
 - 世界（`CharacterGroup`，神經鏈接裡原本叫「分組」，這次改叫「世界」）多 `sections: WorldSection[]`；角色多 `worldSectionId`。一個角色只屬於一個分組。
 - 換世界或分組被刪，就當沒分組（`sectionOf` 只認自己世界裡還在的分組），不用回頭改角色卡；刪分組時 `setCharacterGroupSections` 順手把裡面的角色清成沒分組。
-- 管理：神經鏈接「世界」按鈕 →「世界與分組」，每個世界底下加、改名、刪分組（`components/character/WorldSectionsEditor.tsx`）。
+- 管理：神經鏈接「世界」按鈕 → 全螢幕「世界與分組」頁（原本是置中小彈窗），每個世界一張卡：改名、畫風、分組（加、改名、刪，`components/character/WorldSectionsEditor.tsx`）；刪世界要按兩下確認。
 - 角色設定頁：「世界」下面多「分組」下拉，可以當場新建。
 - 神經鏈接的角色列表：展開的世界裡照分組列，每組一條小標題。
 - 匯出角色卡不帶 `worldSectionId`（跟 `groupId` 一樣是本機的整理方式）。
