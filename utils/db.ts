@@ -2289,6 +2289,18 @@ export const DB = {
       });
   },
 
+  /** 某角色 from～to（含）這幾天有的日程（行事曆的月格子打點、時間軸用）；id 是 `${charId}_${date}`，字典序剛好照日期 */
+  getDailySchedulesInRange: async (charId: string, fromKey: string, toKey: string): Promise<DailySchedule[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_DAILY_SCHEDULE)) return [];
+      return new Promise((resolve, reject) => {
+          const store = db.transaction(STORE_DAILY_SCHEDULE, 'readonly').objectStore(STORE_DAILY_SCHEDULE);
+          const req = store.getAll(IDBKeyRange.bound(`${charId}_${fromKey}`, `${charId}_${toKey}`));
+          req.onsuccess = () => resolve((req.result || []).filter((s: DailySchedule) => s.charId === charId));
+          req.onerror = () => reject(req.error);
+      });
+  },
+
   saveDailySchedule: async (schedule: DailySchedule): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_DAILY_SCHEDULE, 'readwrite');
