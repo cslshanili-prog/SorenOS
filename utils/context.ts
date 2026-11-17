@@ -582,6 +582,10 @@ export const ContextBuilder = {
         timeOptions?: {
             lastInteractionTs?: number;
             skipTimeAwareness?: boolean;
+            /** 「現在」不是現實時刻（私聊的時鐘）：絕對時間戳，照角色時區寫；lastInteractionTs 要是同一把尺上的（先 clock.map 過） */
+            now?: number;
+            /** 時鐘那句話，接在「現在是」後面 */
+            clockNote?: string;
             /**
              * 這次注入是不是「正有人在跟角色說話」（私聊、見面這類實時對話）。
              * 只有這時才補那句語境框定，見下方註釋。默認 false：日程 / 歌單 / 攻略 /
@@ -596,7 +600,8 @@ export const ContextBuilder = {
         // 自定義時區（異國戀等）：開啟後這裡的"當前時間"按角色所在時區折算，並附時差提示，
         // 讓查手機/人際關係/通話等所有直連 buildCoreContext 的路徑都拿到正確的本地時間。
         const charTz = resolveCharTimeZone(char);
-        const now = nowInTimeZone(charTz);
+        const nowMs = timeOptions?.now ?? Date.now();
+        const now = nowInTimeZone(charTz, new Date(nowMs));
         const h = now.getHours();
         const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
         const timeOfDay = timeOfDayWord(h);
@@ -607,6 +612,7 @@ export const ContextBuilder = {
         context += level === 'coarse'
             ? `現在是 ${coarseNowText(now)}。你對時間的感覺是粗的：知道今天幾號、是早上還是晚上，但說不出幾點幾分，也別裝作知道。\n`
             : `現在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
+        if (timeOptions?.clockNote) context += `${timeOptions.clockNote}\n`;
         // 報時後面那句語境框定（這句話本身和「為什麼只在對話時給」都在
         // utils/timeFramingNote.ts）。即時對話走的是雲端那條路，時間由 worker 到點補，
         // 那邊引的是同一份常量——同一句話不抄兩遍，免得兩條路上的角色分寸不一樣。
@@ -617,7 +623,7 @@ export const ContextBuilder = {
         if (tzNote) context += `${tzNote.trim()}\n`;
         // 距離上次聯繫多久（統一口徑）：傳了 lastInteractionTs 才注入。
         // 讓查手機/人際關係等無內聯消息流的路徑，也像聊天一樣知道「用戶多久沒聯繫我了」。
-        const gapNote = interactionGapNote(timeOptions?.lastInteractionTs, Date.now(), level === 'coarse');
+        const gapNote = interactionGapNote(timeOptions?.lastInteractionTs, nowMs, level === 'coarse');
         if (gapNote) context += gapNote;
         context += `\n`;
         return context;
@@ -633,7 +639,7 @@ export const ContextBuilder = {
         options?: {
             includeDetailedMemories?: boolean;
             memoryPalaceContext?: string;
-            timeOptions?: { lastInteractionTs?: number; skipTimeAwareness?: boolean; conversational?: boolean };
+            timeOptions?: { lastInteractionTs?: number; skipTimeAwareness?: boolean; conversational?: boolean; now?: number; clockNote?: string };
         },
     ): string => {
         let context = ContextBuilder.buildTimeAwarenessBlock(char, options?.timeOptions);

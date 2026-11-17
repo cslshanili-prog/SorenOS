@@ -21,8 +21,8 @@ export const isDefaultStoryTime = (time: DateStoryTime | undefined | null): bool
     !time || (time.source === 'real' && time.flow !== 'frozen');
 
 /** 見面的時間關著（純架空）：時間來源選了「關閉」，或舊的 dateTimeAwarenessEnabled 還是 false */
-export const isStoryTimeOff = (char: Pick<CharacterProfile, 'dateTimeAwarenessEnabled' | 'dateNextStoryTime'>, story: Pick<DateStory, 'time'> | null | undefined): boolean =>
-    (story ? story.time : char.dateNextStoryTime)?.source === 'off' || char.dateTimeAwarenessEnabled === false;
+export const isStoryTimeOff = (char: Pick<CharacterProfile, 'dateTimeAwarenessEnabled' | 'dateNextStoryTime' | 'chatTime'>, story: Pick<DateStory, 'time'> | null | undefined): boolean =>
+    ((story ? story.time : char.dateNextStoryTime) ?? char.chatTime)?.source === 'off' || char.dateTimeAwarenessEnabled === false;
 
 /** 這場故事的時鐘：把現實時刻換成故事裡的時刻 */
 export interface DateClock {
@@ -45,26 +45,28 @@ export const storyClock = (clock: DateClock | null | undefined): DateClock | nul
 /** 見面要不要帶時間：時鐘關著就不帶（舊的 dateTimeAwarenessEnabled === false 在 makeDateClock 裡已經算成關著） */
 export const isDateTimeOn = (clock: DateClock | null | undefined): boolean => !clock?.off;
 
-/** 生效的時間設定：進行中的故事用自己的，還沒開始就用角色身上那份 */
+/**
+ * 生效的時間設定：進行中的故事用自己的，還沒開始就用角色身上那份；兩個都沒設就跟著私聊的時鐘
+ * （plans/time-system.md 第 6 節：見面沒設就跟私聊走，少設一次；見面自己設了以自己的為準）
+ */
 export const effectiveStoryTime = (char: CharacterProfile, story: DateStory | null | undefined): DateStoryTime | undefined =>
-    story ? story.time : char.dateNextStoryTime;
+    (story ? story.time : char.dateNextStoryTime) ?? char.chatTime;
 
-/** 預設（真實＋流動）回 null：呼叫端照原本的路走 */
-export const makeDateClock = (
-    char: CharacterProfile,
-    story: DateStory | null | undefined,
-    realNow = Date.now(),
-): DateClock | null => {
-    const time = effectiveStoryTime(char, story);
-    if (isStoryTimeOff(char, story)) {
-        return { now: realNow, frozen: false, custom: false, storyId: story?.id, map: (realMs: number) => realMs, off: true };
+/** 見面有沒有自己設時間（沒有就是跟著私聊） */
+export const storyTimeIsOwn = (char: CharacterProfile, story: DateStory | null | undefined): boolean =>
+    !!(story ? story.time : char.dateNextStoryTime);
+
+/** 一份時間設定 → 時鐘（見面和私聊共用）；預設（真實＋流動）回 null */
+export const clockFromTime = (time: DateStoryTime | undefined, tz: string | undefined, realNow: number, storyId?: string): DateClock | null => {
+    if (time?.source === 'off') {
+        return { now: realNow, frozen: false, custom: false, storyId, map: (realMs: number) => realMs, off: true };
     }
     if (isDefaultStoryTime(time)) return null;
     const anchor = time!.anchorAt ?? realNow;
     const frozen = time!.flow === 'frozen';
     let base = anchor;
     if (time!.source === 'custom') {
-        const custom = time!.customStart ? wallClockToTimestamp(time!.customStart, resolveCharTimeZone(char)) : NaN;
+        const custom = time!.customStart ? wallClockToTimestamp(time!.customStart, tz) : NaN;
         // 自定義沒填或填壞了：當成真實
         if (!Number.isFinite(custom)) {
             if (!frozen) return null;
@@ -73,7 +75,39 @@ export const makeDateClock = (
         }
     }
     const map = (realMs: number) => (frozen ? base : base + (realMs - anchor));
-    return { now: map(realNow), frozen, custom: time!.source === 'custom', storyId: story?.id, map };
+    return { now: map(realNow), frozen, custom: time!.source === 'custom', storyId, map };
+};
+
+/** 預設（真實＋流動）回 null：呼叫端照原本的路走 */
+export const makeDateClock = (
+    char: CharacterProfile,
+    story: DateStory | null | undefined,
+    realNow = Date.now(),
+): DateClock | null => {
+    if (isStoryTimeOff(char, story)) {
+        return { now: realNow, frozen: false, custom: false, storyId: story?.id, map: (realMs: number) => realMs, off: true };
+    }
+    return clockFromTime(effectiveStoryTime(char, story), resolveCharTimeZone(char), realNow, story?.id);
+};
+
+/**
+ * 私聊這條線的時鐘（plans/time-system.md 第 2b 節）：讀 char.chatTime，預設回 null。
+ * 私聊沒有「關閉」那檔（要角色沒時間概念是角色卡的時間感知「不知道」），存成 off 也當真實。
+ */
+export const makeChatClock = (char: Pick<CharacterProfile, 'chatTime' | 'customTimezoneEnabled' | 'customTimezone'>, realNow = Date.now()): DateClock | null => {
+    const time = char.chatTime;
+    if (!time || time.source === 'off') return null;
+    return clockFromTime(time, resolveCharTimeZone(char as CharacterProfile), realNow);
+};
+
+/**
+ * 私聊歷史照時鐘換算：整條線的訊息（不分來源）都用同一把尺，所以「距離上次多久」照算；
+ * 靜止的話每則都會變成同一個時刻，標了只是噪音，改成不標、也不算距離。
+ */
+export const chatHistoryTimeOptions = (clock: DateClock | null): { mapTimestamp?: (ts: number) => number; showTimestamps?: boolean; skipTimeGapHint?: boolean } => {
+    if (!clock || clock.off) return {};
+    if (clock.frozen) return { showTimestamps: false, skipTimeGapHint: true };
+    return { mapTimestamp: clock.map };
 };
 
 /**

@@ -3580,6 +3580,13 @@ export interface CharacterProfile {
   customTimezoneEnabled?: boolean;
   customTimezone?: string; // IANA 時區 id，如 'Asia/Tokyo'
 
+  /**
+   * 這條私聊線的時鐘（plans/time-system.md 第 2b 節）：真實／自定義 × 流動／靜止，跟見面同一個型別。
+   * 沒設＝真實＋流動（什麼都不改）。跟著線走（utils/chatLine.ts）。見面沒另外設就跟著它。
+   * 雲端（即時對話、主動消息）照現實，不看這個（第 2 批定的）。
+   */
+  chatTime?: DateStoryTime;
+
   // 【舊】線下時間感知。2026-11-17 併進見面的時間模式（DateStoryTime.source = 'off'）：
   // 介面上不再有這個開關；還是 false 的舊資料照「關閉」處理（utils/dateStoryTime.ts 的 makeDateClock），
   // 在見面設定改過一次時間來源就清掉。
@@ -5262,7 +5269,7 @@ export type LineStateField =
     | 'acquaintanceStartDate' | 'savedDateState' | 'activeDateStoryId' | 'dateNextStoryTime' | 'dateScenario'
     | 'dateOfflinePause' | 'chatBlock' | 'chatBlockLog' | 'charBlockCooldown' | 'specialMomentRecords'
     | 'affinities' | 'contextUserStartMessageId' | 'hideBeforeMessageId' | 'refinedMemories' | 'activeMemoryMonths'
-    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled' | 'activeMsg2Config';
+    | 'memoryPalaceInjection' | 'roomPlatesInjection' | 'proactiveLineEnabled' | 'activeMsg2Config' | 'chatTime';
 /** 聊天設定：這條線沒設就照主線。 */
 export type LineSettingField =
     | 'chatBackground' | 'chatAppearance' | 'chatDecorationCssIsolated' | 'bubbleStyle' | 'bubbleOwn' | 'chatFineTune'

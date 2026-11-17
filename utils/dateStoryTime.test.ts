@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDateTimeOn, isDefaultStoryTime, makeDateClock, nextStoryTimeAfter, startStoryTime, storyClock } from './dateStoryTime';
+import { applyClockToHistory, chatHistoryTimeOptions, describeClockNote, effectiveStoryTime, formatStoryClock, historyTimeOptions, isDateTimeOn, isDefaultStoryTime, makeChatClock, makeDateClock, nextStoryTimeAfter, startStoryTime, storyClock, storyTimeIsOwn } from './dateStoryTime';
+import { ChatPrompts } from './chatPrompts';
+import { ContextBuilder } from './context';
 import { buildNewDateStory } from './dateStory';
 import type { CharacterProfile, DateStory, DateStoryTime, Message } from '../types';
 
@@ -207,5 +209,68 @@ describe('時間來源關閉', () => {
         const { messages } = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', clock });
         expect(messages.some(m => m.content.includes('當前時間'))).toBe(false);
         expect(messages[messages.length - 1].content).not.toContain('故事裡現在是');
+    });
+});
+
+// 私聊的時鐘（plans/time-system.md 第 2b 節，第 2 批）：char.chatTime；見面沒另外設就跟著它
+describe('私聊的時鐘', () => {
+    const c = { id: 'c1', name: '凱恩', avatar: '', description: '', systemPrompt: '你是凱恩。', memories: [], timezoneEnabled: true, timezone: 'Asia/Taipei' } as unknown as CharacterProfile;
+    const now = Date.now();
+    const custom: DateStoryTime = { source: 'custom', flow: 'flowing', customStart: '1920-03-01T20:00', anchorAt: now - H };
+
+    it('makeChatClock：沒設回 null；自定義從填的時間起跟著現實走；靜止就停著', () => {
+        expect(makeChatClock(c, now)).toBeNull();
+        const flowing = makeChatClock({ ...c, chatTime: custom }, now)!;
+        expect(formatStoryClock(flowing)).toBe('1920-03-01 21:00 週一');
+        expect(flowing.custom).toBe(true);
+        const frozen = makeChatClock({ ...c, chatTime: { ...custom, flow: 'frozen' } }, now)!;
+        expect(formatStoryClock(frozen)).toBe('1920-03-01 20:00 週一');
+        expect(frozen.frozen).toBe(true);
+        // 私聊沒有「關閉」：存成 off 也當沒設
+        expect(makeChatClock({ ...c, chatTime: { source: 'off', flow: 'flowing' } }, now)).toBeNull();
+    });
+
+    it('歷史照時鐘換算：流動的整條換、距離上次照算；靜止的不標、不算', () => {
+        const flowing = makeChatClock({ ...c, chatTime: custom }, now)!;
+        const opt = chatHistoryTimeOptions(flowing);
+        expect(opt.mapTimestamp!(now)).toBe(flowing.now);
+        expect(opt.showTimestamps).toBeUndefined();
+        expect(chatHistoryTimeOptions(makeChatClock({ ...c, chatTime: { ...custom, flow: 'frozen' } }, now))).toEqual({ showTimestamps: false, skipTimeGapHint: true });
+        expect(chatHistoryTimeOptions(null)).toEqual({});
+    });
+
+    it('buildMessageHistory 吃 mapTimestamp：時間戳和距離上次都是換算過的', () => {
+        const history = [
+            { id: 1, charId: 'c1', role: 'user', type: 'text', content: '早', timestamp: now - 3 * 86_400_000 },
+            { id: 2, charId: 'c1', role: 'user', type: 'text', content: '嗨', timestamp: now },
+        ] as unknown as Message[];
+        const flowing = makeChatClock({ ...c, chatTime: custom }, now)!;
+        const { apiMessages } = ChatPrompts.buildMessageHistory(history, 50, c, { name: '小雨' } as any, [], undefined, chatHistoryTimeOptions(flowing));
+        const texts = apiMessages.map(m => String(m.content));
+        expect(texts[0]).toMatch(/^\[1920-02-27 21:00\]/);
+        expect(texts[1]).toMatch(/^\[1920-03-01 21:00\]/);
+        expect(texts[1]).toContain('距離上一條消息: 3 天');
+    });
+
+    it('核心上下文的時間塊照時鐘說、附那句話；距離上次照同一把尺算', () => {
+        const flowing = makeChatClock({ ...c, chatTime: custom }, now)!;
+        const block = ContextBuilder.buildTimeAwarenessBlock(c, { now: flowing.now, clockNote: describeClockNote(flowing), lastInteractionTs: flowing.map(now - 2 * H) });
+        expect(block).toContain('現在是 1920年3月1日 週一 晚上 21:00');
+        expect(block).toContain('這是故事裡的時間，跟現實不同');
+        expect(block).toContain('過去 2 小時');
+    });
+
+    it('見面沒另外設就跟著私聊；自己設了以自己的為準', () => {
+        const withChat = { ...c, chatTime: custom };
+        expect(effectiveStoryTime(withChat, null)).toBe(custom);
+        expect(storyTimeIsOwn(withChat, null)).toBe(false);
+        expect(formatStoryClock(makeDateClock(withChat, null, now)!)).toBe('1920-03-01 21:00 週一');
+        expect(formatStoryClock(makeDateClock(withChat, story(undefined), now)!)).toBe('1920-03-01 21:00 週一');
+        const own: DateStoryTime = { source: 'real', flow: 'frozen', anchorAt: now };
+        expect(effectiveStoryTime({ ...withChat, dateNextStoryTime: own }, null)).toBe(own);
+        expect(storyTimeIsOwn({ ...withChat, dateNextStoryTime: own }, null)).toBe(true);
+        expect(effectiveStoryTime(withChat, story(own))).toBe(own);
+        // 完結時：見面自己沒設（跟著私聊）就什麼都不留，下一場照樣跟私聊
+        expect(nextStoryTimeAfter(withChat, story(undefined))).toBeUndefined();
     });
 });

@@ -1,6 +1,6 @@
 # 時間系統：曆法掛世界、時鐘掛聊天線、時區給真實世界
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1 批做完（見第 7 節），第 2～4 批還沒動。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226、#229，不在這份的範圍。
+> 狀態：**定案（Liora 2026-11-17）**，第 1、2 批做完（見第 7 節），第 3、4 批還沒動。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226、#229，不在這份的範圍。
 
 ## 1. 為什麼改
 
@@ -107,3 +107,13 @@
 - **粗略那檔長什麼樣**：核心上下文「現在是 2026年11月17日 週二 下午」沒有幾點幾分（`coarseNowText`）、實時感知那段的時間行同樣（`buildFullContext` 的 `coarseTime`）、日程注入不報鐘（`includeClock` 只在精確給）、距上次多久不滿一天不提、滿了只說「大概 N 天」（`interactionGapNote` / `getTimeGapHint` 的 `coarse`）、歷史時間戳只標日期 `[2026-11-16]`（`buildMessageHistory` 的 `timestampDetail`）、私聊裡帶的群聊片段同樣只標日期；節假日照給。
 - **線下開關併掉**：`DateStoryTime.source` 多一種 `'off'`，見面設定的「時間來源」是真實／自定義／關閉；關閉時 `makeDateClock` 回一個 `off: true` 的時鐘（`storyClock()` 取「真的在走的故事時鐘」、`isDateTimeOn()` 判要不要帶時間），提示詞不帶時間、記錄不標時間戳、本輪末尾不寫幾點、自訂預設的 `time` 佔位是空的。舊的 `dateTimeAwarenessEnabled === false` 不搬資料：`isStoryTimeOff` 照關閉處理，見面設定顯示成「關閉」，改過一次來源就把舊開關清掉。角色編輯、配角編輯上那個開關拿掉了，提示文字指去見面設定。完結故事時「關閉」也跟著留給下一場（`nextStoryTimeAfter`）。
 - 測試：`utils/timeAwareness.test.ts`、`utils/dateStoryTime.test.ts`「時間來源關閉」那組。
+
+### 第 2 批（2026-11-17 做完）：私聊的時鐘
+
+- **存哪**：`CharacterProfile.chatTime`，型別就是見面那個 `DateStoryTime`（真實／自定義 × 流動／靜止＋起始時間），跟著線走（`chatLine.ts` 的 `LINE_STATE_FIELDS`）。沒設＝真實＋流動。私聊沒有「關閉」那檔（角色要沒時間概念是角色卡的時間感知「不知道」），存成 off 也當沒設。
+- **時鐘**：`utils/dateStoryTime.ts` 把「一份設定 → 時鐘」抽成 `clockFromTime`，見面的 `makeDateClock` 和私聊的 `makeChatClock` 都用它。
+- **提示詞**：`buildSystemPromptParts` 算一次 `makeChatClock(char)`：核心上下文的時間塊照它說「現在是」並附那句話（`buildTimeAwarenessBlock` 的 `now`／`clockNote`）；實時那段不再報時、不報節日；用戶節假日那行自定義時不給（真實＋靜止照給）；日程照真實的今天讀，但「現在哪個時段」照時鐘。歷史：`chatHistoryTimeOptions` → `buildMessageHistory` 的 `mapTimestamp`，整條線一把尺換算、距離上次照換算後的算；靜止的不標時間戳、不算距離。雲端兩條路（fire pack、即時對話）照現實，不看這個。
+- **見面跟私聊**（第 6 節定的）：`effectiveStoryTime` 在故事和角色都沒設時回 `char.chatTime`；見面設定顯示「沒另外設，跟著私聊的時間走」，在那裡改了就是自己的，有「改回跟著私聊的時間」。完結時見面沒自己設就什麼都不留，下一場照樣跟私聊。
+- **介面**：欄位抽成 `components/common/TimeModeFields.tsx`（見面多一檔關閉），聊天設定加「時間 (TIME)」一節（`components/chat/ChatTimeSettings.tsx`），草稿跟著頁面按「完成」才存、那時定起算點。
+- 還沒接：電話、群聊不看私聊的時鐘（第 3 批接世界曆法時一起看要不要）。
+- 測試：`utils/dateStoryTime.test.ts`「私聊的時鐘」那組。
