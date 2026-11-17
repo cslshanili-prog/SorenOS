@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1～4 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，五批都做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -75,7 +75,7 @@ interface Trip {
 
 ## 4. 介面
 
-- **月曆**：月格子，有事的日子打點；下面「今日次元重疊」列今天所有人（身份卡＋開了日程的角色）的行程，參與者含對方的那幾條高亮；每條寫當地時間＋「你 xx:xx」。
+- **月曆**：月格子，有事的日子打點；下面「今日交會點」列今天所有人（身份卡＋開了日程的角色）的行程，參與者含對方的那幾條高亮；每條寫當地時間＋「你 xx:xx」。
 - **我的**：身份卡選擇器（主線在前）；時間軸：約定層＋這張卡的生活流（有生成的話）；待辦清單收在底下；「生成我的行程」。
 - **TA 的**：角色選擇器；時間軸同上（做待辦的那段帶圖示）；底下「TA 的待辦」清單：勾、取消勾、刪、手動加；右上「生成角色行程」：時長（一天／一週）、行程提示詞、批量、自動生成設定、出行計劃清單（新增／編輯／刪除）。
 - 加事件：全螢幕頁（AGENTS 規矩：不要半窗），選誰的、標題、時間、地點、參與者（頭像多選）、備註；待辦只要標題＋截止日。
@@ -90,7 +90,7 @@ interface Trip {
 
 ## 6. 分批
 
-1. **行事曆殼**：App、三個分頁、讀現有 `DailySchedule`／`tasks`／`anniversaries` 顯示、雙時間、今日次元重疊、身份卡切換。時光契約先留著，桌面兩個圖示並存。
+1. **行事曆殼**：App、三個分頁、讀現有 `DailySchedule`／`tasks`／`anniversaries` 顯示、雙時間、今日交會點、身份卡切換。時光契約先留著，桌面兩個圖示並存。
 2. **約定層**：`calendar_events` 表、加事件全螢幕頁、待辦（你的和角色的，含聊天標籤進來）與紀念日搬過來、注入改讀新表、時光契約退役（桌面圖示換成行事曆，舊 `AppID.Schedule` 導到行事曆）。
 3. **生成強化**：行程提示詞、一天／一週、批量、身份卡 AI 生成、`participants`（生成輸出＋顯示頭像＋注入那句）、約定和待辦餵進生成、`todoId` 與自動勾掉。
 4. **旅行**：`trips` 表、出行計劃介面、時區解析多一層、生成帶目的地、天氣跟目的地。
@@ -102,8 +102,8 @@ interface Trip {
 
 ### 第 1 批（2026-11-17 做完）：行事曆殼
 
-- `apps/CalendarApp.tsx`（`AppID.Calendar`，桌面叫「行事曆」，跟時光契約並存到第 2 批）。三個分頁：**月曆**（月格子打點：藍＝有角色日程、黃＝待辦截止、紅＝紀念日；底下「今日次元重疊」：我的行程＝這張身份卡那天的待辦和紀念日，角色行程＝所有開了日程的角色那天的時段混排、NOW／Soon）、**我的**（身份卡切換，主線標出來；那天的待辦和紀念日；待辦清單能勾）、**TA 的**（角色切換；頭像卡寫現在在做什麼、時區或架空曆法；時間軸每段寫起訖＋「你 xx:xx」；✦ 生成今天／重新生成；刪掉這天）。
-- 純邏輯在 `utils/calendarView.ts`：月格子、時段起訖（結束＝下一段開始）、`dualTime`（這個人那邊 vs 你那邊，含隔天標記）、身份卡清單（`personaOptions`，主線＝全域默認那張）、次元重疊混排、架空曆法的日期標題。
+- `apps/CalendarApp.tsx`（`AppID.Calendar`，桌面叫「行事曆」，跟時光契約並存到第 2 批）。三個分頁：**月曆**（月格子打點：藍＝有角色日程、黃＝待辦截止、紅＝紀念日；底下「今日交會點」：我的行程＝這張身份卡那天的待辦和紀念日，角色行程＝所有開了日程的角色那天的時段混排、NOW／Soon）、**我的**（身份卡切換，主線標出來；那天的待辦和紀念日；待辦清單能勾）、**TA 的**（角色切換；頭像卡寫現在在做什麼、時區或架空曆法；時間軸每段寫起訖＋「你 xx:xx」；✦ 生成今天／重新生成；刪掉這天）。
+- 純邏輯在 `utils/calendarView.ts`：月格子、時段起訖（結束＝下一段開始）、`dualTime`（這個人那邊 vs 你那邊，含隔天標記）、身份卡清單（`personaOptions`，主線＝全域默認那張）、交會點混排、架空曆法的日期標題。
 - 資料：角色日程照舊讀 `DailySchedule`，多一個 `DB.getDailySchedulesInRange(charId, from, to)`（id 字典序剛好照日期）按月撈；待辦、紀念日先讀時光契約的 `tasks`／`anniversaries`。
 - 時間：角色那邊照 `resolveCharTimeZone`（先看世界）、你那邊照身份卡的 `timezone`；兩邊一樣就不重複寫。
 - 沒做：約定層、加事件、你自己的日程、一週生成、旅行（後面幾批）；埋點照 `docs/analytics.md` 的規矩等事件登記了再加。
@@ -117,7 +117,7 @@ interface Trip {
 - **注入**（`chatPrompts`）：紀念日改讀約定層；有日程功能的角色多一段「📝【你的待辦】」（`utils/calendarInjection.ts`，截止日寫成今天／明天／過期幾天、對方幫記的標出來、最多 8 條）＋標籤教學；fire_pack 不烤。角色自己 `ADD_EVENT` 加的也存成紀念日（owner 是角色、參與者是你、`source: 'char'`）。
 - **「TA 的」選人**：角色和配角都能看（配角沒有日程表，只有約好的事和待辦；沒開日程功能的角色也一樣）。頭像列只放最近看過的幾個（localStorage `soren_calendar_recent_people_v1`），「…」開全螢幕 `components/calendar/PersonPickerPage.tsx`：搜尋、主角／配角篩選、照世界 → 分組收起來（跟切換聊天同一套 `groupForSwitcher`），大世界幾十個人也找得到。
 - **日期列**：「今天」放日期下方；不是今天就變「回到今天」；點日期開全螢幕 `components/calendar/DayPickerPage.tsx` 選一天（有東西的天打點）。
-- **月曆**：打點多一色（紫＝事件），「今日次元重疊」的我的行程＝這張身份卡有份的約定，角色行程＝角色名下的約定＋日程時段。
+- **月曆**：打點多一色（紫＝事件），「今日交會點」的我的行程＝這張身份卡有份的約定，角色行程＝角色名下的約定＋日程時段。
 - **時光契約退役**：`apps/ScheduleApp.tsx` 刪掉、桌面不再列 `AppID.Schedule`（`constants.tsx`），舊 id 在 `PhoneShell`／`appPreload` 都導到行事曆，小小窩、手遊桌面等家園的入口照舊用舊 id、文案改「行事曆」；桌面存過的版面裡的 schedule 項目由 `normalizeLayout` 自己清掉。皮膚沒留。
 - 沒做：生成餵約定和待辦、`todoId` 自動勾掉、你自己的 AI 日程、一週、旅行、自動生成（第 3～5 批）。
 
@@ -137,8 +137,15 @@ interface Trip {
 - **時區多一層**：`resolveCharTimeZone` 變成「旅行 > 世界 > 角色」（旅行沒選時區就不換；「今天」照原本那邊的日曆日算），不看旅行的那層拆成 `resolveCharBaseTimeZone`。身份卡的所在地同理（`utils/userPersona.ts` 的 `withTripTimezone`，真實身份和卡都看；沒旅行回同一個物件）。
 - **生成帶出行**：`buildTripBlock`（`utils/scheduleGenParts.ts`）：目的地、第幾天（第一天／最後一天措辭不同）、出差／旅行的節奏、備註；一天和一週大綱都帶。
 - **天氣跟目的地**：私聊提示詞（`chatPrompts`）角色旅行中把 `weatherCity` 換成目的地；天氣快取照城市分。雲端（主動消息 worker 的 `realtimeWorld`）還是照設定裡的城市，沒接。
-- **介面**：「我的」「TA 的」各一段「✈ 旅行」清單（＋ 加一趟、點了改／刪），頭像卡下多一行「✈️ 旅行 · 杭州 · 第 2／5 天」，那天的時區、時間軸都照旅行的；月曆打點多一色（青＝有人在旅行），「今日次元重疊」上方列誰出行中。全螢幕 `components/calendar/TripPage.tsx`：誰的、類型（旅行／出差／其他）、目的地（打字）、時區（`COMMON_TIMEZONES` 清單選，可不換）、起訖日、備註。
+- **介面**：「我的」「TA 的」各一段「✈ 旅行」清單（＋ 加一趟、點了改／刪），頭像卡下多一行「✈️ 旅行 · 杭州 · 第 2／5 天」，那天的時區、時間軸都照旅行的；月曆打點多一色（青＝有人在旅行），「今日交會點」上方列誰出行中。全螢幕 `components/calendar/TripPage.tsx`：誰的、類型（旅行／出差／其他）、目的地（打字）、時區（`COMMON_TIMEZONES` 清單選，可不換）、起訖日、備註。
 - 沒做：自動生成（第 5 批）；雲端天氣跟目的地。
+
+### 第 5 批（2026-11-17 做完）：自動生成
+
+- **設定**：`ScheduleAutoConfig { enabled, every: 'day'|'week', ahead: 0|1, cloud? }`，角色卡 `scheduleAuto`、身份卡／真實身份同名；在生成頁改。
+- **本機那條路**（`utils/scheduleAutoRun.ts`）：OSContext 每 5 分鐘、切回前台各跑一次 `runScheduleAutoTick`。判斷在 `decideAutoTarget`：每天模式 `ahead=1` 是那邊 20:00 之後排明天、之前補今天；`ahead=0` 當天沒有就補；每週模式這週有缺就 `generateWeekFor` 補。一次 tick 只排一個人，同一天最多試兩次、失敗隔一小時再試（localStorage `soren_schedule_auto_attempts_v1`）。角色排了雲端的，本機只補今天（明天交給雲端）。
+- **雲端那條路**（角色；`utils/scheduleAutoCloud.ts`、契約 `utils/amsgScheduleJob.ts`、worker `worker/amsg/src/scheduleFire.ts`，`amsgKind: 'schedule-generate'`）：一條**每天到點**的後台任務（`scheduleBackgroundJob` 多了 `recurring`：`firstSendTime`＋`recurrenceType: 'daily'`＋`tzId`，ahead=1 是那邊 20:00、ahead=0 是 00:30），憑據走情緒那一行（角色單獨的情緒 API，否則全局聊天 API）。輸入是一份 **standing job**（`amsg:job` 的 `schedule:<charId>`，不刪）：人設上下文＋接下來 8 天每天要帶的段（行程提示詞、出行、約定、待辦，已渲染好）；上線時 tick 順手每天刷一次，worker 到點照 `tzId`＋`ahead` 算目標日、挑那天的段、用 `utils/schedulePromptCore.ts`（提示詞本體抽成零依賴葉子，本機同一份）拼提示詞，結果 `schedule-generate` 帶模型回的 JSON 原樣送回收件箱（不彈通知），客戶端 `utils/scheduleGenerateResultApply.ts` 落地（對回 id／todoId、doneTodos 勾、存表、打髒）；本機已經排了那天就丟棄不蓋。輸入十天沒刷（客戶端沒上線）worker 就跳過不排。關掉＝取消任務＋把輸入寫空；刪角色走原本按 charId 取消遠端任務那條路。
+- **沒接**：身份卡只有本機那條路（雲端沒有身份卡的角色 id）；每週模式只有本機。
 
 ## 8. 待確認
 

@@ -12,6 +12,7 @@
 > | `clientStateTtl` | 只配在 `amsg:job` 上（3 天）。角色狀態那個命名空間絕不能配，配了就是定時把 fire_pack 抹掉 |
 > | 門牌整理 | 提示詞/解析/合併抽進零依賴葉子 `utils/memoryPalace/roomPlateCore.ts`，瀏覽器和 worker 共用；雲端那條路在 `roomPlateCloud.ts`，worker 側在 `worker/amsg/src/plateFire.ts` |
 > | 憑據 | credRefs 加了 `memory` 一檔（記憶宮殿副 API）。沒配副 API 就不上雲，不回落到主 API |
+> | 日程自動生成（2026-11-17） | 第二個調用點，而且是第一條**循環**的後台任務（`scheduleBackgroundJob` 多了 `recurring`）：standing job 不刪、客戶端每天刷；提示詞本體抽成零依賴葉子 `utils/schedulePromptCore.ts`；契約 `utils/amsgScheduleJob.ts`、worker `scheduleFire.ts`、落地 `utils/scheduleGenerateResultApply.ts`；憑據用情緒那一行。見 `plans/calendar.md` 第 7 節第 5 批 |
 >
 > 三件上游基建其實 **2.6.0-next.21 就帶了**（next.22 是「不彈通知的 push 只落收件箱」那條行為變更，對 SullyOS 零影響——error push 是繞過庫直發的，reasoning / tool_request 在 amsg2 鏈路上本來就不發）。
 >

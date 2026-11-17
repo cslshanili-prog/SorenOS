@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowClockwise, CaretLeft, CheckCircle, Sparkle, XCircle } from '@phosphor-icons/react';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import TokenImg from '../os/TokenImg';
-import type { UserProfile } from '../../types';
+import type { ScheduleAutoConfig, UserProfile } from '../../types';
 import type { SchedulePerson } from '../../utils/schedulePerson';
 import { DB } from '../../utils/db';
 import { generateScheduleFor, generateWeekFor, personTodayKey } from '../../utils/scheduleGenerator';
@@ -25,12 +25,20 @@ export interface GeneratePageProps {
     onSavePrompt: (text: string) => void;
     /** 某個人生成完叫一次（打髒雲端、刷畫面） */
     onGenerated: (person: SchedulePerson) => void;
+    /** 自動生成的設定（本機那條路） */
+    auto?: ScheduleAutoConfig;
+    onSaveAuto: (auto: ScheduleAutoConfig) => void;
+    /** 雲端那條（只有角色）：開／關；回新的 cloud 記錄或錯誤訊息 */
+    onCloudToggle?: (enabled: boolean) => Promise<string | null>;
     onClose: () => void;
 }
 
 type Row = { label: string; state: 'running' | 'ok' | 'fail' | 'skip' };
 
-const GeneratePage: React.FC<GeneratePageProps> = ({ person, userProfile, api, hasToday, batch, onSavePrompt, onGenerated, onClose }) => {
+const GeneratePage: React.FC<GeneratePageProps> = ({ person, userProfile, api, hasToday, batch, onSavePrompt, onGenerated, auto, onSaveAuto, onCloudToggle, onClose }) => {
+    const [cloudBusy, setCloudBusy] = useState(false);
+    const [cloudNote, setCloudNote] = useState<string | null>(null);
+    const setAuto = (patch: Partial<ScheduleAutoConfig>) => onSaveAuto({ enabled: auto?.enabled ?? false, every: auto?.every ?? 'day', ahead: auto?.ahead ?? 1, cloud: auto?.cloud, ...patch });
     const [prompt, setPrompt] = useState(person.schedulePrompt || '');
     const [busy, setBusy] = useState<string | null>(null);
     const [rows, setRows] = useState<Row[]>([]);
@@ -126,6 +134,40 @@ const GeneratePage: React.FC<GeneratePageProps> = ({ person, userProfile, api, h
                     <button onClick={() => void runWeek(false)} disabled={!!busy} className={`${btn} bg-white text-pink-500 border border-pink-100`}>生成這週（今天起 7 天，已有的不動）</button>
                     <button onClick={() => void runWeek(true)} disabled={!!busy} className={`${btn} bg-white text-slate-500 border border-slate-100`}>這週全部重生</button>
                     <div className="text-[11px] text-slate-400 leading-relaxed">一週是先出 7 天大綱、再每天分開補時段，會叫 8 次 API。約好的事和沒做完的待辦會一起餵進去；模型說做完的待辦會自動勾掉（標「AI 勾的」，你能取消）。</div>
+                </section>
+
+                <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-3 shadow-sm">
+                    <label className="flex items-center justify-between text-[13px] font-bold text-slate-700">
+                        <span>自動生成<span className="block text-[11px] font-normal text-slate-400">頁面開著時每幾分鐘看一次，該排的就排</span></span>
+                        <input type="checkbox" checked={!!auto?.enabled} onChange={e => setAuto({ enabled: e.target.checked })} className="h-5 w-5 accent-pink-400" />
+                    </label>
+                    {auto?.enabled && (
+                        <>
+                            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="多久排一次">
+                                {([['day', '每天排一天'], ['week', '每週排一週']] as const).map(([id, label]) => (
+                                    <button key={id} role="radio" aria-checked={auto.every === id} onClick={() => setAuto({ every: id })}
+                                        className={`rounded-xl px-2 py-2 text-[12px] font-bold border ${auto.every === id ? 'bg-pink-50 border-pink-300 text-slate-700' : 'bg-white border-slate-100 text-slate-500'}`}>{label}</button>
+                                ))}
+                            </div>
+                            <label className="flex items-center justify-between text-[13px] text-slate-700">
+                                <span>提早一天排<span className="block text-[11px] text-slate-400">那邊 20:00 之後排明天；關掉＝當天沒有才補</span></span>
+                                <input type="checkbox" checked={auto.ahead === 1} onChange={e => setAuto({ ahead: e.target.checked ? 1 : 0 })} className="h-5 w-5 accent-pink-400" />
+                            </label>
+                            {onCloudToggle && (
+                                <div className="rounded-xl bg-slate-50 p-3 space-y-1.5">
+                                    <label className="flex items-center justify-between text-[13px] text-slate-700">
+                                        <span>頁面關著也排（雲端）<span className="block text-[11px] text-slate-400">走主動消息 2.0 的後台任務，每天到點生成；每週那檔只有本機</span></span>
+                                        <input type="checkbox" checked={!!auto.cloud} disabled={cloudBusy} onChange={async e => {
+                                            setCloudBusy(true); setCloudNote(null);
+                                            try { setCloudNote(await onCloudToggle(e.target.checked)); } finally { setCloudBusy(false); }
+                                        }} className="h-5 w-5 accent-pink-400" />
+                                    </label>
+                                    {auto.cloud && <div className="text-[11px] text-emerald-600">雲端排著：每天 {auto.ahead === 1 ? '20:00 排明天' : '00:30 排今天'}（{auto.cloud.tzId}）</div>}
+                                    {cloudNote && <div className="text-[11px] text-rose-500">{cloudNote}</div>}
+                                </div>
+                            )}
+                        </>
+                    )}
                 </section>
 
                 {batch && batch.length > 0 && (
