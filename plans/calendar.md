@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1～3 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，第 1～4 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -130,6 +130,15 @@ interface Trip {
 - **生成頁**：`components/calendar/GeneratePage.tsx`（全螢幕）：行程提示詞、生成今天／重新生成、生成這週／這週全部重生、所有開了日程的角色今天還沒排的都生成（逐個跑、列進度）。「我的」頭像卡右邊 ✦ 開身份卡的；「TA 的」✦ 開角色的。
 - **顯示**：「我的」多身份卡的時間軸（跟「TA 的」同一個 `renderTimeline`），時段卡片列參與者頭像＋「跟 ×× 一起」、待辦標記；月曆「我的行程」也混進身份卡的時段。
 - 沒做：旅行、自動生成（第 4、5 批）；生成時的「出行中」那段等旅行。
+
+### 第 4 批（2026-11-17 做完）：旅行
+
+- **資料**：`Trip`（`types.ts`）存 `trips` 表（`utils/db.ts` v82，備份匯出匯入的「旅行」段）；純邏輯在 `utils/trips.ts`（誰的、這天在哪趟、第幾天／共幾天、`tripLabel`、`newTrip`、`refreshTripRegistry`）。登記表在 `utils/charNameRegistry.ts`（`setTripRegistry`／`getActiveTrip`，零依賴），OSContext 啟動時載一次、行事曆存改刪之後自己刷。
+- **時區多一層**：`resolveCharTimeZone` 變成「旅行 > 世界 > 角色」（旅行沒選時區就不換；「今天」照原本那邊的日曆日算），不看旅行的那層拆成 `resolveCharBaseTimeZone`。身份卡的所在地同理（`utils/userPersona.ts` 的 `withTripTimezone`，真實身份和卡都看；沒旅行回同一個物件）。
+- **生成帶出行**：`buildTripBlock`（`utils/scheduleGenParts.ts`）：目的地、第幾天（第一天／最後一天措辭不同）、出差／旅行的節奏、備註；一天和一週大綱都帶。
+- **天氣跟目的地**：私聊提示詞（`chatPrompts`）角色旅行中把 `weatherCity` 換成目的地；天氣快取照城市分。雲端（主動消息 worker 的 `realtimeWorld`）還是照設定裡的城市，沒接。
+- **介面**：「我的」「TA 的」各一段「✈ 旅行」清單（＋ 加一趟、點了改／刪），頭像卡下多一行「✈️ 旅行 · 杭州 · 第 2／5 天」，那天的時區、時間軸都照旅行的；月曆打點多一色（青＝有人在旅行），「今日次元重疊」上方列誰出行中。全螢幕 `components/calendar/TripPage.tsx`：誰的、類型（旅行／出差／其他）、目的地（打字）、時區（`COMMON_TIMEZONES` 清單選，可不換）、起訖日、備註。
+- 沒做：自動生成（第 5 批）；雲端天氣跟目的地。
 
 ## 8. 待確認
 

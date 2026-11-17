@@ -36,7 +36,7 @@ import { VOICE_ACTING_GUIDE } from './minimaxTts';
 import { FISH_VOICE_ACTING_GUIDE } from './fishAudioTts';
 import { getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from './ttsProvider';
 import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
-import { resolveCharTimeZone, nowInTimeZone } from './timezone';
+import { resolveCharTimeZone, nowInTimeZone, resolveCharBaseTimeZone } from './timezone';
 import { coarseGapDays, dateStamp, hasTimeAwareness, resolveTimeAwareness } from './timeAwareness';
 import { chatHistoryTimeOptions, describeClockNote, makeChatClock } from './dateStoryTime';
 import { calendarStamp, resolveCharCalendar } from './worldCalendar';
@@ -46,7 +46,7 @@ import { anniversaryView, charParticipant, loadCalendarEvents, openTodos } from 
 import { buildCharTodoInjection } from './calendarInjection';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
-import { getCharNameById, getCharRefs, getRegisteredCharacters } from './charNameRegistry';
+import { getCharNameById, getCharRefs, getRegisteredCharacters, getActiveTrip } from './charNameRegistry';
 import { buildAltSelfRevealPrompt, buildOwnerAltPrompt } from './altFriend';
 import { buildSideMessagePrompt, sideTargets } from './sideMessage';
 import { isPersonaLinesEnabled } from './devDebug';
@@ -480,9 +480,13 @@ export const ChatPrompts = {
 
         // ── 併發發起所有獨立的異步取數（網絡 + IndexedDB），下面按原順序拼接 ──
         // 原來是 7 段串行 await，總耗時 = 各段之和；現在取 max。
-        const config = realtimeConfig || defaultRealtimeConfig;
         // 自定義時區：日曆日、當前日程與實時上下文全部按角色所在地折算。
         const charTz = resolveCharTimeZone(char);
+        // 旅行中（plans/calendar.md 第 4 批）：天氣跟目的地查
+        const tripNow = getActiveTrip({ kind: 'char', id: char.id }, getLocalDateKey(nowInTimeZone(resolveCharBaseTimeZone(char))));
+        const config = tripNow?.destination && (realtimeConfig || defaultRealtimeConfig).weatherEnabled
+            ? { ...(realtimeConfig || defaultRealtimeConfig), weatherCity: tripNow.destination }
+            : (realtimeConfig || defaultRealtimeConfig);
         // 日程照真實的今天讀（日程是按真實日子生成的）；「現在是哪個時段」照私聊的時鐘
         const today = getLocalDateKey(nowInTimeZone(charTz));
         const charNow = nowInTimeZone(charTz, new Date(chatClock ? chatClock.now : Date.now()));

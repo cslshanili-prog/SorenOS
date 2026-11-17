@@ -126,7 +126,7 @@ export const defaultRealtimeConfig: RealtimeConfig = {
 };
 
 // 緩存
-let weatherCache: { data: WeatherData | null; timestamp: number } = { data: null, timestamp: 0 };
+let weatherCache: { data: WeatherData | null; timestamp: number; city?: string } = { data: null, timestamp: 0 };
 let newsCache: { data: NewsItem[]; timestamp: number } = { data: [], timestamp: 0 };
 
 
@@ -144,7 +144,8 @@ export const RealtimeContextManager = {
         const cacheMs = config.cacheMinutes * 60 * 1000;
 
         // 檢查緩存
-        if (weatherCache.data && (now - weatherCache.timestamp) < cacheMs) {
+        // 快取照城市分：角色旅行中天氣跟目的地（plans/calendar.md 第 4 批），換了城市不能拿上一個城市的
+        if (weatherCache.data && weatherCache.city === config.weatherCity && (now - weatherCache.timestamp) < cacheMs) {
             return weatherCache.data;
         }
 
@@ -154,7 +155,7 @@ export const RealtimeContextManager = {
         }
 
         // 更新緩存
-        weatherCache = { data: weather, timestamp: now };
+        weatherCache = { data: weather, timestamp: now, city: config.weatherCity };
 
         return weather;
     },

@@ -5064,6 +5064,26 @@ export interface CalendarEvent {
     updatedAt: number;
 }
 
+/**
+ * 旅行／出差（plans/calendar.md 第 3 節、第 4 批，utils/trips.ts）：角色和身份卡都能排。
+ * 期間時區暫時換成目的地（旅行 > 世界 > 角色）、生成那幾天的日程帶「出行中」、天氣跟目的地。
+ */
+export interface Trip {
+    id: string;
+    owner: Participant;
+    /** 目的地（城市，打字；天氣用它查） */
+    destination: string;
+    /** IANA 時區；沒選＝不換時區 */
+    timezone?: string;
+    /** 'YYYY-MM-DD'，含頭尾 */
+    from: string;
+    to: string;
+    kind: 'business' | 'travel' | 'other';
+    note?: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
 /** 【舊】時光契約的紀念日；2026-11 搬進 CalendarEvent（kind 'anniversary'），表留著不讀 */
 export interface Anniversary {
     id: string;
@@ -5424,6 +5444,8 @@ export interface FullBackupData {
     anniversaries?: Anniversary[];
     /** 行事曆的約定層（plans/calendar.md） */
     calendarEvents?: CalendarEvent[];
+    /** 行事曆的旅行（plans/calendar.md 第 4 批） */
+    trips?: Trip[];
     roomTodos?: RoomTodo[]; 
     roomNotes?: RoomNote[];
     socialPosts?: SocialPost[]; 

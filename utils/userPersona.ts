@@ -1,5 +1,17 @@
 import type { CharacterProfile, UserProfile } from '../types';
 import { isPersonaLinesEnabled } from './devDebug';
+import { getActiveTrip } from './charNameRegistry';
+import { getLocalDateKey } from './localDate';
+import { nowInTimeZone } from './timezone';
+
+/**
+ * 旅行中的身份卡（plans/calendar.md 第 4 批）：所在地暫時換成目的地的時區（旅行 > 卡上的所在地）。
+ * 「今天」照卡原本的所在地算；沒旅行、或旅行沒選時區，就原樣回傳（同一個物件，別處的 toBe 比對不受影響）。
+ */
+const withTripTimezone = (profile: UserProfile, personaKey: string): UserProfile => {
+    const trip = getActiveTrip({ kind: 'persona', id: personaKey }, getLocalDateKey(nowInTimeZone(profile.timezone)));
+    return trip?.timezone && trip.timezone !== profile.timezone ? { ...profile, timezone: trip.timezone } : profile;
+};
 
 /**
  * 套用身份卡之後，真實身份原本的名字和頭像記在這裡（Symbol，存進 IndexedDB／JSON 都不會跟著寫出去）。
@@ -26,8 +38,8 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
     const persona = profile.activePersonaId
         ? profile.personas?.find(p => p.id === profile.activePersonaId)
         : undefined;
-    if (!persona) return profile;
-    return withRealFace({
+    if (!persona) return withTripTimezone(profile, REAL_IDENTITY_PERSONA_ID);
+    return withTripTimezone(withRealFace({
         ...profile,
         name: persona.name,
         avatar: persona.avatar,
@@ -41,7 +53,7 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         voiceProfile: persona.voiceProfile,
         // 所在地也跟著卡走（plans/time-system.md 第 2c 節）：卡沒設就是跟設備，不借真實身份的
         timezone: persona.timezone,
-    }, profile);
+    }, profile), persona.id);
 }
 
 /**
@@ -64,7 +76,7 @@ function applyPersonaOverride(
     if (overrideId && overrideId !== REAL_IDENTITY_PERSONA_ID) {
         const persona = profileBase.personas?.find(p => p.id === overrideId);
         if (persona) return {
-            profile: withRealFace({
+            profile: withTripTimezone(withRealFace({
                 ...profileBase,
                 name: persona.name,
                 avatar: persona.avatar,
@@ -75,12 +87,12 @@ function applyPersonaOverride(
                 imageGenConfig: persona.imageGenConfig,
                 voiceProfile: persona.voiceProfile,
                 timezone: persona.timezone,
-            }, profileBase),
+            }, profileBase), persona.id),
             matchedPersona: true,
         };
         // 指向的身份卡已被刪除：跟"沒設置"一樣回落到全域默認，不崩潰、不留死引用的痕跡。
     }
-    return { profile: overrideId === REAL_IDENTITY_PERSONA_ID ? profileBase : applyActivePersona(profileBase), matchedPersona: false };
+    return { profile: overrideId === REAL_IDENTITY_PERSONA_ID ? withTripTimezone(profileBase, REAL_IDENTITY_PERSONA_ID) : applyActivePersona(profileBase), matchedPersona: false };
 }
 
 /**
@@ -253,7 +265,7 @@ export function npcPersonaSource(
 
 /** 身份鍵對應的完整檔案（外顯欄位換成那張卡的）。群聊、朋友圈這些「不是替某個角色」的地方用。 */
 export function profileForPersonaKey(profileBase: UserProfile, key: string): UserProfile {
-    if (key === REAL_IDENTITY_PERSONA_ID) return profileBase;
+    if (key === REAL_IDENTITY_PERSONA_ID) return withTripTimezone(profileBase, REAL_IDENTITY_PERSONA_ID);
     return applyPersonaOverride(profileBase, key).profile;
 }
 

@@ -7,7 +7,7 @@
  * - 一週：先一次請求出 7 天大綱＋這週想做的事，每天的時段分開補
  */
 
-import type { CalendarEvent, Participant, ScheduleSlot } from '../types';
+import type { CalendarEvent, Participant, ScheduleSlot, Trip } from '../types';
 import { todoTitleMatches } from './todoTagParse';
 
 export interface NamedParticipant { participant: Participant; name: string }
@@ -55,6 +55,16 @@ export const buildTodosBlock = (events: CalendarEvent[], who: Participant, dayKe
     if (!list.length) return '';
     const lines = list.map(e => `- ${e.title}${e.start ? `（截止 ${e.start.slice(0, 10)}${e.start.slice(0, 10) < dayKey ? '，已經過期' : e.start.slice(0, 10) === dayKey ? '，就是這天' : ''}）` : ''}`);
     return `\n## 沒做完的待辦（挑合理的幾條排進某個時段，截止近的優先；排了的時段把 todo 欄寫成那條的標題；不用全排）\n${lines.join('\n')}\n`;
+};
+
+/** 出行中那段（plans/calendar.md 第 4 批）：目的地、第幾天、類型；最後一天提一句要回去了 */
+export const buildTripBlock = (trip: Trip | undefined, dayKey: string): string => {
+    if (!trip) return '';
+    const day = Math.round((Date.UTC(Number(dayKey.slice(0, 4)), Number(dayKey.slice(5, 7)) - 1, Number(dayKey.slice(8, 10))) - Date.UTC(Number(trip.from.slice(0, 4)), Number(trip.from.slice(5, 7)) - 1, Number(trip.from.slice(8, 10)))) / 86_400_000) + 1;
+    const total = Math.round((Date.UTC(Number(trip.to.slice(0, 4)), Number(trip.to.slice(5, 7)) - 1, Number(trip.to.slice(8, 10))) - Date.UTC(Number(trip.from.slice(0, 4)), Number(trip.from.slice(5, 7)) - 1, Number(trip.from.slice(8, 10)))) / 86_400_000) + 1;
+    const kind = trip.kind === 'business' ? '出差' : trip.kind === 'travel' ? '旅行' : '出行';
+    const phase = day === 1 ? '第一天（剛到或在路上）' : day === total ? '最後一天（要回去了）' : `第 ${day} 天`;
+    return `\n## 出行中\n這天人在「${trip.destination}」${kind}，共 ${total} 天，這是${phase}${trip.timezone ? `，時間照當地（${trip.timezone}）` : ''}。日程要是在那邊的一天：${kind === '出差' ? '工作為主，空檔才有自己的時間' : '按旅人的節奏，走走看看、吃當地的東西'}，不要出現家裡的日常。${trip.note ? `備註：${trip.note}` : ''}\n`;
 };
 
 /** 一週大綱裡這天那句 */

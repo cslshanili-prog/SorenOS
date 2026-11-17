@@ -53,5 +53,21 @@ export const setWorldStyleRegistry = setWorldRegistry;
 export const getWorld = (groupId: string | undefined | null): WorldRegistryEntry | undefined => (groupId ? __worlds.get(groupId) : undefined);
 export const getWorldStyleId = (groupId: string | undefined | null): string | undefined => getWorld(groupId)?.imageStyleId;
 
+/**
+ * 旅行登記表（plans/calendar.md 第 4 批）：期間時區換成目的地，resolveCharTimeZone／身份卡所在地要查。
+ * 零依賴：這裡只存、只比日期；載入和刷新在 utils/trips.ts。
+ */
+export interface TripRegistryEntry { id: string; owner: { kind: string; id: string }; destination: string; timezone?: string; from: string; to: string; kind?: string }
+let __trips: TripRegistryEntry[] = [];
+export const setTripRegistry = (trips: TripRegistryEntry[]): void => { __trips = trips.filter(t => t?.id && t.owner && t.from && t.to); };
+export const getTripRegistry = (): ReadonlyArray<TripRegistryEntry> => __trips;
+/** 這個人這天在旅行嗎（含頭尾；好幾趟重疊取清單最後一筆） */
+export const getActiveTrip = (owner: { kind: string; id: string } | null | undefined, dayKey: string): TripRegistryEntry | undefined => {
+    if (!owner) return undefined;
+    let hit: TripRegistryEntry | undefined;
+    for (const t of __trips) if (t.owner.kind === owner.kind && t.owner.id === owner.id && t.from <= dayKey && dayKey <= t.to) hit = t;
+    return hit;
+};
+
 /** 所有登記的角色卡（只讀快照）。 */
 export const getRegisteredCharacters = <T = any>(): T[] => [...__charsById.values()] as T[];
