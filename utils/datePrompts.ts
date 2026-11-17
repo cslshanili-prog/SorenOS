@@ -21,7 +21,7 @@
  */
 
 import { buildDateLanguageRule } from './chatLanguage';
-import { applyClockToHistory, describeClockNote, type DateClock } from './dateStoryTime';
+import { applyClockToHistory, clockTurnNote, describeClockNote, historyTimeOptions, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { buildLengthLine, buildScenarioBlock } from './dateExtras';
 import { buildObserveBlock, isObserveOn } from './dateObserve';
@@ -339,12 +339,21 @@ export const DATE_SCENE_LINES = `- **Location**: 你們現在**面對面**。
 - **Context**: 參考歷史記錄。如果剛剛才看到開場白（Opening），請自然接話。`;
 
 /** 每輪貼在用戶這句後面的提醒；focusHint 空就不帶線索 */
-export const buildDateTurnNote = (variant: 'send' | 'reroll', voice: boolean, focusHint: string): string => {
+export const buildDateTurnNote = (variant: 'send' | 'reroll', voice: boolean, focusHint: string, timeLine = ''): string => {
     const focusLine = focusHint ? ` 本輪線索：${focusHint}。` : '';
     const voiceTag = voice ? '、開頭帶英文語氣標籤' : '';
+    // 現在幾點也貼在這裡：系統提示裡那行離生成太遠，模型常跟著記錄裡的舊時間戳寫日期
+    const timePart = timeLine ? ` ${timeLine}` : '';
     return variant === 'send'
-        ? `(System Note: 台詞單獨成行、用引號包起來${voiceTag}。敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`
-        : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。台詞依然單獨成行、用引號包起來${voiceTag}；敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine})`;
+        ? `(System Note: 台詞單獨成行、用引號包起來${voiceTag}。敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine}${timePart})`
+        : `(System Note: Reroll. 換一個切入角度重寫，不要複用上一版的展開思路。台詞依然單獨成行、用引號包起來${voiceTag}；敘述行寫具體的感官細節和停頓，不要羅列動作。${focusLine}${timePart})`;
+};
+
+/** 每輪末尾那句「現在幾點」：線下時間感知關掉就沒有；有故事時鐘照故事的，否則照現實 */
+export const buildDateTurnTimeLine = (char: CharacterProfile, clock: DateClock | null): string => {
+    if (!isDateTimeAwarenessOn(char)) return '';
+    const tz = resolveCharTimeZone(char);
+    return clock ? clockTurnNote(clock, tz) : `現在是 ${getRealTimeStr(tz)}。`;
 };
 
 /**
@@ -411,7 +420,7 @@ export const buildDateHistory = (
         userProfile || ({} as UserProfile),
         emojis,
         undefined,
-        { useVisionDescriptions },
+        { useVisionDescriptions, ...historyTimeOptions(char, clock) },
     );
     return apiMessages;
 };
@@ -600,7 +609,7 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
         // 每輪輪換的聚焦線索：把注意力推向不同的具體方向，相鄰回覆天然有差異
-        const note = buildDateTurnNote(variant, !!char.dateVoiceEnabled, isDigDeeperOn(char.dateStyleConfig) ? pickFocusHint() : '');
+        const note = buildDateTurnNote(variant, !!char.dateVoiceEnabled, isDigDeeperOn(char.dateStyleConfig) ? pickFocusHint() : '', buildDateTurnTimeLine(char, clock));
 
         // 固定台詞：對方這句踩中了就這一輪原樣說出，跟每輪的註記放在一起、緊貼開口（見 utils/fixedLines.ts）
         // 只拿說出口的部分去比對：旁白裡寫到的字不算「對方說了」

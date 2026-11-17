@@ -18,7 +18,7 @@
  */
 
 import { buildDateLanguageRule } from './chatLanguage';
-import { describeClockNote, formatStoryClock, type DateClock } from './dateStoryTime';
+import { clockTurnNote, describeClockNote, formatStoryClock, type DateClock } from './dateStoryTime';
 import type { CharacterProfile, Emoji, Message, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { buildDateHistory, DATE_VOICE_GUIDE, type ApiMessage } from './datePrompts';
@@ -102,8 +102,11 @@ export const buildMeetingPresetPayload = async (input: {
     };
 
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話
+    // 故事時鐘不是現實的話，現在幾點也貼在本輪那句後面：預設裡 time 那格放哪都離生成太遠，
+    // 模型常跟著記錄裡的舊時間戳寫日期。真實時間不貼，預設作者自己決定 time 放哪。
+    const turnTime = clock && char.dateTimeAwarenessEnabled !== false ? `\n\n(${clockTurnNote(clock, resolveCharTimeZone(char))})` : '';
     const withDepth = injectWorldbookDepthEntries(
-        [...history, { role: 'user', content: userText }],
+        [...history, { role: 'user', content: `${userText}${turnTime}` }],
         resolveWorldbookDepthEntries(withGlobalWorldbooks(char.mountedWorldbooks), scan, char.name, userName),
     );
     const presetHistory = withDepth
