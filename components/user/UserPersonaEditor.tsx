@@ -11,6 +11,7 @@ import CharacterImageGenPanel from '../character/CharacterImageGenPanel';
 import PersonaLinksSection from './PersonaLinksSection';
 import VoiceProfileFields from '../voice/VoiceProfileFields';
 import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
+import { COMMON_TIMEZONES } from '../../utils/timezone';
 
 /** 有填任何一家的音色才存；全空就不留一個空殼 */
 const hasAnyVoice = (vp: CharacterProfile['voiceProfile']): boolean =>
@@ -42,11 +43,14 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
     const [draftImageGen, setDraftImageGen] = useState<CharacterProfile['imageGenCharConfig']>(undefined);
     // 聲音（私聊發語音條用，plans/user-voice.md）
     const [draftVoice, setDraftVoice] = useState<CharacterProfile['voiceProfile']>(undefined);
+    // 所在地（時區，plans/time-system.md 第 2c 節）：算你跟角色的時差用；空＝跟設備
+    const [draftTimezone, setDraftTimezone] = useState('');
     const uploadRef = useRef<HTMLInputElement>(null);
 
-    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig']; voiceProfile?: CharacterProfile['voiceProfile'] }) => {
+    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig']; voiceProfile?: CharacterProfile['voiceProfile']; timezone?: string }) => {
         setDraftImageGen(source.imageGenConfig);
         setDraftVoice(source.voiceProfile);
+        setDraftTimezone(source.timezone || '');
         setDraftName(source.name);
         setDraftBio(source.bio);
         setDraftAvatar(source.avatar);
@@ -109,6 +113,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
             otherDetails: draftOtherDetails.trim() || undefined,
             imageGenConfig: draftImageGen && (draftImageGen.referenceImage || draftImageGen.characterPrompt?.trim()) ? draftImageGen : undefined,
             voiceProfile: hasAnyVoice(draftVoice) ? draftVoice : undefined,
+            timezone: draftTimezone || undefined,
         };
         if (editingId === 'real') {
             updateUserProfile(fields);
@@ -189,6 +194,20 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                             <option value="">不設置</option>
                             {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">所在地（時區）</label>
+                        <select
+                            value={draftTimezone}
+                            onChange={(e) => setDraftTimezone(e.target.value)}
+                            aria-label="所在地（時區）"
+                            className="w-full bg-slate-50 border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all appearance-none"
+                        >
+                            <option value="">跟設備</option>
+                            {COMMON_TIMEZONES.map(tz => <option key={tz.id} value={tz.id}>{tz.label}</option>)}
+                        </select>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">這個身份住在哪：角色有自己的時區時，會知道你那邊現在幾點、你們差幾小時。架空世界用不上。</p>
                     </div>
 
                     <div>

@@ -3,6 +3,7 @@ import type { CharacterProfile, DateStory, DateStoryTime } from '../../types';
 import { patchDateStory } from '../../utils/dateStory';
 import { formatStoryClock, makeDateClock, storyTimeIsOwn } from '../../utils/dateStoryTime';
 import { resolveCharTimeZone } from '../../utils/timezone';
+import { resolveCharCalendar } from '../../utils/worldCalendar';
 import TimeModeFields, { DEFAULT_TIME_MODE } from '../common/TimeModeFields';
 
 // 見面設定的「時間」：真實／自定義／關閉 × 流動／靜止（utils/dateStoryTime.ts；欄位本身在 components/common/TimeModeFields.tsx）。
@@ -20,6 +21,7 @@ interface Props {
 
 const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, addToast, Section }) => {
     const tz = resolveCharTimeZone(char);
+    const timeline = resolveCharCalendar(char);
     const legacyOff = char.dateTimeAwarenessEnabled === false;
     const own = storyTimeIsOwn(char, story);
     const followingChat = !own && !legacyOff && !!char.chatTime && char.chatTime.source !== 'off';
@@ -58,7 +60,7 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
                 {followingChat && (
                     <p className="text-[10px] text-slate-400 leading-relaxed">沒另外設，跟著私聊的時間走；在這裡改了就不跟。</p>
                 )}
-                <TimeModeFields value={saved} onChange={onChange} tz={tz} allowOff onCustomCommitted={() => addToast('故事時間已更新', 'success')} />
+                <TimeModeFields value={saved} onChange={onChange} tz={tz} timeline={timeline} allowOff onCustomCommitted={() => addToast('故事時間已更新', 'success')} />
                 {!off && (
                     <p className="text-[10px] text-slate-400 leading-relaxed" data-story-clock>
                         {saved.source === 'real' && saved.flow === 'flowing' && '跟著現實時間走（原本的樣子）。'}
@@ -66,7 +68,7 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
                         {saved.source === 'custom' && saved.flow === 'flowing' && (story ? '從填的時間起，跟著現實往前走：' : '故事開始時從填的時間起，跟著現實往前走。')}
                         {saved.source === 'custom' && saved.flow === 'frozen' && '停在填的時間：'}
                         {(story || saved.source === 'custom') && !(saved.source === 'real' && saved.flow === 'flowing') && (
-                            <span className="font-bold text-slate-500"> 故事裡現在是 {formatStoryClock(preview, tz)}</span>
+                            <span className="font-bold text-slate-500"> 故事裡現在是 {formatStoryClock(preview, tz, timeline)}</span>
                         )}
                     </p>
                 )}

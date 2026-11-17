@@ -17,6 +17,7 @@
  * 內建模式的格式規則、文風預設、「說出口／旁白」標記、表達底線都不帶——這些交給預設自己決定。
  */
 
+import { resolveCharCalendar } from './worldCalendar';
 import { buildDateLanguageRule } from './chatLanguage';
 import { clockTurnNote, describeClockNote, formatStoryClock, isDateTimeOn, storyClock, type DateClock } from './dateStoryTime';
 import type { CharacterProfile, Emoji, Message, UserProfile } from '../types';
@@ -96,7 +97,7 @@ export const buildMeetingPresetPayload = async (input: {
         // 故事時鐘不是現實的話，換成故事裡的時間（照角色時區）
         time: !timeOn ? ''
             : clock
-            ? `當前時間（故事裡）：${formatStoryClock(clock, resolveCharTimeZone(char))}。${describeClockNote(clock)}`
+            ? `當前時間（故事裡）：${formatStoryClock(clock, resolveCharTimeZone(char), resolveCharCalendar(char))}。${describeClockNote(clock)}`
             : sections.timeAwareness,
         // 預設自己有讀字數的變數就蓋那個；沒有才由 Soren 另外說一句
         length: lengthGlobals.mapped ? '' : buildLengthLine(char),
@@ -108,7 +109,7 @@ export const buildMeetingPresetPayload = async (input: {
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話
     // 故事時鐘不是現實的話，現在幾點也貼在本輪那句後面：預設裡 time 那格放哪都離生成太遠，
     // 模型常跟著記錄裡的舊時間戳寫日期。真實時間不貼，預設作者自己決定 time 放哪。
-    const turnTime = clock && timeOn ? `\n\n(${clockTurnNote(clock, resolveCharTimeZone(char))})` : '';
+    const turnTime = clock && timeOn ? `\n\n(${clockTurnNote(clock, resolveCharTimeZone(char), resolveCharCalendar(char))})` : '';
     const withDepth = injectWorldbookDepthEntries(
         [...history, { role: 'user', content: `${userText}${turnTime}` }],
         resolveWorldbookDepthEntries(withGlobalWorldbooks(char.mountedWorldbooks), scan, char.name, userName),

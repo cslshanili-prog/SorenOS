@@ -1,3 +1,4 @@
+import WorldTimeEditor from '../components/character/WorldTimeEditor';
 import { TIME_AWARENESS_OPTIONS, resolveTimeAwareness, timeAwarenessPatch } from '../utils/timeAwareness';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { liveStyleId, STYLE_NONE, styleLabel } from '../utils/imageStyle';
@@ -119,7 +120,7 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, updateCharacterGroup, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
@@ -2240,6 +2241,8 @@ ${isInitialGeneration ? `
                                         {(apiConfig.imageGenConfig?.stylePresets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                                     </select>
                                 </div>
+                                {/* 世界的曆法與時區（plans/time-system.md 第 2a、2c 節）：現實曆法選時區（覆蓋成員各自的）；架空曆法填對應點和年份寫法，時區不看 */}
+                                <WorldTimeEditor world={g} onChange={patch => { void updateCharacterGroup(g.id, patch); }} />
                                 <WorldSectionsEditor world={g} />
                             </section>
                         );

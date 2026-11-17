@@ -20,6 +20,7 @@
  * prompt（peek 舊版手搓 mapper 的問題即在此，已統一修掉）。
  */
 
+import { formatCalendarClock, resolveCharCalendar } from './worldCalendar';
 import { buildDateLanguageRule } from './chatLanguage';
 import { applyClockToHistory, clockTurnNote, describeClockNote, historyTimeOptions, isDateTimeOn, storyClock, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
@@ -54,15 +55,9 @@ export const DATE_VOICE_GUIDE = `4. **台詞的語氣標籤**：台詞會被朗�
  * 不要從 OSContext 的 virtualTime 取——那個名字唬人，實際也是每秒同步的真實
  * 時間，但只有"星期 + 時:分"，缺日期，而且沒必要讓 prompt 構建依賴 React 狀態。
  */
-const getRealTimeStr = (tz?: string, at: number = Date.now()): string => {
-    // formatDate 自己會按 tz 折算，所以這裡要喂真實時刻（故事時鐘換算過的也是絕對時刻）。
-    // nowInTimeZone 返回的 Date 是「本地 getter 讀出來正好是角色牆上時間」的形式，
-    // 它的絕對時間戳已經被挪過一次——再交給 formatDate 就會多減一個時差。
-    const realNow = at;
-    const wallClock = nowInTimeZone(tz, new Date(realNow));
-    const days = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-    return `${ChatPrompts.formatDate(realNow, tz)} ${days[wallClock.getDay()]}`;
-};
+/** 「現在」寫成「2026-11-07 21:30 週六」：照角色的時區和所在世界的曆法（utils/worldCalendar.ts）；喂真實時刻（故事時鐘換算過的也是絕對時刻） */
+const getRealTimeStr = (char: CharacterProfile, at: number = Date.now()): string =>
+    formatCalendarClock(at, resolveCharTimeZone(char), resolveCharCalendar(char));
 
 /** 見面要不要帶時間：時間來源「關閉」（或舊的線下時間感知開關關著）就不帶，見 utils/dateStoryTime.ts */
 const isDateTimeAwarenessOn = (char: CharacterProfile, clock: DateClock | null | undefined): boolean =>
@@ -354,7 +349,7 @@ export const buildDateTurnTimeLine = (char: CharacterProfile, clock: DateClock |
     if (!isDateTimeAwarenessOn(char, clock)) return '';
     const tz = resolveCharTimeZone(char);
     const sc = storyClock(clock);
-    return sc ? clockTurnNote(sc, tz) : `現在是 ${getRealTimeStr(tz)}。`;
+    return sc ? clockTurnNote(sc, tz, resolveCharCalendar(char)) : `現在是 ${getRealTimeStr(char)}。`;
 };
 
 /**
@@ -367,8 +362,8 @@ const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap 
     const clock = storyClock(rawClock);
     const timeLine = !dateTimeOn ? ''
         : clock
-            ? `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char), clock.now)}。${describeClockNote(clock)}\n`
-            : `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char))}。\n`;
+            ? `1. **Time**: 當前時間 ${getRealTimeStr(char, clock.now)}。${describeClockNote(clock)}\n`
+            : `1. **Time**: 當前時間 ${getRealTimeStr(char)}。\n`;
     const styleConfig = char.dateStyleConfig;
     const preset = getStylePreset(styleConfig);
     const povBlock = buildPovBlock(styleConfig, char.name, userName);
@@ -498,7 +493,7 @@ export const DatePrompts = {
         const dateTimeOn = isDateTimeAwarenessOn(char, rawClock);
         // 關著的時鐘不是故事時鐘：下面「故事裡的時間」那幾句都看這個
         const clock = storyClock(rawClock);
-        const timeStr = getRealTimeStr(charTz, clock?.now);
+        const timeStr = getRealTimeStr(char, clock?.now);
         const selected = selectCharacterContextMessages(allMsgs, char);
         // 取時間戳最晚的那則，不是排最後的那則：訊息照自增 id 排，時間戳不一定單調（雲端補收的舊訊息
         // 會帶著當初的送出時間落在最後面），只看最後一則會把兩個月前那則當成「上次互動」。

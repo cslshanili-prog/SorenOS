@@ -12,7 +12,8 @@
  * 讀一律走 resolveTimeAwareness：沒新欄位時 `false` → none、其餘 → precise。
  */
 
-import type { CharacterProfile } from '../types';
+import type { CharacterProfile, WorldTimeline } from '../types';
+import { calendarDateStamp, formatCalendarText } from './worldCalendar';
 
 export type TimeAwarenessLevel = 'precise' | 'coarse' | 'none';
 
@@ -39,19 +40,17 @@ export const timeAwarenessPatch = (level: TimeAwarenessLevel): Pick<CharacterPro
 /** 不是「不知道」就算有時間感知（舊的 `timeAwarenessEnabled !== false` 一律改問這個） */
 export const hasTimeAwareness = (char: TimeAwarenessFields | null | undefined): boolean => resolveTimeAwareness(char) !== 'none';
 
-const WEEKDAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-const pad = (n: number) => String(n).padStart(2, '0');
-
 /** 幾點鐘 → 早中晚那個詞（跟 buildTimeAwarenessBlock 同一套刻度） */
 export const timeOfDayWord = (hour: number): string =>
     hour < 5 ? '凌晨' : hour < 9 ? '早晨' : hour < 12 ? '上午' : hour < 14 ? '中午'
     : hour < 17 ? '下午' : hour < 19 ? '傍晚' : hour < 22 ? '晚上' : '深夜';
 
-/** 日期 key：`2026-11-16`（d 已經是牆上時間，用本地 getter 讀） */
-export const dateStamp = (d: Date): string => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** 日期戳 `2026-11-16`（架空曆法就是 `3019-03-25`）：真實時刻＋時區＋曆法 */
+export const dateStamp = (ms: number, tz: string | undefined, timeline?: WorldTimeline): string => calendarDateStamp(ms, tz, timeline);
 
-/** 粗略那檔的「現在是」：日期＋星期＋早中晚，沒有幾點幾分 */
-export const coarseNowText = (d: Date): string => `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAYS[d.getDay()]} ${timeOfDayWord(d.getHours())}`;
+/** 粗略那檔的「現在是」：日期＋（星期）＋早中晚，沒有幾點幾分；hour 是角色那邊的鐘點 */
+export const coarseNowText = (ms: number, tz: string | undefined, timeline: WorldTimeline | undefined, hour: number): string =>
+    formatCalendarText(ms, tz, timeline, { time: false, timeOfDay: timeOfDayWord(hour) });
 
 /** 粗略那檔的「隔了多久」：不滿一天就當沒隔，滿一天只說幾天 */
 export const coarseGapDays = (diffMs: number): number => (diffMs < 0 ? 0 : Math.floor(diffMs / 86_400_000));

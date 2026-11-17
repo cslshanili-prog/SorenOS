@@ -4,6 +4,7 @@
 // 夜間判斷」都按這個時區折算，讓 ta 真的活在自己的本地時間裡。兩者可任意組合。
 
 import { CharacterProfile } from '../types';
+import { getWorld } from './charNameRegistry';
 
 /** 常用時區清單（友好中文標籤）。用 IANA id，自動處理夏令時。 */
 export const COMMON_TIMEZONES: { id: string; label: string }[] = [
@@ -25,10 +26,20 @@ export const COMMON_TIMEZONES: { id: string; label: string }[] = [
 ];
 
 /** 取角色當前生效的時區 id；未開啟自定義時區時返回 undefined（= 跟隨本機）。 */
+/**
+ * 角色生效的時區（plans/time-system.md 第 2c 節）：
+ * 1. 所在世界是架空曆法 → 沒有時區（時分照設備）
+ * 2. 所在世界設了時區 → 世界的（覆蓋成員各自的；同一個世界裡的人不可能各活一個時區）
+ * 3. 否則角色自己開的自定義時區；都沒有就 undefined（＝跟隨設備）
+ */
 export const resolveCharTimeZone = (
-    char?: Pick<CharacterProfile, 'customTimezoneEnabled' | 'customTimezone'> | null,
-): string | undefined =>
-    char?.customTimezoneEnabled && char.customTimezone ? char.customTimezone : undefined;
+    char?: Pick<CharacterProfile, 'customTimezoneEnabled' | 'customTimezone'> & { groupId?: string } | null,
+): string | undefined => {
+    const world = getWorld(char?.groupId);
+    if (world?.timeline?.anchorReal && world.timeline.anchorWorld) return undefined;
+    if (world?.timezone) return world.timezone;
+    return char?.customTimezoneEnabled && char.customTimezone ? char.customTimezone : undefined;
+};
 
 /** 時區 id → 友好標籤；不在清單裡就原樣返回 id。 */
 export const tzLabel = (tz: string): string =>
@@ -100,8 +111,19 @@ export const wallClockToTimestamp = (wallClockText: string, tz?: string): number
 };
 
 /** 注入聊天 prompt 的時差提示（異國戀核心）。tz 為空時返回空串。 */
-export const tzAwarenessNote = (tz?: string): string => {
+/**
+ * 時差那段：角色有時區才給。知道用戶所在地（身份卡的 timezone，plans/time-system.md 第 2c 節）就直說
+ * 對方在哪、現在幾點；同一個時區就不提時差。
+ */
+export const tzAwarenessNote = (tz?: string, userTz?: string, nowMs: number = Date.now()): string => {
     if (!tz) return '';
+    if (userTz && userTz === tz) return '';
+    if (userTz) {
+        const u = nowInTimeZone(userTz, new Date(nowMs));
+        const hh = `${String(u.getHours()).padStart(2, '0')}:${String(u.getMinutes()).padStart(2, '0')}`;
+        return `\n⏳ 注意：你身處「${tzLabel(tz)}」時區，上面的「當前時間」是你那邊的本地時間。`
+            + `對方（用戶）在「${tzLabel(userTz)}」，那邊現在是 ${hh}，你們之間有時差——聊天時把這點考慮進去。\n`;
+    }
     return `\n⏳ 注意：你身處「${tzLabel(tz)}」時區，上面的「當前時間」是你那邊的本地時間。`
         + `對方（用戶）可能在不同的時區，你們之間存在時差——聊天時把這點考慮進去`
         + `（比如你這邊已是深夜要睡了，對方那邊也許才下午）。\n`;
