@@ -18,6 +18,8 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_18 = 'changelog-soren-2026-11-18';
+export const CHANGELOG_SOREN_2026_11_16 = 'changelog-soren-2026-11-16';
 export const CHANGELOG_SOREN_2026_11_15 = 'changelog-soren-2026-11-15';
 export const CHANGELOG_SOREN_2026_11_14 = 'changelog-soren-2026-11-14';
 export const CHANGELOG_SOREN_2026_11_11 = 'changelog-soren-2026-11-11';
@@ -28,6 +30,22 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_18,
+        title: '2026 年 11 月 18 日 · S4.0 行事曆與時間',
+        subtitle: '行事曆取代時光契約（月曆／我的／TA 的，配角也能看）· 約定、待辦（角色自己記、自己勾）、紀念日 · 一天／一週／所有人生成，身份卡也能 · 旅行期間換時區 · 自動生成（本機＋雲端）· 時間系統：曆法掛世界、聊天線有自己的鐘、身份卡所在地、時間感知三檔',
+        date: '2026-11-18',
+        src: 'changelogs/2026-11-18.html',
+        accent: 'from-rose-50 to-pink-50 border-rose-200',
+    },
+    {
+        id: CHANGELOG_SOREN_2026_11_16,
+        title: '2026 年 11 月 16 日 · 裝扮、聊天語言與你的聲音',
+        subtitle: '裝扮 App 取代氣泡工坊（模板綁定、寫穿、預覽、Sore 能改）· 聊天語言：說話語言、夾雜、翻譯（雙語或 DeepL）· 身份卡音色＋私聊語音條 · 群聊你一句我一句、旁觀 ▸ · 切換聊天全螢幕、世界底下分組',
+        date: '2026-11-16',
+        src: 'changelogs/2026-11-16.html',
+        accent: 'from-violet-50 to-fuchsia-50 border-violet-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_15,
         title: '2026 年 11 月 15 日 · S3.0 Sore 與預設',
