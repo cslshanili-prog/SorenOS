@@ -4254,8 +4254,8 @@ ${olderText}
                         </div>
                         <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">詳細內容</label>
-                            <textarea value={evidenceEdit.detail} onChange={e => setEvidenceEdit({ ...evidenceEdit, detail: e.target.value })}
-                                className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
+                            <ExpandableTextarea title="詳細內容" value={evidenceEdit.detail} onChange={v => setEvidenceEdit({ ...evidenceEdit, detail: v })}
+                                className="w-full h-40 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none" />
                         </div>
                         {evidenceEdit.record.html && (
                             <p className="text-[9px] text-slate-400 leading-relaxed">這條記錄原本有一張生成的 HTML 卡片，保存修改後會先回退成純文字展示（內容跟卡片對不上就不硬湊），下次點「刷新數據」會按最新文字重新配一張。</p>
@@ -4453,7 +4453,7 @@ ${olderText}
                             value={newAppPrompt}
                             onChange={v => setNewAppPrompt(v)}
                             placeholder="例如: 顯示該用戶的存款餘額、近期的轉帳記錄以及理財收益。"
-                            className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none"
+                            className="w-full h-32 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs resize-none"
                         />
                         <p className="text-[9px] text-slate-400 mt-1">AI 將根據此指令生成該 App 內部的數據。</p>
                     </div>
@@ -4477,7 +4477,7 @@ ${olderText}
                                     value={newAppHtmlPrompt}
                                     onChange={v => setNewAppHtmlPrompt(v)}
                                     placeholder="可以寫自然語言卡片指令，也可以粘貼固定 HTML 模板；模板可用 {{title}}、{{detail}}、{{value}} 或自定義佔位符。"
-                                    className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs resize-none mt-3"
+                                    className="w-full h-32 bg-white border border-slate-200 rounded-xl p-3 text-xs resize-none mt-3"
                                 />
                                 <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">打開但不填寫時不會生成卡片，會自動回到原版純文字。固定 HTML 模板會比普通描述更穩定。</p>
                             </>
@@ -4502,7 +4502,7 @@ ${olderText}
                                     value={newAppCss}
                                     onChange={v => setNewAppCss(v)}
                                     placeholder={'例如：\n.phone-card { padding: 16px; border-radius: 20px; background: rgba(15,23,42,.88); color: white; }\n.phone-card-title { font-size: 18px; font-weight: 800; }'}
-                                    className="w-full h-24 bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono resize-none mt-3"
+                                    className="w-full h-32 bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono resize-none mt-3"
                                 />
                                 <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">建議用 .phone-card、.phone-card-title、.phone-card-section 等類名；系統會把 CSS 限制在這個 App 卡片區域裡。</p>
                             </>
