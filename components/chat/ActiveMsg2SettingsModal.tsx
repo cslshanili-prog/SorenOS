@@ -961,7 +961,7 @@ const ActiveMsg2SettingsModal: React.FC<ActiveMsg2SettingsModalProps> = ({
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <div className="font-bold text-slate-700">使用單獨 API</div>
-                  <div className="text-xs text-slate-400 mt-1">不開啟則依次退回：角色自己的對話模型 API → 全局主 API。</div>
+                  <div className="text-xs text-slate-400 mt-1">不開啟則依次退回：系統設置 → 副 API 中心的「主動消息單獨 API」→ 角色自己的對話模型 → 主 API。雲端到點用的是上雲那一刻的那家，掛了不會自己換。</div>
                 </div>
                 <button
                   onClick={() => setUseSecondaryApi(!useSecondaryApi)}

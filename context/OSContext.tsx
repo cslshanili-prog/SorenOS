@@ -111,6 +111,7 @@ import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSyn
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
+import { globalAmsgApi } from '../utils/apiCenter';
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
@@ -2589,7 +2590,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const pCfg = char.proactiveConfig;
           // 延遲自動回覆是在回用戶的話，跟平常聊天一樣用角色的對話模型，不走主動消息的副 API
           const useSecondary = !isReply && pCfg?.useSecondaryApi && pCfg.secondaryApi?.baseUrl;
-          const api = useSecondary ? pCfg!.secondaryApi! : resolveCharacterChatApi(char, currentApiConfig);
+          // API 中心：角色沒開單獨 API 就看系統設置的主動消息槽（回覆照舊走對話模型）
+          const api = useSecondary ? pCfg!.secondaryApi! : (!isReply && globalAmsgApi(currentApiConfig)) || resolveCharacterChatApi(char, currentApiConfig);
           if (!api.baseUrl) {
               drainQueuedProactive();
               return;

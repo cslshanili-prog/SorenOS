@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { CharacterProfile, ApiPreset, APIConfig } from '../../types';
 import { isScheduleFeatureOn } from '../../utils/scheduleGenerator';
 import ApiConnectionTest from './ApiConnectionTest';
+import { useOS } from '../../context/OSContext';
+import { describeMeterApiSource } from '../../utils/apiCenter';
 
 interface EmotionSettingsPanelProps {
     char: CharacterProfile;
@@ -17,6 +19,8 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
     const [key, setKey] = useState('');
     const [model, setModel] = useState('');
     const [dirty, setDirty] = useState(false);
+    const { apiConfig } = useOS();
+    const source = describeMeterApiSource(char.emotionConfig?.api, apiConfig);
 
     // Sync form state from character
     useEffect(() => {
@@ -53,8 +57,8 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         原版情緒 buff 就在這裡。與日程<b>強制同步</b>：日程開 → 自動啟用；日程關 → 一起停。
                     </p>
                     <p className="text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                        ⚙️ 下方不填 = 自動用主 API。想細膩點就填個 <b>Claude 系列</b>模型。<br/>
-                        這組 API 也用來生成<b>當日日程</b>、心聲與好感度。
+                        ⚙️ 這是<b>角色自己的</b>一組，不填就跟系統設置 → 副 API 中心的「情緒／日程 API」，那也沒設才用主 API。<br/>
+                        這組 API 也用來生成<b>日程</b>（含行事曆）、心聲與好感度。現在用的是：<b>{source}</b>。
                     </p>
                 </div>
             </div>
@@ -87,7 +91,10 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
             {/* API fields */}
             <div className="space-y-3">
                 <div className="flex items-center justify-between mb-0.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">副 API 配置</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">角色自己的情緒／日程 API</label>
+                    {(url || char.emotionConfig?.api?.baseUrl) && (
+                        <button type="button" onClick={() => { setUrl(''); setKey(''); setModel(''); onSave({ enabled: isScheduleFeatureOn(char), api: undefined }); setDirty(false); }} className="text-[10px] font-bold text-pink-500">跟系統設置</button>
+                    )}
                 </div>
 
 
@@ -97,7 +104,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                         type="text"
                         value={url}
                         onChange={e => { setUrl(e.target.value); setDirty(true); }}
-                        placeholder="留空 = 使用主 API"
+                        placeholder="留空 = 跟系統設置"
                         className="w-full bg-white/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-mono focus:bg-white transition-all"
                     />
                 </div>
@@ -126,7 +133,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                     <ApiConnectionTest url={url} apiKey={key} model={model} />
                 ) : (
                     <div className="text-[11px] text-slate-400 bg-slate-50 border border-dashed border-slate-200 rounded-lg px-3 py-2">
-                        URL 留空時用的是主 API，要測請到系統設置測主 API。
+                        URL 留空時跟系統設置 → 副 API 中心，要測請到那裡測。
                     </div>
                 )}
 
@@ -139,7 +146,7 @@ const EmotionSettingsPanel: React.FC<EmotionSettingsPanelProps> = ({
                             : 'bg-slate-100 text-slate-400 cursor-not-allowed'
                     }`}
                 >
-                    {dirty ? '保存副 API 配置' : '✓ 已保存'}
+                    {dirty ? '保存角色自己的 API' : '✓ 已保存'}
                 </button>
             </div>
         </div>
