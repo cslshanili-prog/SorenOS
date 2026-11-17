@@ -19,6 +19,7 @@
  */
 
 import type { APIConfig, ActiveMsg2CharacterConfig, CharacterProfile } from '../types';
+import { globalAmsgApi, globalMeterApi } from './apiCenter';
 
 /** 憑據行的值：三個字段全必填，服務端只查非空、不做格式校驗。 */
 export interface LlmCredentialValue {
@@ -114,10 +115,11 @@ export const toCredentialValue = (
 export const buildCharChatCredRow = (
   char: Pick<CharacterProfile, 'id'>,
   config: ActiveMsg2CharacterConfig | undefined,
-  apiConfig: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+  apiConfig: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> & Partial<Pick<APIConfig, 'amsgApi'>>,
 ): LlmCredentialRow | null => {
   const useSecondary = !!(config?.useSecondaryApi && config.secondaryApi?.baseUrl);
-  const source = useSecondary ? config!.secondaryApi! : apiConfig;
+  // API 中心：角色沒開單獨 API 就看系統設置的主動消息槽（跟 resolveApiConfig 同一個口徑）
+  const source = useSecondary ? config!.secondaryApi! : (globalAmsgApi(apiConfig) || apiConfig);
   const value = toCredentialValue(source);
   return value ? { credId: charCredId(char.id, 'chat'), value } : null;
 };
@@ -141,9 +143,10 @@ export const buildCharInstantCredRow = (
 export const buildCharEmotionCredRow = (
   charId: string,
   emotionApi: { baseUrl?: string; apiKey?: string; model?: string } | null | undefined,
-  apiConfig: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>,
+  apiConfig: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> & Partial<Pick<APIConfig, 'meterApi'>>,
 ): LlmCredentialRow | null => {
-  const source = emotionApi?.baseUrl ? emotionApi : apiConfig;
+  // API 中心：角色沒設就看系統設置的情緒／日程槽（跟 resolveCharacterMeterApi 同一個口徑）
+  const source = emotionApi?.baseUrl ? emotionApi : (globalMeterApi(apiConfig) || apiConfig);
   const value = toCredentialValue(source);
   return value ? { credId: charCredId(charId, 'emotion'), value } : null;
 };

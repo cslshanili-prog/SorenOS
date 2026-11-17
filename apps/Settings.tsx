@@ -13,6 +13,7 @@ import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyti
 import Modal from '../components/os/Modal';
 import TranslationApiSettings from '../components/settings/TranslationApiSettings';
 import ImageGenSettingsPanel from '../components/settings/ImageGenSettingsPanel';
+import ApiCenterPanel from '../components/settings/ApiCenterPanel';
 import { NotionManager, FeishuManager, RealtimeContextManager, fetchOwmWeather, fetchOpenMeteoWeather } from '../utils/realtimeContext';
 import { NEWS_FEED_SOURCES, resolveNewsFeeds } from '../utils/newsFeeds';
 import { XhsMcpClient } from '../utils/xhsMcpClient';
@@ -2596,6 +2597,21 @@ const Settings: React.FC = () => {
                     </div>
                 )}
             </div>
+        </SettingsSection>
+
+        {/* API 中心（plans/api-center-failover.md）：三個副槽集中在這裡填，角色級留著當覆蓋 */}
+        <SettingsSection
+            title="副 API 中心"
+            badge={<span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500">記憶 · 情緒／日程 · 主動消息</span>}
+            icon={
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                    </svg>
+                </div>
+            }
+        >
+            <ApiCenterPanel />
         </SettingsSection>
 
         {/* 生圖 API 區域：放在 API 配置正下方（Liora 2026-11-14） */}

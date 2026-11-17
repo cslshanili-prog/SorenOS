@@ -1,4 +1,5 @@
 import { CharacterProfile } from '../types';
+import { globalMeterApi, type ApiLike } from './apiCenter';
 
 export interface ResolvedChatApi {
   baseUrl: string;
@@ -16,6 +17,8 @@ export function resolveCharacterChatApi(char: CharacterProfile, apiConfig: Resol
  * apiConfig。故意不跟 resolveCharacterChatApi 一樣落到角色專屬 chatApi——那通常配的是主
  * 對話用的貴模型，情緒/意識流 API 才是用戶專門配來跑這類輔助生成的便宜模型，兩筆帳不能混。
  */
-export function resolveCharacterMeterApi(char: CharacterProfile, apiConfig: ResolvedChatApi): ResolvedChatApi {
-  return char.emotionConfig?.api?.baseUrl ? char.emotionConfig.api : apiConfig;
+export function resolveCharacterMeterApi(char: CharacterProfile, apiConfig: ApiLike): ResolvedChatApi {
+  if (char.emotionConfig?.api?.baseUrl) return char.emotionConfig.api;
+  // API 中心（plans/api-center-failover.md）：角色沒設就看系統設置的情緒／日程槽，再回落主 API
+  return globalMeterApi(apiConfig) || apiConfig;
 }

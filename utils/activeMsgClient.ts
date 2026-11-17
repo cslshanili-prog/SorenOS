@@ -21,6 +21,7 @@ import {
   UserProfile,
 } from '../types';
 import { getLastRealUserMessageAt } from './amsg2ExpireGuard';
+import { globalAmsgApi } from './apiCenter';
 import { resolveCharacterChatApi } from './characterApi';
 import { AMSG_BUNDLE_VERSION } from './amsgBundleVersion';
 import { buildTaskInstruction, resolveSendAtMs } from './amsgFireSchedule';
@@ -562,7 +563,8 @@ const initializeClient = (config: ActiveMsg2GlobalConfig) => {
  */
 const resolveApiConfig = (char: CharacterProfile, config: ActiveMsg2CharacterConfig, apiConfig: APIConfig) => {
   const useSecondary = config.useSecondaryApi && config.secondaryApi?.baseUrl;
-  const source = useSecondary ? config.secondaryApi! : resolveCharacterChatApi(char, apiConfig);
+  // API 中心（plans/api-center-failover.md）：角色沒開單獨 API 就看系統設置的主動消息槽，再回落角色的對話模型／主 API
+  const source = useSecondary ? config.secondaryApi! : (globalAmsgApi(apiConfig) || resolveCharacterChatApi(char, apiConfig));
 
   if (!source.baseUrl || !source.apiKey || !source.model) {
     throw new Error('主動消息 2.0 缺少可用的 API URL / Key / Model。');

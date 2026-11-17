@@ -64,4 +64,9 @@ interface ApiCenterConfig {
 
 ## 6. 實況
 
-（還沒動工）
+### 第 1 批（2026-11-18 做完）：API 中心
+
+- `APIConfig` 多兩格：`meterApi`（情緒／日程）、`amsgApi`（主動消息單獨），形狀是 `SecondaryApi`；記憶那格就是 `memoryPalaceConfig.lightLLM`。存法照舊跟 `apiConfig` 走（localStorage `os_api_config`）。
+- 解析只在 `utils/apiCenter.ts` 寫一次（`globalMeterApi`／`globalAmsgApi`／`isUsableSecondaryApi`／`describeMeterApiSource`），接到三處：`resolveCharacterMeterApi`（角色自己的 > 全局情緒槽 > 主 API）、主動消息 2.0 的 `resolveApiConfig` 與憑據行 `buildCharChatCredRow`、1.0 主動消息（OSContext 到點那段；回覆照舊走對話模型）、雲端情緒憑據行 `buildCharEmotionCredRow`（角色自己的 > 全局情緒槽 > 主 API）。
+- 介面：系統設置多一段「副 API 中心」（`components/settings/ApiCenterPanel.tsx`）：三格各自從「我的預設」選或手填、測連線、清掉；標籤寫現在是哪個預設。角色的「日程／情緒」面板改名「角色自己的情緒／日程 API」、寫出現在用的是哪一層、多「跟系統設置」把角色那份清掉；主動消息 1.0／2.0 設定頁的回落說明改成三層。Sore 的知識更新。
+- 沒做：備援鏈（第 2 批）。

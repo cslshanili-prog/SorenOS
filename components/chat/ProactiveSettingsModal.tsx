@@ -251,7 +251,7 @@ const ProactiveSettingsModal: React.FC<ProactiveSettingsModalProps> = ({
                                 </button>
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed mb-3">
-                                不開啟則依次退回：角色自己的對話模型 API → 全局主 API。
+                                不開啟則依次退回：系統設置 → 副 API 中心的「主動消息單獨 API」→ 角色自己的對話模型 → 主 API。
                             </p>
 
                             {showApiSection && (

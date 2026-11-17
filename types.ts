@@ -412,9 +412,23 @@ export interface ImageStylePreset {
   builtinKey?: string;
 }
 
+/** 一組副 API（URL／Key／Model）；API 中心的槽和角色級覆蓋都是這個形狀 */
+export interface SecondaryApi {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 export interface APIConfig {
   baseUrl: string;
   apiKey: string;
+  /**
+   * API 中心（plans/api-center-failover.md）的全局副槽。記憶那組不在這裡：就是 memoryPalaceConfig.lightLLM。
+   * 情緒／日程 API：角色沒設 emotionConfig.api 就用它；沒設＝主 API。
+   */
+  meterApi?: SecondaryApi;
+  /** 主動消息單獨 API：角色沒開「使用副 API」就用它；沒設＝角色的對話模型 → 主 API */
+  amsgApi?: SecondaryApi;
   // 可選識圖中轉：給不支持 image_url 的主模型補視覺能力。
   visionApi?: VisionApiConfig;
   /** 翻譯 API（聊天語言用）；沒設就用主 API 的聊天模型翻。 */
