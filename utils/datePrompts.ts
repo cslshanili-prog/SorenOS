@@ -21,7 +21,7 @@
  */
 
 import { buildDateLanguageRule } from './chatLanguage';
-import { applyClockToHistory, clockTurnNote, describeClockNote, historyTimeOptions, type DateClock } from './dateStoryTime';
+import { applyClockToHistory, clockTurnNote, describeClockNote, historyTimeOptions, isDateTimeOn, storyClock, type DateClock } from './dateStoryTime';
 import { buildDateInputPerceptionRule, formatDateUserInput, spokenPartOfDateInput } from './dateUserInput';
 import { buildLengthLine, buildScenarioBlock } from './dateExtras';
 import { buildObserveBlock, isObserveOn } from './dateObserve';
@@ -64,9 +64,9 @@ const getRealTimeStr = (tz?: string, at: number = Date.now()): string => {
     return `${ChatPrompts.formatDate(realNow, tz)} ${days[wallClock.getDay()]}`;
 };
 
-/** 線下時間感知開關：默認開啟，顯式關掉後見面 prompt 不再注入時間。 */
-const isDateTimeAwarenessOn = (char: CharacterProfile): boolean =>
-    char.dateTimeAwarenessEnabled !== false;
+/** 見面要不要帶時間：時間來源「關閉」（或舊的線下時間感知開關關著）就不帶，見 utils/dateStoryTime.ts */
+const isDateTimeAwarenessOn = (char: CharacterProfile, clock: DateClock | null | undefined): boolean =>
+    isDateTimeOn(clock) && char.dateTimeAwarenessEnabled !== false;
 
 // ─────────────────────────────────────────────────────────────
 // 寫作風格預設（DateSettings 面板與 prompt 構建共用同一份，別兩邊手抄）
@@ -351,9 +351,10 @@ export const buildDateTurnNote = (variant: 'send' | 'reroll', voice: boolean, fo
 
 /** 每輪末尾那句「現在幾點」：線下時間感知關掉就沒有；有故事時鐘照故事的，否則照現實 */
 export const buildDateTurnTimeLine = (char: CharacterProfile, clock: DateClock | null): string => {
-    if (!isDateTimeAwarenessOn(char)) return '';
+    if (!isDateTimeAwarenessOn(char, clock)) return '';
     const tz = resolveCharTimeZone(char);
-    return clock ? clockTurnNote(clock, tz) : `現在是 ${getRealTimeStr(tz)}。`;
+    const sc = storyClock(clock);
+    return sc ? clockTurnNote(sc, tz) : `現在是 ${getRealTimeStr(tz)}。`;
 };
 
 /**
@@ -361,8 +362,9 @@ export const buildDateTurnTimeLine = (char: CharacterProfile, clock: DateClock |
  * reroll 的差異只體現在末尾 user 消息的 System Note 裡，不在這裡分叉。
  * 風格 / 人稱 / 自定義補充按 char.dateStyleConfig 動態拼裝。
  */
-const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap = '', clock: DateClock | null = null): string => {
-    const dateTimeOn = isDateTimeAwarenessOn(char);
+const buildMeetingProseBlock = (char: CharacterProfile, userName: string, recap = '', rawClock: DateClock | null = null): string => {
+    const dateTimeOn = isDateTimeAwarenessOn(char, rawClock);
+    const clock = storyClock(rawClock);
     const timeLine = !dateTimeOn ? ''
         : clock
             ? `1. **Time**: 當前時間 ${getRealTimeStr(resolveCharTimeZone(char), clock.now)}。${describeClockNote(clock)}\n`
@@ -484,16 +486,18 @@ export const DatePrompts = {
         /** 故事時鐘（utils/dateStoryTime.ts）；真實＋流動是 null */
         clock?: DateClock | null;
     }): { messages: ApiMessage[] } => {
-        const clock = input.clock ?? null;
+        const rawClock = input.clock ?? null;
         // 故事時鐘：這場的訊息時間換成故事裡的，「距離上次多久」不算（兩把尺混著算是亂的）
-        const timed = applyClockToHistory(input.allMsgs, input.char, clock);
+        const timed = applyClockToHistory(input.allMsgs, input.char, rawClock);
         const { userProfile, emojis } = input;
         const char = timed.char;
         const allMsgs = timed.messages;
         const invite = input.openingMode === 'invite';
         const uname = userProfile?.name || '對方';
         const charTz = resolveCharTimeZone(char);
-        const dateTimeOn = isDateTimeAwarenessOn(char);
+        const dateTimeOn = isDateTimeAwarenessOn(char, rawClock);
+        // 關著的時鐘不是故事時鐘：下面「故事裡的時間」那幾句都看這個
+        const clock = storyClock(rawClock);
         const timeStr = getRealTimeStr(charTz, clock?.now);
         const selected = selectCharacterContextMessages(allMsgs, char);
         // 取時間戳最晚的那則，不是排最後的那則：訊息照自增 id 排，時間戳不一定單調（雲端補收的舊訊息
@@ -520,7 +524,7 @@ export const DatePrompts = {
         // conversational 不給：peek 是「用戶還沒走過去」的第三人稱鏡頭，時間塊末尾那句
         // 語境框定說的是「對方還在跟你說話」，跟這裡的框定正好相反（見下面的 peekInstructions）。
         const baseContext = ContextBuilder.buildCoreContext(char, userProfile, false, undefined, undefined, {
-            skipTimeAwareness: !isDateTimeAwarenessOn(char) || !!clock,
+            skipTimeAwareness: !dateTimeOn || !!clock,
             worldbookMessages: apiMessages,
         });
 
@@ -532,13 +536,15 @@ export const DatePrompts = {
         // 根據時間間隔選擇合適的分隔符
         const contextSeparator = clock
             ? `\n\n--- [故事裡的時間：${timeStr}] ---\n\n`
+            : !dateTimeOn
+            ? `\n\n--- [SCENE: 面對面的場景] ---\n\n`
             : gapHint
             ? `\n\n--- [TIME SKIP: ${gapHint}] ---\n\n`
             : `\n\n--- [SCENE CONTINUATION: 剛剛還在聊天，現在來到了面對面的場景] ---\n\n`;
 
         const peekInstructions = `
 ### 場景：感知 (Sense Presence)
-${dateTimeOn ? `當前時間: ${timeStr}${clock ? `（${describeClockNote(clock) || '故事裡的時間'}）` : ''}\n` : ''}${clock ? '' : `時間上下文: ${gapHint}`}
+${dateTimeOn ? `當前時間: ${timeStr}${clock ? `（${describeClockNote(clock) || '故事裡的時間'}）` : ''}\n` : ''}${clock || !dateTimeOn ? '' : `時間上下文: ${gapHint}`}
 
 ### 任務
 ${invite
@@ -584,14 +590,15 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
     }): Promise<{ messages: ApiMessage[] }> => {
         const { char, userProfile, allMsgs, emojis, userText, variant } = input;
 
-        const clock = input.clock ?? null;
+        const rawClock = input.clock ?? null;
+        const clock = storyClock(rawClock);
         const historyMsgs = buildDateHistory(
             allMsgs,
             char,
             userProfile,
             emojis,
             input.useVisionDescriptions === true,
-            clock,
+            rawClock,
         );
 
         // 世界書關鍵詞掃描：歷史 + 本輪輸入原文（不帶下面的 System Note，免得格式指令裡的字眼誤觸發）
@@ -601,15 +608,15 @@ ${extraBlock ? `\n${extraBlock}` : ''}${isObserveOn(char) ? `\n${buildObserveBlo
         await injectMemoryPalace(char, allMsgs, undefined, userProfile?.name);
         // 故事時鐘不是現實的話，核心上下文那段現實時間不帶，改由下面散文塊的 Time 那行說
         const systemPrompt = ContextBuilder.buildCoreContext(char, userProfile, true, undefined, undefined, {
-            skipTimeAwareness: !isDateTimeAwarenessOn(char) || !!clock,
+            skipTimeAwareness: !isDateTimeAwarenessOn(char, rawClock) || !!clock,
             conversational: true,
             worldbookMessages: worldbookScan,
         })
-            + buildMeetingProseBlock(char, userProfile?.name || '', input.recap || '', clock)
+            + buildMeetingProseBlock(char, userProfile?.name || '', input.recap || '', rawClock)
             + ContextBuilder.buildSARModuleContext(char, userProfile, 'date');
 
         // 每輪輪換的聚焦線索：把注意力推向不同的具體方向，相鄰回覆天然有差異
-        const note = buildDateTurnNote(variant, !!char.dateVoiceEnabled, isDigDeeperOn(char.dateStyleConfig) ? pickFocusHint() : '', buildDateTurnTimeLine(char, clock));
+        const note = buildDateTurnNote(variant, !!char.dateVoiceEnabled, isDigDeeperOn(char.dateStyleConfig) ? pickFocusHint() : '', buildDateTurnTimeLine(char, rawClock));
 
         // 固定台詞：對方這句踩中了就這一輪原樣說出，跟每輪的註記放在一起、緊貼開口（見 utils/fixedLines.ts）
         // 只拿說出口的部分去比對：旁白裡寫到的字不算「對方說了」

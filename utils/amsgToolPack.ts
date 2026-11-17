@@ -15,6 +15,7 @@
  * 環境無關葉子模塊：不 import 任何帶瀏覽器依賴的東西（會進 worker bundle）。
  */
 
+import { hasTimeAwareness } from './timeAwareness';
 import type { CharacterProfile, RealtimeConfig } from '../types';
 import type { AgenticToolMemory, AgenticToolRealtimeConfig } from './agenticTools';
 import type { McpFireServer } from './mcpFireCore';
@@ -119,7 +120,7 @@ export const buildToolPack = (char: CharacterProfile): AmsgToolPack => ({
     ...(mem.mood ? { mood: mem.mood } : {}),
   })),
   // 前台的判定是「沒顯式關就算開」，這邊照抄同一句，別讓同一個開關兩處讀出不同結果。
-  timeAwarenessEnabled: char.timeAwarenessEnabled !== false,
+  timeAwarenessEnabled: hasTimeAwareness(char),
 });
 
 /**

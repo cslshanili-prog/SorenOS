@@ -4,8 +4,9 @@ import { patchDateStory } from '../../utils/dateStory';
 import { formatStoryClock, makeDateClock } from '../../utils/dateStoryTime';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 
-// 見面設定的「時間」：真實／自定義 × 流動／靜止（utils/dateStoryTime.ts）。
+// 見面設定的「時間」：真實／自定義／關閉 × 流動／靜止（utils/dateStoryTime.ts）。
 // 進行中的故事改這場的，從改的那一刻起算；沒有就是下一場的，開新故事時從故事開始那一刻起算。
+// 「關閉」取代了角色卡上舊的「線下時間感知」開關：舊資料還是 false 的，這裡顯示成關閉；改過一次來源就清掉舊開關。
 
 interface Props {
     char: CharacterProfile;
@@ -24,7 +25,9 @@ const charWallNow = (tz?: string) => {
 
 const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, addToast, Section }) => {
     const tz = resolveCharTimeZone(char);
-    const saved: DateStoryTime = (story ? story.time : char.dateNextStoryTime) || { source: 'real', flow: 'flowing' };
+    const legacyOff = char.dateTimeAwarenessEnabled === false;
+    const saved: DateStoryTime = (story ? story.time : char.dateNextStoryTime) || (legacyOff ? { source: 'off', flow: 'flowing' } : { source: 'real', flow: 'flowing' });
+    const off = saved.source === 'off' || (legacyOff && !(story ? story.time : char.dateNextStoryTime));
     const [customDraft, setCustomDraft] = useState(saved.customStart || '');
     useEffect(() => { setCustomDraft(saved.customStart || ''); }, [char.id, story?.id, saved.customStart]);
     // 預覽每 30 秒走一次
@@ -37,9 +40,11 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
         else updateCharacter(char.id, { dateNextStoryTime: value });
     };
     const setSource = (source: DateStoryTime['source']) => {
-        if (source === saved.source) return;
+        if (source === saved.source && !legacyOff) return;
         const customStart = source === 'custom' ? (saved.customStart || charWallNow(tz)) : saved.customStart;
         save({ ...saved, source, customStart });
+        // 舊的線下時間感知開關：改過一次來源就不再看它
+        if (legacyOff) updateCharacter(char.id, { dateTimeAwarenessEnabled: undefined });
     };
     const setFlow = (flow: DateStoryTime['flow']) => { if (flow !== saved.flow) save({ ...saved, flow }); };
     const saveCustom = () => {
@@ -48,7 +53,7 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
         addToast('故事時間已更新', 'success');
     };
 
-    const preview = makeDateClock(char, story ? { ...story, time: saved.source === 'real' && saved.flow === 'flowing' ? undefined : { ...saved, anchorAt: saved.anchorAt } } : null)
+    const preview = (off ? null : makeDateClock({ ...char, dateTimeAwarenessEnabled: undefined }, story ? { ...story, time: saved.source === 'real' && saved.flow === 'flowing' ? undefined : { ...saved, anchorAt: saved.anchorAt } } : null))
         ?? { now: Date.now() };
     const segment = <T extends string>(value: T, options: readonly (readonly [T, string])[], onPick: (v: T) => void, label: string) => (
         <div role="radiogroup" aria-label={label} className="flex rounded-full bg-slate-100 p-1 text-xs w-fit">
@@ -65,17 +70,18 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
             <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] text-slate-500 font-bold">時間來源</span>
-                    {segment(saved.source, [['real', '真實'], ['custom', '自定義']] as const, setSource, '時間來源')}
+                    {segment(off ? 'off' : saved.source, [['real', '真實'], ['custom', '自定義'], ['off', '關閉']] as const, setSource, '時間來源')}
                 </div>
+                {off && <p className="text-[10px] text-slate-400 leading-relaxed">關閉：提示詞不帶時間，記錄也不標時間戳，劇情脫離現實時間線（純架空）。</p>}
                 {saved.source === 'custom' && (
                     <input type="datetime-local" value={customDraft} onChange={e => setCustomDraft(e.target.value)} onBlur={saveCustom} aria-label="故事裡的時間"
                         className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary/30" />
                 )}
-                <div className="flex items-center justify-between gap-3">
+                {!off && <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] text-slate-500 font-bold">時間</span>
                     {segment(saved.flow, [['flowing', '流動'], ['frozen', '靜止']] as const, setFlow, '時間流動')}
-                </div>
-                <p className="text-[10px] text-slate-400 leading-relaxed" data-story-clock>
+                </div>}
+                {!off && <p className="text-[10px] text-slate-400 leading-relaxed" data-story-clock>
                     {saved.source === 'real' && saved.flow === 'flowing' && '跟著現實時間走（原本的樣子）。'}
                     {saved.source === 'real' && saved.flow === 'frozen' && (story ? '停在切換的那一刻：' : '停在故事開始那一刻。')}
                     {saved.source === 'custom' && saved.flow === 'flowing' && (story ? '從填的時間起，跟著現實往前走：' : '故事開始時從填的時間起，跟著現實往前走。')}
@@ -83,8 +89,7 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
                     {(story || saved.source === 'custom') && !(saved.source === 'real' && saved.flow === 'flowing') && (
                         <span className="font-bold text-slate-500"> 故事裡現在是 {formatStoryClock(preview, tz)}</span>
                     )}
-                </p>
-                {char.dateTimeAwarenessEnabled === false && <p className="text-[10px] text-amber-500">這個角色關了「線下時間感知」，見面的提示詞不帶時間，這裡的設定不會生效。</p>}
+                </p>}
             </div>
         </Section>
     );

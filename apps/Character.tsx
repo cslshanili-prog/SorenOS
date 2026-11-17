@@ -1,3 +1,4 @@
+import { TIME_AWARENESS_OPTIONS, resolveTimeAwareness, timeAwarenessPatch } from '../utils/timeAwareness';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { liveStyleId, STYLE_NONE, styleLabel } from '../utils/imageStyle';
 
@@ -1690,27 +1691,26 @@ ${isInitialGeneration ? `
                                 onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
                            />
 
-                           {/* 時間感知 & 時區：三個獨立開關，可任意組合（聊天時間感知 / 自定義時區 / 線下時間感知） */}
+                           {/* 時間感知 & 時區（plans/time-system.md 第 2d 節）：時間感知三檔 + 自定義時區。
+                               見面的時間在見面設定的「時間」那節（真實／自定義／關閉），舊的「線下時間感知」開關併進去了 */}
                            <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-4">
                                <div>
                                    <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">時間感知 & 時區</label>
-                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">下面三個開關相互獨立、可任意組合。改完即時生效（下一條回覆起算）。</p>
+                                   <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">改完即時生效（下一條回覆起算）。見面裡幾點、要不要帶時間，在見面設定的「時間」那節調。</p>
                                </div>
 
-                               {/* 1. 聊天 · 時間感知強化 */}
+                               {/* 1. 時間感知三檔 */}
                                <div className="border-t border-slate-100 pt-3">
-                                   <div className="flex items-center justify-between gap-3">
-                                       <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">聊天 · 時間感知強化</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。開啟后角色會記得你們多久沒聊、主動貼近真實時間；關掉後這種感覺會變弱。</p>
-                                       </div>
-                                       <button
-                                           onClick={() => handleChange('timeAwarenessEnabled', formData.timeAwarenessEnabled === false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.timeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
-                                       >
-                                           <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.timeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-                                       </button>
+                                   <p className="text-xs font-bold text-slate-700">時間感知</p>
+                                   <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">這個角色對時間有多敏感。</p>
+                                   <div role="radiogroup" aria-label="時間感知" className="mt-2 flex rounded-full bg-slate-100 p-1 text-xs">
+                                       {TIME_AWARENESS_OPTIONS.map(opt => (
+                                           <button key={opt.value} type="button" role="radio" aria-checked={resolveTimeAwareness(formData) === opt.value}
+                                               onClick={() => setFormData(prev => prev ? { ...prev, ...timeAwarenessPatch(opt.value) } : prev)}
+                                               className={`flex-1 rounded-full px-3 py-1.5 transition ${resolveTimeAwareness(formData) === opt.value ? 'bg-white text-primary font-bold shadow-sm' : 'text-slate-400'}`}>{opt.label}</button>
+                                       ))}
                                    </div>
+                                   <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">{TIME_AWARENESS_OPTIONS.find(o => o.value === resolveTimeAwareness(formData))?.hint}</p>
                                </div>
 
                                {/* 2. 自定義時區（異國戀等） */}
@@ -1741,21 +1741,6 @@ ${isInitialGeneration ? `
                                    )}
                                </div>
 
-                               {/* 3. 線下時間感知（約會 / 見面 App） */}
-                               <div className="border-t border-slate-100 pt-3">
-                                   <div className="flex items-center justify-between gap-3">
-                                       <div className="min-w-0">
-                                           <p className="text-xs font-bold text-slate-700">線下時間感知（約會）</p>
-                                           <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。見面時劇情會跟著現實時間走。關掉後劇情脫離現實時間線，更適合純架空。</p>
-                                       </div>
-                                       <button
-                                           onClick={() => handleChange('dateTimeAwarenessEnabled', formData.dateTimeAwarenessEnabled === false ? undefined : false)}
-                                           className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${formData.dateTimeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
-                                       >
-                                           <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${formData.dateTimeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-                                       </button>
-                                   </div>
-                               </div>
                            </div>
 
                            {/* 生活記錄注入：總開關 + 4 個模塊小開關（數據在檔案 App「生活記錄」裡維護） */}

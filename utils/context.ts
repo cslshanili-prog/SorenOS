@@ -30,6 +30,7 @@ import { isScheduleFeatureOn } from './scheduleFeature';
 import { buildScheduleInjection as buildScheduleInjectionText } from './scheduleInjection';
 import { TIME_FRAMING_CONVERSATIONAL } from './timeFramingNote';
 import { resolveCharTimeZone, nowInTimeZone, tzAwarenessNote, interactionGapNote } from './timezone';
+import { coarseNowText, hasTimeAwareness, resolveTimeAwareness, timeOfDayWord } from './timeAwareness';
 import {
     expandWorldbookMacros,
     formatWorldbookSection,
@@ -312,7 +313,7 @@ export const ContextBuilder = {
         // 群聊場景下：用戶畫像已在共享場景塊頂部，這裡跳過避免重複
         if (!groupOptions?.skipUserProfile) {
             // 跟時間感知同一個開關：角色關了時間感知、見面純架空（skipTimeAwareness）都不給
-            const holidayLine = char.timeAwarenessEnabled !== false && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday
+            const holidayLine = hasTimeAwareness(char) && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday
                 ? getCachedUserHolidayReminder(user.name, timeOptions?.userHolidays)
                 : '';
             sections.userProfile = formatUserProfileBlock(user, holidayLine);
@@ -590,20 +591,22 @@ export const ContextBuilder = {
         },
     ): string => {
         // skipTimeAwareness：見面純架空時由調用方傳入，徹底抑制時間注入（修「線下時間感知」關掉後仍漏時間）。
-        if (char.timeAwarenessEnabled === false || timeOptions?.skipTimeAwareness) return '';
+        const level = resolveTimeAwareness(char);
+        if (level === 'none' || timeOptions?.skipTimeAwareness) return '';
         // 自定義時區（異國戀等）：開啟後這裡的"當前時間"按角色所在時區折算，並附時差提示，
         // 讓查手機/人際關係/通話等所有直連 buildCoreContext 的路徑都拿到正確的本地時間。
         const charTz = resolveCharTimeZone(char);
         const now = nowInTimeZone(charTz);
         const h = now.getHours();
         const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-        const timeOfDay =
-            h < 5 ? '凌晨' : h < 9 ? '早晨' : h < 12 ? '上午' : h < 14 ? '中午'
-            : h < 17 ? '下午' : h < 19 ? '傍晚' : h < 22 ? '晚上' : '深夜';
+        const timeOfDay = timeOfDayWord(h);
         const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
         const timeStr = `${h.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         let context = `### 當前時間 (Now)\n`;
-        context += `現在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
+        // 粗略那檔（utils/timeAwareness.ts）：只有日期和早中晚，沒有幾點幾分
+        context += level === 'coarse'
+            ? `現在是 ${coarseNowText(now)}。你對時間的感覺是粗的：知道今天幾號、是早上還是晚上，但說不出幾點幾分，也別裝作知道。\n`
+            : `現在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
         // 報時後面那句語境框定（這句話本身和「為什麼只在對話時給」都在
         // utils/timeFramingNote.ts）。即時對話走的是雲端那條路，時間由 worker 到點補，
         // 那邊引的是同一份常量——同一句話不抄兩遍，免得兩條路上的角色分寸不一樣。
@@ -614,7 +617,7 @@ export const ContextBuilder = {
         if (tzNote) context += `${tzNote.trim()}\n`;
         // 距離上次聯繫多久（統一口徑）：傳了 lastInteractionTs 才注入。
         // 讓查手機/人際關係等無內聯消息流的路徑，也像聊天一樣知道「用戶多久沒聯繫我了」。
-        const gapNote = interactionGapNote(timeOptions?.lastInteractionTs);
+        const gapNote = interactionGapNote(timeOptions?.lastInteractionTs, Date.now(), level === 'coarse');
         if (gapNote) context += gapNote;
         context += `\n`;
         return context;

@@ -47,9 +47,19 @@
 
 `dailySchedule.ts` 裡還有一層舊 key 兼容（更早版本按 UTC 日、接入角色時區前按手機日）。遷移時會校驗 `generatedAt` 確實屬於角色當地的今天，並且把舊記錄**搬走**而不是複製——留副本的話，等角色當地日曆翻到那個日期，同一份日程會被當成兩天用。
 
-## 「時間感知強化」開關管什麼
+## 「時間感知」三檔管什麼
 
-角色卡的 `timeAwarenessEnabled`（默認開）關掉後：核心上下文不給「現在幾點」、不給「距離上次聯繫多久」、不給節假日，**私聊歷史和群聊片段也一則都不標時間戳**（2026-11-17 起；以前戳還在，模型自己一減照樣精確到分）。要讓某些訊息照標、或只是不算距離上次多久，用 `buildMessageHistory` 的 `showTimestamps`／`skipTimeGapHint` 選項，別去翻角色的開關（見面的故事時鐘就是這樣接的，`utils/dateStoryTime.ts` 的 `historyTimeOptions`）。
+角色卡的時間感知是三檔（`utils/timeAwareness.ts`，`plans/time-system.md` 第 2d 節），讀一律 `resolveTimeAwareness(char)`，別直接看 `timeAwarenessEnabled`：
+
+| 檔 | 現在幾點 | 距上次多久 | 歷史時間戳 | 節假日 |
+|---|---|---|---|---|
+| 精確（默認） | 到分 | 給 | `[2026-11-16 23:41]` | 給 |
+| 粗略 | 日期＋早中晚 | 只到「幾天」 | `[2026-11-16]` | 給 |
+| 不知道 | 不給 | 不給 | 不標 | 不給 |
+
+「不知道」連私聊歷史和群聊片段的時間戳都不標（2026-11-17 起；以前戳還在，模型自己一減照樣精確到分）。要讓某些訊息照標、或只是不算距離上次多久，用 `buildMessageHistory` 的 `showTimestamps`／`timestampDetail`／`skipTimeGapHint` 選項，別去翻角色的檔位（見面的故事時鐘就是這樣接的，`utils/dateStoryTime.ts` 的 `historyTimeOptions`）。雲端只收布林（`hasTimeAwareness`），粗略在雲端等於精確。
+
+見面要不要帶時間不在角色卡上：見面設定的「時間來源」選「關閉」（`DateStoryTime.source = 'off'`）就是以前的「線下時間感知」關掉。
 
 ## 已接入的地方
 

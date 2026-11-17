@@ -37,6 +37,7 @@ import { FISH_VOICE_ACTING_GUIDE } from './fishAudioTts';
 import { getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from './ttsProvider';
 import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
+import { coarseGapDays, dateStamp, hasTimeAwareness, resolveTimeAwareness } from './timeAwareness';
 import { buildLifeRecordInjection } from './lifeRecords';
 import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
@@ -255,9 +256,14 @@ export const ChatPrompts = {
     },
 
     // 格式化時間差提示（tz 影響「深夜/清晨」判斷，時差本身不變）
-    getTimeGapHint: (lastMsg: Message | undefined, currentTimestamp: number, tz?: string): string => {
+    getTimeGapHint: (lastMsg: Message | undefined, currentTimestamp: number, tz?: string, coarse = false): string => {
         if (!lastMsg) return '';
         const diffMs = currentTimestamp - lastMsg.timestamp;
+        // 粗略那檔（utils/timeAwareness.ts）：不滿一天不提，滿了只說幾天
+        if (coarse) {
+            const days = coarseGapDays(diffMs);
+            return days < 1 ? '' : `[系統提示: 距離上一條消息大概 ${days} 天。]`;
+        }
         const diffMins = Math.floor(diffMs / (1000 * 60));
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const currentHour = nowInTimeZone(tz, new Date(currentTimestamp)).getHours();
@@ -407,7 +413,7 @@ export const ChatPrompts = {
         // 交給 Worker 生成的兩條路由 Worker 照當天補，這裡不烤。
         const holidayConfig = (realtimeConfig || defaultRealtimeConfig).userHolidays;
         const skipUserHoliday = forFirePack || timelyByWorker;
-        if (!skipUserHoliday && char.timeAwarenessEnabled !== false && holidayConfig?.enabled) {
+        if (!skipUserHoliday && hasTimeAwareness(char) && holidayConfig?.enabled) {
             // 平常 OSContext 早就預熱好了，這裡幾乎是即時返回；最多等 1.5 秒，不拖慢送出
             await Promise.race([
                 RealtimeContextManager.getUserHoliday(realtimeConfig || defaultRealtimeConfig, userProfile.name).catch(() => ''),
@@ -493,14 +499,15 @@ export const ChatPrompts = {
                     // 時間行跟著角色的「時間感知」開關走：關掉的角色不該從天氣塊裡讀到
                     // 「當前真實時間」，那是這個開關本來要擋住的東西。
                     const realtimeContext = await RealtimeContextManager.buildFullContext(config, charTz, {
-                        includeTime: char.timeAwarenessEnabled !== false,
+                        includeTime: hasTimeAwareness(char),
+                        coarseTime: resolveTimeAwareness(char) === 'coarse',
                     });
                     return `\n${realtimeContext}\n`;
                 }
                 // 基礎當前時間 + 時差提示已由 ContextBuilder.buildCoreContext 統一注入（受 timeAwarenessEnabled
                 // 控制，按角色自定義時區折算）；這裡只在關閉天氣/新聞時補一條"今日特殊節日"，不再重複注入時間/時差，避免雙份。
                 const specialDates = RealtimeContextManager.checkSpecialDates(charTz);
-                if (specialDates.length > 0 && char.timeAwarenessEnabled !== false) {
+                if (specialDates.length > 0 && hasTimeAwareness(char)) {
                     return `\n### 【今日特殊】\n${specialDates.join('、')}\n`;
                 }
                 return '';
@@ -592,7 +599,8 @@ export const ChatPrompts = {
                     // 自己對著當前時間就能判斷遠近。
                     const relativeAge = forFirePack ? '' : ` · ${formatRelativeAge(m.timestamp)}`;
                     // 關了時間感知的角色，群裡那幾句也不標時間（私聊歷史同樣不標）
-                    const stamp = char.timeAwarenessEnabled === false ? '' : `[${dateStr}${relativeAge}] `;
+                    const groupLevel = resolveTimeAwareness(char);
+                    const stamp = groupLevel === 'none' ? '' : groupLevel === 'coarse' ? `[${dateStr.slice(0, 10)}] ` : `[${dateStr}${relativeAge}] `;
                     return `${stamp}[群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
                 }).join('\n');
                 const knownOthers = [...new Set(knownOtherNames)].map(n => `「${n}」`).join('、');
@@ -756,7 +764,8 @@ ${groupLogStr}\n`;
                     {
                         includeFullDay: true,
                         includeChangeInstruction: true,
-                        includeClock: char.timeAwarenessEnabled !== false,
+                        // 粗略那檔也不報鐘：日程照給，但「現在幾點」不說
+                        includeClock: resolveTimeAwareness(char) === 'precise',
                     },
                 );
                 if (scheduleContext) volatileState += `\n${scheduleContext}\n`;
@@ -1392,6 +1401,8 @@ ${voiceActingGuide()}`);
              * 見面的故事時鐘傳函式：只有這場故事的訊息帶（換算過的故事時間），別的那把尺不給。
              */
             showTimestamps?: boolean | ((m: Message) => boolean);
+            /** 時間戳標到哪：'full' 到分（預設）、'date' 只標日期（粗略那檔的預設） */
+            timestampDetail?: 'full' | 'date';
             /** 不算「距離上一條消息多久」（見面的故事時鐘：兩把尺混著算是亂的） */
             skipTimeGapHint?: boolean;
         },
@@ -1424,12 +1435,15 @@ ${voiceActingGuide()}`);
                 if (!lastRealMsg || m.timestamp > lastRealMsg.timestamp) lastRealMsg = m;
             }
             // 時間感知強化開關：默認開啟（undefined 視為 true），顯式關掉後不再注入「距離上次聊天多久」提示
-            if (lastRealMsg && currentMsg && char.timeAwarenessEnabled !== false && !options?.skipTimeGapHint) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
+            if (lastRealMsg && currentMsg && hasTimeAwareness(char) && !options?.skipTimeGapHint) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz, resolveTimeAwareness(char) === 'coarse');
         }
-        const showTimestamps = options?.showTimestamps ?? (char.timeAwarenessEnabled !== false);
+        const level = resolveTimeAwareness(char);
+        const showTimestamps = options?.showTimestamps ?? (level !== 'none');
+        const timestampDetail = options?.timestampDetail ?? (level === 'coarse' ? 'date' : 'full');
         const stampOf = (m: Message): string => {
             const show = typeof showTimestamps === 'function' ? showTimestamps(m) : showTimestamps;
-            return show ? `[${ChatPrompts.formatDate(m.timestamp, charTz)}]` : '';
+            if (!show) return '';
+            return timestampDetail === 'date' ? `[${dateStamp(nowInTimeZone(charTz, new Date(m.timestamp)))}]` : `[${ChatPrompts.formatDate(m.timestamp, charTz)}]`;
         };
 
         return {

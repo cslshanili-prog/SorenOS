@@ -16,7 +16,7 @@ import { dateEmotionState, patchDateEmotion, runDateEmotionEval, withStoryEmotio
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
-import { formatStoryClock, makeDateClock, nextStoryTimeAfter } from '../utils/dateStoryTime';
+import { formatStoryClock, makeDateClock, nextStoryTimeAfter, storyClock } from '../utils/dateStoryTime';
 import { canCaptureDateMoment, captureDateMoment, describeMomentLock } from '../utils/dateMoment';
 import { migrateDataUrlToRef } from '../utils/blobRef';
 import { getLocalDateKey } from '../utils/localDate';
@@ -1186,7 +1186,7 @@ const DateApp: React.FC = () => {
         try {
             const story = activeStoryRef.current;
             const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(char), 'date', 200);
-            const clock = makeDateClock(char, story);
+            const clock = storyClock(makeDateClock(char, story));
             const result = await captureDateMoment({
                 char, user: dateUserProfile, story, messages: msgs,
                 chatApi: resolveCharacterChatApi(char, apiConfig), imageConfig,

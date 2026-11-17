@@ -48,6 +48,7 @@ export function npcToCharacter(
         ...(npc.groupId ? { groupId: npc.groupId } : {}),
         ...(npc.worldview ? { worldview: npc.worldview } : {}),
         ...(npc.mountedWorldbooks?.length ? { mountedWorldbooks: npc.mountedWorldbooks } : {}),
+        ...(npc.timeAwareness ? { timeAwareness: npc.timeAwareness } : {}),
         ...(npc.timeAwarenessEnabled !== undefined ? { timeAwarenessEnabled: npc.timeAwarenessEnabled } : {}),
         ...(npc.customTimezoneEnabled !== undefined ? { customTimezoneEnabled: npc.customTimezoneEnabled } : {}),
         ...(npc.customTimezone ? { customTimezone: npc.customTimezone } : {}),

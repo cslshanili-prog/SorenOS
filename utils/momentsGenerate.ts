@@ -1,3 +1,4 @@
+import { hasTimeAwareness } from './timeAwareness';
 import type { APIConfig, CharacterProfile, ImageGenApiConfig, MomentPost, NPCProfile, UserProfile } from '../types';
 import { canGenerateFor } from './imageStyle';
 import { looksLikeSelfieDescription } from './imageGeneration';
@@ -51,7 +52,7 @@ export function buildMomentContextBlock(parts: { now?: Date; activity?: string; 
 export const MOMENT_PRIVACY_NOTE = '朋友圈是公開的，你的朋友、認識的人都看得到。可以呼應最近發生的事和你現在的狀態、心情，但只發你願意讓大家看到的那一面：不要引用你們私聊的原話，不要寫出對方的隱私或你們之間私密的事。';
 
 async function loadMomentContext(char: CharacterProfile, userProfileBase?: UserProfile): Promise<{ block: string; hasChat: boolean }> {
-    const timeAware = char.timeAwarenessEnabled !== false;
+    const timeAware = hasTimeAwareness(char);
     const now = timeAware ? nowInTimeZone(resolveCharTimeZone(char)) : undefined;
     let activity: string | undefined;
     if (isScheduleFeatureOn(char)) {
