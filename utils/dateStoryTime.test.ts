@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyClockToHistory, formatStoryClock, isDefaultStoryTime, makeDateClock, startStoryTime } from './dateStoryTime';
+import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDefaultStoryTime, makeDateClock, startStoryTime } from './dateStoryTime';
 import { buildNewDateStory } from './dateStory';
 import type { CharacterProfile, DateStory, Message } from '../types';
 
@@ -57,9 +57,12 @@ describe('記錄時間換成故事裡的', () => {
             { id: 3, role: 'assistant', timestamp: T0 + H, metadata: { source: 'date', dateStoryId: 'old' } },
         ] as unknown as Message[];
         const clock = makeDateClock(char(), story({ source: 'real', flow: 'frozen', anchorAt: T0 }), T0 + 2 * H)!;
-        const out = applyClockToHistory(msgs, char(), clock);
+        const c = char();
+        const out = applyClockToHistory(msgs, c, clock);
         expect(out.messages.map(m => m.timestamp)).toEqual([T0 - 9 * H, T0, T0 + H]);
-        expect(out.char.timeAwarenessEnabled).toBe(false);
+        // 不再借角色的時間感知開關（那個開關一關連時間戳都沒了），距離上次多久交給 historyTimeOptions
+        expect(out.char).toBe(c);
+        expect(historyTimeOptions(char(), clock)).toEqual({ showTimestamps: true, skipTimeGapHint: true });
         expect(applyClockToHistory(msgs, char(), null).messages).toBe(msgs);
     });
 });
@@ -90,5 +93,55 @@ describe('提示詞裡的時間', () => {
         const { messages } = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: [], emojis: [], userText: '「嗨」', clock });
         expect(messages[0].content).toBe('現在 1920-03-01 20:00');
         expect(messages.some(m => m.content.includes('當前時間（故事裡）：1920-03-01 20:00'))).toBe(true);
+    });
+});
+
+// 2026-11-17 Liora 實測：設了自定義凌晨三點，模型照著幾十個真實時間戳寫成上個月傍晚。
+// 修法：自定義時鐘下只有這場故事的訊息標時間（已換成故事時間），聊天記錄、上一場的不標；
+// 而且「故事裡現在是幾點」貼在本輪用戶那句後面（內建和預設兩條路都貼），離生成最近。
+describe('自定義時鐘：記錄裡只剩一把尺、現在幾點貼在最後', () => {
+    const c = { id: 'c1', name: '凱恩', avatar: '', description: '', systemPrompt: '你是凱恩。', memories: [], timezoneEnabled: true, timezone: 'Asia/Taipei' } as unknown as CharacterProfile;
+    const now = Date.now();
+    const history = [
+        { id: 1, charId: 'c1', role: 'user', type: 'text', content: '聊天裡說的', timestamp: now - 40 * 86_400_000, metadata: { source: 'chat' } },
+        { id: 2, charId: 'c1', role: 'assistant', type: 'text', content: '上一場故事', timestamp: now - 30 * 86_400_000, metadata: { source: 'date', dateStoryId: 'old' } },
+        { id: 3, charId: 'c1', role: 'assistant', type: 'text', content: '這一場', timestamp: now - 60_000, metadata: { source: 'date', dateStoryId: 's1' } },
+        { id: 4, charId: 'c1', role: 'user', type: 'text', content: '「嗨」', timestamp: now, metadata: { source: 'date', dateStoryId: 's1' } },
+    ] as unknown as Message[];
+
+    it('historyTimeOptions：自定義只標這場的；線下感知關掉一則都不標', () => {
+        const custom = makeDateClock(c, story({ source: 'custom', flow: 'flowing', customStart: '1920-03-01T20:00', anchorAt: now }), now)!;
+        const opt = historyTimeOptions(c, custom);
+        expect(opt.skipTimeGapHint).toBe(true);
+        const show = opt.showTimestamps as (m: Message) => boolean;
+        expect(history.map(show)).toEqual([false, false, true, true]);
+        expect(historyTimeOptions({ ...c, dateTimeAwarenessEnabled: false }, custom)).toEqual({ showTimestamps: false, skipTimeGapHint: true });
+        expect(historyTimeOptions(c, null)).toEqual({ showTimestamps: true, skipTimeGapHint: false });
+    });
+
+    it('內建模式：聊天記錄沒時間戳、這場的是 1920 年、本輪末尾寫故事裡現在幾點', async () => {
+        const { DatePrompts } = await import('./datePrompts');
+        const clock = makeDateClock(c, story({ source: 'custom', flow: 'flowing', customStart: '1920-03-01T20:00', anchorAt: now }), now)!;
+        const { messages } = await DatePrompts.buildSessionPayload({ char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', variant: 'send', clock });
+        const texts = messages.map(m => String(m.content));
+        const chatLine = texts.find(t => t.includes('聊天裡說的'))!;
+        expect(chatLine).not.toMatch(/\[\d{4}-\d{2}-\d{2}/);
+        expect(texts.find(t => t.includes('上一場故事'))).not.toMatch(/\[\d{4}-\d{2}-\d{2}/);
+        expect(texts.find(t => t.includes('這一場'))).toMatch(/\[1920-03-01 19:59\]/);
+        expect(texts[texts.length - 1]).toContain('故事裡現在是 1920-03-01 20:00');
+        expect(texts.join('\n')).not.toContain('距離上一條消息');
+    });
+
+    it('自訂預設：本輪那句後面也貼故事時間；真實時鐘不貼', async () => {
+        const { buildMeetingPresetPayload } = await import('./meetingPresetSession');
+        const doc = { schema: 'soren.meeting-preset', version: 1, name: 't', generation: {}, regexScripts: [], groups: [], globalVars: {},
+            prompts: [{ id: 'main', name: 'main', enabled: true, role: 'system', content: 'x' }, { id: 'chatHistory', name: 'h', enabled: true, role: 'system', content: '', slot: 'chatHistory' }] } as any;
+        const clock = makeDateClock(c, story({ source: 'custom', flow: 'frozen', customStart: '1920-03-01T20:00', anchorAt: now }), now)!;
+        const withClock = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', clock });
+        const lastWith = withClock.messages[withClock.messages.length - 1].content;
+        expect(lastWith).toContain('「嗨」');
+        expect(lastWith).toContain('故事裡現在是 1920-03-01 20:00');
+        const noClock = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', clock: null });
+        expect(noClock.messages[noClock.messages.length - 1].content).not.toContain('故事裡現在是');
     });
 });

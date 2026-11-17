@@ -60,21 +60,44 @@ export const makeDateClock = (
     return { now: map(realNow), frozen, custom: time!.source === 'custom', storyId: story?.id, map };
 };
 
-/** 這場故事的訊息換成故事時間（別場、聊天的不動）；也關掉「距離上次多久」，兩把尺混在一起算出來是亂的 */
+/**
+ * 這場故事的訊息換成故事時間（別場、聊天的不動）。
+ * 「距離上次多久」和「哪些訊息標時間」交給 buildMessageHistory 的選項（見 historyTimeOptions），
+ * 不再借角色的 timeAwarenessEnabled 開關：那個開關現在一關就連時間戳都不給，借了會把故事時間一起拿掉。
+ */
 export const applyClockToHistory = (messages: Message[], char: CharacterProfile, clock: DateClock | null): { messages: Message[]; char: CharacterProfile } => {
     if (!clock) return { messages, char };
     return {
         messages: messages.map(message => (clock.storyId && message.metadata?.dateStoryId === clock.storyId && typeof message.timestamp === 'number'
             ? { ...message, timestamp: clock.map(message.timestamp) }
             : message)),
-        char: { ...char, timeAwarenessEnabled: false },
+        char,
+    };
+};
+
+/**
+ * 見面歷史給 buildMessageHistory 的時間選項：
+ * - 線下時間感知關掉：一則都不標、不算距離上次多久（純架空，以前戳還在，模型照樣對得出日期）
+ * - 自定義時鐘：只有這場故事的訊息標（已換成故事時間）；聊天記錄、上一場的是另一把尺，不標
+ *   （2026-11-17 Liora 實測：設了凌晨三點，模型照著幾十個真實時間戳寫成上個月傍晚）
+ * - 真實時鐘（流動或靜止）：照舊都標，只是不算距離上次多久
+ */
+export const historyTimeOptions = (char: CharacterProfile, clock: DateClock | null): { showTimestamps: boolean | ((m: Message) => boolean); skipTimeGapHint: boolean } => {
+    if (char.dateTimeAwarenessEnabled === false) return { showTimestamps: false, skipTimeGapHint: true };
+    if (!clock) return { showTimestamps: true, skipTimeGapHint: false };
+    return {
+        showTimestamps: clock.custom ? (m: Message) => !!clock.storyId && m.metadata?.dateStoryId === clock.storyId : true,
+        skipTimeGapHint: true,
     };
 };
 
 /** 給模型看的一句：故事裡現在幾點 */
 export const describeClockNote = (clock: DateClock): string =>
-    [clock.custom ? '這是故事裡的時間，跟現實不同；聊天記錄（[聊天]）上的時間是現實的。' : '',
+    [clock.custom ? '這是故事裡的時間，跟現實不同；記錄裡標了時間的都是故事裡的時間。' : '',
         clock.frozen ? '時間停在這一刻，不會往前走。' : ''].filter(Boolean).join('');
+
+/** 每輪貼在用戶那句後面的一小句：故事裡現在幾點（放在最末尾，離生成最近，模型才不會跟著記錄裡的舊時間走） */
+export const clockTurnNote = (clock: DateClock, tz?: string): string => `故事裡現在是 ${formatStoryClock(clock, tz)}。`;
 
 /** 新故事的時間設定：帶進故事、從故事開始那一刻起算 */
 export const startStoryTime = (draft: DateStoryTime | undefined, startAt: number): DateStoryTime | undefined =>

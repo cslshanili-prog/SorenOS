@@ -591,7 +591,9 @@ export const ChatPrompts = {
                     // ——角色會把昨天的群聊說成「剛才群裡說晚上一起吃飯」。絕對時間戳留著，角色
                     // 自己對著當前時間就能判斷遠近。
                     const relativeAge = forFirePack ? '' : ` · ${formatRelativeAge(m.timestamp)}`;
-                    return `[${dateStr}${relativeAge}] [群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
+                    // 關了時間感知的角色，群裡那幾句也不標時間（私聊歷史同樣不標）
+                    const stamp = char.timeAwarenessEnabled === false ? '' : `[${dateStr}${relativeAge}] `;
+                    return `${stamp}[群：${m.groupName}] ${speakerOf(m)}: ${summarizeGroupMsgContent(m)}`;
                 }).join('\n');
                 const knownOthers = [...new Set(knownOtherNames)].map(n => `「${n}」`).join('、');
                 // 只提這段記錄裡真的有說話的成員
@@ -1381,7 +1383,18 @@ ${voiceActingGuide()}`);
         userProfile: UserProfile,
         emojis: Emoji[],
         processedExcludeIds?: Set<number>,
-        options?: { useVisionDescriptions?: boolean; contextHighWaterMark?: number },
+        options?: {
+            useVisionDescriptions?: boolean;
+            contextHighWaterMark?: number;
+            /**
+             * 哪些訊息前面帶 `[2026-11-16 23:41]` 時間戳。不給就跟著角色的「時間感知」走：
+             * 關掉的角色一則都不帶（以前只拿掉「距離上次多久」那句，戳還在，模型自己一減照樣精確到分）。
+             * 見面的故事時鐘傳函式：只有這場故事的訊息帶（換算過的故事時間），別的那把尺不給。
+             */
+            showTimestamps?: boolean | ((m: Message) => boolean);
+            /** 不算「距離上一條消息多久」（見面的故事時鐘：兩把尺混著算是亂的） */
+            skipTimeGapHint?: boolean;
+        },
     ) => {
         // Filter Logic
         // 新版上下文範圍由 chatContextRange 先按「自適應/拉桿最大範圍」取窗；
@@ -1411,13 +1424,18 @@ ${voiceActingGuide()}`);
                 if (!lastRealMsg || m.timestamp > lastRealMsg.timestamp) lastRealMsg = m;
             }
             // 時間感知強化開關：默認開啟（undefined 視為 true），顯式關掉後不再注入「距離上次聊天多久」提示
-            if (lastRealMsg && currentMsg && char.timeAwarenessEnabled !== false) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
+            if (lastRealMsg && currentMsg && char.timeAwarenessEnabled !== false && !options?.skipTimeGapHint) timeGapHint = ChatPrompts.getTimeGapHint(lastRealMsg, currentMsg.timestamp, charTz);
         }
+        const showTimestamps = options?.showTimestamps ?? (char.timeAwarenessEnabled !== false);
+        const stampOf = (m: Message): string => {
+            const show = typeof showTimestamps === 'function' ? showTimestamps(m) : showTimestamps;
+            return show ? `[${ChatPrompts.formatDate(m.timestamp, charTz)}]` : '';
+        };
 
         return {
             apiMessages: historySlice.map((m, index) => {
                 let content: any = m.content;
-                const timeStr = `[${ChatPrompts.formatDate(m.timestamp, charTz)}]`;
+                const timeStr = stampOf(m);
                 const sourceTag = (() => {
                     const source = m.metadata?.source;
                     if (source === 'call') return '[通話]';
@@ -1755,6 +1773,9 @@ ${voiceActingGuide()}`);
                 // 你發的語音條（plans/user-voice.md）：標成 [語音]，角色知道你是用說的
                 else if (isUserVoiceMessage(m)) content = `${timeStr} ${sourceTag} ${USER_VOICE_PREFIX} ${content}`;
                 else content = `${timeStr} ${sourceTag} ${content}`;
+
+                // 不帶時間戳時，上面各種 `${timeStr} …` 會留一個開頭的空格
+                if (!timeStr && typeof content === 'string') content = content.replace(/^ /, '');
 
                 if (blockPeriods.length && isRejectedByBlock(m, blockPeriods)) content = `${REJECTED_HISTORY_PREFIX}${content}`;
                 // 拉黑期間臨時會話裡說的話（解除後併回私聊）
