@@ -115,6 +115,8 @@ interface Trip {
 - **加一條**：右下角 ＋ 開全螢幕 `components/calendar/AddEventPage.tsx`（不要半窗）：誰的（身份卡、角色）、種類（事件／待辦／紀念日）、標題、日期、全天或起訖、地點、跟誰（含配角，多選）、備註（`ExpandableTextarea`）；點已有的那條也開它改、刪。紀念日多「每年重複」「讓 TA 記住這一天」。
 - **待辦**：「我的」「TA 的」底下各一個清單（快速加、勾、刪）；角色在聊天裡 `[[TODO|事情|YYYY-MM-DD]]` 給自己加一條、`[[TODO_DONE|事情]]` 勾掉（`doneBy: 'ai'`，標題模糊比對，對不上不動）。解析零依賴在 `utils/todoTagParse.ts`（容錯：全角豎線、冒號、`ACTION:`、中文別名），落庫在 `utils/todoTag.ts`（改了就發 `calendar-todo-changed` 事件，行事曆開著會重讀），私聊接在 `chatParser` 的 ADD_EVENT 後面（toast＋系統訊息），主動消息 worker 的 `classifier.ts` 把整段標籤直通回客戶端。
 - **注入**（`chatPrompts`）：紀念日改讀約定層；有日程功能的角色多一段「📝【你的待辦】」（`utils/calendarInjection.ts`，截止日寫成今天／明天／過期幾天、對方幫記的標出來、最多 8 條）＋標籤教學；fire_pack 不烤。角色自己 `ADD_EVENT` 加的也存成紀念日（owner 是角色、參與者是你、`source: 'char'`）。
+- **「TA 的」選人**：角色和配角都能看（配角沒有日程表，只有約好的事和待辦；沒開日程功能的角色也一樣）。頭像列只放最近看過的幾個（localStorage `soren_calendar_recent_people_v1`），「…」開全螢幕 `components/calendar/PersonPickerPage.tsx`：搜尋、主角／配角篩選、照世界 → 分組收起來（跟切換聊天同一套 `groupForSwitcher`），大世界幾十個人也找得到。
+- **日期列**：「今天」放日期下方；不是今天就變「回到今天」；點日期開全螢幕 `components/calendar/DayPickerPage.tsx` 選一天（有東西的天打點）。
 - **月曆**：打點多一色（紫＝事件），「今日次元重疊」的我的行程＝這張身份卡有份的約定，角色行程＝角色名下的約定＋日程時段。
 - **時光契約退役**：`apps/ScheduleApp.tsx` 刪掉、桌面不再列 `AppID.Schedule`（`constants.tsx`），舊 id 在 `PhoneShell`／`appPreload` 都導到行事曆，小小窩、手遊桌面等家園的入口照舊用舊 id、文案改「行事曆」；桌面存過的版面裡的 schedule 項目由 `normalizeLayout` 自己清掉。皮膚沒留。
 - 沒做：生成餵約定和待辦、`todoId` 自動勾掉、你自己的 AI 日程、一週、旅行、自動生成（第 3～5 批）。
