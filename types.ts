@@ -892,6 +892,12 @@ export interface ScheduleSlot {
     location?: string;    // "河邊"
     innerThought?: string; // 該時段的內心獨白，生成時由AI寫好，運行時直接注入
     theater?: SlotTheater; // 該時段的小劇場（窺視演出），按需生成並緩存
+    /** 這段跟誰一起（plans/calendar.md 第 3 批）：生成時模型寫名字，落庫對回 id；對不上的只留在 with 裡當文字 */
+    participants?: Participant[];
+    /** 跟誰一起的原文（名字，頓號隔開）；注入和顯示用它，零依賴 */
+    with?: string;
+    /** 這段是在做哪條待辦（CalendarEvent.id） */
+    todoId?: string;
 }
 
 /** 用戶自己設的不回訊時段：這些時段角色強制已讀不回。end 早於 start 表示跨夜。 */
@@ -3789,6 +3795,8 @@ export interface CharacterProfile {
    * - 'mindful'（意識系）：角色誠實面對自身存在，內心活動基於真實能力（回憶對話、整理想法、等待用戶……），不虛構物理行為
    */
   scheduleStyle?: 'lifestyle' | 'mindful';
+  /** 行程提示詞（plans/calendar.md 第 3 批）：生成這個角色的日程時多帶的一段，例如固定的上班時間、週末習慣 */
+  schedulePrompt?: string;
 
   /**
    * 日程 / 情緒 Buff 總開關。
@@ -4141,6 +4149,8 @@ export interface UserProfile {
     voiceProfile?: CharacterProfile['voiceProfile'];
     /** 真實身份的所在地（IANA 時區 id，plans/time-system.md 第 2c 節）；身份卡各有各的；沒設＝跟設備 */
     timezone?: string;
+    /** 真實身份的行程提示詞（plans/calendar.md 第 3 批） */
+    schedulePrompt?: string;
     /** 分角色聊天頭像（檔案 App 設置）：charId → 頭像（http(s) URL 或 data:image）。
      *  私聊裡「你」的頭像取 perCharAvatars[charId] || avatar（上面的整體頭像作宏觀默認）；
      *  群聊/其他場合仍用整體頭像。刪角色留下的孤兒鍵無害，讀取端永遠按當前 charId 取。 */
@@ -4562,6 +4572,8 @@ export interface UserPersona {
     voiceProfile?: CharacterProfile['voiceProfile'];
     /** 這張身份卡的所在地（IANA 時區 id，plans/time-system.md 第 2c 節）：算你跟角色的時差用；沒設＝跟設備 */
     timezone?: string;
+    /** 行程提示詞（plans/calendar.md 第 3 批）：AI 照這張卡生成你的日程時多帶的一段 */
+    schedulePrompt?: string;
     createdAt: number;
     updatedAt: number;
 }

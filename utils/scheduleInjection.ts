@@ -100,6 +100,7 @@ export const buildScheduleInjection = (
             ? `當前時段：${currentSlot.startTime} 你正在${currentSlot.activity}`
             : `當前時段：你正在${currentSlot.activity}`;
         if (currentSlot.location) slotHeader += `（${currentSlot.location}）`;
+        if (currentSlot.with) slotHeader += `（跟 ${currentSlot.with} 一起）`;
         if (nextSlot) {
             slotHeader += withClock
                 ? `\n之後安排：${nextSlot.startTime} ${nextSlot.activity}`
@@ -146,6 +147,7 @@ export const buildScheduleInjection = (
         const rows = schedule.slots.map((slot) => {
             let line = withClock ? `- ${slot.startTime} ${slot.activity}` : `- ${slot.activity}`;
             if (slot.location) line += `（${slot.location}）`;
+            if (slot.with) line += `（跟 ${slot.with} 一起）`;
             if (slot.description) line += `：${slot.description}`;
             return line;
         });

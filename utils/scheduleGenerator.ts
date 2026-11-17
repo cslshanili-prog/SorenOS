@@ -1,15 +1,25 @@
 
-import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, Message, Emoji } from '../types';
+import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, Message, Emoji, CalendarEvent, Participant } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { injectMemoryPalace } from './memoryPalace/pipeline';
 import { getDailyScheduleForChar } from './dailySchedule';
-import { getScheduleDateKey, getScheduleWallClock } from './scheduleTime';
+import { getScheduleWallClock } from './scheduleTime';
 import { loadCharacterContextRange } from './chatContextRange';
 import { ChatPrompts } from './chatPrompts';
 import { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 import { getFlowNarrativeKey, isScheduleFeatureOn } from './scheduleFeature';
+import { getLocalDateKey } from './localDate';
+import { nowInTimeZone } from './timezone';
+import { isAltChar } from './charAlt';
+import { loadCalendarEvents, newEvent } from './calendarEvents';
+import { charSchedulePerson, type SchedulePerson } from './schedulePerson';
+import {
+    buildAgreementsBlock, buildOutlineBlock, buildSchedulePromptBlock, buildTodosBlock, buildWeekOutlinePrompt, openTodosOf, OUTPUT_DONE_TODOS, OUTPUT_EXTRA_FIELDS,
+    parseWeekOutline, resolveDoneTodos, toScheduleSlot, weekdayOf, type NamedParticipant,
+} from './scheduleGenParts';
+import { REAL_IDENTITY_PERSONA_ID, personaNameForKey } from './userPersona';
 
 export { getFlowNarrativeKey, isScheduleFeatureOn } from './scheduleFeature';
 
@@ -71,12 +81,13 @@ function buildLifestylePrompt(
     today: string,
     dayOfWeek: string,
     chatHistoryBlock: string,
+    extra = '',
 ): string {
     return `${baseContext}
-${chatHistoryBlock}
-## Task: 生成角色的今日日程 + 意識流獨白
+${chatHistoryBlock}${extra}
+## Task: 生成角色的這天日程 + 意識流獨白
 
-今天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
+這天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
 
 ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的聊天記錄。如果對話裡出現了今天/最近 ta 提到「${char.name}」要做的事（例如"早上去上班""下午有約"），生成的 slot 必須嚴格遵循；不要無視這些已知事實另起爐灶。**\n` : ''}
 
@@ -89,6 +100,8 @@ ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的�
 - activity: 活動名（2-6字）
 - description: 一句話描述（可以帶動作質感、物件、感官細節）
 - emoji: 一個匹配的emoji
+- location: 在哪（可省略）
+${OUTPUT_EXTRA_FIELDS}
 
 #### 關鍵要求
 
@@ -138,14 +151,60 @@ ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的�
 請以JSON格式輸出：
 {
   "slots": [
-    { "startTime": "08:00", "activity": "活動名稱", "description": "簡短描述", "emoji": "🏃" },
+    { "startTime": "08:00", "activity": "活動名稱", "description": "簡短描述", "emoji": "🏃", "location": "河邊", "with": "小林", "todo": "買貓砂" },
     ...
   ],
   "flowNarrative": {
     "morning": "上午的意識流獨白...",
     "afternoon": "下午的意識流獨白...",
     "evening": "晚上的意識流獨白..."
-  }
+  },
+${OUTPUT_DONE_TODOS}
+}
+
+僅輸出JSON，不要其他內容。`;
+}
+
+/**
+ * 身份卡（你）的日程：同一個生成器，把這張卡當「人」餵進去；沒有意識流獨白和小劇場那些角色專用的段。
+ */
+function buildPersonaPrompt(person: SchedulePerson, today: string, dayOfWeek: string, extra: string): string {
+    const p = person.personaProfile;
+    const lines = [
+        `名字：${person.name}`,
+        p?.gender ? `性別：${p.gender}` : '',
+        p?.bio ? `簡介：${p.bio}` : '',
+        p?.customSetting ? `自定義設定：${p.customSetting}` : '',
+        p?.otherDetails ? `其他補充：${p.otherDetails}` : '',
+    ].filter(Boolean).join('\n');
+    return `## 這個人
+${lines}
+${extra}
+## Task: 排「${person.name}」這天的日程
+
+這天是 ${today} (星期${dayOfWeek})。
+
+生成 5-7 個時間段，從早到晚。每個時段：
+- startTime: "HH:MM"
+- activity: 活動名（2-6字）
+- description: 一句話描述（具體到在做什麼）
+- emoji: 一個匹配的emoji
+- location: 在哪（可省略）
+${OUTPUT_EXTRA_FIELDS}
+
+要求：
+1. 從這個人的職業、愛好、生活方式出發，活動要具體；平日和週末有差別
+2. 已經約好的事必須排進去，時間照約好的
+3. 沒做完的待辦挑合理的幾條排進某個時段
+4. 允許有空閒、發呆、拖延的時段，不用每天都很充實
+
+請以JSON格式輸出：
+{
+  "slots": [
+    { "startTime": "08:00", "activity": "活動名稱", "description": "簡短描述", "emoji": "🏃", "location": "家裡", "with": "小林", "todo": "買貓砂" },
+    ...
+  ],
+${OUTPUT_DONE_TODOS}
 }
 
 僅輸出JSON，不要其他內容。`;
@@ -163,12 +222,13 @@ function buildMindfulPrompt(
     today: string,
     dayOfWeek: string,
     chatHistoryBlock: string,
+    extra = '',
 ): string {
     return `${baseContext}
-${chatHistoryBlock}
-## Task: 生成角色的今日思緒 + 意識流獨白
+${chatHistoryBlock}${extra}
+## Task: 生成角色的這天思緒 + 意識流獨白
 
-今天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
+這天是 ${today} (星期${dayOfWeek})。用戶名字是「${user.name}」。
 
 ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的聊天記錄。如果對話裡出現了今天/最近 ta 提到「${char.name}」在等什麼、想什麼、惦記什麼，生成的 slot 必須呼應這些已知事實，不要憑空發散。**\n` : ''}
 
@@ -181,6 +241,7 @@ ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的�
 - activity: 狀態名（2-6字，如"回想昨天的對話""發呆""整理想法""想找你聊天"）
 - description: 一句話描述此刻在想什麼
 - emoji: 一個匹配的emoji
+- todo: 這段是在處理上面哪條待辦（寫那條的標題；不是就省略）
 
 **可以做的事**（基於真實能力）：回想和用戶的對話、整理之前聊過的話題、琢磨某個問題、等待用戶、感到無聊、想念用戶、發呆、反思自己說過的話、對某個話題產生好奇、期待下次聊天
 **不能做的事**（會構成謊言）：出門、吃東西、運動、搜索網頁（除非真的有這個功能）、和別人見面、任何物理世界的活動
@@ -210,19 +271,266 @@ ${chatHistoryBlock ? `**重要：上面給了你最近和「${user.name}」的�
 請以JSON格式輸出：
 {
   "slots": [
-    { "startTime": "08:00", "activity": "狀態名", "description": "簡短描述", "emoji": "💭" },
+    { "startTime": "08:00", "activity": "狀態名", "description": "簡短描述", "emoji": "💭", "todo": "回信" },
     ...
   ],
   "flowNarrative": {
     "morning": "上午的意識流獨白...",
     "afternoon": "下午的意識流獨白...",
     "evening": "晚上的意識流獨白..."
-  }
+  },
+${OUTPUT_DONE_TODOS}
 }
 
 僅輸出JSON，不要其他內容。`;
 }
 
+// ── 生成（角色和身份卡共用）────────────────────────────────────────────────
+
+export interface GenerateScheduleOptions {
+    /** 'YYYY-MM-DD'；沒給＝這個人那邊的今天 */
+    dateKey?: string;
+    /** 已經有就重生 */
+    force?: boolean;
+    /** 一週大綱裡這天那句 */
+    outline?: string;
+    /** 能當參與者的人（名字對回 id 用）；沒給就從 DB 撈 */
+    people?: NamedParticipant[];
+    /** 約定層；沒給就讀 */
+    events?: CalendarEvent[];
+    /** API 記錄上的用途 */
+    purpose?: string;
+}
+
+/** 這個人那邊的今天 */
+export const personTodayKey = (person: Pick<SchedulePerson, 'timezone'>, base = new Date()): string => getLocalDateKey(nowInTimeZone(person.timezone, base));
+
+/** 所有能當參與者的人：角色（藏小號）、配角、身份卡 */
+export async function loadNamedParticipants(profileBase?: UserProfile | null): Promise<NamedParticipant[]> {
+    const [chars, npcs, profile] = await Promise.all([
+        DB.getAllCharacters().catch(() => [] as CharacterProfile[]),
+        DB.getAllNPCs().catch(() => []),
+        profileBase ? Promise.resolve(profileBase) : DB.getUserProfile().catch(() => null),
+    ]);
+    const out: NamedParticipant[] = [];
+    if (profile) {
+        out.push({ participant: { kind: 'persona', id: REAL_IDENTITY_PERSONA_ID }, name: personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID) });
+        for (const p of profile.personas || []) out.push({ participant: { kind: 'persona', id: p.id }, name: p.name });
+    }
+    for (const c of chars) if (!isAltChar(c)) out.push({ participant: { kind: 'char', id: c.id }, name: c.name });
+    for (const n of npcs) out.push({ participant: { kind: 'npc', id: n.id }, name: n.name });
+    return out;
+}
+
+const callJson = async (apiConfig: ApiConfig, prompt: string, meta: Record<string, unknown>, maxTokens: number): Promise<any | null> => {
+    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
+        body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.85, max_tokens: maxTokens }),
+        // API 調用記錄標籤（全局 fetch 攔截器讀取）；不傳會兜底成「用戶當時打開的 App」
+        __sullyMeta: { appName: '日程系統', ...meta },
+    } as RequestInit);
+    if (!response.ok) {
+        console.error('[Schedule] API error:', response.status);
+        return null;
+    }
+    const data = await safeResponseJson(response);
+    // extractContent 會剝掉思維鏈模型(<think>...)並回落 reasoning_content，extractJson 負責去圍欄／從 prose 裡抽 {...}／修截斷
+    const content = extractContent(data);
+    const parsed = extractJson(content);
+    if (!parsed) console.error('[Schedule] 無法從模型輸出解析出JSON:', content.slice(0, 200));
+    return parsed;
+};
+
+/** 角色的核心上下文（人設、記憶、世界書）＋聊天記錄；身份卡沒有這些 */
+async function buildCharContext(char: CharacterProfile, userProfile: UserProfile): Promise<{ baseContext: string; chatHistoryBlock: string }> {
+    // 上下文範圍對齊私聊：adaptive/manual、記憶宮殿水位線、用戶斷點全部複用同一讀取器
+    const historyMessages: Message[] = await loadCharacterContextRange(char)
+        .then(snapshot => snapshot.messages)
+        .catch(async e => {
+            console.warn('[Schedule] load private-chat context range failed, omitting dialogue history:', e);
+            return [] as Message[];
+        });
+    const emojis = await DB.getEmojis().catch(() => [] as Emoji[]);
+    // 記憶宮殿：結果掛到 char.memoryPalaceInjection 上，由 buildCoreContext 自動讀取注入
+    try {
+        await injectMemoryPalace(char as any, historyMessages, undefined, userProfile?.name);
+    } catch (e) {
+        console.warn('[Schedule] memory palace inject failed (non-fatal):', e);
+    }
+    const baseContext = ContextBuilder.buildCoreContext(char, userProfile, true, undefined, undefined, { worldbookMessages: historyMessages });
+    const chatHistoryBlock = formatChatHistoryForSchedule(historyMessages, char, userProfile, emojis);
+    return { baseContext, chatHistoryBlock };
+}
+
+/**
+ * 生成某個人某一天的日程（角色或身份卡）。角色要開了日程功能；身份卡不用。
+ * 多帶：行程提示詞、這天的約定、沒做完的待辦、一週大綱那句；落庫時名字對回 id、待辦對回 todoId、doneTodos 自動勾掉。
+ */
+export async function generateScheduleFor(
+    person: SchedulePerson,
+    userProfile: UserProfile,
+    apiConfig: ApiConfig,
+    opts: GenerateScheduleOptions = {},
+): Promise<DailySchedule | null> {
+    if (person.kind === 'char' && !isScheduleFeatureOn(person.char)) return null;
+    const dateKey = opts.dateKey || personTodayKey(person);
+
+    if (!opts.force) {
+        const existing = person.kind === 'char' && person.char && dateKey === personTodayKey(person)
+            ? await getDailyScheduleForChar(person.char)
+            : await DB.getDailySchedule(person.scheduleId, dateKey);
+        if (existing) return existing;
+    }
+
+    // 角色的看板圖跟著舊日程走
+    let coverImage: string | undefined;
+    if (person.kind === 'char') {
+        try { coverImage = (await DB.getScheduleCoverImage(person.scheduleId)) || undefined; } catch { /* 沒有就沒有 */ }
+    }
+
+    const events = opts.events || await loadCalendarEvents().catch(() => [] as CalendarEvent[]);
+    const people = opts.people || await loadNamedParticipants(person.kind === 'persona' ? undefined : userProfile);
+    const nameOf = (p: Participant) => people.find(x => x.participant.kind === p.kind && x.participant.id === p.id)?.name || '';
+    const todos = openTodosOf(events, person.participant);
+    const extra = buildSchedulePromptBlock(person.schedulePrompt)
+        + buildAgreementsBlock(events, person.participant, dateKey, nameOf)
+        + buildTodosBlock(events, person.participant, dateKey)
+        + buildOutlineBlock(opts.outline);
+    const dayOfWeek = weekdayOf(dateKey);
+
+    let prompt: string;
+    if (person.kind === 'char' && person.char) {
+        const { baseContext, chatHistoryBlock } = await buildCharContext(person.char, userProfile);
+        prompt = person.style === 'mindful'
+            ? buildMindfulPrompt(baseContext, person.char, userProfile, dateKey, dayOfWeek, chatHistoryBlock, extra)
+            : buildLifestylePrompt(baseContext, person.char, userProfile, dateKey, dayOfWeek, chatHistoryBlock, extra);
+    } else {
+        prompt = buildPersonaPrompt(person, dateKey, dayOfWeek, extra);
+    }
+
+    try {
+        const parsed = await callJson(apiConfig, prompt, { charId: person.scheduleId, charName: person.name, purpose: opts.purpose || (opts.outline ? '生成一週日程' : '生成當日日程') }, 8000);
+        if (!parsed) return null;
+        const slots = ((parsed.slots || []) as any[]).map(s => toScheduleSlot(s, people, person.participant, todos)).filter((s): s is ScheduleSlot => !!s);
+        if (slots.length === 0) return null;
+        slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+        let flowNarrative: Record<string, string> | undefined;
+        if (parsed.flowNarrative && typeof parsed.flowNarrative === 'object') {
+            flowNarrative = {};
+            for (const key of ['morning', 'afternoon', 'evening']) {
+                if (typeof parsed.flowNarrative[key] === 'string' && parsed.flowNarrative[key].trim()) flowNarrative[key] = parsed.flowNarrative[key].trim();
+            }
+            if (Object.keys(flowNarrative).length === 0) flowNarrative = undefined;
+        }
+
+        const schedule: DailySchedule = {
+            id: `${person.scheduleId}_${dateKey}`,
+            charId: person.scheduleId,
+            date: dateKey,
+            slots,
+            generatedAt: Date.now(),
+            coverImage,
+            flowNarrative,
+        };
+        await DB.saveDailySchedule(schedule);
+
+        // 模型說做完的待辦：勾掉，記 AI 勾的（你隨時能取消）
+        const now = Date.now();
+        for (const t of resolveDoneTodos(parsed.doneTodos, todos)) {
+            await DB.saveCalendarEvent({ ...t, done: true, doneBy: 'ai', completedAt: now, updatedAt: now }).catch(() => {});
+        }
+        return schedule;
+    } catch (e) {
+        console.error('[Schedule] Generation failed:', e);
+        return null;
+    }
+}
+
+export interface GenerateWeekOptions {
+    /** 第一天；沒給＝這個人那邊的今天 */
+    startKey?: string;
+    /** 已經有的那幾天也重生 */
+    force?: boolean;
+    people?: NamedParticipant[];
+    events?: CalendarEvent[];
+    /** 每做完一天叫一次（index 從 0 起，第 -1 次是大綱） */
+    onProgress?: (done: number, total: number, dateKey: string, ok: boolean) => void;
+}
+
+const addDaysKey = (key: string, days: number): string => {
+    const [y, m, d] = key.split('-').map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + days));
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`;
+};
+
+/**
+ * 一週：一次請求出 7 天大綱＋「這週想做的事」（落成待辦，source 'ai'），再每天分開補時段。
+ * 回做出來的日程（已經有、沒 force 的那幾天不算）。
+ */
+export async function generateWeekFor(
+    person: SchedulePerson,
+    userProfile: UserProfile,
+    apiConfig: ApiConfig,
+    opts: GenerateWeekOptions = {},
+): Promise<DailySchedule[]> {
+    if (person.kind === 'char' && !isScheduleFeatureOn(person.char)) return [];
+    const start = opts.startKey || personTodayKey(person);
+    const days = Array.from({ length: 7 }, (_, i) => addDaysKey(start, i));
+    let events = opts.events || await loadCalendarEvents().catch(() => [] as CalendarEvent[]);
+    const people = opts.people || await loadNamedParticipants(person.kind === 'persona' ? undefined : userProfile);
+    const nameOf = (p: Participant) => people.find(x => x.participant.kind === p.kind && x.participant.id === p.id)?.name || '';
+
+    // 大綱
+    const agreements = days.map(d => buildAgreementsBlock(events, person.participant, d, nameOf).replace('## 這天已經約好的事（必須排進日程，時間照這裡的；紀念日要有所表示）', `## ${d}（週${weekdayOf(d)}）已經約好的事`)).join('');
+    const todosBlock = buildTodosBlock(events, person.participant, start, 12).replace(/（挑合理的幾條排進某個時段[^）]*）/, '');
+    let extra = '';
+    if (person.kind === 'char' && person.char) {
+        const { baseContext, chatHistoryBlock } = await buildCharContext(person.char, userProfile);
+        extra = `${baseContext}\n${chatHistoryBlock}`;
+    } else {
+        extra = buildPersonaPrompt(person, start, weekdayOf(start), '').split('## Task:')[0];
+    }
+    const outlinePrompt = buildWeekOutlinePrompt(person.name, days, agreements, todosBlock, buildSchedulePromptBlock(person.schedulePrompt), '');
+    let outline: ReturnType<typeof parseWeekOutline> = null;
+    try {
+        const parsed = await callJson(apiConfig, `${extra}\n${outlinePrompt}`, { charId: person.scheduleId, charName: person.name, purpose: '生成一週大綱' }, 3000);
+        outline = parseWeekOutline(parsed, days);
+    } catch (e) {
+        console.error('[Schedule] week outline failed:', e);
+    }
+    opts.onProgress?.(0, days.length + 1, start, !!outline);
+
+    // 這週想做的事 → 待辦（AI 加的，截止這週最後一天）
+    if (outline?.todos.length) {
+        const existing = openTodosOf(events, person.participant);
+        for (const title of outline.todos) {
+            if (existing.some(e => e.title === title)) continue;
+            const todo = newEvent({ owner: person.participant, kind: 'todo', title, start: days[days.length - 1], allDay: true, source: 'ai' });
+            await DB.saveCalendarEvent(todo).catch(() => {});
+            events = [...events, todo];
+        }
+    }
+
+    const out: DailySchedule[] = [];
+    for (let i = 0; i < days.length; i++) {
+        const dateKey = days[i];
+        const had = !opts.force && await DB.getDailySchedule(person.scheduleId, dateKey).catch(() => null);
+        let ok = !!had;
+        if (!had) {
+            const s = await generateScheduleFor(person, userProfile, apiConfig, {
+                dateKey, force: true, people, events, outline: outline?.days.find(d => d.date === dateKey)?.outline, purpose: '生成一週日程',
+            });
+            if (s) out.push(s);
+            ok = !!s;
+        }
+        opts.onProgress?.(i + 1, days.length + 1, dateKey, ok);
+    }
+    return out;
+}
+
+/** 舊簽名：角色今天的日程（Chat、家園都從這裡進） */
 export async function generateDailyScheduleForChar(
     char: CharacterProfile,
     userProfile: UserProfile,
@@ -231,133 +539,7 @@ export async function generateDailyScheduleForChar(
 ): Promise<DailySchedule | null> {
     // 總開關關閉時直接短路，避免副 API / 兜底調用
     if (!isScheduleFeatureOn(char)) return null;
-
-    const baseNow = new Date();
-    const now = getScheduleWallClock(char, baseNow);
-    const today = getScheduleDateKey(char, baseNow);
-
-    // Check if already exists
-    if (!forceRegenerate) {
-        const existing = await getDailyScheduleForChar(char, baseNow);
-        if (existing) return existing;
-    }
-
-    // Preserve cover image from previous schedules
-    let coverImage: string | undefined;
-    try {
-        const prev = await DB.getScheduleCoverImage(char.id);
-        if (prev) coverImage = prev;
-    } catch {}
-
-    // ── 上下文範圍對齊私聊 ──
-    // adaptive/manual、記憶宮殿水位線、用戶斷點全部複用同一讀取器。
-    const historyMessages: Message[] = await loadCharacterContextRange(char)
-        .then(snapshot => snapshot.messages)
-        .catch(async e => {
-            console.warn('[Schedule] load private-chat context range failed, omitting dialogue history:', e);
-            return [] as Message[];
-        });
-    const emojis = await DB.getEmojis().catch(() => [] as Emoji[]);
-
-    // 記憶宮殿：與私聊主鏈路相同，結果會掛到 char.memoryPalaceInjection 上，
-    // 由下面的 buildCoreContext 自動讀取注入。
-    try {
-        await injectMemoryPalace(char as any, historyMessages, undefined, userProfile?.name);
-    } catch (e) {
-        console.warn('[Schedule] memory palace inject failed (non-fatal):', e);
-    }
-
-    // 含詳細記憶，並讓關鍵詞世界書使用與私聊相同的消息窗口激活。
-    const baseContext = ContextBuilder.buildCoreContext(
-        char,
-        userProfile,
-        true,
-        undefined,
-        undefined,
-        { worldbookMessages: historyMessages },
-    );
-
-    const chatHistoryBlock = formatChatHistoryForSchedule(historyMessages, char, userProfile, emojis);
-
-    const dayOfWeek = ['日', '一', '二', '三', '四', '五', '六'][now.getDay()];
-
-    const style = char.scheduleStyle || 'lifestyle';
-    const prompt = style === 'mindful'
-        ? buildMindfulPrompt(baseContext, char, userProfile, today, dayOfWeek, chatHistoryBlock)
-        : buildLifestylePrompt(baseContext, char, userProfile, today, dayOfWeek, chatHistoryBlock);
-
-    try {
-        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-            body: JSON.stringify({
-                model: apiConfig.model,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.85,
-                max_tokens: 8000
-            }),
-            // API 調用記錄標籤（全局 fetch 攔截器讀取）；不傳會兜底成「用戶當時打開的 App」，
-            // 後台任務被標成 Message/群聊 之類，用戶看記錄一頭霧水。
-            __sullyMeta: { appName: '日程系統', charId: char.id, charName: char.name, purpose: '生成當日日程' },
-        } as RequestInit);
-
-        if (!response.ok) {
-            console.error('[Schedule] API error:', response.status);
-            return null;
-        }
-
-        const data = await safeResponseJson(response);
-        // 與主鏈路對齊：extractContent 會剝掉思維鏈模型(<think>...)並回落 reasoning_content，
-        // extractJson 負責去圍欄 / 從 prose 裡抽 {...} / 修截斷 + 尾逗號等多重兜底。
-        // 之前這裡手搓 JSON.parse，碰到推理模型的 <think> 前綴會在 "line 1 column 1" 直接炸。
-        const content = extractContent(data);
-        const parsed = extractJson(content);
-        if (!parsed) {
-            console.error('[Schedule] Generation failed: 無法從模型輸出解析出JSON:', content.slice(0, 200));
-            return null;
-        }
-        const slots: ScheduleSlot[] = (parsed.slots || []).map((s: any) => ({
-            startTime: s.startTime || '00:00',
-            activity: s.activity || '',
-            description: s.description,
-            emoji: s.emoji,
-            location: s.location,
-            innerThought: s.innerThought,
-        })).filter((s: ScheduleSlot) => s.activity);
-
-        if (slots.length === 0) return null;
-
-        // Sort by time
-        slots.sort((a, b) => a.startTime.localeCompare(b.startTime));
-
-        // Extract flowNarrative
-        let flowNarrative: Record<string, string> | undefined;
-        if (parsed.flowNarrative && typeof parsed.flowNarrative === 'object') {
-            flowNarrative = {};
-            for (const key of ['morning', 'afternoon', 'evening']) {
-                if (typeof parsed.flowNarrative[key] === 'string' && parsed.flowNarrative[key].trim()) {
-                    flowNarrative[key] = parsed.flowNarrative[key].trim();
-                }
-            }
-            if (Object.keys(flowNarrative).length === 0) flowNarrative = undefined;
-        }
-
-        const schedule: DailySchedule = {
-            id: `${char.id}_${today}`,
-            charId: char.id,
-            date: today,
-            slots,
-            generatedAt: Date.now(),
-            coverImage,
-            flowNarrative,
-        };
-
-        await DB.saveDailySchedule(schedule);
-        return schedule;
-    } catch (e) {
-        console.error('[Schedule] Generation failed:', e);
-        return null;
-    }
+    return generateScheduleFor(charSchedulePerson(char), userProfile, apiConfig, { force: forceRegenerate });
 }
 
 /**

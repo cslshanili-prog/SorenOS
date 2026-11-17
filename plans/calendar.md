@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1、2 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，第 1～3 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -120,6 +120,16 @@ interface Trip {
 - **月曆**：打點多一色（紫＝事件），「今日次元重疊」的我的行程＝這張身份卡有份的約定，角色行程＝角色名下的約定＋日程時段。
 - **時光契約退役**：`apps/ScheduleApp.tsx` 刪掉、桌面不再列 `AppID.Schedule`（`constants.tsx`），舊 id 在 `PhoneShell`／`appPreload` 都導到行事曆，小小窩、手遊桌面等家園的入口照舊用舊 id、文案改「行事曆」；桌面存過的版面裡的 schedule 項目由 `normalizeLayout` 自己清掉。皮膚沒留。
 - 沒做：生成餵約定和待辦、`todoId` 自動勾掉、你自己的 AI 日程、一週、旅行、自動生成（第 3～5 批）。
+
+### 第 3 批（2026-11-17 做完）：生成強化
+
+- **一個生成器兩種人**：`utils/schedulePerson.ts` 把角色和身份卡抽成 `SchedulePerson`（身份卡的日程照樣存 `DailySchedule`，`charId` 是 `persona~<key>`，角色那頭讀日程的地方撈不到它）。`utils/scheduleGenerator.ts` 的 `generateScheduleFor(person, …, { dateKey, force, outline })` 是核心，舊的 `generateDailyScheduleForChar` 變成它的殼（Chat、家園照舊）。身份卡用自己的提示詞（`buildPersonaPrompt`：名字、簡介、自定義設定；沒有意識流獨白）。
+- **多帶的段**（純函數在 `utils/scheduleGenParts.ts`）：行程提示詞（`schedulePrompt`，角色卡／身份卡／真實身份各一格，在行事曆的生成頁改）、這天的約定（名下＋有份的，寫跟誰、紀念日標出來）、沒做完的待辦（最多 8 條，過期標出來）、一週大綱裡這天那句。
+- **輸出多三欄**：時段的 `with`（名字）→ 落庫對回 `participants`（對不上只留 `with` 文字）、`todo`（標題）→ `todoId`、頂層 `doneTodos` → 勾掉（`doneBy: 'ai'`）。`ScheduleSlot` 多 `participants`／`with`／`todoId`。注入（`scheduleInjection.ts`）當前時段和整天表都加「（跟 ×× 一起）」，零依賴靠 `with` 文字。
+- **一週**：`generateWeekFor`：一次請求出 7 天大綱＋「這週想做的事」（落成待辦，`source: 'ai'`，截止那週最後一天），再每天分開補時段（已有的不動，`force` 才重生）；共 8 次 API。
+- **生成頁**：`components/calendar/GeneratePage.tsx`（全螢幕）：行程提示詞、生成今天／重新生成、生成這週／這週全部重生、所有開了日程的角色今天還沒排的都生成（逐個跑、列進度）。「我的」頭像卡右邊 ✦ 開身份卡的；「TA 的」✦ 開角色的。
+- **顯示**：「我的」多身份卡的時間軸（跟「TA 的」同一個 `renderTimeline`），時段卡片列參與者頭像＋「跟 ×× 一起」、待辦標記；月曆「我的行程」也混進身份卡的時段。
+- 沒做：旅行、自動生成（第 4、5 批）；生成時的「出行中」那段等旅行。
 
 ## 8. 待確認
 
