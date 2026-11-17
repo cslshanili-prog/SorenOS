@@ -133,7 +133,7 @@ const GRID_CARDS: { id: AppID; cn: string; en: string }[] = [
     { id: AppID.Date, cn: '見面', en: 'CONTACTS' },
     { id: AppID.VRWorld, cn: '彼方', en: 'KANATA' },
     { id: AppID.Bank, cn: '銀行', en: 'BANK' },
-    { id: AppID.Schedule, cn: '日程', en: 'SCHEDULE' },
+    { id: AppID.Schedule, cn: '行事曆', en: 'CALENDAR' }, // 時光契約退役，舊 id 開的是行事曆
     { id: AppID.Settings, cn: '設置', en: 'SETTINGS' },
 ];
 

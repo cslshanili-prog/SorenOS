@@ -468,6 +468,16 @@ describe('classifyLLMOutput — Soren 專用標籤原樣直通', () => {
     ]);
   });
 
+  it('角色自己的待辦 TODO／TODO_DONE 原樣送回，客戶端落庫（plans/calendar.md）', () => {
+    const r = classifyLLMOutput(['我記下來了', '[[TODO|買貓砂|2026-11-20]]', '[[待辦完成｜交報告]]'].join('\n'));
+    if (r.kind !== 'finish') throw new Error('expected finish');
+    expect(r.cleanedText).toBe('我記下來了');
+    expect(r.directives).toEqual([
+      { type: 'soren_tag', raw: '[[TODO|買貓砂|2026-11-20]]' },
+      { type: 'soren_tag', raw: '[[待辦完成｜交報告]]' },
+    ]);
+  });
+
   it('角色拉黑你、關係線小號的懷疑也原樣送回（雲端生成時不被剝掉）', () => {
     const r = classifyLLMOutput([
       '我不想再看到你的訊息了',

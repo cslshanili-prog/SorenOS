@@ -100,8 +100,8 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Novel, name: '筆友會', icon: 'Novel', color: 'amber' },
   { id: AppID.Songwriting, name: '寫歌', icon: 'Songwriting', color: 'fuchsia' },
   { id: AppID.VRWorld, name: '彼方', icon: 'VRWorld', color: 'indigo' },
-  { id: AppID.Schedule, name: '時光契約', icon: 'Schedule', color: 'cyan' },
-  { id: AppID.Calendar, name: '行事曆', icon: 'Calendar', color: 'pink' }, // 2026-11：身份卡和角色的日程、待辦、旅行（plans/calendar.md）；第 2 批做完時光契約退役
+  // 時光契約（AppID.Schedule）2026-11 退役：桌面不再列，舊入口（小小窩等）打開的是行事曆
+  { id: AppID.Calendar, name: '行事曆', icon: 'Calendar', color: 'pink' }, // 身份卡和角色的日程、待辦、旅行（plans/calendar.md）
   { id: AppID.Worldbook, name: '世界書', icon: 'Worldbook', color: 'indigo' },
   { id: AppID.Presets, name: '預設', icon: 'Presets', color: 'violet' },
   { id: AppID.Assistant, name: 'Sore', icon: 'Assistant', color: 'amber' },

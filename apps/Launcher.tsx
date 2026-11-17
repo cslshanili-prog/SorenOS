@@ -1,3 +1,4 @@
+import { anniversaryView, loadCalendarEvents } from '../utils/calendarEvents';
 import React, { useMemo, useEffect, useLayoutEffect, useState, useRef, useCallback } from 'react';
 import { isPaperWallpaper, useOS } from '../context/OSContext';
 import { INSTALLED_APPS, DOCK_APPS } from '../constants';
@@ -750,7 +751,7 @@ const Launcher: React.FC = () => {
           try {
               const [recent, annis] = await Promise.all([
                   DB.getRecentMessagesWithCount(targetChar.id, 1, isChatPreviewMessage),
-                  DB.getAllAnniversaries()
+                  loadCalendarEvents().then(events => anniversaryView(events) as Anniversary[])
               ]);
               if (cancelled) return;
               const last = recent.messages[0];

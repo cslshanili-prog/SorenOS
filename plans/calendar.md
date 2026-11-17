@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，還沒動工。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，第 1、2 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -108,8 +108,21 @@ interface Trip {
 - 時間：角色那邊照 `resolveCharTimeZone`（先看世界）、你那邊照身份卡的 `timezone`；兩邊一樣就不重複寫。
 - 沒做：約定層、加事件、你自己的日程、一週生成、旅行（後面幾批）；埋點照 `docs/analytics.md` 的規矩等事件登記了再加。
 
+### 第 2 批（2026-11-17 做完）：約定層＋時光契約退役
+
+- **資料**：`CalendarEvent`／`Participant`（`types.ts`），存 `calendar_events` 表（`utils/db.ts` v81，備份匯出匯入的「行事曆」段）。純邏輯在 `utils/calendarEvents.ts`：誰的（`personaParticipant`／`charParticipant`）、這天有沒有（`eventOnDay`：有時段看開始那天、跨天事件中間也算、`repeat: 'yearly'` 看每年那次、待辦看截止日）、`eventsInvolving`（名下＋有份的）、`openTodos`、`anniversaryView`（轉成舊 `Anniversary` 形狀餵 `utils/anniversary.ts`，注入那套沒改）、`loadCalendarEvents`（先搬家再讀）。
+- **搬家**：第一次讀約定層時 `migrateLegacyCalendar` 把時光契約的 `tasks`／`anniversaries` 搬成真實身份名下的待辦／紀念日（id `legacy-task-*`／`legacy-anni-*`，重跑不疊；搬過記 localStorage `soren_calendar_legacy_migrated_v1`），舊表留著不讀。
+- **加一條**：右下角 ＋ 開全螢幕 `components/calendar/AddEventPage.tsx`（不要半窗）：誰的（身份卡、角色）、種類（事件／待辦／紀念日）、標題、日期、全天或起訖、地點、跟誰（含配角，多選）、備註（`ExpandableTextarea`）；點已有的那條也開它改、刪。紀念日多「每年重複」「讓 TA 記住這一天」。
+- **待辦**：「我的」「TA 的」底下各一個清單（快速加、勾、刪）；角色在聊天裡 `[[TODO|事情|YYYY-MM-DD]]` 給自己加一條、`[[TODO_DONE|事情]]` 勾掉（`doneBy: 'ai'`，標題模糊比對，對不上不動）。解析零依賴在 `utils/todoTagParse.ts`（容錯：全角豎線、冒號、`ACTION:`、中文別名），落庫在 `utils/todoTag.ts`（改了就發 `calendar-todo-changed` 事件，行事曆開著會重讀），私聊接在 `chatParser` 的 ADD_EVENT 後面（toast＋系統訊息），主動消息 worker 的 `classifier.ts` 把整段標籤直通回客戶端。
+- **注入**（`chatPrompts`）：紀念日改讀約定層；有日程功能的角色多一段「📝【你的待辦】」（`utils/calendarInjection.ts`，截止日寫成今天／明天／過期幾天、對方幫記的標出來、最多 8 條）＋標籤教學；fire_pack 不烤。角色自己 `ADD_EVENT` 加的也存成紀念日（owner 是角色、參與者是你、`source: 'char'`）。
+- **「TA 的」選人**：角色和配角都能看（配角沒有日程表，只有約好的事和待辦；沒開日程功能的角色也一樣）。頭像列只放最近看過的幾個（localStorage `soren_calendar_recent_people_v1`），「…」開全螢幕 `components/calendar/PersonPickerPage.tsx`：搜尋、主角／配角篩選、照世界 → 分組收起來（跟切換聊天同一套 `groupForSwitcher`），大世界幾十個人也找得到。
+- **日期列**：「今天」放日期下方；不是今天就變「回到今天」；點日期開全螢幕 `components/calendar/DayPickerPage.tsx` 選一天（有東西的天打點）。
+- **月曆**：打點多一色（紫＝事件），「今日次元重疊」的我的行程＝這張身份卡有份的約定，角色行程＝角色名下的約定＋日程時段。
+- **時光契約退役**：`apps/ScheduleApp.tsx` 刪掉、桌面不再列 `AppID.Schedule`（`constants.tsx`），舊 id 在 `PhoneShell`／`appPreload` 都導到行事曆，小小窩、手遊桌面等家園的入口照舊用舊 id、文案改「行事曆」；桌面存過的版面裡的 schedule 項目由 `normalizeLayout` 自己清掉。皮膚沒留。
+- 沒做：生成餵約定和待辦、`todoId` 自動勾掉、你自己的 AI 日程、一週、旅行、自動生成（第 3～5 批）。
+
 ## 8. 待確認
 
 - ~~「TA 的待辦」要不要做~~：做，見第 2 節的閉環。
 - ~~一週生成一次請求還是 7 次~~：一次請求出 7 天大綱、每天的時段分開補。
-- 時光契約退役後，`AppID.Schedule` 的桌布／主題引用（`constants.tsx`、幾套桌面）要跟著換名字和圖示。
+- ~~時光契約退役後，`AppID.Schedule` 的桌布／主題引用（`constants.tsx`、幾套桌面）要跟著換名字和圖示~~：第 2 批做了（桌面不列、家園入口導到行事曆、文案改了，圖示沿用）。

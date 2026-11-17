@@ -9,7 +9,7 @@ import type { AssistantSession, DateStory, DateSummaryPreset } from '../types';
 
 import {
     CharacterProfile, ChatLine, ChatTheme, Message, UserProfile,
-    Task, Anniversary, DiaryEntry, RoomTodo, RoomNote, DailySchedule,
+    Task, Anniversary, CalendarEvent, DiaryEntry, RoomTodo, RoomNote, DailySchedule,
     GalleryImage, FullBackupData, GroupProfile, SocialPost, StudyCourse, GameSession, Worldbook, NovelBook, Emoji, EmojiCategory,
     BankTransaction, SavingsGoal, BankFullState, DollhouseState, XhsStockImage, XhsActivityRecord, XhsOwnedPost, SongSheet, QuizSession, GuidebookSession,
     LifeSimState, HandbookEntry, Tracker, TrackerEntry, HotNewsSnapshot,
@@ -41,7 +41,8 @@ const DB_NAME = 'AetherOS_Data';
 //      不進 exportSettings/importSettings 的打包範圍（見 utils/shoppingMall.ts）。
 // v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
 // v75：購物中心訂單 mall_orders（配送狀態照付款時間算，不存，見 plans/mall-redesign.md）。
-const DB_VERSION = 80;
+// v81：行事曆的約定層 calendar_events（待辦、紀念日、約好的事；時光契約的 tasks／anniversaries 搬進來，見 plans/calendar.md）。
+const DB_VERSION = 81;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
@@ -59,6 +60,7 @@ const STORE_USER = 'user_profile';
 const STORE_DIARIES = 'diaries';
 const STORE_TASKS = 'tasks'; 
 const STORE_ANNIVERSARIES = 'anniversaries';
+const STORE_CALENDAR_EVENTS = 'calendar_events'; // v81：行事曆的約定層（plans/calendar.md）
 const STORE_ROOM_TODOS = 'room_todos'; 
 const STORE_ROOM_NOTES = 'room_notes'; 
 const STORE_GROUPS = 'groups'; 
@@ -320,6 +322,7 @@ export const openDB = (): Promise<IDBDatabase> => {
       
       createStore(STORE_TASKS, { keyPath: 'id' });
       createStore(STORE_ANNIVERSARIES, { keyPath: 'id' });
+      createStore(STORE_CALENDAR_EVENTS, { keyPath: 'id' }); // v81
 
       if (!db.objectStoreNames.contains(STORE_ROOM_TODOS)) {
           db.createObjectStore(STORE_ROOM_TODOS, { keyPath: 'id' });
@@ -2231,6 +2234,25 @@ export const DB = {
       transaction.objectStore(STORE_ANNIVERSARIES).delete(id);
   },
 
+  // ── 行事曆的約定層（plans/calendar.md）──
+  getAllCalendarEvents: async (): Promise<CalendarEvent[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_CALENDAR_EVENTS)) return [];
+      return new Promise((resolve, reject) => {
+          const request = db.transaction(STORE_CALENDAR_EVENTS, 'readonly').objectStore(STORE_CALENDAR_EVENTS).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+  saveCalendarEvent: async (event: CalendarEvent): Promise<void> => {
+      const db = await openDB();
+      db.transaction(STORE_CALENDAR_EVENTS, 'readwrite').objectStore(STORE_CALENDAR_EVENTS).put(event);
+  },
+  deleteCalendarEvent: async (id: string): Promise<void> => {
+      const db = await openDB();
+      db.transaction(STORE_CALENDAR_EVENTS, 'readwrite').objectStore(STORE_CALENDAR_EVENTS).delete(id);
+  },
+
   getRoomTodo: async (charId: string, date: string): Promise<RoomTodo | null> => {
       const db = await openDB();
       const id = `${charId}_${date}`;
@@ -3988,7 +4010,7 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets] = await Promise.all([
+      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, calendarEvents, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
           getAllFromStore(STORE_NPCS),
@@ -4003,6 +4025,7 @@ export const DB = {
           getAllFromStore(STORE_DIARIES),
           getAllFromStore(STORE_TASKS),
           getAllFromStore(STORE_ANNIVERSARIES),
+          getAllFromStore(STORE_CALENDAR_EVENTS),
           getAllFromStore(STORE_ROOM_TODOS),
           getAllFromStore(STORE_ROOM_NOTES),
           getAllFromStore(STORE_GROUPS),
@@ -4059,7 +4082,7 @@ export const DB = {
       const dollhouseRecord = bankData.find((d: any) => d.id === 'dollhouse_state');
 
       return {
-          characters, characterGroups, npcs, momentPosts, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
+          characters, characterGroups, npcs, momentPosts, messages, customThemes: themes, savedEmojis: emojis, emojiCategories, assets, galleryImages, userProfile, diaries, tasks, anniversaries, calendarEvents, roomTodos, roomNotes, groups, savedJournalStickers: journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels,
           bankState: mainState ? { ...mainState, id: undefined } : undefined,
           bankDollhouse: dollhouseRecord?.data || undefined,
           bankTransactions: bankTx,
@@ -4193,6 +4216,7 @@ export const DB = {
           data.diaries !== undefined,
           data.tasks !== undefined,
           data.anniversaries !== undefined,
+          data.calendarEvents !== undefined,
           data.roomTodos !== undefined,
           data.roomNotes !== undefined,
           data.groups !== undefined,
@@ -4461,6 +4485,10 @@ export const DB = {
           await clearAndAdd(STORE_ANNIVERSARIES, data.anniversaries, '紀念日', false);
           data.anniversaries = undefined as any;
       }, data.anniversaries?.length || 0);
+      await runSection('行事曆', data.calendarEvents !== undefined, async () => {
+          await clearAndAdd(STORE_CALENDAR_EVENTS, data.calendarEvents, '行事曆', false);
+          data.calendarEvents = undefined as any;
+      }, data.calendarEvents?.length || 0);
       await runSection('房間待辦', data.roomTodos !== undefined, async () => {
           await clearAndAdd(STORE_ROOM_TODOS, data.roomTodos, '房間待辦', false);
           data.roomTodos = undefined as any;

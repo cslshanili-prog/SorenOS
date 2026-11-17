@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, CheckCircle, Circle, Sparkle, Trash, User as UserIcon, UsersThree } from '@phosphor-icons/react';
+import { ArrowClockwise, CalendarBlank, CaretLeft, CaretRight, CheckCircle, Circle, DotsThree, Plus, Sparkle, Trash, User as UserIcon, UsersThree } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import TokenImg from '../components/os/TokenImg';
-import type { Anniversary, CharacterProfile, DailySchedule, Task } from '../types';
+import type { CalendarEvent, CharacterProfile, DailySchedule, Participant } from '../types';
 import { DB } from '../utils/db';
 import { isAltChar } from '../utils/charAlt';
 import { generateDailyScheduleForChar, isScheduleFeatureOn } from '../utils/scheduleGenerator';
@@ -12,18 +12,39 @@ import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { resolveCharTimeZone, tzLabel } from '../utils/timezone';
 import { resolveCharCalendar } from '../utils/worldCalendar';
 import {
-    addDays, addMonths, anniversariesOn, currentActivity, dayMarks, dayTitle, dualTime, monthGrid, monthKeyOf, monthRange,
-    overlapRows, personaOptions, personaTodayKey, rangeState, slotRanges, tasksOn, type DualTime, type PersonaOption,
+    charParticipant, eventOnDay, eventTime, eventsInvolving, eventsOn, loadCalendarEvents, newEvent, openTodos, ownedBy, personaParticipant, sameParticipant, sortByTime,
+} from '../utils/calendarEvents';
+import { TODO_CHANGED_EVENT } from '../utils/todoTag';
+import {
+    addDays, addMonths, currentActivity, dayTitle, dualTime, monthGrid, monthKeyOf, monthRange,
+    overlapRows, personaOptions, personaTodayKey, rangeState, slotRanges, type DualTime, type PersonaOption,
 } from '../utils/calendarView';
+import AddEventPage, { type ParticipantView } from '../components/calendar/AddEventPage';
+import DayPickerPage from '../components/calendar/DayPickerPage';
+import PersonPickerPage from '../components/calendar/PersonPickerPage';
 
 /**
- * 行事曆（plans/calendar.md 第 1 批：殼）：月曆／我的／TA 的三個分頁。
- * 角色的一天還是 DailySchedule（這裡只讀它顯示、能生成今天）；待辦和紀念日先讀時光契約那兩張表；
- * 時間一律照 plans/time-system.md：角色那邊的時間＋「你 xx:xx」（身份卡的所在地）。
- * 約定層、生成強化、旅行、自動生成是後面幾批。
+ * 行事曆（plans/calendar.md）：月曆／我的／TA 的三個分頁。
+ * 第 1 批：殼。第 2 批：約定層（calendar_events）——手動加的、待辦、紀念日；時光契約退役，資料搬進來。
+ * 角色的一天還是 DailySchedule（只讀它顯示、能生成今天）；時間照 plans/time-system.md：那個人那邊＋「你 xx:xx」。
  */
 
 type Tab = 'month' | 'mine' | 'theirs';
+
+/** 「TA 的」最近看過誰（角色、配角），頭像列只放這幾個，其他的從「更多」找 */
+const RECENT_KEY = 'soren_calendar_recent_people_v1';
+const RECENT_LIMIT = 6;
+const readRecent = (): Participant[] => {
+    try {
+        const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
+        return Array.isArray(v) ? v.filter((p: any) => p && (p.kind === 'char' || p.kind === 'npc') && typeof p.id === 'string') : [];
+    } catch { return []; }
+};
+const pushRecent = (list: Participant[], p: Participant): Participant[] => {
+    const next = [p, ...list.filter(x => !sameParticipant(x, p))].slice(0, RECENT_LIMIT);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* 存不了就只記這次 */ }
+    return next;
+};
 
 const Avatar: React.FC<{ src: string; size?: number; className?: string }> = ({ src, size = 28, className = '' }) => (
     <TokenImg value={src} alt="" className={`rounded-full object-cover shrink-0 ${className}`} style={{ width: size, height: size }} />
@@ -41,30 +62,57 @@ const stateBadge = (state: 'past' | 'now' | 'future') =>
     : state === 'future' ? <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-600">Soon</span>
     : null;
 
+const KIND_EMOJI: Record<CalendarEvent['kind'], string> = { event: '📌', todo: '☐', anniversary: '🎂' };
+
 const CalendarApp: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, userProfileBase, apiConfig, groups, realtimeConfig, addToast } = useOS();
+    const { closeApp, characters, npcs, activeCharacterId, userProfileBase, apiConfig, groups, realtimeConfig, addToast } = useOS();
     const [tab, setTab] = useState<Tab>('month');
     const personas = useMemo(() => personaOptions(userProfileBase), [userProfileBase]);
     const [personaKey, setPersonaKey] = useState<string>(() => personas.find(p => p.isMain)?.key || personas[0].key);
     const persona: PersonaOption = personas.find(p => p.key === personaKey) || personas[0];
+    const me: Participant = personaParticipant(persona.key);
     const yourTz = persona.timezone;
     const todayKey = personaTodayKey(yourTz);
     const [dayKey, setDayKey] = useState(todayKey);
     const [monthKey, setMonthKey] = useState(monthKeyOf(todayKey));
 
-    // 有日程功能的角色（小號、下戲的配角藏起來）
-    const scheduleChars = useMemo(() => characters.filter(c => isScheduleFeatureOn(c) && !isAltChar(c)), [characters]);
-    const [charId, setCharId] = useState<string | null>(() => (scheduleChars.some(c => c.id === activeCharacterId) ? activeCharacterId : scheduleChars[0]?.id) || null);
-    const selectedChar = scheduleChars.find(c => c.id === charId) || scheduleChars[0] || null;
+    // 角色（小號藏起來）；有日程功能的那些月曆要撈日程
+    const visibleChars = useMemo(() => characters.filter(c => !isAltChar(c)), [characters]);
+    const scheduleChars = useMemo(() => visibleChars.filter(c => isScheduleFeatureOn(c)), [visibleChars]);
+    // 「TA 的」看誰：角色或配角；最近看過的放頭像列，其他從全螢幕選人頁找
+    const [recent, setRecent] = useState<Participant[]>(readRecent);
+    const exists = useCallback((p: Participant) => p.kind === 'char' ? visibleChars.some(c => c.id === p.id) : p.kind === 'npc' && npcs.some(n => n.id === p.id), [visibleChars, npcs]);
+    const [who, setWhoRaw] = useState<Participant | null>(() => {
+        if (activeCharacterId && visibleChars.some(c => c.id === activeCharacterId)) return charParticipant(activeCharacterId);
+        const r = readRecent().find(exists);
+        return r || (visibleChars[0] ? charParticipant(visibleChars[0].id) : null);
+    });
+    const setWho = (p: Participant) => { setWhoRaw(p); setRecent(prev => pushRecent(prev, p)); };
+    const [picking, setPicking] = useState(false);
+    const [pickingDay, setPickingDay] = useState(false);
+    const whoChar = who?.kind === 'char' ? visibleChars.find(c => c.id === who.id) || null : null;
+    const whoNpc = who?.kind === 'npc' ? npcs.find(n => n.id === who.id) || null : null;
 
-    // 待辦、紀念日（時光契約那兩張表，第 2 批搬進約定層）
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [anniversaries, setAnniversaries] = useState<Anniversary[]>([]);
-    const reloadLists = useCallback(() => {
-        DB.getAllTasks().then(setTasks).catch(() => setTasks([]));
-        DB.getAllAnniversaries().then(setAnniversaries).catch(() => setAnniversaries([]));
-    }, []);
-    useEffect(() => { reloadLists(); }, [reloadLists]);
+    // 約定層（時光契約的待辦、紀念日第一次打開就搬進來）
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const reloadEvents = useCallback(() => { loadCalendarEvents().then(setEvents).catch(() => setEvents([])); }, []);
+    useEffect(() => {
+        reloadEvents();
+        window.addEventListener(TODO_CHANGED_EVENT, reloadEvents);
+        return () => window.removeEventListener(TODO_CHANGED_EVENT, reloadEvents);
+    }, [reloadEvents]);
+
+    // 參與者的名字和頭像（身份卡、角色、配角）
+    const viewOf = useCallback((p: Participant): ParticipantView => {
+        if (p.kind === 'persona') { const o = personas.find(x => x.key === p.id); return { participant: p, name: o?.name || '你', avatar: o?.avatar || '' }; }
+        if (p.kind === 'char') { const c = characters.find(x => x.id === p.id); return { participant: p, name: c?.name || '角色', avatar: c?.avatar || '' }; }
+        const n = npcs.find(x => x.id === p.id); return { participant: p, name: n?.name || '配角', avatar: n?.avatar || '' };
+    }, [personas, characters, npcs]);
+    const participantChoices = useMemo<ParticipantView[]>(() => [
+        ...personas.map(p => viewOf(personaParticipant(p.key))),
+        ...characters.filter(c => !isAltChar(c)).map(c => viewOf(charParticipant(c.id))),
+        ...npcs.map(n => viewOf({ kind: 'npc', id: n.id })),
+    ], [personas, characters, npcs, viewOf]);
 
     // 月份裡每個角色有哪幾天的日程（打點＋今日次元重疊）；key = `${charId}_${date}`
     const [monthSchedules, setMonthSchedules] = useState<Map<string, DailySchedule>>(new Map());
@@ -81,7 +129,6 @@ const CalendarApp: React.FC = () => {
             });
         return () => { cancelled = true; };
     }, [monthKey, scheduleChars, schedulesVersion]);
-    // 看的日子跑出月份外（翻日子）就跟著換月
     useEffect(() => { if (monthKeyOf(dayKey) !== monthKey) setMonthKey(monthKeyOf(dayKey)); }, [dayKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const scheduleOf = (c: CharacterProfile, key: string) => monthSchedules.get(`${c.id}_${key}`) || null;
@@ -91,10 +138,19 @@ const CalendarApp: React.FC = () => {
     useEffect(() => { const t = setInterval(() => tick(n => n + 1), 60_000); return () => clearInterval(t); }, []);
     const nowMs = Date.now();
 
-    const toggleTask = async (task: Task) => {
-        const updated: Task = { ...task, isCompleted: !task.isCompleted, completedAt: task.isCompleted ? undefined : Date.now() };
-        await DB.saveTask(updated);
-        setTasks(prev => prev.map(t => (t.id === task.id ? updated : t)));
+    // ── 約定層的寫 ──
+    const saveEvent = async (e: CalendarEvent) => { await DB.saveCalendarEvent(e); reloadEvents(); };
+    const deleteEvent = async (id: string) => { await DB.deleteCalendarEvent(id); reloadEvents(); };
+    const toggleTodo = async (e: CalendarEvent) => {
+        await saveEvent({ ...e, done: !e.done, doneBy: e.done ? undefined : 'user', completedAt: e.done ? undefined : Date.now(), updatedAt: Date.now() });
+    };
+    const [editing, setEditing] = useState<{ event?: CalendarEvent; owner: Participant; kind: CalendarEvent['kind'] } | null>(null);
+    const [quickTodo, setQuickTodo] = useState('');
+    const addQuickTodo = async (owner: Participant) => {
+        const title = quickTodo.trim();
+        if (!title) return;
+        await saveEvent(newEvent({ owner, kind: 'todo', title, start: dayKey, allDay: true, source: 'user' }));
+        setQuickTodo('');
     };
 
     const [generating, setGenerating] = useState(false);
@@ -120,15 +176,75 @@ const CalendarApp: React.FC = () => {
         addToast('這天的日程刪掉了', 'info');
     };
 
+    // ── 共用：一條約定 ──
+    const renderEventRow = (e: CalendarEvent, opts: { showOwner?: boolean; tz?: string } = {}) => {
+        const start = eventTime(e, 'start');
+        const end = eventTime(e, 'end');
+        const time = start ? dualTime(e.start.slice(0, 10), start, opts.tz, yourTz) : undefined;
+        const others = (e.participants || []).filter(p => !sameParticipant(p, e.owner)).map(viewOf);
+        const ownerView = viewOf(e.owner);
+        return (
+            <button key={e.id} onClick={() => setEditing({ event: e, owner: e.owner, kind: e.kind })} className={`w-full text-left rounded-2xl bg-white/85 border border-white p-3 shadow-sm flex items-start gap-3 ${e.done ? 'opacity-50' : ''}`}>
+                <div className="w-12 shrink-0 text-[11px] font-bold text-pink-500 tabular-nums leading-tight pt-0.5">
+                    {time ? <>{time.local}{end ? <div className="text-slate-400 font-normal">{end}</div> : null}{time.yours && <div className="text-slate-400 font-normal">你 {time.yours}</div>}</> : e.kind === 'todo' ? '待辦' : '全天'}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className={`text-[14px] font-bold text-slate-800 leading-snug ${e.done ? 'line-through' : ''}`}>{KIND_EMOJI[e.kind]} {e.title}</div>
+                    {e.location && <div className="text-[11px] text-slate-500">{e.location}</div>}
+                    {(opts.showOwner || others.length > 0) && (
+                        <div className="mt-1 flex items-center gap-1 text-[10px] text-slate-400">
+                            {opts.showOwner && <><Avatar src={ownerView.avatar} size={16} />{ownerView.name}</>}
+                            {others.length > 0 && <><span>·</span>{others.map(o => <Avatar key={`${o.participant.kind}_${o.participant.id}`} src={o.avatar} size={16} />)}<span>跟 {others.map(o => o.name).join('、')}</span></>}
+                        </div>
+                    )}
+                    {e.source === 'char' && <div className="text-[10px] text-slate-400">{ownerView.name}自己加的</div>}
+                </div>
+            </button>
+        );
+    };
+
+    // ── 共用：待辦清單 ──
+    const renderTodos = (owner: Participant, label: string) => {
+        const mine = ownedBy(events, owner).filter(e => e.kind === 'todo');
+        const open = openTodos(events, owner);
+        const sorted = [...mine].sort((a, b) => Number(!!a.done) - Number(!!b.done) || a.start.localeCompare(b.start));
+        return (
+            <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-2 shadow-sm">
+                <h2 className="text-[13px] font-black text-slate-700">📝 {label} <span className="font-normal text-slate-400">{open.length} 條沒做</span></h2>
+                <form onSubmit={e => { e.preventDefault(); void addQuickTodo(owner); }} className="flex gap-2">
+                    <input value={quickTodo} onChange={e => setQuickTodo(e.target.value)} placeholder={`加一條（截止 ${dayKey === todayKey ? '今天' : dayKey}）`} aria-label="新待辦"
+                        className="min-w-0 flex-1 rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-[13px] outline-none focus:border-pink-200" />
+                    <button type="submit" disabled={!quickTodo.trim()} className="rounded-xl bg-pink-400 px-3 text-[12px] font-bold text-white disabled:opacity-40">加</button>
+                </form>
+                {sorted.length === 0 && <div className="text-[12px] text-slate-400">還沒有待辦。</div>}
+                {sorted.map(t => (
+                    <div key={t.id} className="flex items-start gap-2 py-1">
+                        <button onClick={() => void toggleTodo(t)} aria-label={`${t.done ? '取消完成' : '完成'}：${t.title}`} className="shrink-0">
+                            {t.done ? <CheckCircle size={20} weight="fill" className="text-pink-400" /> : <Circle size={20} className="text-slate-300" />}
+                        </button>
+                        <button onClick={() => setEditing({ event: t, owner: t.owner, kind: 'todo' })} className="min-w-0 flex-1 text-left">
+                            <span className={`block text-[14px] leading-snug ${t.done ? 'line-through text-slate-300' : 'text-slate-700'}`}>{t.title}</span>
+                            <span className={`block text-[11px] ${t.start === todayKey ? 'text-pink-400' : 'text-slate-400'}`}>
+                                📅 {t.start === todayKey ? '今天' : t.start.slice(0, 10)}{t.source === 'char' ? ' · 自己記的' : ''}{t.done && t.doneBy === 'ai' ? ' · AI 勾的' : ''}
+                            </span>
+                        </button>
+                        <button onClick={() => void deleteEvent(t.id)} aria-label={`刪掉：${t.title}`} className="shrink-0 text-slate-300"><Trash size={16} /></button>
+                    </div>
+                ))}
+            </section>
+        );
+    };
+
     // ── 月曆 ──
     const renderMonth = () => {
         const grid = monthGrid(monthKey);
         const [y, m] = monthKey.split('-').map(Number);
         const rows = overlapRows(dayKey, scheduleChars.map(c => ({ char: c, tz: resolveCharTimeZone(c), slots: scheduleOf(c, dayKey)?.slots || [] })), yourTz, nowMs);
-        const myTasks = tasksOn(tasks, dayKey);
-        const myAnnis = anniversariesOn(anniversaries, dayKey);
+        const myDay = sortByTime(eventsOn(eventsInvolving(events, me), dayKey));
+        const charDay = sortByTime(eventsOn(events.filter(e => e.owner.kind !== 'persona' && !sameParticipant(e.owner, me)), dayKey)).filter(e => !myDay.some(x => x.id === e.id));
+        const todoDays = new Set(events.filter(e => e.kind === 'todo' && !e.done).map(e => e.start.slice(0, 10)));
         return (
-            <div className="px-4 pb-6 space-y-4">
+            <div className="px-4 pb-24 space-y-4">
                 <div className="flex items-center justify-between">
                     <button onClick={() => setMonthKey(addMonths(monthKey, -1))} aria-label="上個月" className="h-9 w-9 rounded-full bg-white/80 grid place-items-center text-slate-500 shadow-sm"><CaretLeft size={16} /></button>
                     <div className="text-center">
@@ -144,7 +260,7 @@ const CalendarApp: React.FC = () => {
                     {grid.map((row, i) => (
                         <div key={i} className="grid grid-cols-7 gap-1.5">
                             {row.map(cell => {
-                                const marks = dayMarks(cell.key, scheduleDays, tasks, anniversaries);
+                                const marks = { schedule: scheduleDays.has(cell.key), todo: todoDays.has(cell.key), anniversary: events.some(e => e.kind === 'anniversary' && eventOnDay(e, cell.key)), event: events.some(e => e.kind === 'event' && e.start.slice(0, 10) === cell.key) };
                                 const selected = cell.key === dayKey;
                                 const isToday = cell.key === todayKey;
                                 return (
@@ -154,6 +270,7 @@ const CalendarApp: React.FC = () => {
                                         {cell.day}
                                         <div className="absolute bottom-1 flex gap-0.5">
                                             {marks.schedule && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-sky-400'}`} />}
+                                            {marks.event && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-violet-400'}`} />}
                                             {marks.todo && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-amber-400'}`} />}
                                             {marks.anniversary && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-rose-400'}`} />}
                                         </div>
@@ -166,17 +283,13 @@ const CalendarApp: React.FC = () => {
 
                 <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-3 shadow-sm">
                     <h2 className="text-[15px] font-black text-slate-800 flex items-center gap-2"><Sparkle size={16} weight="fill" className="text-amber-400" />{dayKey === todayKey ? '今日' : dayTitle(dayKey)}次元重疊</h2>
-                    <div className="rounded-2xl bg-sky-50 p-3">
-                        <div className="text-[12px] font-bold text-slate-600 mb-1">📌 我的行程 <span className="font-normal text-slate-400">· {persona.name}</span></div>
-                        {myTasks.length === 0 && myAnnis.length === 0
-                            ? <div className="text-[12px] text-slate-400">目前空閒中</div>
-                            : <ul className="space-y-1 text-[12px] text-slate-700">
-                                {myAnnis.map(a => <li key={a.id}>🎂 {a.title}</li>)}
-                                {myTasks.map(t => <li key={t.id} className={t.isCompleted ? 'line-through text-slate-300' : ''}>☐ {t.title}</li>)}
-                            </ul>}
+                    <div className="rounded-2xl bg-sky-50 p-3 space-y-2">
+                        <div className="text-[12px] font-bold text-slate-600">📌 我的行程 <span className="font-normal text-slate-400">· {persona.name}</span></div>
+                        {myDay.length === 0 ? <div className="text-[12px] text-slate-400">目前空閒中</div> : myDay.map(e => renderEventRow(e))}
                     </div>
-                    <div className="rounded-2xl bg-amber-50 p-3">
-                        <div className="text-[12px] font-bold text-slate-600 mb-1">☁️ 角色行程</div>
+                    <div className="rounded-2xl bg-amber-50 p-3 space-y-2">
+                        <div className="text-[12px] font-bold text-slate-600">☁️ 角色行程</div>
+                        {charDay.map(e => renderEventRow(e, { showOwner: true }))}
                         {scheduleChars.length === 0
                             ? <div className="text-[12px] text-slate-400">還沒有角色開日程功能：神經鏈接 → 角色的「日程／情緒」打開。</div>
                             : rows.length === 0
@@ -202,11 +315,9 @@ const CalendarApp: React.FC = () => {
 
     // ── 我的 ──
     const renderMine = () => {
-        const myTasks = tasksOn(tasks, dayKey);
-        const myAnnis = anniversariesOn(anniversaries, dayKey);
-        const openTasks = tasks.filter(t => !t.isCompleted);
+        const day = sortByTime(eventsOn(eventsInvolving(events, me), dayKey)).filter(e => e.kind !== 'todo');
         return (
-            <div className="px-4 pb-6 space-y-4">
+            <div className="px-4 pb-24 space-y-4">
                 <div className="flex gap-2 overflow-x-auto no-scrollbar py-1" role="radiogroup" aria-label="身份卡">
                     {personas.map(p => (
                         <button key={p.key} role="radio" aria-checked={p.key === persona.key} onClick={() => setPersonaKey(p.key)}
@@ -223,63 +334,75 @@ const CalendarApp: React.FC = () => {
                     </div>
                 </section>
                 {renderDayNav()}
-                <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-2 shadow-sm">
-                    <h2 className="text-[13px] font-black text-slate-700">{dayTitle(dayKey)}</h2>
-                    {myAnnis.map(a => <div key={a.id} className="text-[13px] text-rose-500 font-bold">🎂 {a.title}</div>)}
-                    {myTasks.map(t => <div key={t.id} className={`text-[13px] ${t.isCompleted ? 'line-through text-slate-300' : 'text-slate-700'}`}>☐ {t.title}</div>)}
-                    <p className="text-[11px] text-slate-400 leading-relaxed">你自己的日程、跟角色的約，下一批加；這裡先放待辦和紀念日。</p>
+                <section className="space-y-2">
+                    {day.length === 0 && <div className="rounded-[1.75rem] bg-white/70 border border-white p-5 text-center text-[13px] text-slate-400">這天沒有安排。右下角 ＋ 加一條；AI 照人設生成你的日程是下一批。</div>}
+                    {day.map(e => renderEventRow(e, { tz: yourTz }))}
                 </section>
-                <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-2 shadow-sm">
-                    <h2 className="text-[13px] font-black text-slate-700">📝 待辦清單 <span className="font-normal text-slate-400">{openTasks.length} 條沒做</span></h2>
-                    {tasks.length === 0 && <div className="text-[12px] text-slate-400">還沒有待辦。先在「時光契約」加，下一批搬過來這裡加。</div>}
-                    {[...tasks].sort((a, b) => Number(a.isCompleted) - Number(b.isCompleted) || (a.deadline || '').localeCompare(b.deadline || '')).map(t => (
-                        <button key={t.id} onClick={() => void toggleTask(t)} className="w-full flex items-start gap-2 text-left py-1" aria-label={`${t.isCompleted ? '取消完成' : '完成'}：${t.title}`}>
-                            {t.isCompleted ? <CheckCircle size={20} weight="fill" className="text-pink-400 shrink-0" /> : <Circle size={20} className="text-slate-300 shrink-0" />}
-                            <span className="min-w-0">
-                                <span className={`block text-[14px] leading-snug ${t.isCompleted ? 'line-through text-slate-300' : 'text-slate-700'}`}>{t.title}</span>
-                                {t.deadline && <span className={`block text-[11px] ${t.deadline.slice(0, 10) === todayKey ? 'text-pink-400' : 'text-slate-400'}`}>📅 {t.deadline.slice(0, 10) === todayKey ? '今天' : t.deadline.slice(0, 10)}</span>}
-                            </span>
-                        </button>
-                    ))}
-                </section>
+                {renderTodos(me, '待辦清單')}
             </div>
         );
     };
 
     // ── TA 的 ──
     const renderTheirs = () => {
-        if (!selectedChar) {
-            return <div className="px-6 py-16 text-center text-[13px] text-slate-400 leading-relaxed">還沒有角色開日程功能。<br />到神經鏈接 → 角色的「日程／情緒」打開，再回來。</div>;
+        const person = whoChar || whoNpc;
+        if (!who || !person) {
+            return <div className="px-6 py-16 text-center text-[13px] text-slate-400 leading-relaxed">還沒有角色。<br />到神經鏈接建一個，再回來。</div>;
         }
-        const tz = resolveCharTimeZone(selectedChar);
-        const timeline = resolveCharCalendar(selectedChar);
-        const schedule = scheduleOf(selectedChar, dayKey);
+        const hasSchedule = !!whoChar && isScheduleFeatureOn(whoChar);
+        const tz = resolveCharTimeZone(whoChar || { groupId: whoNpc?.groupId });
+        const timeline = resolveCharCalendar(person);
+        const schedule = whoChar && hasSchedule ? scheduleOf(whoChar, dayKey) : null;
         const ranges = schedule ? slotRanges(schedule.slots) : [];
         const nowSlot = schedule ? currentActivity(dayKey, schedule.slots, tz, nowMs) : undefined;
+        const hisDay = sortByTime(eventsOn(eventsInvolving(events, who), dayKey)).filter(e => e.kind !== 'todo');
+        const rowPeople = [who, ...recent.filter(p => !sameParticipant(p, who))].filter(exists).slice(0, RECENT_LIMIT);
         return (
-            <div className="px-4 pb-6 space-y-4">
-                <div className="flex gap-2 overflow-x-auto no-scrollbar py-1" role="radiogroup" aria-label="角色">
-                    {scheduleChars.map(c => (
-                        <button key={c.id} role="radio" aria-checked={c.id === selectedChar.id} onClick={() => setCharId(c.id)} aria-label={c.name}
-                            className={`rounded-full p-0.5 shrink-0 border-2 ${c.id === selectedChar.id ? 'border-pink-400' : 'border-transparent'}`}>
-                            <Avatar src={c.avatar} size={40} />
-                        </button>
-                    ))}
+            <div className="px-4 pb-24 space-y-4">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar py-1 items-center" role="radiogroup" aria-label="最近看過">
+                    {rowPeople.map(p => {
+                        const v = viewOf(p);
+                        const on = sameParticipant(p, who);
+                        return (
+                            <button key={`${p.kind}_${p.id}`} role="radio" aria-checked={on} onClick={() => setWho(p)} aria-label={v.name}
+                                className={`rounded-full p-0.5 shrink-0 border-2 ${on ? 'border-pink-400' : 'border-transparent'}`}>
+                                <Avatar src={v.avatar} size={40} />
+                            </button>
+                        );
+                    })}
+                    <button onClick={() => setPicking(true)} aria-label="找別人" className="shrink-0 h-11 w-11 rounded-full bg-white/80 border-2 border-dashed border-pink-200 grid place-items-center text-pink-400">
+                        <DotsThree size={22} weight="bold" />
+                    </button>
+                    <span className="text-[11px] text-slate-400 shrink-0">{visibleChars.length + npcs.length} 人</span>
                 </div>
                 <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 flex items-center gap-3 shadow-sm">
-                    <Avatar src={selectedChar.avatar} size={56} />
+                    <button onClick={() => setPicking(true)} aria-label="換一個人看" className="shrink-0"><Avatar src={person.avatar} size={56} /></button>
                     <div className="min-w-0 flex-1">
-                        <div className="text-[18px] font-black text-slate-800 truncate">{selectedChar.name}</div>
-                        <div className="text-[12px] text-slate-500 truncate">{dayKey === todayKey && nowSlot ? `${nowSlot.emoji || ''} ${nowSlot.activity}` : schedule ? '這天有日程' : '這天還沒排'}</div>
+                        <div className="text-[18px] font-black text-slate-800 truncate">{person.name}{whoNpc && <span className="ml-1.5 align-middle rounded-full bg-violet-50 px-1.5 text-[10px] font-bold text-violet-500">配角</span>}</div>
+                        <div className="text-[12px] text-slate-500 truncate">
+                            {whoNpc ? '配角沒有日程，只有約好的事和待辦' : !hasSchedule ? '沒開日程功能' : dayKey === todayKey && nowSlot ? `${nowSlot.emoji || ''} ${nowSlot.activity}` : schedule ? '這天有日程' : '這天還沒排'}
+                        </div>
                         <div className="text-[11px] text-slate-400">{timeline ? '架空曆法' : tz ? tzLabel(tz) : '跟設備時間'}</div>
                     </div>
-                    <button onClick={() => void generateToday(selectedChar, !!scheduleOf(selectedChar, todayKey))} disabled={generating} aria-label={scheduleOf(selectedChar, todayKey) ? '重新生成今天的日程' : '生成今天的日程'}
-                        className="h-11 w-11 rounded-full bg-white grid place-items-center text-pink-500 shadow-md disabled:opacity-50">
-                        {generating ? <ArrowClockwise size={20} className="animate-spin" /> : <Sparkle size={20} weight="fill" />}
-                    </button>
+                    {whoChar && hasSchedule && (
+                        <button onClick={() => void generateToday(whoChar, !!scheduleOf(whoChar, todayKey))} disabled={generating} aria-label={scheduleOf(whoChar, todayKey) ? '重新生成今天的日程' : '生成今天的日程'}
+                            className="h-11 w-11 rounded-full bg-white grid place-items-center text-pink-500 shadow-md disabled:opacity-50">
+                            {generating ? <ArrowClockwise size={20} className="animate-spin" /> : <Sparkle size={20} weight="fill" />}
+                        </button>
+                    )}
                 </section>
                 {renderDayNav(timeline ? dayTitle(dayKey, timeline) : undefined)}
-                {!schedule ? (
+                {hisDay.length > 0 && (
+                    <section className="space-y-2">
+                        <h2 className="px-1 text-[12px] font-bold text-slate-500">約好的事</h2>
+                        {hisDay.map(e => renderEventRow(e, { tz }))}
+                    </section>
+                )}
+                {whoNpc ? (
+                    hisDay.length === 0 && <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">這天沒有約好的事。配角沒有日程表，右下角 ＋ 可以替 TA 加一條。</div>
+                ) : !hasSchedule ? (
+                    <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">這個角色沒開日程功能：神經鏈接 → 角色的「日程／情緒」打開，就能生成 TA 的一天。</div>
+                ) : !schedule ? (
                     <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">
                         這天沒有日程。{dayKey === todayKey ? <>右上角 ✦ 生成今天的。</> : '只能生成今天的；一週一次、提早一天是下一批。'}
                     </div>
@@ -312,27 +435,36 @@ const CalendarApp: React.FC = () => {
                             })}
                             <div className="flex items-center justify-between pt-1">
                                 <div className="text-[12px] text-slate-400">💤 一日結束</div>
-                                <button onClick={() => void deleteDay(selectedChar, dayKey)} aria-label="刪掉這天的日程" className="flex items-center gap-1 text-[11px] text-rose-400"><Trash size={14} />刪掉這天</button>
+                                <button onClick={() => whoChar && void deleteDay(whoChar, dayKey)} aria-label="刪掉這天的日程" className="flex items-center gap-1 text-[11px] text-rose-400"><Trash size={14} />刪掉這天</button>
                             </div>
                         </div>
                     </div>
                 )}
+                {renderTodos(who, `${person.name} 的待辦`)}
             </div>
         );
     };
 
     function renderDayNav(title?: string) {
+        const isToday = dayKey === todayKey;
         return (
             <div className="flex items-center justify-between">
                 <button onClick={() => setDayKey(addDays(dayKey, -1))} aria-label="前一天" className="h-8 w-8 rounded-full bg-white/80 grid place-items-center text-slate-500"><CaretLeft size={14} /></button>
-                <button onClick={() => setDayKey(todayKey)} className="text-[15px] font-black text-slate-800">{title || dayTitle(dayKey)}{dayKey === todayKey && <span className="ml-1 text-[10px] text-pink-400">今天</span>}</button>
+                <div className="flex flex-col items-center leading-tight">
+                    <button onClick={() => setPickingDay(true)} aria-label="選一天" className="text-[15px] font-black text-slate-800">{title || dayTitle(dayKey)}</button>
+                    {isToday
+                        ? <span className="text-[10px] text-pink-400">今天</span>
+                        : <button onClick={() => setDayKey(todayKey)} className="text-[10px] font-bold text-pink-500">回到今天</button>}
+                </div>
                 <button onClick={() => setDayKey(addDays(dayKey, 1))} aria-label="後一天" className="h-8 w-8 rounded-full bg-white/80 grid place-items-center text-slate-500"><CaretRight size={14} /></button>
             </div>
         );
     }
 
+    const fabOwner: Participant = tab === 'theirs' && who ? who : me;
+
     return (
-        <div className="h-full w-full flex flex-col bg-gradient-to-b from-pink-50 via-rose-50 to-sky-50 text-slate-800 animate-fade-in" data-calendar-app>
+        <div className="h-full w-full flex flex-col bg-gradient-to-b from-pink-50 via-rose-50 to-sky-50 text-slate-800 animate-fade-in relative" data-calendar-app>
             <div className="shrink-0 px-4 pb-2 flex items-center justify-between" style={{ paddingTop: 'calc(var(--safe-top, 0px) + 8px)' }}>
                 <button onClick={closeApp} aria-label="關閉" className="h-9 w-9 rounded-full bg-white/80 grid place-items-center text-slate-600 shadow-sm"><CaretLeft size={18} /></button>
                 <div className="text-[16px] font-black">{tab === 'month' ? '行事曆' : tab === 'mine' ? '我的' : 'TA 的'}</div>
@@ -341,6 +473,11 @@ const CalendarApp: React.FC = () => {
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar">
                 {tab === 'month' ? renderMonth() : tab === 'mine' ? renderMine() : renderTheirs()}
             </div>
+            <button onClick={() => setEditing({ owner: fabOwner, kind: 'event' })} aria-label="加一條"
+                className="absolute right-5 h-14 w-14 rounded-2xl bg-pink-400 text-white shadow-lg shadow-pink-200 grid place-items-center active:scale-95 transition"
+                style={{ bottom: 'calc(var(--safe-bottom, 0px) + 4.5rem)' }}>
+                <Plus size={26} weight="bold" />
+            </button>
             <nav className="shrink-0 bg-white/90 backdrop-blur border-t border-white flex" style={{ paddingBottom: 'var(--safe-bottom, 0px)' }} aria-label="行事曆分頁">
                 {([['month', '月曆', CalendarBlank], ['mine', '我的', UserIcon], ['theirs', 'TA 的', UsersThree]] as const).map(([id, label, Icon]) => (
                     <button key={id} onClick={() => setTab(id)} aria-current={tab === id ? 'page' : undefined}
@@ -349,6 +486,39 @@ const CalendarApp: React.FC = () => {
                     </button>
                 ))}
             </nav>
+            {picking && (
+                <PersonPickerPage
+                    characters={visibleChars}
+                    npcs={npcs}
+                    worlds={groups}
+                    selected={who || undefined}
+                    recent={recent.filter(exists)}
+                    onPick={p => { setWho(p); setPicking(false); }}
+                    onClose={() => setPicking(false)}
+                />
+            )}
+            {pickingDay && (
+                <DayPickerPage
+                    value={dayKey}
+                    todayKey={todayKey}
+                    hasMark={key => (tab === 'theirs' && who ? eventsInvolving(events, who) : eventsInvolving(events, me)).some(e => eventOnDay(e, key)) || (tab === 'theirs' && !!whoChar && !!scheduleOf(whoChar, key))}
+                    onPick={key => { setDayKey(key); setPickingDay(false); }}
+                    onClose={() => setPickingDay(false)}
+                />
+            )}
+            {editing && (
+                <AddEventPage
+                    initial={editing.event}
+                    defaultOwner={editing.owner}
+                    defaultKind={editing.kind}
+                    defaultDay={dayKey}
+                    owners={participantChoices}
+                    participants={participantChoices}
+                    onSave={async e => { await saveEvent(e); setEditing(null); }}
+                    onDelete={editing.event ? async () => { await deleteEvent(editing.event!.id); setEditing(null); } : undefined}
+                    onClose={() => setEditing(null)}
+                />
+            )}
         </div>
     );
 };

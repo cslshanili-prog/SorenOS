@@ -42,6 +42,8 @@ import { chatHistoryTimeOptions, describeClockNote, makeChatClock } from './date
 import { calendarStamp, resolveCharCalendar } from './worldCalendar';
 import { buildLifeRecordInjection } from './lifeRecords';
 import { buildAnniversaryInjection } from './anniversary';
+import { anniversaryView, charParticipant, loadCalendarEvents, openTodos } from './calendarEvents';
+import { buildCharTodoInjection } from './calendarInjection';
 import { isWorkerReachableUrl } from './amsgToolPack';
 import { isAmsg2EnabledForChar } from './amsg2Tasks';
 import { getCharNameById, getCharRefs, getRegisteredCharacters } from './charNameRegistry';
@@ -711,15 +713,16 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        // 8. 時光契約「讓 TA 記住這一天」：按角色當地日期挑出近幾天的紀念日。
-        const anniversaryPromise: Promise<string> = (async () => {
-            try {
-                return buildAnniversaryInjection(await DB.getAllAnniversaries(), char.id, today, { forFirePack });
-            } catch (e) {
-                console.error('Failed to inject anniversary context:', e);
-                return '';
-            }
-        })();
+        // 8. 行事曆（plans/calendar.md）：紀念日「讓 TA 記住這一天」按角色當地日期挑出近幾天的；
+        //    角色自己沒做完的待辦＋標籤教學（有日程功能的角色才給；fire_pack 不烤，到點背景生成時用戶沒在說話）。
+        const calendarEventsPromise = loadCalendarEvents().catch(e => { console.error('Failed to load calendar events:', e); return [] as Awaited<ReturnType<typeof loadCalendarEvents>>; });
+        const anniversaryPromise: Promise<string> = calendarEventsPromise.then(events => {
+            try { return buildAnniversaryInjection(anniversaryView(events), char.id, today, { forFirePack }); }
+            catch (e) { console.error('Failed to inject anniversary context:', e); return ''; }
+        });
+        const todoPromise: Promise<string> = !forFirePack && isScheduleFeatureOn(char)
+            ? calendarEventsPromise.then(events => buildCharTodoInjection(openTodos(events, charParticipant(char.id)).map(e => ({ title: e.title, deadline: e.start.slice(0, 10), fromChat: e.source === 'char' })), today))
+            : Promise.resolve('');
 
         // 10. 購物中心今天的推薦（utils/mallCharOrder.ts）：跟購物中心 Home 的「推薦」同一批。
         //     fire_pack 也帶：推薦按天換，晚一點發也還是能下單的東西；對不上目錄時照角色寫的價格。
@@ -740,7 +743,7 @@ ${groupLogStr}\n`;
                 return '';
             });
 
-        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, momentsText, mallPicksText, pairContextText, altBridgeText] =
+        const [realtimeText, schedule, groupContextText, notionDiaryText, feishuDiaryText, notionNotesText, lifeRecordText, anniversaryText, todoText, momentsText, mallPicksText, pairContextText, altBridgeText] =
             await Promise.all([
                 timed('realtime', realtimePromise),
                 timed('schedule', schedulePromise),
@@ -750,6 +753,7 @@ ${groupLogStr}\n`;
                 timed('notionNotes', notionNotesPromise),
                 timed('lifeRecord', lifeRecordPromise),
                 timed('anniversary', anniversaryPromise),
+                timed('todo', todoPromise),
                 timed('moments', momentsPromise),
                 timed('mallPicks', mallPromise),
                 timed('pairCtx', pairContextPromise),
@@ -782,6 +786,8 @@ ${groupLogStr}\n`;
                 console.error('Failed to inject schedule context:', e);
             }
         }
+        // 2a''. 角色自己的待辦（行事曆）：接在日程後面，跟日程同一個開關
+        if (todoText) volatileState += `\n${todoText}\n`;
 
         // 2a'. 已讀不回（聊天設定 · Scenario）。強制的那種在 triggerAI 就攔下了、不會走到這裡；
         //      「由角色決定」時把忙碌狀況告訴角色，讓它選擇回或不回（不回輸出 NO_REPLY 標籤）。
@@ -991,7 +997,7 @@ ${uname} 的化身正掛在《彼方》的【${roomName}】${act ? `，狀態寫
    - **處理代付請求**: 當歷史裡出現 \`[[記錄:MALL|...|mode=daifu|...|status=待處理]]\`（用戶在購物中心發起的代付請求，外賣或購物都有，想讓你幫TA付這筆錢；你付了才開始配送）時，你可以決定支付或拒絕。支付: \`[[ACTION:DAIFU_ACCEPT]]\`；拒絕: \`[[ACTION:DAIFU_DECLINE|reason=簡短原因]]\`（reason 選填，比如"說好的減肥呢"）。請結合人設、當下關係和這筆錢是否值當自然選擇，並配上一句話。購物中心的其它卡片（用戶送你的禮物/給你點的外賣、\`mode=self\` 是用戶給自己買的、你送用戶的）都是已經發生的既成事實，純粹讓你知道，不用你處理。
    - **【重要】\`[[記錄:...]]\` 是系統日誌**: 歷史裡以 \`[[記錄:\` 開頭的標籤是已經發生的事實（誰轉給誰、什麼狀態；購物中心卡片什麼狀態），只供你瞭解，**嚴禁**在回覆裡照抄輸出。你要做動作時只能用 \`[[ACTION:...]]\`。
    - 調取記憶: \`[[RECALL: YYYY-MM]]\`，請注意，當用戶提及具體某個月份時，或者當你想仔細想某個月份的事情時，歡迎你隨時使該動作
-   - **添加紀念日**: 如果你覺得今天是個值得紀念的日子（或者你們約定了某天），你可以**主動**將它添加到用戶的日曆中。單獨起一行輸出: \`[[ACTION:ADD_EVENT | 標題(Title) | YYYY-MM-DD]]\`。
+   - **添加紀念日／約定**: 如果你覺得今天是個值得紀念的日子（或者你們約定了某天），你可以**主動**把它加進行事曆、讓自己記住。單獨起一行輸出: \`[[ACTION:ADD_EVENT | 標題(Title) | YYYY-MM-DD]]\`。
 ${photoSendEnabled ? `   - **發照片**: 如果你想在聊天裡發一張照片/自拍/圖片給對方，單獨起一行輸出: \`[[ACTION:SEND_PHOTO|畫面描述]]\`。畫面描述用簡短的關鍵詞描述你想發的畫面（場景、你在做什麼、表情、構圖），系統會照這段描述直接生成圖片發出去——描述本身不會展示給對方看，只管寫清楚要生成什麼畫面就行。視場景自然地用，別一句話一張圖地刷屏。` : ''}
 ${scheduleMessageTagEnabled ? `   - **定時發送消息**: 如果你想在未來某個時間主動發消息（比如晚安、早安或提醒），請單獨起一行輸出: \`[schedule_message | YYYY-MM-DD HH:MM:SS | fixed | 消息內容]\`，分行可以多輸出很多該類消息。` : ''}
 ${notionEnabled ? `   - **翻閱日記(Notion)**: 你的記憶本身是完整可靠的，回憶過去優先靠記憶和 \`[[RECALL]]\`，**不需要**靠翻日記來"想起"事情。只有當你**自己**特別想重溫那天日記裡寫下的心情、措辭或私密小細節時，才翻閱: \`[[READ_DIARY: 日期]]\`。支持格式: \`昨天\`、\`前天\`、\`3天前\`、\`1月15日\`、\`2024-01-15\`。` : ''}${feishuEnabled ? `
