@@ -15,6 +15,8 @@ import { resolveGiftOrders } from './mallCharOrder';
 import { createMallOrder } from './mallOrders';
 import { executeLifeDirectives } from './lifeRecords';
 import { wallClockToTimestamp } from './timezone';
+import { charParticipant, newEvent, personaParticipant } from './calendarEvents';
+import { applyCharTodoTags } from './todoTag';
 import { createPendingPhoto, fulfillPendingPhoto } from './pendingPhoto';
 import { CollaborationStore } from '../features/collaboration/store';
 import {
@@ -806,12 +808,30 @@ export const ChatParser = {
             const title = eventMatch[1].trim();
             const date = eventMatch[2].trim();
             if (title && date) {
-                const anni: any = { id: `anni-${Date.now()}`, title: title, date: date, charId };
-                await DB.saveAnniversary(anni);
-                addToast(`${charName} 添加了新日程: ${title}`, 'success');
+                // 行事曆的約定層（plans/calendar.md）：角色名下的一條約定、你有份；紀念日那種「讓 TA 記住」照舊
+                const normalized = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : date.replace(/[／.]/g, '-');
+                await DB.saveCalendarEvent(newEvent({
+                    owner: charParticipant(charId), kind: 'anniversary', title, start: normalized, allDay: true,
+                    participants: [personaParticipant(undefined)], charRemembers: true, source: 'char',
+                }));
+                addToast(`${charName} 在行事曆加了：${title}`, 'success');
                 await persist({ charId, role: 'system', type: 'text', content: `[系統: ${charName} 新增了日程 "${title}" (${date})]` });
             }
             content = content.replace(eventMatch[0], '').trim();
+        }
+
+        // TODO / TODO_DONE：角色給自己加待辦、勾掉（plans/calendar.md 第 2 節；解析在 todoTagParse，worker 直通同一段標籤）
+        {
+            const todo = await applyCharTodoTags(content, charId);
+            content = todo.cleanedText;
+            for (const e of todo.added) {
+                addToast(`${charName} 記了一條待辦：${e.title}`, 'info');
+                await persist({ charId, role: 'system', type: 'text', content: `[系統: ${charName} 記了待辦 "${e.title}"${e.start ? ` (${e.start.slice(0, 10)})` : ''}]` });
+            }
+            for (const e of todo.completed) {
+                addToast(`${charName} 做完了：${e.title}`, 'success');
+                await persist({ charId, role: 'system', type: 'text', content: `[系統: ${charName} 做完了待辦 "${e.title}"]` });
+            }
         }
 
         // SCHEDULE

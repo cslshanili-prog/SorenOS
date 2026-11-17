@@ -25,6 +25,7 @@
 import { sanitizeForNotification } from '../../../utils/sanitize';
 import { extractTransferCommands, parseTransferAmount } from '../../../utils/transferFormat';
 import { extractScheduleChangeDirectives } from '../../../utils/scheduleChangeParse';
+import { TODO_TAG_RE } from '../../../utils/todoTagParse';
 
 export type ToolCall = {
   id: string;
@@ -207,6 +208,12 @@ const SIDE_EFFECT_TAGS: SideEffectSpec[] = [
   },
   {
     re: SOREN_SIDE_MESSAGE_TAG_RE,
+    toDirective: (m) => ({ type: 'soren_tag', raw: m[0] }),
+  },
+  // 角色自己的待辦 [[TODO|…]] / [[TODO_DONE|…]]（plans/calendar.md）：解析跟客戶端共用 utils/todoTagParse，
+  // 這裡只負責別把它剝成空塊——原樣直通，客戶端拼回正文後 chatParser 落庫。
+  {
+    re: TODO_TAG_RE,
     toDirective: (m) => ({ type: 'soren_tag', raw: m[0] }),
   },
   // [[ACTION:POKE]]

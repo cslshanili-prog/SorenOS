@@ -5016,6 +5016,43 @@ export interface Task {
     createdAt: number;
 }
 
+/** 行事曆：誰的、跟誰（plans/calendar.md）。persona 的 id 是身份鍵（REAL_IDENTITY_PERSONA_ID 或身份卡 id） */
+export interface Participant { kind: 'persona' | 'char' | 'npc'; id: string }
+
+/**
+ * 行事曆的約定層（plans/calendar.md 第 3 節，utils/calendarEvents.ts）：你手動加的、約好的事、待辦、紀念日。
+ * 角色的一天不在這裡（那是 DailySchedule）。時光契約的 tasks／anniversaries 第一次用到時搬進來。
+ */
+export interface CalendarEvent {
+    id: string;
+    /** 誰的行事曆上 */
+    owner: Participant;
+    title: string;
+    /** 當地牆上時間 'YYYY-MM-DDTHH:mm'；allDay／待辦只看前 10 個字的日期 */
+    start: string;
+    end?: string;
+    allDay?: boolean;
+    location?: string;
+    /** 跟誰一起（顯示頭像；生成對方那天時餵進去） */
+    participants?: Participant[];
+    kind: 'event' | 'todo' | 'anniversary';
+    /** todo */
+    done?: boolean;
+    completedAt?: number;
+    /** todo：誰勾的（AI 勾的你取消得掉） */
+    doneBy?: 'user' | 'ai';
+    /** anniversary：每年重複 */
+    repeat?: 'yearly';
+    /** anniversary：「讓 TA 記住這一天」，照舊注入 utils/anniversary.ts */
+    charRemembers?: boolean;
+    note?: string;
+    /** 誰加的：你、AI 生成、角色在聊天裡 */
+    source: 'user' | 'ai' | 'char';
+    createdAt: number;
+    updatedAt: number;
+}
+
+/** 【舊】時光契約的紀念日；2026-11 搬進 CalendarEvent（kind 'anniversary'），表留著不讀 */
 export interface Anniversary {
     id: string;
     title: string;
@@ -5373,6 +5410,8 @@ export interface FullBackupData {
     diaries?: DiaryEntry[];
     tasks?: Task[];
     anniversaries?: Anniversary[];
+    /** 行事曆的約定層（plans/calendar.md） */
+    calendarEvents?: CalendarEvent[];
     roomTodos?: RoomTodo[]; 
     roomNotes?: RoomNote[];
     socialPosts?: SocialPost[]; 
