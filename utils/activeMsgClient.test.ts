@@ -963,7 +963,10 @@ describe('buildFirePack 的時區參照系與模板（①）', () => {
     // 第 12 個位置參數是 promptOptions（見 chatPrompts.buildSystemPrompt 簽名）。
     // 這個開關一次性關掉時間塊 / 真實世界感知 / 日程 / 音樂 / 剛打完電話 / 群聊相對時間 /
     // 生活記錄代記 / [schedule_message] 教學，清單見 ChatPrompts.PromptBuildOptions。
-    expect(systemPromptSpy.mock.calls[0][11]).toEqual({ forFirePack: true });
+    // libraryPhotos 是唯一的例外，刻意帶：資料庫照片清單按圖的 id 編號，打包那一刻的清單到點還對得上；
+    // 角色到點才能用 SEND_SAVED_PHOTO 傳一張現成的（worker 原樣送回標籤，客戶端收件時照編號找圖）。
+    // 見 plans/asset-library-design.md「雲端也帶」。
+    expect(systemPromptSpy.mock.calls[0][11]).toEqual({ forFirePack: true, libraryPhotos: true });
   });
 
   it('聊天語言：模板帶說話語言與夾雜，不帶雙語標籤（譯文收件後在本機補）', async () => {
