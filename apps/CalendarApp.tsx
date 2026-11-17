@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarBlank, CaretLeft, CaretRight, CheckCircle, Circle, DotsThree, Plus, Sparkle, Trash, User as UserIcon, UsersThree } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import TokenImg from '../components/os/TokenImg';
-import type { CalendarEvent, CharacterProfile, DailySchedule, Participant, ScheduleSlot } from '../types';
+import type { CalendarEvent, CharacterProfile, DailySchedule, Participant, ScheduleSlot, Trip } from '../types';
 import { DB } from '../utils/db';
 import { isAltChar } from '../utils/charAlt';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
@@ -11,7 +11,7 @@ import { REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import { resolveCharacterMeterApi } from '../utils/characterApi';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
-import { resolveCharTimeZone, tzLabel } from '../utils/timezone';
+import { resolveCharBaseTimeZone, tzLabel } from '../utils/timezone';
 import { resolveCharCalendar } from '../utils/worldCalendar';
 import {
     charParticipant, eventOnDay, eventTime, eventsInvolving, eventsOn, loadCalendarEvents, newEvent, openTodos, ownedBy, personaParticipant, sameParticipant, sortByTime,
@@ -25,6 +25,9 @@ import AddEventPage, { type ParticipantView } from '../components/calendar/AddEv
 import DayPickerPage from '../components/calendar/DayPickerPage';
 import PersonPickerPage from '../components/calendar/PersonPickerPage';
 import GeneratePage from '../components/calendar/GeneratePage';
+import TripPage from '../components/calendar/TripPage';
+import { refreshTripRegistry, tripLabel, tripOn, tripsOf, tripsOnDay } from '../utils/trips';
+import { AirplaneTilt } from '@phosphor-icons/react';
 
 /**
  * 行事曆（plans/calendar.md）：月曆／我的／TA 的三個分頁。
@@ -98,7 +101,16 @@ const CalendarApp: React.FC = () => {
 
     // 約定層（時光契約的待辦、紀念日第一次打開就搬進來）
     const [events, setEvents] = useState<CalendarEvent[]>([]);
-    const reloadEvents = useCallback(() => { loadCalendarEvents().then(setEvents).catch(() => setEvents([])); }, []);
+    const [trips, setTrips] = useState<Trip[]>([]);
+    const reloadEvents = useCallback(() => {
+        loadCalendarEvents().then(setEvents).catch(() => setEvents([]));
+        refreshTripRegistry().then(setTrips).catch(() => setTrips([]));
+    }, []);
+    const saveTrip = async (t: Trip) => { await DB.saveTrip(t); reloadEvents(); };
+    const deleteTrip = async (id: string) => { await DB.deleteTrip(id); reloadEvents(); };
+    const [editingTrip, setEditingTrip] = useState<{ trip?: Trip; owner: Participant } | null>(null);
+    /** 這個人這天的時區：旅行 > 原本的（世界／角色／身份卡所在地） */
+    const tzOn = (who: Participant, base: string | undefined, key: string): string | undefined => tripOn(trips, who, key)?.timezone || base;
     useEffect(() => {
         reloadEvents();
         window.addEventListener(TODO_CHANGED_EVENT, reloadEvents);
@@ -287,11 +299,38 @@ const CalendarApp: React.FC = () => {
         );
     };
 
+    // ── 共用：旅行清單 ──
+    const renderTrips = (who: Participant) => {
+        const list = tripsOf(trips, who);
+        return (
+            <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-2 shadow-sm">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-[13px] font-black text-slate-700"><AirplaneTilt size={14} weight="fill" className="inline -mt-0.5 mr-1 text-teal-500" />旅行 <span className="font-normal text-slate-400">{list.length ? `${list.length} 趟` : ''}</span></h2>
+                    <button onClick={() => setEditingTrip({ owner: who })} className="rounded-full bg-teal-50 px-2.5 py-1 text-[11px] font-bold text-teal-600">＋ 加一趟</button>
+                </div>
+                {list.length === 0 && <div className="text-[12px] text-slate-400">沒有排旅行。期間時區換成目的地、日程會寫成在那邊的一天、天氣跟著目的地。</div>}
+                {list.map(t => {
+                    const past = t.to < todayKey;
+                    const now = t.from <= todayKey && todayKey <= t.to;
+                    return (
+                        <button key={t.id} onClick={() => setEditingTrip({ trip: t, owner: t.owner })} className={`w-full text-left flex items-start gap-2 py-1 ${past ? 'opacity-50' : ''}`}>
+                            <span className="text-[16px] leading-6">{t.kind === 'business' ? '💼' : t.kind === 'travel' ? '✈️' : '🧳'}</span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block text-[14px] font-bold text-slate-700 leading-snug">{t.destination}{now && <span className="ml-1.5 rounded-full bg-teal-500 px-1.5 text-[9px] font-bold text-white align-middle">出行中</span>}</span>
+                                <span className="block text-[11px] text-slate-400">{t.from.slice(5)} ～ {t.to.slice(5)}{t.timezone ? ` · ${tzLabel(t.timezone)}` : ''}{t.note ? ` · ${t.note}` : ''}</span>
+                            </span>
+                        </button>
+                    );
+                })}
+            </section>
+        );
+    };
+
     // ── 月曆 ──
     const renderMonth = () => {
         const grid = monthGrid(monthKey);
         const [y, m] = monthKey.split('-').map(Number);
-        const rows = overlapRows(dayKey, scheduleChars.map(c => ({ char: c, tz: resolveCharTimeZone(c), slots: scheduleOf(c, dayKey)?.slots || [] })), yourTz, nowMs);
+        const rows = overlapRows(dayKey, scheduleChars.map(c => ({ char: c, tz: tzOn(charParticipant(c.id), resolveCharBaseTimeZone(c), dayKey), slots: scheduleOf(c, dayKey)?.slots || [] })), yourTz, nowMs);
         const myDay = sortByTime(eventsOn(eventsInvolving(events, me), dayKey));
         const myRows = overlapRows(dayKey, [{ char: { id: personaScheduleId(persona.key), name: persona.name, avatar: persona.avatar }, tz: yourTz, slots: personaSchedule(dayKey)?.slots || [] }], yourTz, nowMs);
         const charDay = sortByTime(eventsOn(events.filter(e => e.owner.kind !== 'persona' && !sameParticipant(e.owner, me)), dayKey)).filter(e => !myDay.some(x => x.id === e.id));
@@ -313,7 +352,7 @@ const CalendarApp: React.FC = () => {
                     {grid.map((row, i) => (
                         <div key={i} className="grid grid-cols-7 gap-1.5">
                             {row.map(cell => {
-                                const marks = { schedule: scheduleDays.has(cell.key), todo: todoDays.has(cell.key), anniversary: events.some(e => e.kind === 'anniversary' && eventOnDay(e, cell.key)), event: events.some(e => e.kind === 'event' && e.start.slice(0, 10) === cell.key) };
+                                const marks = { schedule: scheduleDays.has(cell.key), todo: todoDays.has(cell.key), anniversary: events.some(e => e.kind === 'anniversary' && eventOnDay(e, cell.key)), event: events.some(e => e.kind === 'event' && e.start.slice(0, 10) === cell.key), trip: tripsOnDay(trips, cell.key).length > 0 };
                                 const selected = cell.key === dayKey;
                                 const isToday = cell.key === todayKey;
                                 return (
@@ -326,6 +365,7 @@ const CalendarApp: React.FC = () => {
                                             {marks.event && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-violet-400'}`} />}
                                             {marks.todo && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-amber-400'}`} />}
                                             {marks.anniversary && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-rose-400'}`} />}
+                                            {marks.trip && <span className={`h-1 w-1 rounded-full ${selected ? 'bg-white' : 'bg-teal-400'}`} />}
                                         </div>
                                     </button>
                                 );
@@ -336,6 +376,12 @@ const CalendarApp: React.FC = () => {
 
                 <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 space-y-3 shadow-sm">
                     <h2 className="text-[15px] font-black text-slate-800 flex items-center gap-2"><Sparkle size={16} weight="fill" className="text-amber-400" />{dayKey === todayKey ? '今日' : dayTitle(dayKey)}次元重疊</h2>
+                    {tripsOnDay(trips, dayKey).length > 0 && (
+                        <div className="rounded-2xl bg-teal-50 p-3 space-y-1">
+                            <div className="text-[12px] font-bold text-slate-600">✈️ 出行中</div>
+                            {tripsOnDay(trips, dayKey).map(t => { const v = viewOf(t.owner); return <div key={t.id} className="flex items-center gap-1.5 text-[12px] text-slate-700"><Avatar src={v.avatar} size={16} />{v.name} · {tripLabel(t, dayKey)}</div>; })}
+                        </div>
+                    )}
                     <div className="rounded-2xl bg-sky-50 p-3 space-y-2">
                         <div className="text-[12px] font-bold text-slate-600">📌 我的行程 <span className="font-normal text-slate-400">· {persona.name}</span></div>
                         {myDay.length === 0 && myRows.length === 0 ? <div className="text-[12px] text-slate-400">目前空閒中</div> : myDay.map(e => renderEventRow(e))}
@@ -380,7 +426,9 @@ const CalendarApp: React.FC = () => {
     const renderMine = () => {
         const day = sortByTime(eventsOn(eventsInvolving(events, me), dayKey)).filter(e => e.kind !== 'todo');
         const mySchedule = personaSchedule(dayKey);
-        const myNow = mySchedule ? currentActivity(dayKey, mySchedule.slots, yourTz, nowMs) : undefined;
+        const myTrip = tripOn(trips, me, dayKey);
+        const myTz = myTrip?.timezone || yourTz;
+        const myNow = mySchedule ? currentActivity(dayKey, mySchedule.slots, myTz, nowMs) : undefined;
         return (
             <div className="px-4 pb-24 space-y-4">
                 <div className="flex gap-2 overflow-x-auto no-scrollbar py-1" role="radiogroup" aria-label="身份卡">
@@ -396,7 +444,8 @@ const CalendarApp: React.FC = () => {
                     <div className="min-w-0 flex-1">
                         <div className="text-[18px] font-black text-slate-800 truncate">{persona.name}</div>
                         <div className="text-[12px] text-slate-500 truncate">{dayKey === todayKey && myNow ? `${myNow.emoji || ''} ${myNow.activity}` : mySchedule ? '這天有日程' : '這天還沒排'}</div>
-                        <div className="text-[11px] text-slate-400">{persona.timezone ? tzLabel(persona.timezone) : '跟設備時間'} · 今天 {dayTitle(todayKey)}</div>
+                        {myTrip && <div className="text-[11px] font-bold text-teal-600">{tripLabel(myTrip, dayKey)}</div>}
+                        <div className="text-[11px] text-slate-400">{myTz ? tzLabel(myTz) : '跟設備時間'} · 今天 {dayTitle(todayKey)}</div>
                     </div>
                     <button onClick={() => setGenerating(personaPerson)} aria-label="生成我的日程" className="h-11 w-11 rounded-full bg-white grid place-items-center text-pink-500 shadow-md"><Sparkle size={20} weight="fill" /></button>
                 </section>
@@ -408,8 +457,9 @@ const CalendarApp: React.FC = () => {
                     </section>
                 )}
                 {mySchedule
-                    ? renderTimeline(mySchedule, yourTz, () => void deleteDay(personaScheduleId(persona.key), dayKey))
+                    ? renderTimeline(mySchedule, myTz, () => void deleteDay(personaScheduleId(persona.key), dayKey))
                     : <div className="rounded-[1.75rem] bg-white/70 border border-white p-5 text-center text-[13px] text-slate-400 leading-relaxed">{day.length === 0 ? '這天沒有安排。' : ''}右下角 ＋ 加一條；右上角 ✦ 讓 AI 照這張卡的人設排一天或一週。</div>}
+                {renderTrips(me)}
                 {renderTodos(me, '待辦清單')}
             </div>
         );
@@ -422,7 +472,8 @@ const CalendarApp: React.FC = () => {
             return <div className="px-6 py-16 text-center text-[13px] text-slate-400 leading-relaxed">還沒有角色。<br />到神經鏈接建一個，再回來。</div>;
         }
         const hasSchedule = !!whoChar && isScheduleFeatureOn(whoChar);
-        const tz = resolveCharTimeZone(whoChar || { groupId: whoNpc?.groupId });
+        const tz = tzOn(who, resolveCharBaseTimeZone(whoChar || { groupId: whoNpc?.groupId }), dayKey);
+        const trip = tripOn(trips, who, dayKey);
         const timeline = resolveCharCalendar(person);
         const schedule = whoChar && hasSchedule ? scheduleOf(whoChar, dayKey) : null;
         const ranges = schedule ? slotRanges(schedule.slots) : [];
@@ -454,6 +505,7 @@ const CalendarApp: React.FC = () => {
                         <div className="text-[12px] text-slate-500 truncate">
                             {whoNpc ? '配角沒有日程，只有約好的事和待辦' : !hasSchedule ? '沒開日程功能' : dayKey === todayKey && nowSlot ? `${nowSlot.emoji || ''} ${nowSlot.activity}` : schedule ? '這天有日程' : '這天還沒排'}
                         </div>
+                        {trip && <div className="text-[11px] font-bold text-teal-600">{tripLabel(trip, dayKey)}</div>}
                         <div className="text-[11px] text-slate-400">{timeline ? '架空曆法' : tz ? tzLabel(tz) : '跟設備時間'}</div>
                     </div>
                     {whoChar && hasSchedule && (
@@ -479,6 +531,7 @@ const CalendarApp: React.FC = () => {
                         這天沒有日程。右上角 ✦ 生成今天或這週的。
                     </div>
                 ) : renderTimeline(schedule, tz, () => whoChar && void deleteDay(whoChar.id, dayKey))}
+                {renderTrips(who)}
                 {renderTodos(who, `${person.name} 的待辦`)}
             </div>
         );
@@ -534,6 +587,17 @@ const CalendarApp: React.FC = () => {
                     recent={recent.filter(exists)}
                     onPick={p => { setWho(p); setPicking(false); }}
                     onClose={() => setPicking(false)}
+                />
+            )}
+            {editingTrip && (
+                <TripPage
+                    initial={editingTrip.trip}
+                    defaultOwner={editingTrip.owner}
+                    defaultFrom={dayKey}
+                    owners={participantChoices}
+                    onSave={async t => { await saveTrip(t); setEditingTrip(null); }}
+                    onDelete={editingTrip.trip ? async () => { await deleteTrip(editingTrip.trip!.id); setEditingTrip(null); } : undefined}
+                    onClose={() => setEditingTrip(null)}
                 />
             )}
             {generating && (

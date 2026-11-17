@@ -4,7 +4,8 @@
 // 夜間判斷」都按這個時區折算，讓 ta 真的活在自己的本地時間裡。兩者可任意組合。
 
 import { CharacterProfile } from '../types';
-import { getWorld } from './charNameRegistry';
+import { getActiveTrip, getWorld } from './charNameRegistry';
+import { getLocalDateKey } from './localDate';
 
 /** 常用時區清單（友好中文標籤）。用 IANA id，自動處理夏令時。 */
 export const COMMON_TIMEZONES: { id: string; label: string }[] = [
@@ -33,6 +34,20 @@ export const COMMON_TIMEZONES: { id: string; label: string }[] = [
  * 3. 否則角色自己開的自定義時區；都沒有就 undefined（＝跟隨設備）
  */
 export const resolveCharTimeZone = (
+    char?: Pick<CharacterProfile, 'customTimezoneEnabled' | 'customTimezone'> & { id?: string; groupId?: string } | null,
+    at: Date = new Date(),
+): string | undefined => {
+    const base = resolveCharBaseTimeZone(char);
+    // 0. 旅行中（plans/calendar.md 第 4 批）：期間換成目的地的時區；「今天」照原本那邊的日曆日算
+    if (char?.id) {
+        const trip = getActiveTrip({ kind: 'char', id: char.id }, getLocalDateKey(nowInTimeZone(base, at)));
+        if (trip?.timezone) return trip.timezone;
+    }
+    return base;
+};
+
+/** 不看旅行的那層（世界 > 角色） */
+export const resolveCharBaseTimeZone = (
     char?: Pick<CharacterProfile, 'customTimezoneEnabled' | 'customTimezone'> & { groupId?: string } | null,
 ): string | undefined => {
     const world = getWorld(char?.groupId);

@@ -110,6 +110,7 @@ import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
+import { refreshTripRegistry } from '../utils/trips';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { setMomentsGraphInputs } from '../utils/momentsContext';
@@ -2377,6 +2378,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setWorldRegistry(characterGroups);
   }, [characterGroups]);
+  // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
+  useEffect(() => { void refreshTripRegistry(); }, []);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
     setCloudLineRegistry(characters);

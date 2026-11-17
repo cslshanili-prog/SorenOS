@@ -1,5 +1,5 @@
 
-import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, Message, Emoji, CalendarEvent, Participant } from '../types';
+import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, Message, Emoji, CalendarEvent, Participant, Trip } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
@@ -16,10 +16,11 @@ import { isAltChar } from './charAlt';
 import { loadCalendarEvents, newEvent } from './calendarEvents';
 import { charSchedulePerson, type SchedulePerson } from './schedulePerson';
 import {
-    buildAgreementsBlock, buildOutlineBlock, buildSchedulePromptBlock, buildTodosBlock, buildWeekOutlinePrompt, openTodosOf, OUTPUT_DONE_TODOS, OUTPUT_EXTRA_FIELDS,
+    buildAgreementsBlock, buildOutlineBlock, buildSchedulePromptBlock, buildTodosBlock, buildTripBlock, buildWeekOutlinePrompt, openTodosOf, OUTPUT_DONE_TODOS, OUTPUT_EXTRA_FIELDS,
     parseWeekOutline, resolveDoneTodos, toScheduleSlot, weekdayOf, type NamedParticipant,
 } from './scheduleGenParts';
 import { REAL_IDENTITY_PERSONA_ID, personaNameForKey } from './userPersona';
+import { tripOn } from './trips';
 
 export { getFlowNarrativeKey, isScheduleFeatureOn } from './scheduleFeature';
 
@@ -298,6 +299,8 @@ export interface GenerateScheduleOptions {
     people?: NamedParticipant[];
     /** 約定層；沒給就讀 */
     events?: CalendarEvent[];
+    /** 旅行；沒給就讀 */
+    trips?: Trip[];
     /** API 記錄上的用途 */
     purpose?: string;
 }
@@ -390,10 +393,12 @@ export async function generateScheduleFor(
     }
 
     const events = opts.events || await loadCalendarEvents().catch(() => [] as CalendarEvent[]);
+    const trips = opts.trips || await DB.getAllTrips().catch(() => [] as Trip[]);
     const people = opts.people || await loadNamedParticipants(person.kind === 'persona' ? undefined : userProfile);
     const nameOf = (p: Participant) => people.find(x => x.participant.kind === p.kind && x.participant.id === p.id)?.name || '';
     const todos = openTodosOf(events, person.participant);
     const extra = buildSchedulePromptBlock(person.schedulePrompt)
+        + buildTripBlock(tripOn(trips, person.participant, dateKey), dateKey)
         + buildAgreementsBlock(events, person.participant, dateKey, nameOf)
         + buildTodosBlock(events, person.participant, dateKey)
         + buildOutlineBlock(opts.outline);
@@ -455,6 +460,7 @@ export interface GenerateWeekOptions {
     force?: boolean;
     people?: NamedParticipant[];
     events?: CalendarEvent[];
+    trips?: Trip[];
     /** 每做完一天叫一次（index 從 0 起，第 -1 次是大綱） */
     onProgress?: (done: number, total: number, dateKey: string, ok: boolean) => void;
 }
@@ -479,11 +485,13 @@ export async function generateWeekFor(
     const start = opts.startKey || personTodayKey(person);
     const days = Array.from({ length: 7 }, (_, i) => addDaysKey(start, i));
     let events = opts.events || await loadCalendarEvents().catch(() => [] as CalendarEvent[]);
+    const trips = opts.trips || await DB.getAllTrips().catch(() => [] as Trip[]);
     const people = opts.people || await loadNamedParticipants(person.kind === 'persona' ? undefined : userProfile);
     const nameOf = (p: Participant) => people.find(x => x.participant.kind === p.kind && x.participant.id === p.id)?.name || '';
 
-    // 大綱
-    const agreements = days.map(d => buildAgreementsBlock(events, person.participant, d, nameOf).replace('## 這天已經約好的事（必須排進日程，時間照這裡的；紀念日要有所表示）', `## ${d}（週${weekdayOf(d)}）已經約好的事`)).join('');
+    // 大綱（哪幾天在旅行也寫上）
+    const agreements = days.map(d => buildTripBlock(tripOn(trips, person.participant, d), d).replace('## 出行中', `## ${d}（週${weekdayOf(d)}）出行中`)
+        + buildAgreementsBlock(events, person.participant, d, nameOf).replace('## 這天已經約好的事（必須排進日程，時間照這裡的；紀念日要有所表示）', `## ${d}（週${weekdayOf(d)}）已經約好的事`)).join('');
     const todosBlock = buildTodosBlock(events, person.participant, start, 12).replace(/（挑合理的幾條排進某個時段[^）]*）/, '');
     let extra = '';
     if (person.kind === 'char' && person.char) {
@@ -520,7 +528,7 @@ export async function generateWeekFor(
         let ok = !!had;
         if (!had) {
             const s = await generateScheduleFor(person, userProfile, apiConfig, {
-                dateKey, force: true, people, events, outline: outline?.days.find(d => d.date === dateKey)?.outline, purpose: '生成一週日程',
+                dateKey, force: true, people, events, trips, outline: outline?.days.find(d => d.date === dateKey)?.outline, purpose: '生成一週日程',
             });
             if (s) out.push(s);
             ok = !!s;
