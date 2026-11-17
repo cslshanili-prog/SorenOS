@@ -9,9 +9,9 @@ import { SAR_UPDATE_KEY, SAR_CHANGELOG, sarLaunch } from '../utils/sarUpdate';
 
 import React from 'react';
 import {
-    ArrowRight, Archive, ArrowsLeftRight, BellRinging, BookOpenText, Briefcase, ChatTeardropDots, Coffee, FileText, FolderOpen, PaperPlaneTilt, SlidersHorizontal, SmileyWink, Sparkle, UsersThree, VideoCamera, Wallet,
+    AirplaneTilt, ArrowRight, Archive, ArrowsLeftRight, BellRinging, BookOpenText, Briefcase, CalendarBlank, ChatTeardropDots, Clock, Coffee, FileText, FolderOpen, PaperPlaneTilt, PaintBrush, SlidersHorizontal, SmileyWink, Sparkle, Translate, UsersThree, VideoCamera, Wallet,
 } from '@phosphor-icons/react';
-import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, CHANGELOG_SOREN_2026_11_15, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
+import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, CHANGELOG_SOREN_2026_11_15, CHANGELOG_SOREN_2026_11_18, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
 import { useOS } from '../context/OSContext';
 import { AppID } from '../types';
 import { trackEvent } from '../utils/analytics';
@@ -42,6 +42,8 @@ export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_10 = 'soren_update_2026_11_10
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_14 = 'soren_update_2026_11_14_v2_seen';
 /** S3.0：Sore、預設 App、聊天紀錄搬家 */
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15 = 'soren_update_2026_11_15_v3_seen';
+/** S4.0：行事曆、時間系統、裝扮、聊天語言、聲音、群聊節奏 */
+export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_18 = 'soren_update_2026_11_18_v4_seen';
 
 export const FAQ_TARGET_SECTION_KEY = 'sullyos_faq_target_section';
 export const CHANGELOG_2026_04 = 'changelog-2026-04';
@@ -641,6 +643,25 @@ const SOREN_RELEASE_S3: SorenRelease = {
     primary: { label: '去找 Sore 聊聊', appId: AppID.Assistant },
 };
 
+/** S4.0：11/15 之後這一批——行事曆＋時間系統是主菜，裝扮、聊天語言、聲音、群聊節奏一起上 */
+const SOREN_RELEASE_S4: SorenRelease = {
+    seenKey: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_18,
+    changelogId: CHANGELOG_SOREN_2026_11_18,
+    label: 'SOREN S4.0 · ALMANAC',
+    eyebrow: '11 月 15 日到現在',
+    title: <>你的一天，<br />和他的一天。</>,
+    lede: '時光契約退役，換成行事曆；時間系統整個理過一遍。還有四套一起上：',
+    features: [
+        { icon: CalendarBlank, eyebrow: '行事曆', text: '月曆、我的、TA 的：日程、約好的事、待辦、紀念日、旅行一個 App 看全。角色自己記待辦、自己勾；一天或一週讓 AI 排，身份卡也能。' },
+        { icon: Clock, eyebrow: '時間系統', text: '架空曆法掛在世界上，聊天線有自己的鐘，身份卡有所在地，時間感知改三檔。旅行期間時區換成目的地。' },
+        { icon: PaintBrush, eyebrow: '裝扮 App', text: '氣泡工坊長成模板：一套管好幾個聊天，改模板全部一起變，Sore 也能幫你改。' },
+        { icon: Translate, eyebrow: '聊天語言與你的聲音', text: '角色用自己的語言說話、夾一點第二語言、幫你翻譯；身份卡設了音色，私聊就能發語音條。' },
+        { icon: UsersThree, eyebrow: '群聊節奏', text: '你一句我一句，一次只寫一兩個氣泡；旁觀 ▸ 讓他們自己聊。切換聊天改全螢幕，世界底下能分組。' },
+    ],
+    note: <>要用雲端自動生成日程、或讓雲端照聊天語言寫，記得到設定頁<b>重新部署一次 Worker</b>；只用本機的不用。時光契約的待辦和紀念日會自動搬進行事曆。</>,
+    primary: { label: '打開行事曆', appId: AppID.Calendar },
+};
+
 /**
  * Soren 從上游分出來（2026-09-14）之後的第一則更新提醒：一次講這兩個月，點進去是更新日誌清單
  * （五篇，見 utils/sorenChangelog.ts）。舊的上游提醒都先從隊列拿下來了。
@@ -759,8 +780,8 @@ const SARUpdateAnnouncement: React.FC<UpdatePopupProps> = ({ onDone, onExit }) =
 // 2026-11-10：換成 Soren 自己那則，上游的舊提醒（SAR、聯網說明、Live2D）先拿下來不彈；
 // 元件和 key 留著（備份相容、舊的 QA 腳本還引用），要放回來就加回這個陣列。
 const UPDATE_QUEUE: { key: string; render: (props: UpdatePopupProps) => React.ReactNode }[] = [
-    // S3.0 取代 S2.0 那則（S2.0 又取代過 S1.0）：只彈最新這一則，舊的都在更新日誌清單裡
-    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S3} /> },
+    // S4.0 取代 S3.0 那則（一路取代上來）：只彈最新這一則，舊的都在更新日誌清單裡
+    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_18, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S4} /> },
 ];
 void SOREN_RELEASE_S1; void SOREN_RELEASE_S2;
 // 拿下來的那幾則，先標成用到，免得被當成死碼清掉
