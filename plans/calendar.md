@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，還沒動工。App 叫「行事曆」（建議，Liora 點頭前暫定；不行就「日曆」）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，還沒動工。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -26,7 +26,7 @@
 - **角色自己的待辦，跟日程一條閉環**（Liora：要做）：
   1. 進來：聊天裡角色提到要做什麼 → 標籤 `[[TODO|標題|截止日]]` 落成他的待辦（跟角色改日程的標籤同一條路：解析是零依賴葉子，前台和主動消息 worker 都認）；生成一週日程時模型也可以順手列幾條（來源 AI）；你也能手動加。
   2. 排進去：生成某天日程時，把這個人沒做完的待辦餵進提示詞，讓他排進某個時段，那個時段記 `todoId`，顯示帶待辦圖示。
-  3. 勾掉：你手動勾；生成下一天時模型順便回「這幾條做完了」，自動勾掉，你隨時能取消。
+  3. 勾掉：三條路都通——你手動勾；生成下一天時模型順便回「這幾條做完了」自動勾掉；聊天裡角色說做完了用 `[[TODO_DONE|標題]]` 自己勾。AI 勾的記 `doneBy: 'ai'`，你隨時能取消。
   身份卡一樣：自己加或 AI 照人設列，生成你的日程時排進去。
 - **生成**：一天或一週（一週＝一次請求出 7 天大綱、每天的時段分開補，Liora：照建議）；每角色一份「行程提示詞」存角色卡；批量（所有開了日程的角色一次）；「提早一天生成明天的」自動生成，頁面開著時本機排，頁面關著走主動消息 2.0 的後台任務（`plans/amsg2-expansion.md`），放最後一批。
 
@@ -68,7 +68,7 @@ interface Trip {
 ```
 
 - `ScheduleSlot.participants?: Participant[]`（生活流裡跟誰一起）、`ScheduleSlot.todoId?: string`（這段是在做哪條待辦）。
-- 聊天標籤 `[[TODO|標題|YYYY-MM-DD]]`（截止日可省）：解析放 `utils/todoTagParse.ts`（零依賴，worker 共用，同 `scheduleChangeParse.ts`），落庫在 `utils/todoTag.ts`；角色和配角都能用，落在自己名下。
+- 聊天標籤 `[[TODO|標題|YYYY-MM-DD]]`（截止日可省）加待辦、`[[TODO_DONE|標題]]` 勾掉（對標題模糊比對，對不上就不動）：解析放 `utils/todoTagParse.ts`（零依賴，worker 共用，同 `scheduleChangeParse.ts`），落庫在 `utils/todoTag.ts`；角色和配角都能用，落在自己名下。
 - 角色卡加 `schedulePrompt?: string`（行程提示詞）、`scheduleAuto?: { enabled: boolean; every: 'day' | 'week'; ahead: 0 | 1 }`。身份卡（`UserPersona`／`UserProfile`）同樣兩個欄位。
 - 存法：`calendar_events`、`trips` 兩張新表；時光契約的 `tasks` 搬成 `kind: 'todo'`、`anniversaries` 搬成 `kind: 'anniversary'`（`charRemembers`、`repeatAnnually` 照搬），搬完舊表留著不讀。`Anniversary` 的注入（`utils/anniversary.ts`）改讀 `CalendarEvent`。
 - 旅行期間的時區：`resolveCharTimeZone`（`utils/timezone.ts`）多一層，先看這個人今天有沒有旅行（登記表跟世界一樣放 `charNameRegistry.ts`）；身份卡的所在地同理（`utils/userPersona.ts` 套用時看）。
@@ -102,5 +102,4 @@ interface Trip {
 
 - ~~「TA 的待辦」要不要做~~：做，見第 2 節的閉環。
 - ~~一週生成一次請求還是 7 次~~：一次請求出 7 天大綱、每天的時段分開補。
-- App 名「行事曆」等 Liora 點頭。
 - 時光契約退役後，`AppID.Schedule` 的桌布／主題引用（`constants.tsx`、幾套桌面）要跟著換名字和圖示。
