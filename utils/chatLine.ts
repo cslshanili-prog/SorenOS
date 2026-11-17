@@ -17,7 +17,7 @@ export const LINE_STATE_FIELDS = [
     'acquaintanceStartDate', 'savedDateState', 'activeDateStoryId', 'dateNextStoryTime', 'dateScenario',
     'dateOfflinePause', 'chatBlock', 'chatBlockLog', 'charBlockCooldown', 'specialMomentRecords',
     'affinities', 'contextUserStartMessageId', 'hideBeforeMessageId', 'refinedMemories', 'activeMemoryMonths',
-    'memoryPalaceInjection', 'roomPlatesInjection', 'proactiveLineEnabled', 'activeMsg2Config',
+    'memoryPalaceInjection', 'roomPlatesInjection', 'proactiveLineEnabled', 'activeMsg2Config', 'chatTime',
 ] as const satisfies readonly LineStateField[];
 
 export const LINE_SETTING_FIELDS = [

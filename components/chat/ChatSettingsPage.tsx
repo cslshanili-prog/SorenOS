@@ -9,6 +9,7 @@ import { Row, Toggle } from './ChatSettingsControls';
 import ReadNoReplySettingsPanel from './ReadNoReplySettings';
 import DelayedReplySettingsPanel from './DelayedReplySettings';
 import ChatLanguageSettings from './ChatLanguageSettings';
+import ChatTimeSettings from './ChatTimeSettings';
 import { cleanChatLanguage } from '../../utils/chatLanguage';
 import { normalizeDelayedReply } from '../../utils/delayedReply';
 import { DB } from '../../utils/db';
@@ -17,7 +18,7 @@ import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
 import { acquaintanceDays, RELATIONSHIP_MAX_LENGTH } from '../../utils/chatRelationship';
 import { CHAR_BLOCK_COOLDOWNS } from '../../utils/chatBlock';
 import { DEFAULT_TEMP_CHAT_LIMITS, normalizeTempChatLimits, TEMP_CHAT_LIMIT_RANGES } from '../../utils/tempChat';
-import type { CharBlockCooldown, CharacterProfile, ChatLanguageConfig, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
+import type { CharBlockCooldown, CharacterProfile, ChatLanguageConfig, DateStoryTime, DelayedReplySettings, ReadNoReplySettings, TempChatLimits } from '../../types';
 import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import { BUILTIN_PRESET, scenesOfPreset } from '../../utils/presetBinding';
 import { useOS } from '../../context/OSContext';
@@ -27,7 +28,7 @@ export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
     | 'allowCharChangeRelationship' | 'acquaintanceStartDate' | 'readNoReply' | 'delayedReply'
     | 'dateInvite' | 'onlineActions' | 'charCall' | 'allowCharBlockUser' | 'charBlockCooldown' | 'tempChatLimits'
-    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId' | 'callPresetId' | 'chatLanguage'>;
+    | 'replyDrafts' | 'sideMessagesOff' | 'chatPresetId' | 'callPresetId' | 'chatLanguage' | 'chatTime'>;
 
 /** 拉黑是當下就生效的動作，不等「完成」。 */
 export type ChatBlockAction = 'block' | 'unblock' | 'forceUnblock';
@@ -109,6 +110,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const { userProfileBase } = useOS();
     const [presetChoice, setPresetChoice] = useState('');
     const [callPresetChoice, setCallPresetChoice] = useState('');
+    // 這條線的時鐘（plans/time-system.md 第 2b 節）：草稿，按「完成」才存
+    const [chatTime, setChatTime] = useState<DateStoryTime | undefined>(undefined);
     const [allPresets, setAllPresets] = useState<MeetingPresetRecord[]>([]);
     const chatPresets = allPresets.filter(p => scenesOfPreset(p).includes('chat') || p.id === char.chatPresetId);
     const callPresets = allPresets.filter(p => scenesOfPreset(p).includes('call') || p.id === char.callPresetId);
@@ -138,6 +141,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
         setDraftActions(!!char.replyDrafts?.withActions);
         setPresetChoice(char.chatPresetId || '');
         setCallPresetChoice(char.callPresetId || '');
+        setChatTime(char.chatTime);
         let cancelled = false;
         DB.getMeetingPresets()
             .then(list => { if (!cancelled) setAllPresets(list); })
@@ -186,6 +190,8 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                 ? { enabled: replyDrafts, withActions: draftActions || undefined } : undefined,
             chatPresetId: presetChoice || undefined,
             callPresetId: callPresetChoice || undefined,
+            // 沒改就照舊（起算點不動）；改了從按「完成」這一刻起算
+            chatTime: chatTime === char.chatTime ? char.chatTime : chatTime ? { ...chatTime, anchorAt: Date.now() } : undefined,
             chatLanguage: cleanChatLanguage(chatLanguage),
         });
     };
@@ -282,6 +288,9 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
 
                     {/* 聊天語言：說話語言、夾雜第二語言、翻譯成（plans/chat-language.md） */}
                     <ChatLanguageSettings value={chatLanguage} onChange={setChatLanguage} />
+
+                    {/* 時間：這條線現在幾點（plans/time-system.md 第 2b 節） */}
+                    <ChatTimeSettings char={char} value={chatTime} onChange={setChatTime} />
 
                     {/* Scenario：已讀不回、延遲自動回覆、主動通話、線下邀請、動作描寫、允許角色拉黑你 */}
                     <section>

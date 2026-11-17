@@ -38,6 +38,7 @@ import { getElevenLabsModel, getTtsProvider, getVoicePromptOverride } from './tt
 import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { coarseGapDays, dateStamp, hasTimeAwareness, resolveTimeAwareness } from './timeAwareness';
+import { chatHistoryTimeOptions, describeClockNote, makeChatClock } from './dateStoryTime';
 import { buildLifeRecordInjection } from './lifeRecords';
 import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
@@ -412,7 +413,9 @@ export const ChatPrompts = {
         // 節假日感知：ContextBuilder 只讀備好的日曆，這裡先等它備好（有逾時，失敗就當今天沒有）。
         // 交給 Worker 生成的兩條路由 Worker 照當天補，這裡不烤。
         const holidayConfig = (realtimeConfig || defaultRealtimeConfig).userHolidays;
-        const skipUserHoliday = forFirePack || timelyByWorker;
+        // 私聊的時鐘：自定義的時間不是現實，節假日不給（真實＋靜止照給）
+        const chatClock = forFirePack || timelyByWorker ? null : makeChatClock(char);
+        const skipUserHoliday = forFirePack || timelyByWorker || !!chatClock?.custom;
         if (!skipUserHoliday && hasTimeAwareness(char) && holidayConfig?.enabled) {
             // 平常 OSContext 早就預熱好了，這裡幾乎是即時返回；最多等 1.5 秒，不拖慢送出
             await Promise.race([
@@ -466,7 +469,8 @@ export const ChatPrompts = {
             includeDetailedMemories: true,
             // conversational：私聊是真的有人在這個點跟角色說話，時間塊才補那句語境框定
             // （見 ContextBuilder.buildTimeAwarenessBlock）。生成器類調用不給，默認就沒有。
-            timeOptions: { skipTimeAwareness: forFirePack || timelyByWorker, conversational: true },
+            // 私聊的時鐘（utils/dateStoryTime.ts 的 makeChatClock）：「現在是」照它說；雲端那兩條路照現實
+            timeOptions: { skipTimeAwareness: forFirePack || timelyByWorker, conversational: true, ...(chatClock ? { now: chatClock.now, clockNote: describeClockNote(chatClock) } : {}) },
         });
 
         // ── 併發發起所有獨立的異步取數（網絡 + IndexedDB），下面按原順序拼接 ──
@@ -474,8 +478,9 @@ export const ChatPrompts = {
         const config = realtimeConfig || defaultRealtimeConfig;
         // 自定義時區：日曆日、當前日程與實時上下文全部按角色所在地折算。
         const charTz = resolveCharTimeZone(char);
-        const charNow = nowInTimeZone(charTz);
-        const today = getLocalDateKey(charNow);
+        // 日程照真實的今天讀（日程是按真實日子生成的）；「現在是哪個時段」照私聊的時鐘
+        const today = getLocalDateKey(nowInTimeZone(charTz));
+        const charNow = nowInTimeZone(charTz, new Date(chatClock ? chatClock.now : Date.now()));
 
         // 1. 實時世界信息（天氣/新聞/時間）
         //
@@ -498,8 +503,9 @@ export const ChatPrompts = {
                 if (config.weatherEnabled || config.newsEnabled) {
                     // 時間行跟著角色的「時間感知」開關走：關掉的角色不該從天氣塊裡讀到
                     // 「當前真實時間」，那是這個開關本來要擋住的東西。
+                    // 私聊時鐘不是現實的話，這一段不報時、不報節日（時間由上面的時間塊照時鐘說）
                     const realtimeContext = await RealtimeContextManager.buildFullContext(config, charTz, {
-                        includeTime: hasTimeAwareness(char),
+                        includeTime: hasTimeAwareness(char) && !chatClock,
                         coarseTime: resolveTimeAwareness(char) === 'coarse',
                     });
                     return `\n${realtimeContext}\n`;
@@ -507,7 +513,7 @@ export const ChatPrompts = {
                 // 基礎當前時間 + 時差提示已由 ContextBuilder.buildCoreContext 統一注入（受 timeAwarenessEnabled
                 // 控制，按角色自定義時區折算）；這裡只在關閉天氣/新聞時補一條"今日特殊節日"，不再重複注入時間/時差，避免雙份。
                 const specialDates = RealtimeContextManager.checkSpecialDates(charTz);
-                if (specialDates.length > 0 && hasTimeAwareness(char)) {
+                if (specialDates.length > 0 && hasTimeAwareness(char) && !chatClock) {
                     return `\n### 【今日特殊】\n${specialDates.join('、')}\n`;
                 }
                 return '';
@@ -1403,6 +1409,8 @@ ${voiceActingGuide()}`);
             showTimestamps?: boolean | ((m: Message) => boolean);
             /** 時間戳標到哪：'full' 到分（預設）、'date' 只標日期（粗略那檔的預設） */
             timestampDetail?: 'full' | 'date';
+            /** 時間戳先換算再標（私聊的時鐘：utils/dateStoryTime.ts 的 chatHistoryTimeOptions）；「距離上次多久」也照換算後的算 */
+            mapTimestamp?: (ts: number) => number;
             /** 不算「距離上一條消息多久」（見面的故事時鐘：兩把尺混著算是亂的） */
             skipTimeGapHint?: boolean;
         },
@@ -1415,10 +1423,14 @@ ${voiceActingGuide()}`);
         if (processedExcludeIds && processedExcludeIds.size > 0) {
             effectiveHistory = effectiveHistory.filter(m => !processedExcludeIds.has(m.id));
         }
-        const historySlice = effectiveHistory.slice(-limit);
+        let historySlice = effectiveHistory.slice(-limit);
         const charTz = resolveCharTimeZone(char);
         // 角色拉黑用戶期間用戶送出的訊息：角色當時沒收到，現在才看到（見 utils/chatBlock.ts）
         const blockPeriods = charBlockPeriods(char);
+
+        // 私聊的時鐘：整條線一把尺，先把時間戳換掉，下面的時間差和 [時間戳] 都用換過的
+        const mapTs = options?.mapTimestamp;
+        if (mapTs) historySlice = historySlice.map(m => (typeof m.timestamp === 'number' ? { ...m, timestamp: mapTs(m.timestamp) } : m));
 
         let timeGapHint = "";
         if (historySlice.length >= 2) {

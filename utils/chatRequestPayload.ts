@@ -1,3 +1,4 @@
+import { chatHistoryTimeOptions, makeChatClock } from './dateStoryTime';
 import { getMemoryPalaceHighWaterMarkForContext, selectCharacterContextMessages } from './chatContextRange';
 /**
  * 聊天請求載荷統一構造器
@@ -280,7 +281,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
             userProfile,
             emojis,
             undefined,
-            { useVisionDescriptions, contextHighWaterMark },
+            { useVisionDescriptions, contextHighWaterMark, ...chatHistoryTimeOptions(makeChatClock(char)) },
         );
         const cleanedApiMessages = cleanApiMessages(input.stripImages ? flattenImageContentParts(apiMessages) : apiMessages);
         console.warn('[DevDebug] Prompt Build skipped: sending chat history without system prompt injection.');
@@ -396,7 +397,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         userProfile,
         emojis,
         undefined,
-        { useVisionDescriptions, contextHighWaterMark },
+        { useVisionDescriptions, contextHighWaterMark, ...chatHistoryTimeOptions(makeChatClock(char)) },
     );
 
     // ── 8. 剝離歷史裡舊的雙語標籤（stripImages 時先壓平 image_url → 純文本佔位） ──
