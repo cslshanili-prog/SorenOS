@@ -20,6 +20,7 @@
 
 import type { APIConfig, ActiveMsg2CharacterConfig, CharacterProfile } from '../types';
 import { globalAmsgApi, globalMeterApi } from './apiCenter';
+import { applyFailoverOverride } from './apiFailover';
 
 /** 憑據行的值：三個字段全必填，服務端只查非空、不做格式校驗。 */
 export interface LlmCredentialValue {
@@ -119,7 +120,9 @@ export const buildCharChatCredRow = (
 ): LlmCredentialRow | null => {
   const useSecondary = !!(config?.useSecondaryApi && config.secondaryApi?.baseUrl);
   // API 中心：角色沒開單獨 API 就看系統設置的主動消息槽（跟 resolveApiConfig 同一個口徑）
-  const source = useSecondary ? config!.secondaryApi! : (globalAmsgApi(apiConfig) || apiConfig);
+  const picked = useSecondary ? config!.secondaryApi! : (globalAmsgApi(apiConfig) || apiConfig);
+  // 備援鏈：那家剛掛了而且本機換過家，雲端這一行也指到活著的那家
+  const source = applyFailoverOverride(globalAmsgApi(apiConfig) && !useSecondary ? 'amsg' : 'chat', { baseUrl: picked.baseUrl, apiKey: picked.apiKey, model: picked.model });
   const value = toCredentialValue(source);
   return value ? { credId: charCredId(char.id, 'chat'), value } : null;
 };
@@ -146,7 +149,8 @@ export const buildCharEmotionCredRow = (
   apiConfig: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'> & Partial<Pick<APIConfig, 'meterApi'>>,
 ): LlmCredentialRow | null => {
   // API 中心：角色沒設就看系統設置的情緒／日程槽（跟 resolveCharacterMeterApi 同一個口徑）
-  const source = emotionApi?.baseUrl ? emotionApi : (globalMeterApi(apiConfig) || apiConfig);
+  const picked = emotionApi?.baseUrl ? emotionApi : (globalMeterApi(apiConfig) || apiConfig);
+  const source = applyFailoverOverride(!emotionApi?.baseUrl && globalMeterApi(apiConfig) ? 'meter' : 'chat', { baseUrl: picked.baseUrl || '', apiKey: picked.apiKey || '', model: picked.model || '' });
   const value = toCredentialValue(source);
   return value ? { credId: charCredId(charId, 'emotion'), value } : null;
 };
@@ -163,7 +167,7 @@ export const buildCharMemoryCredRow = (
   lightLLM: { baseUrl?: string; apiKey?: string; model?: string } | null | undefined,
 ): LlmCredentialRow | null => {
   if (!lightLLM?.baseUrl || !lightLLM.apiKey) return null;
-  const value = toCredentialValue(lightLLM);
+  const value = toCredentialValue(applyFailoverOverride('memory', { baseUrl: lightLLM.baseUrl, apiKey: lightLLM.apiKey, model: lightLLM.model || '' }));
   return value ? { credId: charCredId(charId, 'memory'), value } : null;
 };
 

@@ -70,3 +70,12 @@ interface ApiCenterConfig {
 - 解析只在 `utils/apiCenter.ts` 寫一次（`globalMeterApi`／`globalAmsgApi`／`isUsableSecondaryApi`／`describeMeterApiSource`），接到三處：`resolveCharacterMeterApi`（角色自己的 > 全局情緒槽 > 主 API）、主動消息 2.0 的 `resolveApiConfig` 與憑據行 `buildCharChatCredRow`、1.0 主動消息（OSContext 到點那段；回覆照舊走對話模型）、雲端情緒憑據行 `buildCharEmotionCredRow`（角色自己的 > 全局情緒槽 > 主 API）。
 - 介面：系統設置多一段「副 API 中心」（`components/settings/ApiCenterPanel.tsx`）：三格各自從「我的預設」選或手填、測連線、清掉；標籤寫現在是哪個預設。角色的「日程／情緒」面板改名「角色自己的情緒／日程 API」、寫出現在用的是哪一層、多「跟系統設置」把角色那份清掉；主動消息 1.0／2.0 設定頁的回落說明改成三層。Sore 的知識更新。
 - 沒做：備援鏈（第 2 批）。
+
+### 第 2 批（2026-11-18 做完）：備援鏈
+
+- `APIConfig.failoverChains`：每個槽（`chat`／`memory`／`meter`／`amsg`）一條預設 id 清單。
+- 純判斷在 `utils/apiFailover.ts`：什麼算掛（網路錯、408、429、5xx；4xx 其他不算）、從 URL＋Authorization 認請求、認槽（主用的先認、鏈裡的也認）、冷卻（記憶體 Map，5 分鐘）、挑下一個、改寫請求（URL 前綴、Authorization、`body.model`）、換家記號（`setFailoverOverride`／`applyFailoverOverride`）、同槽同天只 toast 一次。
+- 接線在 OSContext 的全局 fetch 攔截器：`originalFetch` 丟網路錯、或回來的狀態值得換家，就 `tryFailover`：認槽 → 把掛的那家記冷卻 → 照鏈順序換家重發，拿到不是「值得換家」的回應就用它（成功或 4xx 都算定案）。換了家：toast、系統日誌一條、調用記錄的用途後面標「（備援 主 API：甲 → 乙）」、`syncAmsgLlmCredentials` 把雲端憑據行重傳。沒排鏈的槽跟以前一樣不重發。串流只有狀態就錯才換（還沒吐字）。
+- 憑據行：`buildCharChatCredRow`／`buildCharEmotionCredRow`／`buildCharMemoryCredRow` 挑好來源後都問一聲 `applyFailoverOverride`，冷卻期內指到換到的那家。
+- 介面：副 API 中心每格底下「備援鏈 ▸」（主 API 也有一格只排鏈），開全螢幕 `components/settings/FailoverChainPage.tsx`：勾預設、▲▼ 排順序、每個標活著／冷卻中 n 分／目前頂著用；底下寫明雲端不會自己換。
+- 沒做：雲端到點自己換家（要改上游）。

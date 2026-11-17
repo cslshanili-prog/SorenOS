@@ -112,6 +112,11 @@ import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
 import { globalAmsgApi } from '../utils/apiCenter';
+import { syncAmsgLlmCredentials } from '../utils/amsgStateSync';
+import {
+  FAILOVER_SLOTS, apiKeyOf as failoverApiKeyOf, describeSwitch, identifySlot, isFailoverWorthy, markApiDown, markApiUp, nextCandidates, requestApiIdentity,
+  rewriteRequestForApi, sameApi, setFailoverOverride, shouldToastSwitch, type ChainEntry, type FailoverSlot, type SlotApi,
+} from '../utils/apiFailover';
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
@@ -1265,6 +1270,72 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // “同一 API 在別的模式剛成功”是排查 CORS 包裝錯誤最有價值的對照證據。
       // 只記 method + URL + 狀態與時間，不保存請求正文。
       const recentSuccessfulFetches = new Map<string, { timestamp: number; status: number }>();
+
+      // ── API 備援鏈（plans/api-center-failover.md 第 2 批）──
+      // 請求失敗（網路錯／408／429／5xx）就認出它是哪個槽的，換鏈裡下一個健康的預設再發一次。
+      // 401／403 和其他 4xx 不換：那是 Key 錯或請求體有問題，換家一樣錯，還白花別家的額度。
+      const failoverContext = () => {
+          const cfg = apiConfigRef.current;
+          const presets = apiPresetsRef.current;
+          const mem = memoryPalaceConfigRef.current?.lightLLM;
+          const slots: Partial<Record<FailoverSlot, SlotApi | null>> = {
+              chat: { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, model: cfg.model },
+              memory: mem?.baseUrl ? { baseUrl: mem.baseUrl, apiKey: mem.apiKey || '', model: mem.model || '' } : null,
+              meter: cfg.meterApi || null,
+              amsg: cfg.amsgApi || null,
+          };
+          const chains: Partial<Record<FailoverSlot, ChainEntry[]>> = {};
+          for (const slot of FAILOVER_SLOTS) {
+              chains[slot] = (cfg.failoverChains?.[slot] || [])
+                  .map(id => presets.find(p => p.id === id))
+                  .filter((p): p is NonNullable<typeof p> => !!p)
+                  .map(p => ({ presetId: p.id, name: p.name, baseUrl: p.config.baseUrl, apiKey: p.config.apiKey, model: p.config.model }));
+          }
+          return { slots, chains, presets };
+      };
+      const tryFailover = async (
+          sendArgs: [RequestInfo | URL, RequestInit?],
+          urlStr: string,
+      ): Promise<{ response: Response; note: string; slot: FailoverSlot; to: ChainEntry } | null> => {
+          if (!urlStr.includes('/chat/completions')) return null;
+          const identity = requestApiIdentity(urlStr, (sendArgs[1] as RequestInit | undefined)?.headers);
+          if (!identity) return null;
+          const { slots, chains, presets } = failoverContext();
+          const slot = identifySlot(identity, slots, chains);
+          if (!slot) return null;
+          const chain = chains[slot] || [];
+          if (chain.length === 0) return null;
+          markApiDown(identity);
+          const fromName = presets.find(p => sameApi(p.config, identity))?.name;
+          for (const cand of nextCandidates(chain, identity)) {
+              const [nextUrl, nextInit] = rewriteRequestForApi(urlStr, sendArgs[1] as RequestInit | undefined, identity, cand);
+              try {
+                  const res = await originalFetch(nextUrl, nextInit);
+                  if (!isFailoverWorthy(res.status)) {
+                      markApiUp(cand);
+                      const from: SlotApi = { baseUrl: identity.baseUrl, apiKey: identity.apiKey, model: slots[slot]?.model || '' };
+                      setFailoverOverride(slot, from, cand);
+                      return { response: res, note: describeSwitch(slot, { baseUrl: identity.baseUrl, name: fromName }, cand), slot, to: cand };
+                  }
+                  markApiDown(cand);
+              } catch {
+                  markApiDown(cand);
+              }
+          }
+          return null;
+      };
+      const afterFailover = (fo: { note: string; slot: FailoverSlot; to: ChainEntry }, urlStr: string) => {
+          const dayKey = new Date().toISOString().slice(0, 10);
+          if (shouldToastSwitch(fo.slot, dayKey)) addToast(`API 掛了，先用「${fo.to.name}」（${fo.note}）`, 'info');
+          setSystemLogs(prev => appendSystemLog(prev, {
+              id: `log-${Date.now()}-fo`, timestamp: Date.now(), type: 'network', source: 'API 備援',
+              message: `備援換家：${fo.note}`, detail: `原請求：${urlStr}\n換到：${fo.to.baseUrl}（${fo.to.model}）；原來那家冷卻 5 分鐘`,
+          }));
+          // 雲端那幾行憑據跟著指到活著的那家（amsgLlmCredentials 的建行函數會問 applyFailoverOverride）
+          try { syncAmsgLlmCredentials(apiConfigRef.current); } catch { /* 沒接 2.0 就算了 */ }
+      };
+      void failoverApiKeyOf;
+
       const patchedFetch = async (...args: [RequestInfo | URL, RequestInit?]) => {
           const [resource, config] = args;
           
@@ -1341,11 +1412,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
 
           try {
-              let response = await originalFetch(...sendArgs);
+              let response: Response;
+              let failoverNote: string | null = null;
+              try {
+                  response = await originalFetch(...sendArgs);
+              } catch (err) {
+                  // 網路錯／逾時：有備援鏈就換家再發一次（plans/api-center-failover.md）
+                  const fo = await tryFailover(sendArgs, urlStr);
+                  if (!fo) throw err;
+                  response = fo.response;
+                  failoverNote = fo.note;
+                  afterFailover(fo, urlStr);
+              }
+              // HTTP 408／429／5xx 同樣換家。4xx 其他不換：那是 Key 錯或請求體有問題，換家一樣錯。
+              // 中轉站可能在回錯之前已經把任務交給上游，換家是用戶在備援鏈設定裡明確要的（沒排鏈就跟以前一樣不重發）。
+              if (!failoverNote && urlStr.includes('/chat/completions') && isFailoverWorthy(response.status)) {
+                  const fo = await tryFailover(sendArgs, urlStr);
+                  if (fo) {
+                      response = fo.response;
+                      failoverNote = fo.note;
+                      afterFailover(fo, urlStr);
+                  }
+              }
 
-              // /chat/completions 是可能已經開始計費的請求。拿到任何 HTTP 響應後都不在
-              // 兼容層靜默重發：中轉站可能在返回錯誤前已經把任務交給上游，重發會讓用戶
-              // 只看到一條調用記錄卻被扣兩到三次。已知模型的採樣參數仍在發送前清理；
+              // 沒排備援鏈時：/chat/completions 是可能已經開始計費的請求，拿到任何 HTTP 響應後都不在
+              // 兼容層靜默重發（中轉站可能在返回錯誤前已經把任務交給上游，重發會讓用戶
+              // 只看到一條調用記錄卻被扣兩到三次）。已知模型的採樣參數仍在發送前清理；
               // 未知兼容問題和流式 4xx 原樣交給調用方，由用戶明確決定是否重試。
               // 流式升級的響應歸一化：SSE 攢齊拼回標準 chat.completion JSON——
               // 調用方（safeResponseJson / res.json() 均可）拿到與升級前等價的響應。
@@ -1361,7 +1453,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 正文 44s 才灌完，卡片卻記成 6.5s（實測誤導排查）。clone 與調用方並行消費同一
               // 條流，text() 完成時刻 ≈ 真實收完時刻。
               if (urlStr.includes('/chat/completions')) {
-                  const meta = (config as any)?.__sullyMeta || ambientMetaAtStart;
+                  const baseMeta = (config as any)?.__sullyMeta || ambientMetaAtStart;
+                  // 換過家的在用途後面標一句，「API 調用記錄」看得出哪家常掛
+                  const meta = failoverNote ? { ...(baseMeta || {}), purpose: `${baseMeta?.purpose || '—'}（備援 ${failoverNote}）` } : baseMeta;
                   const requestId = (config as any)?.__sullyApiCallId;
                   const body = (sendArgs[1] as any)?.body;
                   const status = response.status;
@@ -2403,6 +2497,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [characters, npcs, userProfileBase, groups]);
   const apiConfigRef = useRef(apiConfig);
   apiConfigRef.current = apiConfig;
+  const apiPresetsRef = useRef(apiPresets);
+  apiPresetsRef.current = apiPresets;
 
   // Keep the MiniMax endpoint module in sync with the user's region choice
   // so every minimaxFetch() call reads the latest preference.

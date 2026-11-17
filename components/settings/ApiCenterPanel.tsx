@@ -3,6 +3,8 @@ import type { ApiPreset, SecondaryApi } from '../../types';
 import { useOS } from '../../context/OSContext';
 import ApiConnectionTest from '../chat/ApiConnectionTest';
 import { isUsableSecondaryApi } from '../../utils/apiCenter';
+import FailoverChainPage from './FailoverChainPage';
+import { apiCooldownMinutes, type FailoverSlot } from '../../utils/apiFailover';
 
 /**
  * 系統設置 → API 中心（plans/api-center-failover.md 第 1 批）：三個全局副槽各自從「我的預設」選或手填。
@@ -20,12 +22,20 @@ const SLOTS: Array<{ key: SlotKey; title: string; who: string; fallback: string;
 
 const empty: SecondaryApi = { baseUrl: '', apiKey: '', model: '' };
 
+const ChainButton: React.FC<{ count: number; cooling: boolean; onClick: () => void }> = ({ count, cooling, onClick }) => (
+    <button type="button" onClick={onClick} className={`w-full flex items-center justify-between rounded-xl border px-3 py-2 text-[11px] font-bold ${count ? 'bg-white border-slate-200 text-slate-600' : 'bg-white/60 border-dashed border-slate-200 text-slate-400'}`}>
+        <span>備援鏈{count ? `：${count} 個` : '：還沒排'}{cooling && <span className="ml-1.5 text-rose-500">· 主用的冷卻中</span>}</span><span>▸</span>
+    </button>
+);
+
 const SlotEditor: React.FC<{
     slot: typeof SLOTS[number];
     value: SecondaryApi | undefined;
     presets: ApiPreset[];
     onSave: (next: SecondaryApi | undefined) => void;
-}> = ({ slot, value, presets, onSave }) => {
+    chainCount: number;
+    onChain: () => void;
+}> = ({ slot, value, presets, onSave, chainCount, onChain }) => {
     const [draft, setDraft] = useState<SecondaryApi>(value || empty);
     const [dirty, setDirty] = useState(false);
     useEffect(() => { setDraft(value || empty); setDirty(false); }, [value?.baseUrl, value?.apiKey, value?.model]);
@@ -70,6 +80,7 @@ const SlotEditor: React.FC<{
                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${dirty ? 'bg-slate-800 text-white shadow-md active:scale-95' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>{dirty ? '儲存' : '✓ 已儲存'}</button>
                 {configured && <button type="button" onClick={() => { onSave(undefined); setDraft(empty); setDirty(false); }} className="px-3 py-2.5 rounded-xl text-xs font-bold bg-white border border-slate-200 text-slate-500">清掉</button>}
             </div>
+            <ChainButton count={chainCount} cooling={!!value && apiCooldownMinutes(value) > 0} onClick={onChain} />
         </div>
     );
 };
@@ -82,6 +93,10 @@ const ApiCenterPanel: React.FC = () => {
         meter: apiConfig.meterApi,
         amsg: apiConfig.amsgApi,
     };
+    const [chainOf, setChainOf] = useState<FailoverSlot | null>(null);
+    const chains = apiConfig.failoverChains || {};
+    const saveChain = (slot: FailoverSlot, ids: string[]) => updateApiConfig({ failoverChains: { ...chains, [slot]: ids } });
+    const mainApi = { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey };
     const save = (key: SlotKey, next: SecondaryApi | undefined) => {
         if (key === 'memory') updateMemoryPalaceConfig({ lightLLM: { baseUrl: next?.baseUrl || '', apiKey: next?.apiKey || '', model: next?.model || '' } });
         else if (key === 'meter') updateApiConfig({ meterApi: next });
@@ -89,9 +104,24 @@ const ApiCenterPanel: React.FC = () => {
     };
     return (
         <div className="space-y-3">
-            <p className="text-[10px] text-slate-400 leading-relaxed px-1">三組「副 API」都在這裡填一次就好。每格可以從上面「API 配置」存的預設裡選，也能手填。角色頁裡自己設的照角色的。</p>
-            {SLOTS.map(slot => <SlotEditor key={slot.key} slot={slot} value={values[slot.key]} presets={apiPresets} onSave={next => save(slot.key, next)} />)}
-            <p className="text-[10px] text-slate-400 leading-relaxed px-1">雲端（主動消息 2.0 到點、即時對話、後台任務）用的是上雲那一刻這裡設的那家。</p>
+            <p className="text-[10px] text-slate-400 leading-relaxed px-1">三組「副 API」都在這裡填一次就好。每格可以從上面「API 配置」存的預設裡選，也能手填。角色頁裡自己設的照角色的。每格底下的「備援鏈」：主用的掛了就換下一家再發一次。</p>
+            <div className="rounded-2xl border border-slate-200 bg-white/70 p-3.5 space-y-2" data-api-slot="chat">
+                <div className="text-xs font-bold text-slate-700">主 API</div>
+                <p className="text-[10px] text-slate-500 leading-relaxed">就是上面「API 配置」那組；這裡只排它的備援鏈。</p>
+                <ChainButton count={(chains.chat || []).length} cooling={apiCooldownMinutes(mainApi) > 0} onClick={() => setChainOf('chat')} />
+            </div>
+            {SLOTS.map(slot => <SlotEditor key={slot.key} slot={slot} value={values[slot.key]} presets={apiPresets} onSave={next => save(slot.key, next)} chainCount={(chains[slot.key] || []).length} onChain={() => setChainOf(slot.key)} />)}
+            <p className="text-[10px] text-slate-400 leading-relaxed px-1">雲端（主動消息 2.0 到點、即時對話、後台任務）用的是本機目前活著的那家，到點掛了不會自己換下一家。</p>
+            {chainOf && (
+                <FailoverChainPage
+                    slot={chainOf}
+                    current={chainOf === 'chat' ? mainApi : values[chainOf] || null}
+                    value={chains[chainOf] || []}
+                    presets={apiPresets}
+                    onSave={ids => saveChain(chainOf, ids)}
+                    onClose={() => setChainOf(null)}
+                />
+            )}
         </div>
     );
 };
