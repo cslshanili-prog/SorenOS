@@ -109,7 +109,7 @@ import { resolveChatPresetId } from '../utils/presetBinding';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
-import { setCharNameRegistry, setWorldStyleRegistry } from '../utils/charNameRegistry';
+import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { setMomentsGraphInputs } from '../utils/momentsContext';
@@ -409,6 +409,8 @@ interface OSContextType {
   renameCharacterGroup: (id: string, name: string) => Promise<void>;
   /** 世界的畫風（畫風庫 id，'none'＝不套，undefined＝跟全域） */
   setCharacterGroupStyle: (id: string, imageStyleId: string | undefined) => Promise<void>;
+  /** 世界的時區／架空時間線（plans/time-system.md） */
+  updateCharacterGroup: (id: string, patch: Partial<Pick<CharacterGroup, 'timezone' | 'timeline'>>) => Promise<void>;
   /** 換掉一個世界的分組清單；被拿掉的分組，裡面的角色回到沒分組 */
   setCharacterGroupSections: (id: string, sections: WorldSection[]) => Promise<void>;
   deleteCharacterGroup: (id: string) => Promise<void>;
@@ -2373,7 +2375,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [characters, npcs]);
   // 世界的畫風（plans/image-style-presets.md）：生圖時 utils 層照角色的分組找
   useEffect(() => {
-    setWorldStyleRegistry(characterGroups);
+    setWorldRegistry(characterGroups);
   }, [characterGroups]);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
@@ -4242,6 +4244,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       let target: CharacterGroup | undefined;
       setCharacterGroups(prev => {
           const updated = prev.map(g => g.id === id ? { ...g, imageStyleId } : g);
+          target = updated.find(g => g.id === id);
+          return updated;
+      });
+      if (target) await DB.saveCharacterGroup(target);
+  };
+
+  /** 世界的其它欄位（時區、架空時間線，plans/time-system.md）：合併後存 */
+  const updateCharacterGroup = async (id: string, patch: Partial<Pick<CharacterGroup, 'timezone' | 'timeline'>>) => {
+      let target: CharacterGroup | undefined;
+      setCharacterGroups(prev => {
+          const updated = prev.map(g => g.id === id ? { ...g, ...patch } : g);
           target = updated.find(g => g.id === id);
           return updated;
       });
@@ -6435,6 +6448,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     renameCharacterGroup,
     setCharacterGroupSections,
     setCharacterGroupStyle,
+    updateCharacterGroup,
     deleteCharacterGroup,
     worldbooks,
     addWorldbook,

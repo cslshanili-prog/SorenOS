@@ -14,8 +14,9 @@
  * 這場故事的訊息時間也照同一個鐘換算，不然模型看到的記錄時間跟「現在」對不上。
  */
 
-import type { CharacterProfile, DateStory, DateStoryTime, Message } from '../types';
-import { nowInTimeZone, resolveCharTimeZone, wallClockToTimestamp } from './timezone';
+import type { CharacterProfile, DateStory, DateStoryTime, Message, WorldTimeline } from '../types';
+import { resolveCharTimeZone } from './timezone';
+import { formatCalendarClock, resolveCharCalendar, worldWallClockToTimestamp } from './worldCalendar';
 
 export const isDefaultStoryTime = (time: DateStoryTime | undefined | null): boolean =>
     !time || (time.source === 'real' && time.flow !== 'frozen');
@@ -57,7 +58,7 @@ export const storyTimeIsOwn = (char: CharacterProfile, story: DateStory | null |
     !!(story ? story.time : char.dateNextStoryTime);
 
 /** 一份時間設定 → 時鐘（見面和私聊共用）；預設（真實＋流動）回 null */
-export const clockFromTime = (time: DateStoryTime | undefined, tz: string | undefined, realNow: number, storyId?: string): DateClock | null => {
+export const clockFromTime = (time: DateStoryTime | undefined, tz: string | undefined, realNow: number, storyId?: string, timeline?: WorldTimeline): DateClock | null => {
     if (time?.source === 'off') {
         return { now: realNow, frozen: false, custom: false, storyId, map: (realMs: number) => realMs, off: true };
     }
@@ -66,7 +67,8 @@ export const clockFromTime = (time: DateStoryTime | undefined, tz: string | unde
     const frozen = time!.flow === 'frozen';
     let base = anchor;
     if (time!.source === 'custom') {
-        const custom = time!.customStart ? wallClockToTimestamp(time!.customStart, tz) : NaN;
+        // 架空曆法的世界：填的是世界的日期，先換回現實（utils/worldCalendar.ts）
+        const custom = time!.customStart ? worldWallClockToTimestamp(time!.customStart, tz, timeline) : NaN;
         // 自定義沒填或填壞了：當成真實
         if (!Number.isFinite(custom)) {
             if (!frozen) return null;
@@ -87,7 +89,7 @@ export const makeDateClock = (
     if (isStoryTimeOff(char, story)) {
         return { now: realNow, frozen: false, custom: false, storyId: story?.id, map: (realMs: number) => realMs, off: true };
     }
-    return clockFromTime(effectiveStoryTime(char, story), resolveCharTimeZone(char), realNow, story?.id);
+    return clockFromTime(effectiveStoryTime(char, story), resolveCharTimeZone(char), realNow, story?.id, resolveCharCalendar(char));
 };
 
 /**
@@ -97,7 +99,7 @@ export const makeDateClock = (
 export const makeChatClock = (char: Pick<CharacterProfile, 'chatTime' | 'customTimezoneEnabled' | 'customTimezone'>, realNow = Date.now()): DateClock | null => {
     const time = char.chatTime;
     if (!time || time.source === 'off') return null;
-    return clockFromTime(time, resolveCharTimeZone(char as CharacterProfile), realNow);
+    return clockFromTime(time, resolveCharTimeZone(char as CharacterProfile), realNow, undefined, resolveCharCalendar(char as CharacterProfile));
 };
 
 /**
@@ -147,7 +149,7 @@ export const describeClockNote = (clock: DateClock): string =>
         clock.frozen ? '時間停在這一刻，不會往前走。' : ''].filter(Boolean).join('');
 
 /** 每輪貼在用戶那句後面的一小句：故事裡現在幾點（放在最末尾，離生成最近，模型才不會跟著記錄裡的舊時間走） */
-export const clockTurnNote = (clock: DateClock, tz?: string): string => `故事裡現在是 ${formatStoryClock(clock, tz)}。`;
+export const clockTurnNote = (clock: DateClock, tz?: string, timeline?: WorldTimeline): string => `故事裡現在是 ${formatStoryClock(clock, tz, timeline)}。`;
 
 /**
  * 一場故事完結後，它的時間設定留給下一場（2026-11-17 Liora 實測：故事進行中設了自定義時間，
@@ -165,10 +167,6 @@ export const nextStoryTimeAfter = (char: Pick<CharacterProfile, 'dateNextStoryTi
 export const startStoryTime = (draft: DateStoryTime | undefined, startAt: number): DateStoryTime | undefined =>
     isDefaultStoryTime(draft) ? undefined : { ...draft!, anchorAt: startAt };
 
-const WEEKDAYS = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-const pad = (n: number) => String(n).padStart(2, '0');
-/** 故事裡的「現在」照角色時區寫成「2026-11-07 21:30 週六」（給設定頁預覽和自訂預設用） */
-export const formatStoryClock = (clock: Pick<DateClock, 'now'>, tz?: string): string => {
-    const d = nowInTimeZone(tz, new Date(clock.now));
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())} ${WEEKDAYS[d.getDay()]}`;
-};
+/** 故事裡的「現在」照角色時區（和世界的曆法）寫成「2026-11-07 21:30 週六」（給設定頁預覽和自訂預設用） */
+export const formatStoryClock = (clock: Pick<DateClock, 'now'>, tz?: string, timeline?: WorldTimeline): string =>
+    formatCalendarClock(clock.now, tz, timeline);

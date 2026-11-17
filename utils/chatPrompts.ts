@@ -39,6 +39,7 @@ import { getElevenLabsVoiceActingGuide } from './elevenLabsTts';
 import { resolveCharTimeZone, nowInTimeZone } from './timezone';
 import { coarseGapDays, dateStamp, hasTimeAwareness, resolveTimeAwareness } from './timeAwareness';
 import { chatHistoryTimeOptions, describeClockNote, makeChatClock } from './dateStoryTime';
+import { calendarStamp, resolveCharCalendar } from './worldCalendar';
 import { buildLifeRecordInjection } from './lifeRecords';
 import { buildAnniversaryInjection } from './anniversary';
 import { isWorkerReachableUrl } from './amsgToolPack';
@@ -415,7 +416,9 @@ export const ChatPrompts = {
         const holidayConfig = (realtimeConfig || defaultRealtimeConfig).userHolidays;
         // 私聊的時鐘：自定義的時間不是現實，節假日不給（真實＋靜止照給）
         const chatClock = forFirePack || timelyByWorker ? null : makeChatClock(char);
-        const skipUserHoliday = forFirePack || timelyByWorker || !!chatClock?.custom;
+        // 架空曆法的世界也沒有節假日、不報現實的時間和節日
+        const charTimeline = resolveCharCalendar(char);
+        const skipUserHoliday = forFirePack || timelyByWorker || !!chatClock?.custom || !!charTimeline;
         if (!skipUserHoliday && hasTimeAwareness(char) && holidayConfig?.enabled) {
             // 平常 OSContext 早就預熱好了，這裡幾乎是即時返回；最多等 1.5 秒，不拖慢送出
             await Promise.race([
@@ -470,7 +473,7 @@ export const ChatPrompts = {
             // conversational：私聊是真的有人在這個點跟角色說話，時間塊才補那句語境框定
             // （見 ContextBuilder.buildTimeAwarenessBlock）。生成器類調用不給，默認就沒有。
             // 私聊的時鐘（utils/dateStoryTime.ts 的 makeChatClock）：「現在是」照它說；雲端那兩條路照現實
-            timeOptions: { skipTimeAwareness: forFirePack || timelyByWorker, conversational: true, ...(chatClock ? { now: chatClock.now, clockNote: describeClockNote(chatClock) } : {}) },
+            timeOptions: { skipTimeAwareness: forFirePack || timelyByWorker, conversational: true, userTz: userProfile?.timezone, ...(chatClock ? { now: chatClock.now, clockNote: describeClockNote(chatClock) } : {}) },
         });
 
         // ── 併發發起所有獨立的異步取數（網絡 + IndexedDB），下面按原順序拼接 ──
@@ -505,7 +508,7 @@ export const ChatPrompts = {
                     // 「當前真實時間」，那是這個開關本來要擋住的東西。
                     // 私聊時鐘不是現實的話，這一段不報時、不報節日（時間由上面的時間塊照時鐘說）
                     const realtimeContext = await RealtimeContextManager.buildFullContext(config, charTz, {
-                        includeTime: hasTimeAwareness(char) && !chatClock,
+                        includeTime: hasTimeAwareness(char) && !chatClock && !charTimeline,
                         coarseTime: resolveTimeAwareness(char) === 'coarse',
                     });
                     return `\n${realtimeContext}\n`;
@@ -513,7 +516,7 @@ export const ChatPrompts = {
                 // 基礎當前時間 + 時差提示已由 ContextBuilder.buildCoreContext 統一注入（受 timeAwarenessEnabled
                 // 控制，按角色自定義時區折算）；這裡只在關閉天氣/新聞時補一條"今日特殊節日"，不再重複注入時間/時差，避免雙份。
                 const specialDates = RealtimeContextManager.checkSpecialDates(charTz);
-                if (specialDates.length > 0 && hasTimeAwareness(char) && !chatClock) {
+                if (specialDates.length > 0 && hasTimeAwareness(char) && !chatClock && !charTimeline) {
                     return `\n### 【今日特殊】\n${specialDates.join('、')}\n`;
                 }
                 return '';
@@ -599,7 +602,7 @@ export const ChatPrompts = {
                     // 時間戳按角色所在時區讀：同一份 prompt 裡私聊歷史用的就是角色的鐘
                     // （下面 buildMessageHistory 走 formatDate(ts, charTz)），群聊這行要是
                     // 跟著設備走，紐約角色會看到兩套時間。
-                    const dateStr = ChatPrompts.formatDate(m.timestamp, charTz);
+                    const dateStr = calendarStamp(m.timestamp, charTz, resolveCharCalendar(char));
                     // 「約 X 分鐘前」是相對打包時刻算的，fire_pack 到點渲染時早就不是那個「剛才」了
                     // ——角色會把昨天的群聊說成「剛才群裡說晚上一起吃飯」。絕對時間戳留著，角色
                     // 自己對著當前時間就能判斷遠近。
@@ -1452,10 +1455,12 @@ ${voiceActingGuide()}`);
         const level = resolveTimeAwareness(char);
         const showTimestamps = options?.showTimestamps ?? (level !== 'none');
         const timestampDetail = options?.timestampDetail ?? (level === 'coarse' ? 'date' : 'full');
+        // 架空曆法的世界：戳照世界的日期寫（utils/worldCalendar.ts）
+        const timeline = resolveCharCalendar(char);
         const stampOf = (m: Message): string => {
             const show = typeof showTimestamps === 'function' ? showTimestamps(m) : showTimestamps;
             if (!show) return '';
-            return timestampDetail === 'date' ? `[${dateStamp(nowInTimeZone(charTz, new Date(m.timestamp)))}]` : `[${ChatPrompts.formatDate(m.timestamp, charTz)}]`;
+            return timestampDetail === 'date' ? `[${dateStamp(m.timestamp, charTz, timeline)}]` : `[${calendarStamp(m.timestamp, charTz, timeline)}]`;
         };
 
         return {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import type { DateStoryTime } from '../../types';
+import type { DateStoryTime, WorldTimeline } from '../../types';
 import { nowInTimeZone } from '../../utils/timezone';
+import { calendarWallNow, formatEpochYear } from '../../utils/worldCalendar';
 
 /**
  * 「時間模式」那幾格（plans/time-system.md 第 2b 節）：來源 真實／自定義（見面多一檔 關閉）× 流動／靜止 × 起始時間。
@@ -37,14 +38,16 @@ const TimeModeFields: React.FC<{
     allowOff?: boolean;
     /** 自定義欄位失焦存檔時叫一聲（見面那邊要跳 toast） */
     onCustomCommitted?: () => void;
-}> = ({ value, onChange, tz, allowOff, onCustomCommitted }) => {
+    /** 所在世界的架空曆法（utils/worldCalendar.ts）：自定義的時間照它填、起點也照它 */
+    timeline?: WorldTimeline;
+}> = ({ value, onChange, tz, allowOff, onCustomCommitted, timeline }) => {
     const [customDraft, setCustomDraft] = useState(value.customStart || '');
     useEffect(() => { setCustomDraft(value.customStart || ''); }, [value.customStart]);
     const off = value.source === 'off';
 
     const setSource = (source: DateStoryTime['source']) => {
         if (source === value.source) return;
-        onChange({ ...value, source, customStart: source === 'custom' ? (value.customStart || charWallNow(tz)) : value.customStart });
+        onChange({ ...value, source, customStart: source === 'custom' ? (value.customStart || (timeline ? calendarWallNow(tz, timeline) : charWallNow(tz))) : value.customStart });
     };
     const commitCustom = () => {
         if (!customDraft || customDraft === value.customStart) return;
@@ -63,8 +66,11 @@ const TimeModeFields: React.FC<{
             </div>
             {off && <p className="text-[10px] text-slate-400 leading-relaxed">關閉：提示詞不帶時間，記錄也不標時間戳，劇情脫離現實時間線（純架空）。</p>}
             {value.source === 'custom' && (
-                <input type="datetime-local" value={customDraft} onChange={e => setCustomDraft(e.target.value)} onBlur={commitCustom} aria-label="自定義的時間"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                <>
+                    <input type="datetime-local" value={customDraft} onChange={e => setCustomDraft(e.target.value)} onBlur={commitCustom} aria-label="自定義的時間"
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                    {timeline && <p className="text-[10px] text-slate-400 leading-relaxed">照這個世界的曆法填（此刻是 {calendarWallNow(tz, timeline).replace('T', ' ')}，年份寫成「{formatEpochYear(timeline, Number(calendarWallNow(tz, timeline).slice(0, 4)))}」）。</p>}
+                </>
             )}
             {!off && (
                 <div className="flex items-center justify-between gap-3">

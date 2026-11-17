@@ -1,6 +1,6 @@
 # 時間系統：曆法掛世界、時鐘掛聊天線、時區給真實世界
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1、2 批做完（見第 7 節），第 3、4 批還沒動。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226、#229，不在這份的範圍。
+> 狀態：**定案（Liora 2026-11-17）**，第 1～3 批做完（見第 7 節），第 4 批（日曆顯示）等日曆那份計劃。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226、#229，不在這份的範圍。
 
 ## 1. 為什麼改
 
@@ -117,3 +117,14 @@
 - **介面**：欄位抽成 `components/common/TimeModeFields.tsx`（見面多一檔關閉），聊天設定加「時間 (TIME)」一節（`components/chat/ChatTimeSettings.tsx`），草稿跟著頁面按「完成」才存、那時定起算點。
 - 還沒接：電話、群聊不看私聊的時鐘（第 3 批接世界曆法時一起看要不要）。
 - 測試：`utils/dateStoryTime.test.ts`「私聊的時鐘」那組。
+
+### 第 3 批（2026-11-17 做完）：世界的曆法與時區、身份卡所在地
+
+- **存哪**：`CharacterGroup.timezone`（現實曆法的世界：大家活在哪個時區，覆蓋成員各自的 `customTimezone`）、`CharacterGroup.timeline`（架空曆法：`epochLabel` 年份寫法「第三紀元 {年} 年」＋對應點 `anchorReal`／`anchorWorld`＋`showWeekday`）；`UserPersona.timezone`／`UserProfile.timezone`（身份卡所在地，`utils/userPersona.ts` 套用時跟著卡走）。
+- **重映射**在 `utils/worldCalendar.ts`：日期＝現實的牆上日期平移「對應點差幾天」，月日照公曆、時分不動，年份套寫法；星期默認不寫（`showWeekday` 才寫）。`formatCalendarText`（給模型／給你看的那句）、`calendarStamp`／`calendarDateStamp`（記錄上的戳）、`formatCalendarClock`（設定頁預覽）、`calendarWallNow`（自定義時間的起點）、`worldWallClockToTimestamp`（照世界曆法填的時間換回現實）。`resolveCharCalendar(char)` 從世界登記表讀。
+- **世界登記表**：`charNameRegistry.ts` 的 `setWorldRegistry`／`getWorld`（原本只登畫風，現在整份），OSProvider 分組變化時登記；`updateCharacterGroup(id, {timezone, timeline})` 存。
+- **時區解析**：`resolveCharTimeZone` 改成先看世界——架空曆法 → 沒有時區（時分照設備）；世界設了時區 → 世界的；否則角色自己的。所有「角色那邊幾點」自動跟著，雲端 fire pack 的 `tzId` 也是。
+- **提示詞**：核心上下文的「現在是」照曆法寫，架空多一句「這個世界用自己的曆法，日期一律照它寫」；歷史時間戳、群聊片段、見面的 Time 那行、故事時鐘的預覽與每輪那句、自訂預設的 `time` 佔位全走同一套格式；架空曆法下實時那段不報時不報節日、用戶節假日不給。時差那句（`tzAwarenessNote`）知道身份卡所在地就直說「對方在哪、那邊現在幾點」，同一個時區不提。
+- **介面**：世界管理頁每個世界多「曆法 現實／架空」：現實選時區；架空填年份寫法、對應點、要不要寫星期，下面預覽「現在是 ……」。身份卡編輯多「所在地（時區）」，真實身份和每張卡各有各的。自定義時間在架空世界照世界的曆法填（欄位下面提示此刻是幾年幾月）。
+- **沒接**：電話、群聊的「現在是」還沒走曆法（它們也還沒看私聊的時鐘）；家園（`WorldProfile.timezone`）照舊自己那套，之後再合；日程的日期 key 照真實日子；雲端架空曆法照現實報時（第 6 節定的）。
+- 測試：`utils/worldCalendar.test.ts`。

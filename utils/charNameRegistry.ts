@@ -39,14 +39,19 @@ export const getCharNameById = (id: string | undefined | null): string | null =>
 export const getRegisteredCharacter = <T = any>(id: string | undefined | null): T | undefined =>
     (id ? __charsById.get(id) : undefined) as T | undefined;
 
-/** 每個世界（神經鏈接分組）的畫風（plans/image-style-presets.md）：OSProvider 在分組變化時登記 */
-let __worldStyles: Record<string, string> = {};
-export const setWorldStyleRegistry = (groups: Array<{ id: string; imageStyleId?: string }>): void => {
-    const next: Record<string, string> = {};
-    for (const g of groups) if (g?.id && g.imageStyleId) next[g.id] = g.imageStyleId;
-    __worldStyles = next;
+/**
+ * 每個世界（神經鏈接分組）的設定：畫風（plans/image-style-presets.md）、時區與架空時間線（plans/time-system.md）。
+ * OSProvider 在分組變化時登記；utils 層照 groupId 讀。
+ */
+export interface WorldRegistryEntry { id: string; imageStyleId?: string; timezone?: string; timeline?: { epochLabel: string; anchorReal: string; anchorWorld: string; showWeekday?: boolean } }
+let __worlds = new Map<string, WorldRegistryEntry>();
+export const setWorldRegistry = (groups: Array<WorldRegistryEntry & { name?: string }>): void => {
+    __worlds = new Map(groups.filter(g => g?.id).map(g => [g.id, { id: g.id, imageStyleId: g.imageStyleId, timezone: g.timezone, timeline: g.timeline }]));
 };
-export const getWorldStyleId = (groupId: string | undefined | null): string | undefined => (groupId ? __worldStyles[groupId] : undefined);
+/** 舊名字留著：畫風那邊還在叫 */
+export const setWorldStyleRegistry = setWorldRegistry;
+export const getWorld = (groupId: string | undefined | null): WorldRegistryEntry | undefined => (groupId ? __worlds.get(groupId) : undefined);
+export const getWorldStyleId = (groupId: string | undefined | null): string | undefined => getWorld(groupId)?.imageStyleId;
 
 /** 所有登記的角色卡（只讀快照）。 */
 export const getRegisteredCharacters = <T = any>(): T[] => [...__charsById.values()] as T[];

@@ -1,3 +1,4 @@
+import { resolveCharCalendar } from '../utils/worldCalendar';
 import { normalizeLibraryDescription } from '../utils/library';
 import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -1190,7 +1191,7 @@ const DateApp: React.FC = () => {
             const result = await captureDateMoment({
                 char, user: dateUserProfile, story, messages: msgs,
                 chatApi: resolveCharacterChatApi(char, apiConfig), imageConfig,
-                timeText: clock ? formatStoryClock(clock, resolveCharTimeZone(char)) : undefined,
+                timeText: clock ? formatStoryClock(clock, resolveCharTimeZone(char), resolveCharCalendar(char)) : undefined,
             });
             const stored = await migrateDataUrlToRef(result.dataUrl);
             const messageId = await DB.saveMessage({

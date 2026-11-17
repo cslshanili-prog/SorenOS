@@ -24,7 +24,8 @@
 
 | 函數 | 用途 |
 |------|------|
-| `timezone.ts` → `resolveCharTimeZone(char)` | 取角色生效的時區 id；沒開開關返回 `undefined`（= 跟隨設備） |
+| `timezone.ts` → `resolveCharTimeZone(char)` | 取角色生效的時區 id：先看所在世界（`plans/time-system.md` 第 3 批：架空曆法的世界沒有時區、世界設了時區就用世界的），再看角色自己的開關；都沒有返回 `undefined`（= 跟隨設備） |
+| `worldCalendar.ts` → `resolveCharCalendar(char)`、`formatCalendarText`、`calendarStamp` | 架空曆法：日期照世界的時間線寫；凡是給模型看的日期一律經這裡，別自己拼 |
 | `timezone.ts` → `nowInTimeZone(tz, base?)` | 返回一個 Date，用**本地** getter（`getHours()` 等）讀出來正好是 `tz` 的牆上時間 |
 | `timezone.ts` → `wallClockToTimestamp(text, tz)` | 上一條的逆運算：把「角色當地的牆上時間」文本還原成真實時刻 |
 | `timezone.ts` → `tzAwarenessNote(tz)` | prompt 裡那段時差提示 |

@@ -3870,11 +3870,30 @@ export interface CharacterProfile {
  * 注意與下面的 GroupProfile（群聊）無關——角色通過 CharacterProfile.groupId 指向分組，
  * 刪除分組只會讓組內角色回到「未分組」，不會刪角色。
  */
+/**
+ * 世界的架空時間線（plans/time-system.md 第 2a 節，utils/worldCalendar.ts）：對現實時間的重映射，不自訂曆法。
+ * 填了對應點（anchorReal＋anchorWorld）才算有；有的話同世界的人全跟著走、時區不看。
+ */
+export interface WorldTimeline {
+    /** 年份怎麼寫，{年} 換成數字：「第三紀元 {年} 年」 */
+    epochLabel: string;
+    /** 對應點：現實的這一天 'YYYY-MM-DD'…… */
+    anchorReal: string;
+    /** ……是時間線裡的這一天 'YYYY-MM-DD'（公曆形狀，年份可以很大） */
+    anchorWorld: string;
+    /** 架空曆法默認不寫星期；開了才寫（第 6 節定的） */
+    showWeekday?: boolean;
+}
+
 export interface CharacterGroup {
     id: string;
     name: string;
     /** 這個世界的畫風（畫風庫 id，'none'＝不套）；沒有＝跟全域 */
     imageStyleId?: string;
+    /** 現實曆法的世界：大家活在哪個時區（IANA id）；**覆蓋**成員各自的 customTimezone（同一個世界裡的人不可能各活一個時區）。沒設＝各看各的 */
+    timezone?: string;
+    /** 架空曆法（utils/worldCalendar.ts）；有的話時區不看 */
+    timeline?: WorldTimeline;
     /** 排序權重（暫未在 UI 暴露，缺省按 createdAt 先後） */
     order?: number;
     createdAt?: number;
@@ -4119,6 +4138,8 @@ export interface UserProfile {
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];
     /** 真實身份的聲音（私聊發語音條用，plans/user-voice.md）；身份卡各有各的 */
     voiceProfile?: CharacterProfile['voiceProfile'];
+    /** 真實身份的所在地（IANA 時區 id，plans/time-system.md 第 2c 節）；身份卡各有各的；沒設＝跟設備 */
+    timezone?: string;
     /** 分角色聊天頭像（檔案 App 設置）：charId → 頭像（http(s) URL 或 data:image）。
      *  私聊裡「你」的頭像取 perCharAvatars[charId] || avatar（上面的整體頭像作宏觀默認）；
      *  群聊/其他場合仍用整體頭像。刪角色留下的孤兒鍵無害，讀取端永遠按當前 charId 取。 */
@@ -4538,6 +4559,8 @@ export interface UserPersona {
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];
     /** 這張身份卡的聲音（私聊發語音條用，plans/user-voice.md）；結構跟角色的 voiceProfile 一樣 */
     voiceProfile?: CharacterProfile['voiceProfile'];
+    /** 這張身份卡的所在地（IANA 時區 id，plans/time-system.md 第 2c 節）：算你跟角色的時差用；沒設＝跟設備 */
+    timezone?: string;
     createdAt: number;
     updatedAt: number;
 }

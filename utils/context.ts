@@ -31,6 +31,7 @@ import { buildScheduleInjection as buildScheduleInjectionText } from './schedule
 import { TIME_FRAMING_CONVERSATIONAL } from './timeFramingNote';
 import { resolveCharTimeZone, nowInTimeZone, tzAwarenessNote, interactionGapNote } from './timezone';
 import { coarseNowText, hasTimeAwareness, resolveTimeAwareness, timeOfDayWord } from './timeAwareness';
+import { formatCalendarText, resolveCharCalendar } from './worldCalendar';
 import {
     expandWorldbookMacros,
     formatWorldbookSection,
@@ -222,6 +223,8 @@ export const ContextBuilder = {
             skipTimeAwareness?: boolean;
             /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
             conversational?: boolean;
+            /** 用戶（這張身份卡）所在地的時區（UserProfile.timezone）：時差那句用；不給就拿 user.timezone */
+            userTz?: string;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
             /**
@@ -281,7 +284,7 @@ export const ContextBuilder = {
         // deferVolatile 時不在這裡輸出（時間精確到分鐘、每輪都變，會打斷 prompt 前綴緩存），
         // 改由調用方經 buildVolatileCoreState 放到消息數組末尾。
         if (!layout?.deferVolatile) {
-            sections.timeAwareness = ContextBuilder.buildTimeAwarenessBlock(char, timeOptions);
+            sections.timeAwareness = ContextBuilder.buildTimeAwarenessBlock(char, { ...timeOptions, userTz: timeOptions?.userTz ?? user.timezone });
         }
 
         // 1b. 自我領悟詞條 (Self Insights) — 消化過程中反芻產生的常駐自我認知
@@ -313,7 +316,8 @@ export const ContextBuilder = {
         // 群聊場景下：用戶畫像已在共享場景塊頂部，這裡跳過避免重複
         if (!groupOptions?.skipUserProfile) {
             // 跟時間感知同一個開關：角色關了時間感知、見面純架空（skipTimeAwareness）都不給
-            const holidayLine = hasTimeAwareness(char) && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday
+            // 架空曆法的世界沒有節假日（plans/time-system.md 第 3 節）
+            const holidayLine = hasTimeAwareness(char) && !timeOptions?.skipTimeAwareness && !timeOptions?.skipUserHoliday && !resolveCharCalendar(char)
                 ? getCachedUserHolidayReminder(user.name, timeOptions?.userHolidays)
                 : '';
             sections.userProfile = formatUserProfileBlock(user, holidayLine);
@@ -488,6 +492,8 @@ export const ContextBuilder = {
             skipTimeAwareness?: boolean;
             /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
             conversational?: boolean;
+            /** 用戶（這張身份卡）所在地的時區（UserProfile.timezone）：時差那句用；不給就拿 user.timezone */
+            userTz?: string;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
             /**
@@ -530,6 +536,8 @@ export const ContextBuilder = {
             skipTimeAwareness?: boolean;
             /** 正有人在跟角色實時對話（私聊 / 見面）。見 buildTimeAwarenessBlock 同名字段。 */
             conversational?: boolean;
+            /** 用戶（這張身份卡）所在地的時區（UserProfile.timezone）：時差那句用；不給就拿 user.timezone */
+            userTz?: string;
             /** Recent messages used to activate keyword-based worldbook entries. */
             worldbookMessages?: WorldbookScanMessage[];
             /**
@@ -586,6 +594,8 @@ export const ContextBuilder = {
             now?: number;
             /** 時鐘那句話，接在「現在是」後面 */
             clockNote?: string;
+            /** 用戶（這張身份卡）所在地的時區（UserProfile.timezone）：時差那句直說對方在哪、現在幾點 */
+            userTz?: string;
             /**
              * 這次注入是不是「正有人在跟角色說話」（私聊、見面這類實時對話）。
              * 只有這時才補那句語境框定，見下方註釋。默認 false：日程 / 歌單 / 攻略 /
@@ -600,18 +610,18 @@ export const ContextBuilder = {
         // 自定義時區（異國戀等）：開啟後這裡的"當前時間"按角色所在時區折算，並附時差提示，
         // 讓查手機/人際關係/通話等所有直連 buildCoreContext 的路徑都拿到正確的本地時間。
         const charTz = resolveCharTimeZone(char);
+        // 架空曆法（utils/worldCalendar.ts）：日期照世界的時間線寫，時分照設備
+        const timeline = resolveCharCalendar(char);
         const nowMs = timeOptions?.now ?? Date.now();
         const now = nowInTimeZone(charTz, new Date(nowMs));
         const h = now.getHours();
-        const dayNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
         const timeOfDay = timeOfDayWord(h);
-        const dateStr = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
-        const timeStr = `${h.toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
         let context = `### 當前時間 (Now)\n`;
         // 粗略那檔（utils/timeAwareness.ts）：只有日期和早中晚，沒有幾點幾分
         context += level === 'coarse'
-            ? `現在是 ${coarseNowText(now)}。你對時間的感覺是粗的：知道今天幾號、是早上還是晚上，但說不出幾點幾分，也別裝作知道。\n`
-            : `現在是 ${dateStr} ${dayNames[now.getDay()]} ${timeOfDay} ${timeStr}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
+            ? `現在是 ${coarseNowText(nowMs, charTz, timeline, h)}。你對時間的感覺是粗的：知道今天幾號、是早上還是晚上，但說不出幾點幾分，也別裝作知道。\n`
+            : `現在是 ${formatCalendarText(nowMs, charTz, timeline, { timeOfDay })}。請據此自然地擁有真實的時間觀念（早晚作息、工作日/週末、距離上次互動多久等），不要憑空假設時間。\n`;
+        if (timeline) context += `這個世界用自己的曆法（年份寫成「${formatCalendarText(nowMs, charTz, timeline, { time: false }).split(' ')[0]}」這種），日期一律照它寫，別換算成公元。\n`;
         if (timeOptions?.clockNote) context += `${timeOptions.clockNote}\n`;
         // 報時後面那句語境框定（這句話本身和「為什麼只在對話時給」都在
         // utils/timeFramingNote.ts）。即時對話走的是雲端那條路，時間由 worker 到點補，
@@ -619,7 +629,7 @@ export const ContextBuilder = {
         if (timeOptions?.conversational) {
             context += `${TIME_FRAMING_CONVERSATIONAL}\n`;
         }
-        const tzNote = tzAwarenessNote(charTz);
+        const tzNote = tzAwarenessNote(charTz, timeOptions?.userTz, nowMs);
         if (tzNote) context += `${tzNote.trim()}\n`;
         // 距離上次聯繫多久（統一口徑）：傳了 lastInteractionTs 才注入。
         // 讓查手機/人際關係等無內聯消息流的路徑，也像聊天一樣知道「用戶多久沒聯繫我了」。
@@ -639,7 +649,7 @@ export const ContextBuilder = {
         options?: {
             includeDetailedMemories?: boolean;
             memoryPalaceContext?: string;
-            timeOptions?: { lastInteractionTs?: number; skipTimeAwareness?: boolean; conversational?: boolean; now?: number; clockNote?: string };
+            timeOptions?: { lastInteractionTs?: number; skipTimeAwareness?: boolean; conversational?: boolean; now?: number; clockNote?: string; userTz?: string };
         },
     ): string => {
         let context = ContextBuilder.buildTimeAwarenessBlock(char, options?.timeOptions);

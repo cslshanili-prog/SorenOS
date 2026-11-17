@@ -17,7 +17,7 @@ const realFaceOf = (profile: UserProfile): Face =>
 
 /**
  * 把「目前身份」套用到用戶檔案上，返回一份新對象；沒有生效的身份卡（或指向的卡已被刪除）時原樣返回。
- * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails/imageGenConfig/voiceProfile 這幾個"外顯裝扮"字段，其餘字段
+ * 只覆蓋 name/avatar/bio/gender/customSetting/otherDetails/imageGenConfig/voiceProfile/timezone 這幾個"外顯裝扮"字段，其餘字段
  * （vrState/perCharAvatars/personas 本身……）不變。這是全站唯一的口徑——所有讀
  * userProfile.name/avatar/bio 等字段的地方讀到的都已經是這份套用結果，好感度/記憶/關係仍然
  * 認的是同一個人，不因為換了身份卡而分開算。
@@ -39,6 +39,8 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         imageGenConfig: persona.imageGenConfig,
         // 聲音也跟著卡走（plans/user-voice.md）：卡沒設就沒有，不借真實身份的聲音
         voiceProfile: persona.voiceProfile,
+        // 所在地也跟著卡走（plans/time-system.md 第 2c 節）：卡沒設就是跟設備，不借真實身份的
+        timezone: persona.timezone,
     }, profile);
 }
 
@@ -72,6 +74,7 @@ function applyPersonaOverride(
                 otherDetails: persona.otherDetails,
                 imageGenConfig: persona.imageGenConfig,
                 voiceProfile: persona.voiceProfile,
+                timezone: persona.timezone,
             }, profileBase),
             matchedPersona: true,
         };
