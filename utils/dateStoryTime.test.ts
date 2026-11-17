@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDefaultStoryTime, makeDateClock, startStoryTime } from './dateStoryTime';
+import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDefaultStoryTime, makeDateClock, nextStoryTimeAfter, startStoryTime } from './dateStoryTime';
 import { buildNewDateStory } from './dateStory';
-import type { CharacterProfile, DateStory, Message } from '../types';
+import type { CharacterProfile, DateStory, DateStoryTime, Message } from '../types';
 
 const H = 3_600_000;
 const T0 = Date.UTC(2026, 10, 7, 4, 0); // 台北 12:00
@@ -143,5 +143,22 @@ describe('自定義時鐘：記錄裡只剩一把尺、現在幾點貼在最後'
         expect(lastWith).toContain('故事裡現在是 1920-03-01 20:00');
         const noClock = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', clock: null });
         expect(noClock.messages[noClock.messages.length - 1].content).not.toContain('故事裡現在是');
+    });
+});
+
+// 2026-11-17 Liora 實測：故事進行中設了自定義時間，按「開始新的故事」新的一場又變回真實。
+// 設定存在那場故事身上，完結就跟著走了；現在完結時留給下一場。
+describe('完結後時間設定留給下一場', () => {
+    const custom: DateStoryTime = { source: 'custom', flow: 'flowing', customStart: '2026-11-15T01:10', anchorAt: T0 };
+    it('舊故事的設定去掉起算點、搬到下一場；開新故事時重新起算', () => {
+        const next = nextStoryTimeAfter(char(), story(custom));
+        expect(next).toEqual({ source: 'custom', flow: 'flowing', customStart: '2026-11-15T01:10' });
+        expect(buildNewDateStory(char({ dateNextStoryTime: next }), T0 + H).time).toEqual({ ...next, anchorAt: T0 + H });
+    });
+    it('角色身上另外設了下一場的就用角色的；舊故事是真實＋流動就沒得留', () => {
+        const mine: DateStoryTime = { source: 'real', flow: 'frozen' };
+        expect(nextStoryTimeAfter(char({ dateNextStoryTime: mine }), story(custom))).toBe(mine);
+        expect(nextStoryTimeAfter(char(), story(undefined))).toBeUndefined();
+        expect(nextStoryTimeAfter(char(), story({ source: 'real', flow: 'flowing', anchorAt: T0 }))).toBeUndefined();
     });
 });
