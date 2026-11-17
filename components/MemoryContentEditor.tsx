@@ -1,14 +1,15 @@
 import React from 'react';
 import type { MemoryNode } from '../utils/memoryPalace/types';
 import { MemoryTimeText } from './MemoryTimeText';
+import ExpandableTextarea from './common/ExpandableTextarea';
 
 export function MemoryContentEditor({ node, value, onChange, enabled, className }: {
     node: MemoryNode; value: string; onChange: (value: string) => void; enabled: boolean; className?: string;
 }) {
     const showDates = enabled && !node.archived && !node.isBoxSummary;
     return <>
-        <textarea aria-label="記憶原文" value={value} onChange={e => onChange(e.target.value)} className={className}
-            style={{ minHeight: 100, resize: 'vertical', fontFamily: 'inherit' }} />
+        <ExpandableTextarea title="記憶原文" aria-label="記憶原文" value={value} onChange={onChange} className={className} rows={6}
+            style={{ minHeight: 140, resize: 'vertical', fontFamily: 'inherit' }} />
         {showDates && <div style={{ marginTop: 10, fontSize: 12, lineHeight: 1.7 }}>
             <div style={{ color: '#6b7280' }}>
                 {node.relativeTimeAnchor

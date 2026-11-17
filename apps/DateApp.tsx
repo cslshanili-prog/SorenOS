@@ -39,6 +39,7 @@ import { getRoomLabel } from '../utils/memoryPalace/types';
 import { safeFetchJson } from '../utils/safeApi';
 import { appendDateRerollNote, contentFromDateRaw, dateReplyMeta, readDateReply, type DateReply } from '../utils/dateReply';
 import Modal from '../components/os/Modal';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import TokenImg from '../components/os/TokenImg';
 import DateSession from '../components/date/DateSession';
 import DateSettings from '../components/date/DateSettings';
@@ -1772,9 +1773,9 @@ const DateApp: React.FC = () => {
                         <button onClick={handleHistoryEditConfirm} className="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">保存</button>
                     </div>
                 }>
-                    <textarea
+                    <ExpandableTextarea title="編輯消息"
                         value={historyEditContent}
-                        onChange={(e) => setHistoryEditContent(e.target.value)}
+                        onChange={setHistoryEditContent}
                         className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
                     />
                 </Modal>
@@ -2047,7 +2048,7 @@ const DateApp: React.FC = () => {
                     {typeof editTargetMsg?.metadata?.dateRaw === 'string' && (
                         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">這是模型回來的完整原文（思考過程、結構標籤都在）。存檔後照目前的預設重新整理顯示。</p>
                     )}
-                    <textarea value={editContent} onChange={e => setEditContent(e.target.value)} className={`w-full ${typeof editTargetMsg?.metadata?.dateRaw === 'string' ? 'h-[46vh]' : 'h-[50vh]'} min-h-[12rem] bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed`} />
+                    <ExpandableTextarea title="編輯內容" value={editContent} onChange={setEditContent} className={`w-full ${typeof editTargetMsg?.metadata?.dateRaw === 'string' ? 'h-[46vh]' : 'h-[50vh]'} min-h-[12rem] bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-primary/20 transition-all text-sm leading-relaxed`} />
                 </Modal>
             </>
         );
