@@ -18,6 +18,7 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_18_API = 'changelog-soren-2026-11-18-api';
 export const CHANGELOG_SOREN_2026_11_18 = 'changelog-soren-2026-11-18';
 export const CHANGELOG_SOREN_2026_11_16 = 'changelog-soren-2026-11-16';
 export const CHANGELOG_SOREN_2026_11_15 = 'changelog-soren-2026-11-15';
@@ -30,6 +31,14 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_18_API,
+        title: '2026 年 11 月 18 日 · S4.1 副 API 中心與備援鏈',
+        subtitle: '三組副 API（記憶、情緒／日程、主動消息）搬到系統設置集中填，從預設選 · 角色頁「跟系統設置」· 備援鏈：主用的掛了照順序換下一家再發一次、冷卻 5 分鐘、調用記錄標出來 · 雲端憑據跟著換',
+        date: '2026-11-18',
+        src: 'changelogs/2026-11-18-api.html',
+        accent: 'from-sky-50 to-cyan-50 border-sky-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_18,
         title: '2026 年 11 月 18 日 · S4.0 行事曆與時間',
