@@ -61,7 +61,7 @@ const DateStoryTimeSettings: React.FC<Props> = ({ char, story, updateCharacter, 
 
     return (
         <Section title="時間 (Time)">
-            <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">{story ? '這場故事' : '下一場故事'}裡是幾點。自定義的時間是{char.name}那邊的時間。</p>
+            <p className="text-[11px] text-slate-400 mt-1 mb-3 leading-relaxed">{story ? '這場故事' : '下一場故事'}裡是幾點。自定義的時間是{char.name}那邊的時間。{story ? '完結後開新的故事也沿用這個設定，改了才變。' : ''}</p>
             <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                     <span className="text-[11px] text-slate-500 font-bold">時間來源</span>

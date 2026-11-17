@@ -99,6 +99,18 @@ export const describeClockNote = (clock: DateClock): string =>
 /** 每輪貼在用戶那句後面的一小句：故事裡現在幾點（放在最末尾，離生成最近，模型才不會跟著記錄裡的舊時間走） */
 export const clockTurnNote = (clock: DateClock, tz?: string): string => `故事裡現在是 ${formatStoryClock(clock, tz)}。`;
 
+/**
+ * 一場故事完結後，它的時間設定留給下一場（2026-11-17 Liora 實測：故事進行中設了自定義時間，
+ * 按「開始新的故事」新的一場又變回真實——設定存在那場故事身上，完結就跟著走了）。
+ * 角色身上另外設了下一場的就用角色的；舊故事是真實＋流動就沒什麼好留的。起算點不帶，開新故事時重算。
+ */
+export const nextStoryTimeAfter = (char: Pick<CharacterProfile, 'dateNextStoryTime'>, finished: Pick<DateStory, 'time'>): DateStoryTime | undefined => {
+    if (!isDefaultStoryTime(char.dateNextStoryTime)) return char.dateNextStoryTime;
+    if (isDefaultStoryTime(finished.time)) return undefined;
+    const { anchorAt: _anchor, ...rest } = finished.time!;
+    return rest;
+};
+
 /** 新故事的時間設定：帶進故事、從故事開始那一刻起算 */
 export const startStoryTime = (draft: DateStoryTime | undefined, startAt: number): DateStoryTime | undefined =>
     isDefaultStoryTime(draft) ? undefined : { ...draft!, anchorAt: startAt };

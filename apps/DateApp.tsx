@@ -16,7 +16,7 @@ import { dateEmotionState, patchDateEmotion, runDateEmotionEval, withStoryEmotio
 import { expandGreeting, pickGreeting } from '../utils/dateExtras';
 import { buildDateRecap, resolveDateSummaryConfig, runDateSummary, shouldAutoSummarize } from '../utils/dateSummary';
 import { resolveDatePalaceConfig, sendDateSummaryToPalace } from '../utils/dateSummaryPalace';
-import { formatStoryClock, makeDateClock } from '../utils/dateStoryTime';
+import { formatStoryClock, makeDateClock, nextStoryTimeAfter } from '../utils/dateStoryTime';
 import { canCaptureDateMoment, captureDateMoment, describeMomentLock } from '../utils/dateMoment';
 import { migrateDataUrlToRef } from '../utils/blobRef';
 import { getLocalDateKey } from '../utils/localDate';
@@ -610,6 +610,8 @@ const DateApp: React.FC = () => {
     /** 完結一場故事；withSummary 就先寫整場總結（失敗就不完結，回 false） */
     const finishStory = async (c: CharacterProfile, story: DateStory, withSummary: boolean, entry: '开新故事' | '见面菜单'): Promise<boolean> => {
         setFinishingStory(true);
+        // 這場的時間設定留給下一場（utils/dateStoryTime.ts 的 nextStoryTimeAfter）
+        const timeForNext = { dateNextStoryTime: nextStoryTimeAfter(c, story) };
         try {
             if (withSummary) {
                 const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(c), 'date', 2000);
@@ -618,12 +620,12 @@ const DateApp: React.FC = () => {
                     api: resolveCharacterChatApi(c, apiConfig), messages: msgs,
                     palace: resolveDatePalaceConfig(c, memoryPalaceConfig, apiConfig),
                 });
-                updateCharacter(c.id, done.charPatch);
+                updateCharacter(c.id, { ...done.charPatch, ...timeForNext });
                 addToast(`「${dateStoryLabel(done.story)}」完結了`, 'success');
                 palaceToast(done.palace);
             } else {
                 const done = await completeDateStory(story);
-                updateCharacter(c.id, done.charPatch);
+                updateCharacter(c.id, { ...done.charPatch, ...timeForNext });
             }
             trackEvent('完结线下故事', { 方式: withSummary ? '完结并总结' : '直接结束', 入口: entry });
             if (activeStoryRef.current?.id === story.id) setActiveStory(null);
@@ -646,7 +648,8 @@ const DateApp: React.FC = () => {
             if (!(await finishStory(pendingSessionChar, story, withSummary, '开新故事'))) return;
             // 新會話沒有恢復快照可重放，撤銷任何殘留哨兵。
             clearDateResumeAttempt();
-            nextChar = { ...nextChar, activeDateStoryId: undefined, savedDateState: undefined };
+            // 手上這份是點角色時的快照，剛完結那場留下的時間設定要跟著帶上，感知頁的時鐘才對
+            nextChar = { ...nextChar, activeDateStoryId: undefined, savedDateState: undefined, dateNextStoryTime: nextStoryTimeAfter(pendingSessionChar, story) };
         } else {
             clearDateResumeAttempt();
             updateCharacter(pendingSessionChar.id, { savedDateState: undefined });
