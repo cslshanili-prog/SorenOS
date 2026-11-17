@@ -34,8 +34,7 @@ import {
   Newspaper,
   Planet,
   Wrench,
-  HouseLine, SlidersHorizontal, SmileyWink
-} from '@phosphor-icons/react';
+  HouseLine, SlidersHorizontal, SmileyWink, CalendarDots } from '@phosphor-icons/react';
 
 // SVG 圖標庫 - Phosphor Icons
 export const Icons: Record<string, React.FC<{ className?: string }>> = {
@@ -76,6 +75,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   VRWorld: ({ className }) => <Planet className={className} weight="regular" />,
   CharCreatorDev: ({ className }) => <Wrench className={className} weight="regular" />,
   WorldHome: ({ className }) => <HouseLine className={className} weight="regular" />,
+  Calendar: ({ className }) => <CalendarDots className={className} weight="regular" />,
 };
 
 export const INSTALLED_APPS: AppConfig[] = [
@@ -101,6 +101,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Songwriting, name: '寫歌', icon: 'Songwriting', color: 'fuchsia' },
   { id: AppID.VRWorld, name: '彼方', icon: 'VRWorld', color: 'indigo' },
   { id: AppID.Schedule, name: '時光契約', icon: 'Schedule', color: 'cyan' },
+  { id: AppID.Calendar, name: '行事曆', icon: 'Calendar', color: 'pink' }, // 2026-11：身份卡和角色的日程、待辦、旅行（plans/calendar.md）；第 2 批做完時光契約退役
   { id: AppID.Worldbook, name: '世界書', icon: 'Worldbook', color: 'indigo' },
   { id: AppID.Presets, name: '預設', icon: 'Presets', color: 'violet' },
   { id: AppID.Assistant, name: 'Sore', icon: 'Assistant', color: 'amber' },

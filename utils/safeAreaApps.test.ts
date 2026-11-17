@@ -9,7 +9,7 @@ import { shellHandlesSafeArea, SELF_SAFE_AREA_APPS } from './safeAreaApps';
 const SELF_HANDLED: AppID[] = [
     AppID.Launcher, AppID.VRWorld, AppID.Chat, AppID.ChatHub, AppID.GroupChat, AppID.Moments,
     AppID.Settings, AppID.Character, AppID.ThemeMaker, AppID.Appearance, AppID.Gallery,
-    AppID.Date, AppID.User, AppID.Journal, AppID.Schedule, AppID.Room, AppID.CheckPhone,
+    AppID.Date, AppID.User, AppID.Journal, AppID.Schedule, AppID.Calendar, AppID.Room, AppID.CheckPhone,
     AppID.Study, AppID.FAQ, AppID.Game, AppID.Worldbook, AppID.Presets, AppID.Assistant, AppID.Novel, AppID.Bank, AppID.Mall,
     AppID.XhsStock, AppID.XhsFreeRoam, AppID.Browser, AppID.Songwriting, AppID.Music,
     AppID.Call, AppID.VoiceDesigner, AppID.Guidebook, AppID.MemoryPalace,

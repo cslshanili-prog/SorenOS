@@ -40,6 +40,7 @@ export enum AppID {
   CharCreatorDev = 'char_creator_dev', // 捏臉系統開發模式 — 僅開發模式可見，向捏人器指定類目追加自定義部件
   WorldHome = 'world_home', // 家園 — 同世界觀多角色共同生活的大世界（觀測驅動演繹，每角色獨立 LLM 調用 + NPC 世界引擎）
   ChatHub = 'chat_hub', // Chat 主頁 — 消息/聯繫人/動態/主頁四欄導航殼，取代原本直接開 Chat 的入口
+  Calendar = 'calendar', // 行事曆 — 身份卡和角色的日程、待辦、旅行一個 App 看全（plans/calendar.md）；取代時光契約
 }
 
 export interface SystemLog {
