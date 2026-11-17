@@ -111,6 +111,7 @@ import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSyn
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
+import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { setMomentsGraphInputs } from '../utils/momentsContext';
@@ -2380,6 +2381,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [characterGroups]);
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
+  // 日程自動生成的本機那條路（plans/calendar.md 第 5 批）：頁面開著每 5 分鐘看一次、切回前台也看
+  useEffect(() => {
+    const scope = () => ({ characters, userProfileBase, apiConfig, groups, realtimeConfig });
+    const tick = () => { void runScheduleAutoTick(scope()).catch(() => {}); };
+    const first = window.setTimeout(tick, 30_000);
+    const timer = window.setInterval(tick, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [characters, userProfileBase, apiConfig, groups, realtimeConfig]);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
     setCloudLineRegistry(characters);

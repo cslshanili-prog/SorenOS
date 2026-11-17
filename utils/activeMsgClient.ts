@@ -2723,6 +2723,11 @@ export const ActiveMsgClient = {
      */
     temperature?: number;
     maxTokens?: number;
+    /**
+     * 循環的後台任務（日程自動生成，plans/calendar.md 第 5 批）：不立刻跑，到這個牆鐘時刻（按 tzId）
+     * 第一次跑、之後照 recurrenceType 重複。不傳就是「立刻跑一次」。
+     */
+    recurring?: { firstSendTime: string; recurrenceType: 'daily' | 'weekly'; tzId: string };
   }): Promise<{ uuid: string }> {
     const globalConfig = await ensureWorkerReady();
     const client = await initializeClient(globalConfig);
@@ -2731,13 +2736,7 @@ export const ActiveMsgClient = {
       throw new Error('這台 Worker 還不支持憑據存表，後台任務跑不了（去設置頁重新部署一次）。');
     }
 
-    const now = stampStateUpdatedAt();
-    await putClientStateOrThrow(client, [{
-      namespace: AMSG_JOB_NAMESPACE,
-      key: params.jobKey,
-      value: await packStateValue(JSON.stringify(params.jobInput)),
-      updatedAt: now,
-    }], '上傳後台任務輸入');
+    await this.putBackgroundJobInput(params.jobKey, params.jobInput);
 
     await putLlmCredentialRows([params.credRow]);
 
@@ -2746,12 +2745,13 @@ export const ActiveMsgClient = {
       messageType: 'auto',
       // 任務清單跟遠端對帳時靠它把這些行擋在外面（見 amsg2Tasks 的 reconcileTasksWithRemote）。
       messageSubtype: AMSG_BACKGROUND_JOB_SUBTYPE,
-      // 立刻可跑：到期時間由服務端自己蓋，下一跳 cron（最多一分鐘）就會撈起來。
-      // 不能改成客戶端算一個 firstSendTime——那個時刻在上傳輸入、傳憑據、加密、
-      // 發請求這一路上早就過去了，服務端一律打回「時間必須在未來」，整條雲端路
-      // 每次都退回本地跑。即時對話那條路同樣只用 immediate。
-      immediate: true,
-      recurrenceType: 'none',
+      // 一次性的立刻可跑：到期時間由服務端自己蓋，下一跳 cron（最多一分鐘）就會撈起來。
+      // 不能改成客戶端算一個「現在」當 firstSendTime——那個時刻在上傳輸入、傳憑據、加密、
+      // 發請求這一路上早就過去了，服務端一律打回「時間必須在未來」。循環的那種給的是
+      // 未來某個牆鐘時刻，不受這條影響。
+      ...(params.recurring
+        ? { firstSendTime: ensureFutureTime(params.recurring.firstSendTime, params.recurring.tzId), recurrenceType: params.recurring.recurrenceType, tzId: params.recurring.tzId }
+        : { immediate: true, recurrenceType: 'none' }),
       metadata: {
         charId: params.charId,
         charName: params.charName,
@@ -2805,6 +2805,25 @@ export const ActiveMsgClient = {
       throw new Error(response?.error?.message || '後台任務創建失敗。');
     }
     return response.data as { uuid: string };
+  },
+
+  /** 只傳（或刷新）一份後台任務的輸入，不建任務：standing job（日程自動生成）每天刷一次用 */
+  async putBackgroundJobInput(jobKey: string, jobInput: unknown): Promise<void> {
+    const globalConfig = await ensureWorkerReady();
+    const client = await initializeClient(globalConfig);
+    await putClientStateOrThrow(client, [{
+      namespace: AMSG_JOB_NAMESPACE,
+      key: jobKey,
+      value: await packStateValue(JSON.stringify(jobInput)),
+      updatedAt: stampStateUpdatedAt(),
+    }], '上傳後台任務輸入');
+  },
+
+  /** 把一份後台任務的輸入寫空（HTTP 那側沒有刪除語義；worker 讀到空值就當撤了） */
+  async clearBackgroundJobInput(jobKey: string): Promise<void> {
+    const globalConfig = await ensureWorkerReady();
+    const client = await initializeClient(globalConfig);
+    await putClientStateOrThrow(client, [{ namespace: AMSG_JOB_NAMESPACE, key: jobKey, value: '', updatedAt: stampStateUpdatedAt() }], '撤銷後台任務輸入');
   },
 
   /**

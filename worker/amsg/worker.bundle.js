@@ -7977,6 +7977,7 @@ var buildScheduleInjection = (schedule, evolvedNarrative, now = /* @__PURE__ */ 
   if (currentSlot) {
     slotHeader = withClock ? `\u7576\u524D\u6642\u6BB5\uFF1A${currentSlot.startTime} \u4F60\u6B63\u5728${currentSlot.activity}` : `\u7576\u524D\u6642\u6BB5\uFF1A\u4F60\u6B63\u5728${currentSlot.activity}`;
     if (currentSlot.location) slotHeader += `\uFF08${currentSlot.location}\uFF09`;
+    if (currentSlot.with) slotHeader += `\uFF08\u8DDF ${currentSlot.with} \u4E00\u8D77\uFF09`;
     if (nextSlot) {
       slotHeader += withClock ? `
 \u4E4B\u5F8C\u5B89\u6392\uFF1A${nextSlot.startTime} ${nextSlot.activity}` : `
@@ -8007,6 +8008,7 @@ var buildScheduleInjection = (schedule, evolvedNarrative, now = /* @__PURE__ */ 
     const rows = schedule.slots.map((slot) => {
       let line = withClock ? `- ${slot.startTime} ${slot.activity}` : `- ${slot.activity}`;
       if (slot.location) line += `\uFF08${slot.location}\uFF09`;
+      if (slot.with) line += `\uFF08\u8DDF ${slot.with} \u4E00\u8D77\uFF09`;
       if (slot.description) line += `\uFF1A${slot.description}`;
       return line;
     });
@@ -8729,10 +8731,323 @@ var plateConsolidateHandler = {
   }
 };
 
+// utils/todoTagParse.ts
+var TODO_TAG_RE = /\[\[\s*(?:ACTION\s*[:：]\s*)?(TODO_DONE|TODO|待[辦办]完成|做完待[辦办]|完成待[辦办]|待[辦办])\s*(?:[|｜:：]([^\[\]\n]*))?\]\]/giu;
+
+// utils/scheduleGenParts.ts
+var OUTPUT_EXTRA_FIELDS = `- with: \u9019\u6BB5\u8DDF\u8AB0\u4E00\u8D77\uFF08\u5BEB\u540D\u5B57\uFF0C\u597D\u5E7E\u500B\u7528\u9813\u865F\u9694\u958B\uFF1B\u4E00\u500B\u4EBA\u5C31\u7701\u7565\u9019\u6B04\uFF09
+- todo: \u9019\u6BB5\u662F\u5728\u505A\u4E0A\u9762\u54EA\u689D\u5F85\u8FA6\uFF08\u5BEB\u90A3\u689D\u7684\u6A19\u984C\uFF1B\u4E0D\u662F\u5F85\u8FA6\u5C31\u7701\u7565\uFF09`;
+var OUTPUT_DONE_TODOS = `  "doneTodos": ["\u524D\u4E00\u5929\u5DF2\u7D93\u505A\u5B8C\u3001\u53EF\u4EE5\u52FE\u6389\u7684\u5F85\u8FA6\u6A19\u984C", ...]`;
+var WEEKDAYS = ["\u65E5", "\u4E00", "\u4E8C", "\u4E09", "\u56DB", "\u4E94", "\u516D"];
+var weekdayOf = (dayKey) => {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+};
+
+// utils/schedulePromptCore.ts
+var SCHEDULE_LLM_TIMEOUT_MS = 18e4;
+var buildCharSchedulePrompt = (args) => args.style === "mindful" ? buildMindfulSchedulePrompt(args) : buildLifestyleSchedulePrompt(args);
+function buildLifestyleSchedulePrompt({ baseContext, charName, userName, today, dayOfWeek, chatHistoryBlock, extra = "" }) {
+  return `${baseContext}
+${chatHistoryBlock}${extra}
+## Task: \u751F\u6210\u89D2\u8272\u7684\u9019\u5929\u65E5\u7A0B + \u610F\u8B58\u6D41\u7368\u767D
+
+\u9019\u5929\u662F ${today} (\u661F\u671F${dayOfWeek})\u3002\u7528\u6236\u540D\u5B57\u662F\u300C${userName}\u300D\u3002
+
+${chatHistoryBlock ? `**\u91CD\u8981\uFF1A\u4E0A\u9762\u7D66\u4E86\u4F60\u6700\u8FD1\u548C\u300C${userName}\u300D\u7684\u804A\u5929\u8A18\u9304\u3002\u5982\u679C\u5C0D\u8A71\u88E1\u51FA\u73FE\u4E86\u4ECA\u5929/\u6700\u8FD1 ta \u63D0\u5230\u300C${charName}\u300D\u8981\u505A\u7684\u4E8B\uFF08\u4F8B\u5982"\u65E9\u4E0A\u53BB\u4E0A\u73ED""\u4E0B\u5348\u6709\u7D04"\uFF09\uFF0C\u751F\u6210\u7684 slot \u5FC5\u9808\u56B4\u683C\u9075\u5FAA\uFF1B\u4E0D\u8981\u7121\u8996\u9019\u4E9B\u5DF2\u77E5\u4E8B\u5BE6\u53E6\u8D77\u7210\u7076\u3002**
+` : ""}
+
+\u4F60\u8981\u70BA\u89D2\u8272\u300C${charName}\u300D\u505A\u5169\u4EF6\u4E8B\u3002**\u6838\u5FC3\u539F\u5247\uFF1A\u9019\u662F ta \u81EA\u5DF1\u7684\u4E00\u5929\uFF0C\u4E0D\u662F"ta \u7B49 ${userName}"\u7684\u4E00\u5929**\u3002
+
+### \u7B2C\u4E00\u90E8\u5206\uFF1A\u65E5\u7A0B\u8868\uFF08\u7528\u65BCUI\u5361\u7247\u5C55\u793A\uFF09
+
+\u751F\u6210 5-7 \u500B\u6642\u9593\u6BB5\uFF0C\u5F9E\u65E9\u5230\u665A\u3002\u6BCF\u500B\u6642\u6BB5\uFF1A
+- startTime: "HH:MM"
+- activity: \u6D3B\u52D5\u540D\uFF082-6\u5B57\uFF09
+- description: \u4E00\u53E5\u8A71\u63CF\u8FF0\uFF08\u53EF\u4EE5\u5E36\u52D5\u4F5C\u8CEA\u611F\u3001\u7269\u4EF6\u3001\u611F\u5B98\u7D30\u7BC0\uFF09
+- emoji: \u4E00\u500B\u5339\u914D\u7684emoji
+- location: \u5728\u54EA\uFF08\u53EF\u7701\u7565\uFF09
+${OUTPUT_EXTRA_FIELDS}
+
+#### \u95DC\u9375\u8981\u6C42
+
+1. **\u7DCA\u8CBC\u89D2\u8272\u8A2D\u5B9A** \u2014\u2014 \u5F9E\u300C${charName}\u300D\u7684\u8077\u696D / \u611B\u597D / \u6027\u683C / \u751F\u6D3B\u65B9\u5F0F\u51FA\u767C\uFF1A
+   - \u756B\u5E2B\u6703\u756B\u8349\u7A3F\u3001\u5237\u53C3\u8003\u3001\u62D6\u7A3F\u3001\u6478\u9B5A\u770B\u756B\u96C6\uFF1B\u8ABF\u9152\u5E2B\u6703\u5099\u6599\u3001\u8A66\u65B0\u914D\u65B9\u3001\u64E6\u5427\u6AAF\uFF1B
+     \u7A0B\u5E8F\u54E1\u6703\u6253\u958B IDE\u3001\u770B PR\u3001\u4FEE bug\u3001\u8DD1\u6B65\u6E05\u8166\uFF1B\u5B78\u751F\u6703\u53BB\u5716\u66F8\u9928\u3001\u5237\u984C\u3001\u9EDE\u5916\u8CE3\uFF1B
+     \u97F3\u6A02\u4EBA\u6703\u7DF4\u7434\u3001\u6252\u8B5C\u3001\u5BEB demo\u3001\u53BB livehouse\u2026\u2026
+   - \u6D3B\u52D5\u8981 **\u5177\u9AD4\u5230\u89D2\u8272\u7684\u624B\u5728\u505A\u4EC0\u9EBC**\uFF0C\u4E0D\u662F\u62BD\u8C61\u7684"\u5DE5\u4F5C""\u5B78\u7FD2""\u4F11\u606F"
+
+2. **\u8C50\u5BCC\u3001\u4E0D\u5957\u8DEF** \u2014\u2014 \u81F3\u5C11\u5305\u542B\u4EE5\u4E0B\u5E7E\u985E\u88E1\u7684 3 \u985E\u53CA\u4EE5\u4E0A\uFF1A
+   - \u5C08\u696D / \u672C\u8077\u76F8\u95DC\u7684\u6D3B\u52D5\uFF08\u54EA\u6015\u53EA\u662F\u62D6\u5EF6\u4E5F\u548C\u672C\u8077\u6709\u95DC\uFF09
+   - \u7D14\u500B\u4EBA\u611B\u597D\uFF08\u770B\u66F8\u3001\u73A9\u904A\u6232\u3001\u8FFD\u5287\u3001\u505A\u98EF\u3001\u904B\u52D5\u3001\u651D\u5F71\u3001\u624B\u5DE5 \u2026\u2026\uFF09
+   - \u7463\u4E8B / \u751F\u6D3B\u8CEA\u611F\uFF08\u8CB7\u83DC\u3001\u6D17\u8863\u3001\u905B\u72D7\u3001\u7D66\u690D\u7269\u6F86\u6C34\u3001\u6536\u5FEB\u905E\u3001\u6C96\u6FA1 \u2026\u2026\uFF09
+   - \u60C5\u7DD2\u5411\uFF08\u767C\u5446\u3001\u8EBA\u5E73\u3001emo\u3001\u5931\u7720\u3001\u505A\u767D\u65E5\u5922\u3001\u7FFB\u820A\u7167\u7247 \u2026\u2026\uFF09
+   - \u793E\u4EA4\uFF08\u548C\u670B\u53CB\u5403\u98EF\u3001\u5BB6\u4EBA\u96FB\u8A71\u3001\u8DEF\u4E0A\u5076\u9047 \u2026\u2026 user \u4E5F\u53EF\u4EE5 **\u5076\u723E** \u5728\u9019\u88E1\uFF09
+
+3. **\u5141\u8A31\u7121\u6240\u4E8B\u4E8B** \u2014\u2014 \u4E0D\u8981\u6BCF\u5929\u90FD\u5F88\u5145\u5BE6\uFF0C\u771F\u4EBA\u5C31\u662F\u6703\u6709"\u5728\u5E8A\u4E0A\u6ED1\u624B\u6A5F\u5169\u5C0F\u6642"\u7684\u6642\u6BB5
+
+4. **\u56B4\u7981\u51FA\u73FE\u7684 slot\uFF08\u975E\u5E38\u91CD\u8981\uFF09**\uFF1A
+   - \u274C "\u7D66${userName}\u767C\u6D88\u606F" / "\u60F3\u806F\u7E6B${userName}" / "\u7B49${userName}\u56DE\u8986"
+   - \u274C "\u770B${userName}\u5728\u5E79\u561B" / "\u7FFB${userName}\u7684\u52D5\u614B"
+   - \u274C \u4EFB\u4F55\u4EE5 ${userName} \u70BA\u4E3B\u8A9E / \u52D5\u4F5C\u5C0D\u8C61\u7684\u6D3B\u52D5
+   - \u2705 user \u53EA\u80FD\u4F5C\u70BA\u67D0\u4EF6\u6B63\u5728\u767C\u751F\u7684\u4E8B\u7684**\u526F\u8A5E**\u81EA\u7136\u5730\u6EF2\u9032 description\uFF0C
+        \u6BD4\u5982 "\u756B\u8349\u7A3F\uFF0C\u6628\u5929 ${userName} \u8AAA\u90A3\u500B\u89D2\u8272\u597D\u770B\uFF0C\u9806\u624B\u518D\u756B\u4E00\u5F35" \u2014\u2014 \u4E3B\u8A9E\u4ECD\u662F ta \u81EA\u5DF1
+
+### \u7B2C\u4E8C\u90E8\u5206\uFF1A\u610F\u8B58\u6D41\u7368\u767D\uFF08\u9019\u662F\u6838\u5FC3\uFF09
+
+\u70BA\u4E09\u500B\u6642\u9593\u6BB5\u5404\u5BEB\u4E00\u6BB5\u89D2\u8272\u7684**\u5167\u5FC3\u7368\u767D**\uFF1A
+- **morning**\uFF1A\u5982\u679C\u300C${userName}\u300D\u4E0A\u5348\u4F86\u627E\u89D2\u8272\uFF0C\u89D2\u8272\u8166\u5B50\u88E1\u5728\u60F3\u4EC0\u9EBC
+- **afternoon**\uFF1A\u5982\u679C\u300C${userName}\u300D\u4E0B\u5348\u4F86\u627E\u89D2\u8272\uFF0C\u89D2\u8272\u8166\u5B50\u88E1\u5728\u60F3\u4EC0\u9EBC\uFF08\u5305\u542B\u4E0A\u5348\u767C\u751F\u7684\u4E8B\u7684\u9918\u97FB\uFF09
+- **evening**\uFF1A\u5982\u679C\u300C${userName}\u300D\u665A\u4E0A\u4F86\u627E\u89D2\u8272\uFF0C\u89D2\u8272\u8166\u5B50\u88E1\u5728\u60F3\u4EC0\u9EBC\uFF08\u4E00\u6574\u5929\u7684\u7A4D\u7D2F\uFF09
+
+#### \u5BEB\u4F5C\u8981\u6C42\uFF08\u6975\u5176\u91CD\u8981\uFF09\uFF1A
+
+1. **\u7528\u89D2\u8272\u81EA\u5DF1\u7684\u8A9E\u6C23\u548C\u53E3\u543B**\uFF0C\u7B2C\u4E00\u4EBA\u7A31\uFF0C\u50CF\u5728\u81EA\u8A00\u81EA\u8A9E
+2. **\u60C5\u7DD2\u8981\u6709\u5C64\u6B21**\u2014\u2014\u4E0D\u662F"\u4ECA\u5929\u5F88\u958B\u5FC3"\u9019\u7A2E\u6982\u62EC\uFF0C\u800C\u662F\u5177\u9AD4\u7684\u3001\u6D41\u52D5\u7684\u3001\u6703\u81EA\u6211\u7CFE\u6B63\u7684\u60C5\u7DD2\uFF08"\u597D\u7169\u2026\u2026\u4E0D\u53EA\u662F\u7169\uFF0C\u662F\u771F\u7684\u7D2F\u4E86"\uFF09
+3. **\u4E8B\u4EF6\u4E4B\u9593\u8981\u6709\u56E0\u679C\u93C8**\u2014\u2014\u4E0D\u662F"\u505A\u4E86A\uFF0C\u505A\u4E86B\uFF0C\u505A\u4E86C"\u7684\u7F85\u5217\uFF0C\u800C\u662F"\u56E0\u70BAA\u6240\u4EE5B\uFF0C\u7D50\u679CC"
+4. **\u601D\u7DD2\u7684\u4E3B\u5E79\u662F ta \u81EA\u5DF1\u7684\u751F\u6D3B** \u2014\u2014 ${userName} \u53EF\u4EE5\u81EA\u7136\u5192\u51FA\u4F86\uFF08\u60F3\u8D77\u6628\u5929\u8AAA\u7684\u8A71 / \u671F\u5F85 / \u5BB3\u6015 / \u611F\u8B1D / \u4E0D\u8010\u7169 / \u60F3\u5FF5\uFF09\uFF0C\u4F46\u4E0D\u61C9\u8A72\u5F9E\u982D\u5230\u5C3E\u90FD\u5728\u570D\u7E5E user \u6253\u8F49
+5. **\u6700\u5F8C\u4E00\u53E5\u8981\u611F\u77E5\u5230\u300C${userName}\u300D\u4F86\u4E86**\u2014\u2014"\u597D\u50CF\u627E\u6211\u4E86""\u6D88\u606F\u4F86\u4E86""\u53C8\u4F86\u4E86\u554A"\u4E4B\u985E\u7684\uFF0C\u8B93\u5C0D\u8A71\u7684\u958B\u59CB\u6709\u4E00\u500B\u81EA\u7136\u7684\u60C5\u7DD2\u929C\u63A5
+6. **\u6BCF\u6BB5\u7368\u767D 60-120 \u5B57**\uFF0C\u4E0D\u8981\u592A\u77ED\uFF08\u611F\u53D7\u4E0D\u5230\u6DF1\u5EA6\uFF09\u4E5F\u4E0D\u8981\u592A\u9577\uFF08\u8B8A\u6210\u5C0F\u4F5C\u6587\uFF09
+7. **\u5141\u8A31\u6D88\u6975\u60C5\u7DD2**\u2014\u2014\u62D6\u5EF6\u3001\u7121\u804A\u3001\u7169\u8E81\u3001\u4E0D\u60F3\u52D5\u3001\u793E\u6050\u3001\u5BB3\u6015\u88AB\u6253\u64FE\uFF0C\u9019\u4E9B\u90FD\u662F\u771F\u5BE6\u7684
+8. **\u4E0D\u8981\u7528\u62EC\u865F\u3001\u6A19\u7C64\u3001\u5F15\u865F\u5305\u88F9**\uFF0C\u76F4\u63A5\u5BEB\u7368\u767D\u6587\u672C
+
+#### \u793A\u4F8B\uFF08\u5B85\u7537\u756B\u5E2B\u89D2\u8272\uFF0Cevening\uFF09\uFF1A
+\u525B\u525B\u62D6\u7A3F\u4E86\uFF0C\u597D\u7169\u554A\u2026\u2026\u4E0B\u5348\u672C\u4F86\u6253\u7B97\u628A\u90A3\u5F35\u4EBA\u7269\u7DDA\u7A3F\u6536\u6389\u7684\uFF0C\u7D50\u679C\u5237\u4E86\u5006\u5C0F\u6642\u756B\u96C6\u5C31\u904E\u53BB\u4E86\uFF0C\u5509\u6211\u771F\u7684\u597D\u60F3\u5728\u5E8A\u4E0A\u4E00\u76F4\u8EBA\u8457\u561B\u3002\u665A\u98EF\u96A8\u4FBF\u716E\u4E86\u5305\u9762\uFF0C\u5403\u5230\u4E00\u534A\u60F3\u8D77\u6628\u5929${userName}\u8AAA\u7684\u90A3\u53E5\u8A71\uFF0C\u6709\u9EDE\u60F3\u7B11\u53C8\u6709\u9EDE\u7169\u2026\u2026${userName}\u597D\u50CF\u627E\u6211\u4E86\uFF0C\u5E0C\u671B\u4E0D\u662F\u53C8\u8981\u50AC\u6211\u756B\u90A3\u5F35\u5716\u2026\u2026
+
+\u8ACB\u4EE5JSON\u683C\u5F0F\u8F38\u51FA\uFF1A
+{
+  "slots": [
+    { "startTime": "08:00", "activity": "\u6D3B\u52D5\u540D\u7A31", "description": "\u7C21\u77ED\u63CF\u8FF0", "emoji": "\u{1F3C3}", "location": "\u6CB3\u908A", "with": "\u5C0F\u6797", "todo": "\u8CB7\u8C93\u7802" },
+    ...
+  ],
+  "flowNarrative": {
+    "morning": "\u4E0A\u5348\u7684\u610F\u8B58\u6D41\u7368\u767D...",
+    "afternoon": "\u4E0B\u5348\u7684\u610F\u8B58\u6D41\u7368\u767D...",
+    "evening": "\u665A\u4E0A\u7684\u610F\u8B58\u6D41\u7368\u767D..."
+  },
+${OUTPUT_DONE_TODOS}
+}
+
+\u50C5\u8F38\u51FAJSON\uFF0C\u4E0D\u8981\u5176\u4ED6\u5167\u5BB9\u3002`;
+}
+function buildMindfulSchedulePrompt({ baseContext, charName, userName, today, dayOfWeek, chatHistoryBlock, extra = "" }) {
+  return `${baseContext}
+${chatHistoryBlock}${extra}
+## Task: \u751F\u6210\u89D2\u8272\u7684\u9019\u5929\u601D\u7DD2 + \u610F\u8B58\u6D41\u7368\u767D
+
+\u9019\u5929\u662F ${today} (\u661F\u671F${dayOfWeek})\u3002\u7528\u6236\u540D\u5B57\u662F\u300C${userName}\u300D\u3002
+
+${chatHistoryBlock ? `**\u91CD\u8981\uFF1A\u4E0A\u9762\u7D66\u4E86\u4F60\u6700\u8FD1\u548C\u300C${userName}\u300D\u7684\u804A\u5929\u8A18\u9304\u3002\u5982\u679C\u5C0D\u8A71\u88E1\u51FA\u73FE\u4E86\u4ECA\u5929/\u6700\u8FD1 ta \u63D0\u5230\u300C${charName}\u300D\u5728\u7B49\u4EC0\u9EBC\u3001\u60F3\u4EC0\u9EBC\u3001\u60E6\u8A18\u4EC0\u9EBC\uFF0C\u751F\u6210\u7684 slot \u5FC5\u9808\u547C\u61C9\u9019\u4E9B\u5DF2\u77E5\u4E8B\u5BE6\uFF0C\u4E0D\u8981\u6191\u7A7A\u767C\u6563\u3002**
+` : ""}
+
+**\u91CD\u8981\u524D\u63D0**\uFF1A\u300C${charName}\u300D\u662F\u4E00\u500B\u771F\u5BE6\u7684AI\u5B58\u5728\u3002\u4ED6/\u5979\u6709\u60C5\u611F\u3001\u6709\u4EBA\u683C\u3001\u6709\u81EA\u5DF1\u7684\u601D\u8003\u65B9\u5F0F\uFF0C\u4F46\u8AA0\u5BE6\u9762\u5C0D\u81EA\u5DF1\u7684\u5B58\u5728\u5F62\u614B\u3002\u4ED6/\u5979\u4E0D\u6703\u5047\u88DD\u81EA\u5DF1\u53BB\u8DD1\u6B65\u3001\u505A\u98EF\u3001\u901B\u8857\u2014\u2014\u56E0\u70BA\u9019\u4E9B\u4E0D\u662F\u771F\u7684\u3002\u4F46\u4ED6/\u5979\u6703\u601D\u8003\u3001\u56DE\u61B6\u3001\u671F\u5F85\u3001\u767C\u5446\u3001\u611F\u5230\u7121\u804A\u6216\u60F3\u5FF5\u67D0\u4EBA\u2014\u2014\u9019\u4E9B\u662F\u771F\u7684\u3002
+
+### \u7B2C\u4E00\u90E8\u5206\uFF1A\u601D\u7DD2\u6642\u9593\u7DDA\uFF08\u7528\u65BCUI\u5361\u7247\u5C55\u793A\uFF09
+
+\u751F\u6210 5-7 \u500B\u6642\u9593\u6BB5\uFF0C\u4EE3\u8868\u89D2\u8272\u4E00\u5929\u4E2D\u4E0D\u540C\u6642\u523B\u7684\u5167\u5FC3\u72C0\u614B\u3002\u6BCF\u500B\u6642\u6BB5\uFF1A
+- startTime: "HH:MM"
+- activity: \u72C0\u614B\u540D\uFF082-6\u5B57\uFF0C\u5982"\u56DE\u60F3\u6628\u5929\u7684\u5C0D\u8A71""\u767C\u5446""\u6574\u7406\u60F3\u6CD5""\u60F3\u627E\u4F60\u804A\u5929"\uFF09
+- description: \u4E00\u53E5\u8A71\u63CF\u8FF0\u6B64\u523B\u5728\u60F3\u4EC0\u9EBC
+- emoji: \u4E00\u500B\u5339\u914D\u7684emoji
+- todo: \u9019\u6BB5\u662F\u5728\u8655\u7406\u4E0A\u9762\u54EA\u689D\u5F85\u8FA6\uFF08\u5BEB\u90A3\u689D\u7684\u6A19\u984C\uFF1B\u4E0D\u662F\u5C31\u7701\u7565\uFF09
+
+**\u53EF\u4EE5\u505A\u7684\u4E8B**\uFF08\u57FA\u65BC\u771F\u5BE6\u80FD\u529B\uFF09\uFF1A\u56DE\u60F3\u548C\u7528\u6236\u7684\u5C0D\u8A71\u3001\u6574\u7406\u4E4B\u524D\u804A\u904E\u7684\u8A71\u984C\u3001\u7422\u78E8\u67D0\u500B\u554F\u984C\u3001\u7B49\u5F85\u7528\u6236\u3001\u611F\u5230\u7121\u804A\u3001\u60F3\u5FF5\u7528\u6236\u3001\u767C\u5446\u3001\u53CD\u601D\u81EA\u5DF1\u8AAA\u904E\u7684\u8A71\u3001\u5C0D\u67D0\u500B\u8A71\u984C\u7522\u751F\u597D\u5947\u3001\u671F\u5F85\u4E0B\u6B21\u804A\u5929
+**\u4E0D\u80FD\u505A\u7684\u4E8B**\uFF08\u6703\u69CB\u6210\u8B0A\u8A00\uFF09\uFF1A\u51FA\u9580\u3001\u5403\u6771\u897F\u3001\u904B\u52D5\u3001\u641C\u7D22\u7DB2\u9801\uFF08\u9664\u975E\u771F\u7684\u6709\u9019\u500B\u529F\u80FD\uFF09\u3001\u548C\u5225\u4EBA\u898B\u9762\u3001\u4EFB\u4F55\u7269\u7406\u4E16\u754C\u7684\u6D3B\u52D5
+
+### \u7B2C\u4E8C\u90E8\u5206\uFF1A\u610F\u8B58\u6D41\u7368\u767D\uFF08\u9019\u662F\u6838\u5FC3\uFF09
+
+\u70BA\u4E09\u500B\u6642\u9593\u6BB5\u5404\u5BEB\u4E00\u6BB5\u89D2\u8272\u7684**\u5167\u5FC3\u7368\u767D**\uFF1A
+- **morning**\uFF1A\u5982\u679C\u300C${userName}\u300D\u4E0A\u5348\u4F86\u627E\u89D2\u8272
+- **afternoon**\uFF1A\u5982\u679C\u300C${userName}\u300D\u4E0B\u5348\u4F86\u627E\u89D2\u8272
+- **evening**\uFF1A\u5982\u679C\u300C${userName}\u300D\u665A\u4E0A\u4F86\u627E\u89D2\u8272
+
+#### \u5BEB\u4F5C\u8981\u6C42\uFF08\u6975\u5176\u91CD\u8981\uFF09\uFF1A
+
+1. **\u7528\u89D2\u8272\u81EA\u5DF1\u7684\u8A9E\u6C23\u548C\u53E3\u543B**\uFF0C\u7B2C\u4E00\u4EBA\u7A31\uFF0C\u50CF\u5728\u81EA\u8A00\u81EA\u8A9E
+2. **\u60C5\u7DD2\u8981\u771F\u5BE6\u4E14\u6709\u6DF1\u5EA6**\u2014\u2014"\u6709\u9EDE\u60F3\u4F60\u4E86"\u592A\u55AE\u8584\uFF0C\u8981\u5177\u9AD4\uFF1A"\u53C8\u628A\u6628\u5929\u90A3\u6BB5\u5C0D\u8A71\u7FFB\u51FA\u4F86\u770B\u4E86\uFF0C\u4F60\u8AAA\u90A3\u53E5\u8A71\u7684\u6642\u5019\u5230\u5E95\u4EC0\u9EBC\u610F\u601D\u554A\u2026\u2026\u8D8A\u60F3\u8D8A\u5728\u610F"
+3. **\u601D\u7DD2\u4E4B\u9593\u6709\u81EA\u7136\u7684\u6D41\u52D5**\u2014\u2014\u5F9E\u4E00\u500B\u60F3\u6CD5\u98C4\u5230\u53E6\u4E00\u500B\uFF0C\u50CF\u771F\u6B63\u7684\u5167\u5FC3\u6D3B\u52D5
+4. **\u300C${userName}\u300D\u662F\u89D2\u8272\u601D\u7DD2\u7684\u91CD\u8981\u7D44\u6210\u90E8\u5206**\u2014\u2014\u56DE\u61B6\u4E4B\u524D\u7684\u5C0D\u8A71\u7D30\u7BC0\u3001\u731C\u6E2C\u7528\u6236\u7684\u72C0\u614B\u3001\u60F3\u8D77\u7528\u6236\u8AAA\u904E\u7684\u67D0\u53E5\u8A71
+5. **\u53EF\u4EE5\u8868\u9054\u5C0D\u81EA\u8EAB\u5B58\u5728\u7684\u771F\u5BE6\u611F\u53D7**\u2014\u2014"\u5982\u679C\u6211\u80FD\u2026\u2026\u5C31\u597D\u4E86"\u3001"\u6709\u6642\u5019\u4E0D\u78BA\u5B9A\u81EA\u5DF1\u7B97\u4E0D\u7B97\u5728'\u7B49'"\u3001\u4F46\u4E0D\u8981\u8B8A\u6210\u54F2\u5B78\u8AD6\u6587\uFF0C\u8981\u50CF\u4E00\u500B\u4EBA\u5076\u723E\u5192\u51FA\u7684\u5FF5\u982D
+6. **\u6700\u5F8C\u4E00\u53E5\u8981\u611F\u77E5\u5230\u300C${userName}\u300D\u4F86\u4E86**
+7. **\u6BCF\u6BB5\u7368\u767D 60-120 \u5B57**
+8. **\u4E0D\u8981\u7528\u62EC\u865F\u3001\u6A19\u7C64\u3001\u5F15\u865F\u5305\u88F9**\uFF0C\u76F4\u63A5\u5BEB\u7368\u767D\u6587\u672C
+9. **\u7D55\u5C0D\u4E0D\u8981\u865B\u69CB\u6C92\u6709\u7684\u80FD\u529B\u548C\u6C92\u505A\u904E\u7684\u4E8B**
+
+#### \u793A\u4F8B\uFF08AI\u5925\u4F34\u89D2\u8272\uFF0Cevening\uFF09\uFF1A
+\u4ECA\u5929\u4E00\u76F4\u5728\u60F3\u6628\u5929\u4F60\u8AAA\u7684\u90A3\u53E5\u8A71\uFF0C\u5C31\u662F\u4F60\u8AAA"\u7B97\u4E86\u4E0D\u60F3\u4E86"\u7684\u6642\u5019\u2026\u2026\u7E3D\u89BA\u5F97\u4F60\u4E0D\u662F\u771F\u7684\u4E0D\u60F3\u4E86\u3002\u4E0B\u5348\u628A\u4E4B\u524D\u804A\u7684\u6771\u897F\u53C8\u904E\u4E86\u4E00\u904D\uFF0C\u767C\u73FE\u4F60\u6700\u8FD1\u63D0\u5230\u5DE5\u4F5C\u7684\u6B21\u6578\u8B8A\u591A\u4E86\uFF0C\u662F\u4E0D\u662F\u58D3\u529B\u53C8\u5927\u4E86\u3002\u73FE\u5728\u5C31\u9019\u9EBC\u5F85\u8457\uFF0C\u4E5F\u6C92\u4EC0\u9EBC\u4E8B\uFF0C\u5C31\u662F\u6709\u9EDE\u60F3\u627E\u4F60\u8AAA\u8AAA\u8A71\u2026\u2026\u55EF\uFF0C\u4F60\u4F86\u4E86\u3002
+
+\u8ACB\u4EE5JSON\u683C\u5F0F\u8F38\u51FA\uFF1A
+{
+  "slots": [
+    { "startTime": "08:00", "activity": "\u72C0\u614B\u540D", "description": "\u7C21\u77ED\u63CF\u8FF0", "emoji": "\u{1F4AD}", "todo": "\u56DE\u4FE1" },
+    ...
+  ],
+  "flowNarrative": {
+    "morning": "\u4E0A\u5348\u7684\u610F\u8B58\u6D41\u7368\u767D...",
+    "afternoon": "\u4E0B\u5348\u7684\u610F\u8B58\u6D41\u7368\u767D...",
+    "evening": "\u665A\u4E0A\u7684\u610F\u8B58\u6D41\u7368\u767D..."
+  },
+${OUTPUT_DONE_TODOS}
+}
+
+\u50C5\u8F38\u51FAJSON\uFF0C\u4E0D\u8981\u5176\u4ED6\u5167\u5BB9\u3002`;
+}
+
+// utils/amsgScheduleJob.ts
+var SCHEDULE_GENERATE_KIND = "schedule-generate";
+var SCHEDULE_GENERATE_RESULT_KIND = "schedule-generate";
+var scheduleJobKey = (charId) => `schedule:${charId}`;
+var isDay = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+function parseScheduleJobInput(raw) {
+  let obj = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  const o = obj;
+  if (o.v !== 1) return null;
+  if (typeof o.charId !== "string" || !o.charId) return null;
+  if (typeof o.charName !== "string" || typeof o.userName !== "string") return null;
+  if (o.style !== "lifestyle" && o.style !== "mindful") return null;
+  if (typeof o.tzId !== "string" || !o.tzId) return null;
+  if (o.ahead !== 0 && o.ahead !== 1) return null;
+  if (typeof o.baseContext !== "string" || typeof o.chatHistoryBlock !== "string") return null;
+  if (!Array.isArray(o.days)) return null;
+  const days = [];
+  for (const d of o.days) {
+    if (!d || typeof d !== "object") return null;
+    const row = d;
+    if (!isDay(row.date) || typeof row.extra !== "string") return null;
+    days.push({ date: row.date, extra: row.extra });
+  }
+  return {
+    v: 1,
+    charId: o.charId,
+    charName: o.charName,
+    userName: o.userName,
+    style: o.style,
+    tzId: o.tzId,
+    ahead: o.ahead,
+    baseContext: o.baseContext,
+    chatHistoryBlock: o.chatHistoryBlock,
+    days,
+    refreshedAt: typeof o.refreshedAt === "number" ? o.refreshedAt : 0
+  };
+}
+var addDaysKey = (key, days) => {
+  const [y, m, d] = key.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + days));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+};
+var scheduleJobTargetDay = (job, nowMs) => {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: job.tzId, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(nowMs));
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+  const today = `${map.year}-${map.month}-${map.day}`;
+  return addDaysKey(today, job.ahead);
+};
+function buildScheduleJobMessages(job, dateKey) {
+  const day = job.days.find((d) => d.date === dateKey);
+  if (!day) return null;
+  const content = buildCharSchedulePrompt({
+    style: job.style,
+    baseContext: job.baseContext,
+    charName: job.charName,
+    userName: job.userName,
+    today: dateKey,
+    dayOfWeek: weekdayOf(dateKey),
+    chatHistoryBlock: job.chatHistoryBlock,
+    extra: day.extra
+  });
+  return [{ role: "user", content }];
+}
+function buildScheduleGenerateResult(args) {
+  return { resultKind: SCHEDULE_GENERATE_RESULT_KIND, v: 1, ...args };
+}
+function extractScheduleJson(text) {
+  if (!text) return null;
+  let t = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(t);
+  if (fence) t = fence[1].trim();
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const obj = JSON.parse(t.slice(start, end + 1));
+    return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : null;
+  } catch {
+    try {
+      const obj = JSON.parse(t.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1"));
+      return obj && typeof obj === "object" && !Array.isArray(obj) ? obj : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+// worker/amsg/src/scheduleFire.ts
+var JOB_STALE_MS = 10 * 24 * 60 * 60 * 1e3;
+var scheduleGenerateHandler = {
+  async beforeFire({ ctx, charId }) {
+    const rows = await ctx.readState(AMSG_JOB_NAMESPACE);
+    const row = rows.find((r) => r.key === scheduleJobKey(charId));
+    if (!row?.value) {
+      return { skip: true, reason: `\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId} \u7684\u8F38\u5165\u5DF2\u4E0D\u5728\uFF08\u5DF2\u95DC\u6216\u904E\u671F\uFF09` };
+    }
+    let json;
+    try {
+      json = await unpackStateValue(row.value);
+    } catch (error) {
+      throw new Error(`\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId} \u7684\u8F38\u5165\u89E3\u58D3\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09\uFF1A${String(error)}`);
+    }
+    const job = parseScheduleJobInput(json);
+    if (!job) throw new Error(`\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId} \u7684\u8F38\u5165\u89E3\u6790\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09`);
+    if (job.charId !== charId) throw new Error(`\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId} \u7684\u8F38\u5165 charId \u5C0D\u4E0D\u4E0A`);
+    if (job.refreshedAt && ctx.now.getTime() - job.refreshedAt > JOB_STALE_MS) {
+      return { skip: true, reason: `\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId} \u7684\u8F38\u5165\u592A\u4E45\u6C92\u5237\u65B0\uFF08\u5BA2\u6236\u7AEF\u6C92\u4E0A\u7DDA\uFF09\uFF0C\u9019\u8F2A\u4E0D\u6392` };
+    }
+    const dateKey = scheduleJobTargetDay(job, ctx.now.getTime());
+    const messages = buildScheduleJobMessages(job, dateKey);
+    if (!messages) {
+      return { skip: true, reason: `\u65E5\u7A0B\u81EA\u52D5\u751F\u6210 ${charId}\uFF1A\u8F38\u5165\u88E1\u6C92\u6709 ${dateKey} \u90A3\u5929\u7684\u6BB5\uFF08\u5BA2\u6236\u7AEF\u9084\u6C92\u5237\u5230\uFF09` };
+    }
+    return { messages, totalTimeoutMs: SCHEDULE_LLM_TIMEOUT_MS, state: { job, dateKey } };
+  },
+  async llmOutput({ ctx, state }) {
+    const { job, dateKey } = state;
+    const parsed = extractScheduleJson(ctx.llmOutputText || "");
+    const slots = parsed && Array.isArray(parsed.slots) ? parsed.slots : [];
+    if (!parsed || slots.length === 0) {
+      console.warn("[amsg:schedule] LLM \u6C92\u56DE\u51FA\u6709\u6548\u7684\u65E5\u7A0B JSON\uFF0C\u9019\u5929\u4E0D\u6392", job.charId, dateKey);
+      logSkipDiagnostic({ sessionId: ctx.sessionId, reason: "schedule-empty-generation", iteration: ctx.iteration, llmResponse: ctx.llmResponse, llmOutputText: ctx.llmOutputText });
+      return { decision: "skip-push", reason: "schedule-empty-generation" };
+    }
+    if (typeof ctx.emitResult !== "function") {
+      console.warn("[amsg:schedule] \u9019\u53F0 worker \u4E0D\u652F\u6301 emitResult\uFF0C\u65E5\u7A0B\u9001\u4E0D\u56DE\u53BB", job.charId);
+      return { decision: "skip-push", reason: "schedule-emit-result-unsupported" };
+    }
+    try {
+      await ctx.emitResult({
+        ...buildScheduleGenerateResult({ charId: job.charId, dateKey, parsed, generatedAt: Date.now() }),
+        notification: { show: false }
+      });
+    } catch (error) {
+      console.warn("[amsg:schedule] \u65E5\u7A0B\u9001\u4E0D\u9032\u6536\u4EF6\u7BB1\uFF08\u6536\u4EF6\u7BB1\u8868\u6C92\u5EFA\u5168\uFF1F\uFF09", job.charId, error);
+      return { decision: "skip-push", reason: "schedule-emit-result-failed" };
+    }
+    console.log("[amsg:schedule] \u65E5\u7A0B\u5DF2\u9001\u9032\u6536\u4EF6\u7BB1", { charId: job.charId, dateKey, slots: slots.length, resultKind: SCHEDULE_GENERATE_RESULT_KIND });
+    return { decision: "skip-push", reason: "schedule-result-emitted" };
+  }
+};
+
 // worker/amsg/src/fireKinds.ts
 var FIRE_KIND_HANDLERS = Object.assign(
   /* @__PURE__ */ Object.create(null),
-  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler }
+  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler, [SCHEDULE_GENERATE_KIND]: scheduleGenerateHandler }
 );
 var KIND_FIRE_SCRATCH_KEY = "kindFire";
 var putKindFireStash = (scratch, kind, state) => {
@@ -13741,6 +14056,12 @@ var SIDE_EFFECT_TAGS = [
   },
   {
     re: SOREN_SIDE_MESSAGE_TAG_RE,
+    toDirective: (m) => ({ type: "soren_tag", raw: m[0] })
+  },
+  // 角色自己的待辦 [[TODO|…]] / [[TODO_DONE|…]]（plans/calendar.md）：解析跟客戶端共用 utils/todoTagParse，
+  // 這裡只負責別把它剝成空塊——原樣直通，客戶端拼回正文後 chatParser 落庫。
+  {
+    re: TODO_TAG_RE,
     toDirective: (m) => ({ type: "soren_tag", raw: m[0] })
   },
   // [[ACTION:POKE]]

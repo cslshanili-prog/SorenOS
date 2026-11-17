@@ -8,6 +8,8 @@ import { isAltChar } from '../utils/charAlt';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { charSchedulePerson, personaScheduleId, personaSchedulePerson, type SchedulePerson } from '../utils/schedulePerson';
 import { REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
+import { cancelScheduleAutoTask, scheduleAutoCloudGate, submitScheduleAutoTask } from '../utils/scheduleAutoCloud';
+import type { ScheduleAutoConfig } from '../types';
 import { resolveCharacterMeterApi } from '../utils/characterApi';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { markAmsgStateDirty } from '../utils/amsgStateSync';
@@ -178,6 +180,40 @@ const CalendarApp: React.FC = () => {
         if (p.kind === 'char') updateCharacter(p.scheduleId, { schedulePrompt });
         else if (p.participant.id === REAL_IDENTITY_PERSONA_ID) updateUserProfile({ schedulePrompt });
         else void updateUserPersona(p.participant.id, { schedulePrompt });
+    };
+    const autoOf = (p: SchedulePerson): ScheduleAutoConfig | undefined => {
+        if (p.kind === 'char') return characters.find(c => c.id === p.scheduleId)?.scheduleAuto;
+        if (p.participant.id === REAL_IDENTITY_PERSONA_ID) return userProfileBase.scheduleAuto;
+        return userProfileBase.personas?.find(x => x.id === p.participant.id)?.scheduleAuto;
+    };
+    const saveAutoFor = (p: SchedulePerson, scheduleAuto: ScheduleAutoConfig) => {
+        if (p.kind === 'char') updateCharacter(p.scheduleId, { scheduleAuto });
+        else if (p.participant.id === REAL_IDENTITY_PERSONA_ID) updateUserProfile({ scheduleAuto });
+        else void updateUserPersona(p.participant.id, { scheduleAuto });
+    };
+    /** 雲端那條：開＝探測、排任務、寫回；關＝取消；回錯誤訊息給頁面顯示 */
+    const toggleCloudFor = async (p: SchedulePerson, enabled: boolean): Promise<string | null> => {
+        const c = p.kind === 'char' ? characters.find(x => x.id === p.scheduleId) : undefined;
+        if (!c) return '只有角色能排雲端';
+        const scope = { userProfileBase, apiConfig, groups, realtimeConfig };
+        try {
+            if (!enabled) {
+                await cancelScheduleAutoTask(c);
+                updateCharacter(c.id, { scheduleAuto: { ...(c.scheduleAuto || { enabled: true, every: 'day', ahead: 1 }), cloud: undefined } });
+                return null;
+            }
+            const gate = await scheduleAutoCloudGate(c, apiConfig);
+            if (gate === 'no-worker') return '主動消息 2.0 還沒接（設置 → 主動消息）';
+            if (gate === 'unsupported') return '這台 Worker 的代碼還不認識後台任務，去設置頁重新部署一次';
+            if (gate === 'no-api') return '日程 API 沒配齊';
+            if (gate === 'unknown') return '剛才沒問到 Worker，等一下再試';
+            if (c.scheduleAuto?.cloud) await cancelScheduleAutoTask(c);
+            const cloud = await submitScheduleAutoTask({ ...c, scheduleAuto: { ...(c.scheduleAuto || { enabled: true, every: 'day', ahead: 1 }), enabled: true } }, scope);
+            updateCharacter(c.id, { scheduleAuto: { ...(c.scheduleAuto || { every: 'day', ahead: 1 }), enabled: true, cloud } });
+            return null;
+        } catch (e: any) {
+            return `排不上：${e?.message || '未知錯誤'}`;
+        }
     };
     const afterGenerated = (p: SchedulePerson) => {
         if (p.char) markAmsgStateDirty({ char: p.char, userProfile: resolveUserProfileForChar(userProfileBase, p.char), groups, realtimeConfig });
@@ -609,6 +645,9 @@ const CalendarApp: React.FC = () => {
                     batch={generating.kind === 'char' ? batchFor() : undefined}
                     onSavePrompt={text => savePromptFor(generating, text)}
                     onGenerated={afterGenerated}
+                    auto={autoOf(generating)}
+                    onSaveAuto={a => saveAutoFor(generating, a)}
+                    onCloudToggle={generating.kind === 'char' ? enabled => toggleCloudFor(generating, enabled) : undefined}
                     onClose={() => setGenerating(null)}
                 />
             )}

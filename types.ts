@@ -3797,6 +3797,8 @@ export interface CharacterProfile {
   scheduleStyle?: 'lifestyle' | 'mindful';
   /** 行程提示詞（plans/calendar.md 第 3 批）：生成這個角色的日程時多帶的一段，例如固定的上班時間、週末習慣 */
   schedulePrompt?: string;
+  /** 自動生成（plans/calendar.md 第 5 批）：頁面開著本機排、關著走主動消息 2.0 後台任務 */
+  scheduleAuto?: ScheduleAutoConfig;
 
   /**
    * 日程 / 情緒 Buff 總開關。
@@ -4151,6 +4153,8 @@ export interface UserProfile {
     timezone?: string;
     /** 真實身份的行程提示詞（plans/calendar.md 第 3 批） */
     schedulePrompt?: string;
+    /** 真實身份的自動生成（plans/calendar.md 第 5 批） */
+    scheduleAuto?: ScheduleAutoConfig;
     /** 分角色聊天頭像（檔案 App 設置）：charId → 頭像（http(s) URL 或 data:image）。
      *  私聊裡「你」的頭像取 perCharAvatars[charId] || avatar（上面的整體頭像作宏觀默認）；
      *  群聊/其他場合仍用整體頭像。刪角色留下的孤兒鍵無害，讀取端永遠按當前 charId 取。 */
@@ -4574,6 +4578,8 @@ export interface UserPersona {
     timezone?: string;
     /** 行程提示詞（plans/calendar.md 第 3 批）：AI 照這張卡生成你的日程時多帶的一段 */
     schedulePrompt?: string;
+    /** 自動生成（plans/calendar.md 第 5 批）；身份卡只有本機那條路 */
+    scheduleAuto?: ScheduleAutoConfig;
     createdAt: number;
     updatedAt: number;
 }
@@ -5062,6 +5068,21 @@ export interface CalendarEvent {
     source: 'user' | 'ai' | 'char';
     createdAt: number;
     updatedAt: number;
+}
+
+/**
+ * 日程自動生成（plans/calendar.md 第 5 批，utils/scheduleAutoRun.ts）。
+ * 頁面開著時本機每幾分鐘看一次（utils/scheduleAutoRun.ts）；角色還能排一條雲端的每日後台任務
+ * （utils/scheduleAutoCloud.ts），頁面關著也會到點生成。
+ */
+export interface ScheduleAutoConfig {
+    enabled: boolean;
+    /** 每天排一天，或每週排一週（週只有本機那條路） */
+    every: 'day' | 'week';
+    /** 0＝當天沒有就補今天；1＝提早一天（那邊 20:00 之後排明天） */
+    ahead: 0 | 1;
+    /** 雲端那條（只有角色）：排著的後台任務；沒有＝只有本機 */
+    cloud?: { taskUuid: string; tzId: string; at: number };
 }
 
 /**

@@ -1,6 +1,6 @@
 # 行事曆：身份卡和角色的日程、待辦、旅行，一個 App 看全
 
-> 狀態：**定案（Liora 2026-11-17）**，第 1～4 批做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
+> 狀態：**定案（Liora 2026-11-17）**，五批都做完（見第 7 節）。App 叫「行事曆」（Liora 定的）。取代「時光契約」（`apps/ScheduleApp.tsx`），角色的日程表（`DailySchedule`）不搬、行事曆讀它來顯示。時間怎麼算一律照 [`plans/time-system.md`](./time-system.md)（第 4 批「日曆顯示」就是這份）。
 
 ## 1. 為什麼改
 
@@ -139,6 +139,13 @@ interface Trip {
 - **天氣跟目的地**：私聊提示詞（`chatPrompts`）角色旅行中把 `weatherCity` 換成目的地；天氣快取照城市分。雲端（主動消息 worker 的 `realtimeWorld`）還是照設定裡的城市，沒接。
 - **介面**：「我的」「TA 的」各一段「✈ 旅行」清單（＋ 加一趟、點了改／刪），頭像卡下多一行「✈️ 旅行 · 杭州 · 第 2／5 天」，那天的時區、時間軸都照旅行的；月曆打點多一色（青＝有人在旅行），「今日次元重疊」上方列誰出行中。全螢幕 `components/calendar/TripPage.tsx`：誰的、類型（旅行／出差／其他）、目的地（打字）、時區（`COMMON_TIMEZONES` 清單選，可不換）、起訖日、備註。
 - 沒做：自動生成（第 5 批）；雲端天氣跟目的地。
+
+### 第 5 批（2026-11-17 做完）：自動生成
+
+- **設定**：`ScheduleAutoConfig { enabled, every: 'day'|'week', ahead: 0|1, cloud? }`，角色卡 `scheduleAuto`、身份卡／真實身份同名；在生成頁改。
+- **本機那條路**（`utils/scheduleAutoRun.ts`）：OSContext 每 5 分鐘、切回前台各跑一次 `runScheduleAutoTick`。判斷在 `decideAutoTarget`：每天模式 `ahead=1` 是那邊 20:00 之後排明天、之前補今天；`ahead=0` 當天沒有就補；每週模式這週有缺就 `generateWeekFor` 補。一次 tick 只排一個人，同一天最多試兩次、失敗隔一小時再試（localStorage `soren_schedule_auto_attempts_v1`）。角色排了雲端的，本機只補今天（明天交給雲端）。
+- **雲端那條路**（角色；`utils/scheduleAutoCloud.ts`、契約 `utils/amsgScheduleJob.ts`、worker `worker/amsg/src/scheduleFire.ts`，`amsgKind: 'schedule-generate'`）：一條**每天到點**的後台任務（`scheduleBackgroundJob` 多了 `recurring`：`firstSendTime`＋`recurrenceType: 'daily'`＋`tzId`，ahead=1 是那邊 20:00、ahead=0 是 00:30），憑據走情緒那一行（角色單獨的情緒 API，否則全局聊天 API）。輸入是一份 **standing job**（`amsg:job` 的 `schedule:<charId>`，不刪）：人設上下文＋接下來 8 天每天要帶的段（行程提示詞、出行、約定、待辦，已渲染好）；上線時 tick 順手每天刷一次，worker 到點照 `tzId`＋`ahead` 算目標日、挑那天的段、用 `utils/schedulePromptCore.ts`（提示詞本體抽成零依賴葉子，本機同一份）拼提示詞，結果 `schedule-generate` 帶模型回的 JSON 原樣送回收件箱（不彈通知），客戶端 `utils/scheduleGenerateResultApply.ts` 落地（對回 id／todoId、doneTodos 勾、存表、打髒）；本機已經排了那天就丟棄不蓋。輸入十天沒刷（客戶端沒上線）worker 就跳過不排。關掉＝取消任務＋把輸入寫空；刪角色走原本按 charId 取消遠端任務那條路。
+- **沒接**：身份卡只有本機那條路（雲端沒有身份卡的角色 id）；每週模式只有本機。
 
 ## 8. 待確認
 
