@@ -113,10 +113,15 @@ export const tzAwarenessNote = (tz?: string): string => {
  * 純時長，與時區無關（間隔是絕對差值）。lastTs 為空返回空串。
  * 聊天內聯那份（ChatPrompts.getTimeGapHint）刻意保留：它貼在最後一條消息後、帶深夜判斷，位置語義更好。
  */
-export const interactionGapNote = (lastTs?: number, nowTs: number = Date.now()): string => {
+export const interactionGapNote = (lastTs?: number, nowTs: number = Date.now(), coarse = false): string => {
     if (!lastTs) return '';
     const diffMs = nowTs - lastTs;
     if (diffMs < 0) return '';
+    // 粗略那檔（utils/timeAwareness.ts）：不滿一天就不提，滿了只說幾天
+    if (coarse) {
+        const days = Math.floor(diffMs / 86400000);
+        return days < 1 ? '' : `⌛ 距離你和對方上次聯繫，大概過了 ${days} 天——請把這種體感自然帶入當下的狀態與心情。\n`;
+    }
     const mins = Math.floor(diffMs / 60000);
     const hours = Math.floor(diffMs / 3600000);
     const days = Math.floor(hours / 24);

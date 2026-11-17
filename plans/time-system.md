@@ -1,6 +1,6 @@
 # 時間系統：曆法掛世界、時鐘掛聊天線、時區給真實世界
 
-> 狀態：**定案（Liora 2026-11-17）**，還沒動工。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226，不在這份的範圍。
+> 狀態：**定案（Liora 2026-11-17）**，第 1 批做完（見第 7 節），第 2～4 批還沒動。三層怎麼拆、身份卡只留時區、架空曆法用「輕的」都照這份。兩個先修掉的 bug（時間感知關掉還精確到分、見面自定義時間不生效）在 #226、#229，不在這份的範圍。
 
 ## 1. 為什麼改
 
@@ -98,3 +98,12 @@
 - **架空曆法下的星期**：默認不寫，時間線上給一個開關要不要顯示。
 - **見面沒設時鐘時跟私聊的走**：跟，少設一次；見面自己設了以自己的為準。
 - **架空曆法上雲**：第 3 批先不動雲端，主動消息、即時對話照現實報時（fire pack 照舊只帶 `tzId`），本機收件後也不換算。之後要上雲再補對應點和年份寫法。
+
+## 7. 實況
+
+### 第 1 批（2026-11-17 做完）：時間感知三檔＋線下開關併進時間模式
+
+- **檔位**在 `utils/timeAwareness.ts`：`resolveTimeAwareness(char)` 讀（新欄位 `timeAwareness` 優先，沒有就舊布林 `false` → 不知道、其餘 → 精確）、`timeAwarenessPatch(level)` 寫（新欄位＋舊布林一起，none → false）、`hasTimeAwareness` 取代原本到處寫的 `timeAwarenessEnabled !== false`。雲端 tool_pack 照舊只收布林，**粗略在雲端等於精確**（主動消息、即時對話到點報時仍到分）。
+- **粗略那檔長什麼樣**：核心上下文「現在是 2026年11月17日 週二 下午」沒有幾點幾分（`coarseNowText`）、實時感知那段的時間行同樣（`buildFullContext` 的 `coarseTime`）、日程注入不報鐘（`includeClock` 只在精確給）、距上次多久不滿一天不提、滿了只說「大概 N 天」（`interactionGapNote` / `getTimeGapHint` 的 `coarse`）、歷史時間戳只標日期 `[2026-11-16]`（`buildMessageHistory` 的 `timestampDetail`）、私聊裡帶的群聊片段同樣只標日期；節假日照給。
+- **線下開關併掉**：`DateStoryTime.source` 多一種 `'off'`，見面設定的「時間來源」是真實／自定義／關閉；關閉時 `makeDateClock` 回一個 `off: true` 的時鐘（`storyClock()` 取「真的在走的故事時鐘」、`isDateTimeOn()` 判要不要帶時間），提示詞不帶時間、記錄不標時間戳、本輪末尾不寫幾點、自訂預設的 `time` 佔位是空的。舊的 `dateTimeAwarenessEnabled === false` 不搬資料：`isStoryTimeOff` 照關閉處理，見面設定顯示成「關閉」，改過一次來源就把舊開關清掉。角色編輯、配角編輯上那個開關拿掉了，提示文字指去見面設定。完結故事時「關閉」也跟著留給下一場（`nextStoryTimeAfter`）。
+- 測試：`utils/timeAwareness.test.ts`、`utils/dateStoryTime.test.ts`「時間來源關閉」那組。

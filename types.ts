@@ -3079,7 +3079,8 @@ export interface DateStory {
 
 /** 見面線下故事的時間設定：真實／自定義 × 流動／靜止 */
 export interface DateStoryTime {
-  source: 'real' | 'custom';
+  /** real 真實／custom 自定義／off 關閉（提示詞不帶時間、記錄不標時間戳：純架空；取代舊的 dateTimeAwarenessEnabled） */
+  source: 'real' | 'custom' | 'off';
   flow: 'flowing' | 'frozen';
   /** 自定義的起點：角色那邊的牆上時間 'YYYY-MM-DDTHH:mm' */
   customStart?: string;
@@ -3566,9 +3567,11 @@ export interface CharacterProfile {
       pitch?: number;
   };
 
-  // 時間感知強化：開啟（默認）時會向上下文注入「現在幾點」「距離上次聊天已過去多久」，
-  // 讓角色有時間觀念、匹配現實世界時間。關掉後這些都不給，歷史訊息前面的時間戳也一併不標
-  // （docs/character-timezone.md「時間感知強化開關管什麼」）。
+  // 時間感知三檔（utils/timeAwareness.ts，plans/time-system.md 第 2d 節）：precise 精確（默認）／coarse 粗略／none 不知道。
+  // 讀一律走 resolveTimeAwareness；介面改檔位用 timeAwarenessPatch 兩個欄位一起寫。
+  timeAwareness?: 'precise' | 'coarse' | 'none';
+  // 舊的布林（跟 timeAwareness 同步：none → false，其餘 true）。雲端 tool_pack 和還在讀布林的地方照舊用它；
+  // 沒有 timeAwareness 時 false → 不知道、其餘 → 精確。
   timeAwarenessEnabled?: boolean;
 
   // 自定義時區（異國戀 / 角色身處異國等場景）。與「時間感知強化」完全獨立、可任意組合：
@@ -3577,8 +3580,9 @@ export interface CharacterProfile {
   customTimezoneEnabled?: boolean;
   customTimezone?: string; // IANA 時區 id，如 'Asia/Tokyo'
 
-  // 線下時間感知（約會 / 見面 App）：開啟（默認）時向見面 system prompt 注入「當前真實時間」。
-  // 關掉後見面場景不再注入時間，讓劇情脫離現實時間線。獨立開關。
+  // 【舊】線下時間感知。2026-11-17 併進見面的時間模式（DateStoryTime.source = 'off'）：
+  // 介面上不再有這個開關；還是 false 的舊資料照「關閉」處理（utils/dateStoryTime.ts 的 makeDateClock），
+  // 在見面設定改過一次時間來源就清掉。
   dateTimeAwarenessEnabled?: boolean;
 
   // ─── 生活記錄注入（檔案 App「生活記錄」→ 聊天提示詞，per-character）───
@@ -3913,6 +3917,7 @@ export interface NPCProfile {
     /** 世界觀 / 設定補充，跟 CharacterProfile.worldview 同一種用法。 */
     worldview?: string;
     /** 聊天場景的時間感知強化開關；缺省 = 開（與 CharacterProfile 同款語義，! == false 才算關）。 */
+    timeAwareness?: 'precise' | 'coarse' | 'none';
     timeAwarenessEnabled?: boolean;
     /** 自定義時區開關 + IANA 時區 id；字段名與 CharacterProfile 一致，可直接餵給 utils/timezone.ts 的 resolveCharTimeZone 等函數。 */
     customTimezoneEnabled?: boolean;

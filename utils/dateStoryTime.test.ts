@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDefaultStoryTime, makeDateClock, nextStoryTimeAfter, startStoryTime } from './dateStoryTime';
+import { applyClockToHistory, formatStoryClock, historyTimeOptions, isDateTimeOn, isDefaultStoryTime, makeDateClock, nextStoryTimeAfter, startStoryTime, storyClock } from './dateStoryTime';
 import { buildNewDateStory } from './dateStory';
 import type { CharacterProfile, DateStory, DateStoryTime, Message } from '../types';
 
@@ -160,5 +160,52 @@ describe('完結後時間設定留給下一場', () => {
         expect(nextStoryTimeAfter(char({ dateNextStoryTime: mine }), story(custom))).toBe(mine);
         expect(nextStoryTimeAfter(char(), story(undefined))).toBeUndefined();
         expect(nextStoryTimeAfter(char(), story({ source: 'real', flow: 'flowing', anchorAt: T0 }))).toBeUndefined();
+    });
+});
+
+// 時間來源「關閉」（2026-11-17 併掉舊的「線下時間感知」開關）：提示詞不帶時間、記錄不標時間戳
+describe('時間來源關閉', () => {
+    const c = { id: 'c1', name: '凱恩', avatar: '', description: '', systemPrompt: '你是凱恩。', memories: [], timezoneEnabled: true, timezone: 'Asia/Taipei' } as unknown as CharacterProfile;
+    const now = Date.now();
+    const history = [
+        { id: 1, charId: 'c1', role: 'user', type: 'text', content: '聊天裡說的', timestamp: now - 3 * 86_400_000, metadata: { source: 'chat' } },
+        { id: 2, charId: 'c1', role: 'user', type: 'text', content: '「嗨」', timestamp: now, metadata: { source: 'date', dateStoryId: 's1' } },
+    ] as unknown as Message[];
+
+    it('makeDateClock：來源 off 或舊開關 false 都算關著；關著不是預設、也不是故事時鐘', () => {
+        const offClock = makeDateClock(c, story({ source: 'off', flow: 'flowing' }), now)!;
+        expect(offClock.off).toBe(true);
+        expect(offClock.now).toBe(now);
+        expect(storyClock(offClock)).toBeNull();
+        expect(isDateTimeOn(offClock)).toBe(false);
+        expect(makeDateClock({ ...c, dateTimeAwarenessEnabled: false }, null, now)!.off).toBe(true);
+        expect(isDefaultStoryTime({ source: 'off', flow: 'flowing' })).toBe(false);
+        expect(historyTimeOptions(c, offClock)).toEqual({ showTimestamps: false, skipTimeGapHint: true });
+        expect(nextStoryTimeAfter(c, story({ source: 'off', flow: 'flowing', anchorAt: now }))).toEqual({ source: 'off', flow: 'flowing' });
+    });
+
+    it('內建模式：沒有當前時間、沒有時間戳、本輪末尾不寫幾點', async () => {
+        const { DatePrompts } = await import('./datePrompts');
+        const clock = makeDateClock(c, story({ source: 'off', flow: 'flowing' }), now)!;
+        const { messages } = await DatePrompts.buildSessionPayload({ char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', variant: 'send', clock });
+        const texts = messages.map(m => String(m.content));
+        expect(texts[0]).not.toContain('當前時間');
+        expect(texts[0]).not.toContain('### 當前時間');
+        expect(texts.join('\n')).not.toMatch(/\[\d{4}-\d{2}-\d{2}/);
+        expect(texts[texts.length - 1]).not.toMatch(/現在是|故事裡現在是/);
+        const peek = DatePrompts.buildPeekPayload({ char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], clock });
+        const all = peek.messages.map(m => String(m.content)).join('\n');
+        expect(all).not.toContain('當前時間');
+        expect(all).not.toContain('時間上下文');
+    });
+
+    it('自訂預設：time 佔位是空的、{{time}} 照現實（預設作者自己決定）、本輪不貼', async () => {
+        const { buildMeetingPresetPayload } = await import('./meetingPresetSession');
+        const doc = { schema: 'soren.meeting-preset', version: 1, name: 't', generation: {}, regexScripts: [], groups: [], globalVars: {},
+            prompts: [{ id: 'main', name: 'main', enabled: true, role: 'system', content: 'x' }, { id: 't', name: 't', enabled: true, role: 'system', content: '', slot: 'time' }, { id: 'chatHistory', name: 'h', enabled: true, role: 'system', content: '', slot: 'chatHistory' }] } as any;
+        const clock = makeDateClock(c, story({ source: 'off', flow: 'flowing' }), now)!;
+        const { messages } = await buildMeetingPresetPayload({ preset: doc, char: c, userProfile: { name: '小雨' } as any, allMsgs: history, emojis: [], userText: '「嗨」', clock });
+        expect(messages.some(m => m.content.includes('當前時間'))).toBe(false);
+        expect(messages[messages.length - 1].content).not.toContain('故事裡現在是');
     });
 });

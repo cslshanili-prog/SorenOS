@@ -1,3 +1,4 @@
+import { hasTimeAwareness } from '../../utils/timeAwareness';
 import React, { useEffect, useMemo, useState } from 'react';
 import { pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
 import { canGenerateFor, isImageFeatureOff } from '../../utils/imageStyle';
@@ -56,7 +57,7 @@ const buildOotdTimeContext = async (char: CharacterProfile): Promise<string> => 
         const charNow = nowInTimeZone(resolveCharTimeZone(char));
         const scheduleNote = ContextBuilder.buildScheduleInjection(schedule, undefined, charNow, {
             includeFullDay: false,
-            includeClock: char.timeAwarenessEnabled !== false,
+            includeClock: hasTimeAwareness(char),
         });
         return `${timeAwareness}${scheduleNote}`;
     } catch (e) {

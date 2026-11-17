@@ -446,7 +446,8 @@ export const RealtimeContextManager = {
         tz: string | undefined,
         // includeTime=false：角色關掉了「時間感知」。天氣/新聞還要，但當前時間和今日節日
         // 屬於時間感知的範疇，這個開關關著就不該從這一段裡漏出去。
-        opts: { includeTime: boolean },
+        // coarseTime=true：角色的時間感知是「粗略」，時間那行只有日期和早中晚，不報幾點幾分
+        opts: { includeTime: boolean; coarseTime?: boolean },
     ): Promise<string> => {
         const includeTime = opts.includeTime;
 
@@ -454,7 +455,7 @@ export const RealtimeContextManager = {
         //    日期和節日會打架。時差提示（tzAwarenessNote）統一由 ContextBuilder.buildCoreContext
         //    注入，這裡不再追加，避免雙份。
         const time = includeTime ? RealtimeContextManager.getTimeContext(tz) : null;
-        const timeLine = time ? `${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}` : undefined;
+        const timeLine = time ? (opts.coarseTime ? `${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay}` : `${time.dateStr} ${time.dayOfWeek} ${time.timeOfDay} ${time.timeStr}`) : undefined;
         const specialDates = includeTime ? RealtimeContextManager.checkSpecialDates(tz) : [];
 
         // 2. 天氣（有沒有 OWM key 都能取：無 key 走 Open-Meteo）

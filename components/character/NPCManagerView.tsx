@@ -1,4 +1,5 @@
 
+import { TIME_AWARENESS_OPTIONS, resolveTimeAwareness, timeAwarenessPatch } from '../../utils/timeAwareness';
 import React, { useEffect, useRef, useState } from 'react';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import { CharacterProfile, NPCProfile, NPCRelationship, Worldbook, ApiPreset, APIConfig } from '../../types';
@@ -546,22 +547,20 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                 <div className="bg-white rounded-2xl p-4 border border-slate-200 space-y-3">
                     <div>
                         <label className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest block">時間感知 & 時區</label>
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">兩個開關相互獨立，可任意組合。</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">見面裡幾點、要不要帶時間，在見面設定的「時間」那節調。</p>
                     </div>
 
                     <div className="border-t border-slate-100 pt-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-700">時間感知強化</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。出現在群聊/見面裡時，會貼近真實時間和作息。</p>
-                            </div>
-                            <button
-                                onClick={() => onChange({ timeAwarenessEnabled: npc.timeAwarenessEnabled === false })}
-                                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${npc.timeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
-                            >
-                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${npc.timeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-                            </button>
+                        <p className="text-xs font-bold text-slate-700">時間感知</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">出現在群聊／見面裡時對時間有多敏感。</p>
+                        <div role="radiogroup" aria-label="時間感知" className="mt-2 flex rounded-full bg-slate-100 p-1 text-xs">
+                            {TIME_AWARENESS_OPTIONS.map(opt => (
+                                <button key={opt.value} type="button" role="radio" aria-checked={resolveTimeAwareness(npc) === opt.value}
+                                    onClick={() => onChange(timeAwarenessPatch(opt.value))}
+                                    className={`flex-1 rounded-full px-3 py-1.5 transition ${resolveTimeAwareness(npc) === opt.value ? 'bg-white text-primary font-bold shadow-sm' : 'text-slate-400'}`}>{opt.label}</button>
+                            ))}
                         </div>
+                        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">{TIME_AWARENESS_OPTIONS.find(o => o.value === resolveTimeAwareness(npc))?.hint}</p>
                     </div>
 
                     <div className="border-t border-slate-100 pt-3">
@@ -591,20 +590,6 @@ const NPCDetailView: React.FC<NPCDetailViewProps> = ({ npc, characters, worldboo
                         )}
                     </div>
 
-                    <div className="border-t border-slate-100 pt-3">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-700">線下時間感知（見面）</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">默認開。出現在見面劇情裡時跟著現實時間走；關掉更適合純架空。</p>
-                            </div>
-                            <button
-                                onClick={() => onChange({ dateTimeAwarenessEnabled: npc.dateTimeAwarenessEnabled === false ? undefined : false })}
-                                className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${npc.dateTimeAwarenessEnabled !== false ? 'bg-primary' : 'bg-slate-200'}`}
-                            >
-                                <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform ${npc.dateTimeAwarenessEnabled !== false ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
-                            </button>
-                        </div>
-                    </div>
                 </div>
 
                 {/* AI 模型：不設時查手機裡跟隨查手機的共用設定，群聊／朋友圈／記憶整理跟隨全局；自定義則處處覆蓋 */}

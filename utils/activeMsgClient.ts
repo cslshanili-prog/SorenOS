@@ -1,3 +1,4 @@
+import { hasTimeAwareness } from './timeAwareness';
 import { isOnlinePaused } from './dateOffline';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { lineArgOf } from './chatLine';
@@ -762,7 +763,7 @@ export const buildFirePack = async (
   // （buildTimeAwarenessBlock 直接返回空串），主動消息這邊卻精確報出年月日 + 星期，
   // 是同一個開關的兩套行為。關掉時這幾行連槽位一起不進模板。
   // 排程工具的 send_at 說明不受影響（那份在 amsgFireSchedule）：排時間本來就得知道現在幾點。
-  const timeAware = char.timeAwarenessEnabled !== false;
+  const timeAware = hasTimeAwareness(char);
   // 只摘渲染會讀到的字段：整份日程裡還掛著每個時段緩存的小劇場台詞和看板圖，
   // 帶上去只是白佔雲端狀態的體積（fire_pack 本來就有幾萬字）。
   const scene: AmsgFireScene | null = schedule

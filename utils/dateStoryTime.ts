@@ -2,6 +2,8 @@
  * 見面線下故事的時間（plans/offline-date-redesign.md 第 5 項）。跟著故事走（DateStory.time）；
  * 還沒開始故事時設的存在角色上（dateNextStoryTime），開新故事時帶進去，跟劇情大綱一樣。
  *
+ * 時間來源還有第三種「關閉」（2026-11-17 併掉舊的「線下時間感知」開關）：提示詞不帶時間、記錄不標時間戳，純架空。
+ *
  * |        | 流動 | 靜止 |
  * |--------|------|------|
  * | 真實   | 現狀：跟著角色時區的現實時間 | 定格在設定那一刻（開新故事時就是故事開始那一刻） |
@@ -16,7 +18,11 @@ import type { CharacterProfile, DateStory, DateStoryTime, Message } from '../typ
 import { nowInTimeZone, resolveCharTimeZone, wallClockToTimestamp } from './timezone';
 
 export const isDefaultStoryTime = (time: DateStoryTime | undefined | null): boolean =>
-    !time || (time.source !== 'custom' && time.flow !== 'frozen');
+    !time || (time.source === 'real' && time.flow !== 'frozen');
+
+/** 見面的時間關著（純架空）：時間來源選了「關閉」，或舊的 dateTimeAwarenessEnabled 還是 false */
+export const isStoryTimeOff = (char: Pick<CharacterProfile, 'dateTimeAwarenessEnabled' | 'dateNextStoryTime'>, story: Pick<DateStory, 'time'> | null | undefined): boolean =>
+    (story ? story.time : char.dateNextStoryTime)?.source === 'off' || char.dateTimeAwarenessEnabled === false;
 
 /** 這場故事的時鐘：把現實時刻換成故事裡的時刻 */
 export interface DateClock {
@@ -30,7 +36,14 @@ export interface DateClock {
     storyId?: string;
     /** 現實時刻 → 故事時刻 */
     map: (realMs: number) => number;
+    /** 時間關著（來源「關閉」，取代舊的線下時間感知開關）：提示詞不帶時間、記錄不標時間戳。此時 now 就是現實、map 是原樣 */
+    off?: boolean;
 }
+
+/** 有在走的故事時鐘（關著的不算）：提示詞裡「故事裡的時間」那幾句用這個判斷 */
+export const storyClock = (clock: DateClock | null | undefined): DateClock | null => (clock && !clock.off ? clock : null);
+/** 見面要不要帶時間：時鐘關著就不帶（舊的 dateTimeAwarenessEnabled === false 在 makeDateClock 裡已經算成關著） */
+export const isDateTimeOn = (clock: DateClock | null | undefined): boolean => !clock?.off;
 
 /** 生效的時間設定：進行中的故事用自己的，還沒開始就用角色身上那份 */
 export const effectiveStoryTime = (char: CharacterProfile, story: DateStory | null | undefined): DateStoryTime | undefined =>
@@ -43,6 +56,9 @@ export const makeDateClock = (
     realNow = Date.now(),
 ): DateClock | null => {
     const time = effectiveStoryTime(char, story);
+    if (isStoryTimeOff(char, story)) {
+        return { now: realNow, frozen: false, custom: false, storyId: story?.id, map: (realMs: number) => realMs, off: true };
+    }
     if (isDefaultStoryTime(time)) return null;
     const anchor = time!.anchorAt ?? realNow;
     const frozen = time!.flow === 'frozen';
@@ -66,7 +82,7 @@ export const makeDateClock = (
  * 不再借角色的 timeAwarenessEnabled 開關：那個開關現在一關就連時間戳都不給，借了會把故事時間一起拿掉。
  */
 export const applyClockToHistory = (messages: Message[], char: CharacterProfile, clock: DateClock | null): { messages: Message[]; char: CharacterProfile } => {
-    if (!clock) return { messages, char };
+    if (!clock || clock.off) return { messages, char };
     return {
         messages: messages.map(message => (clock.storyId && message.metadata?.dateStoryId === clock.storyId && typeof message.timestamp === 'number'
             ? { ...message, timestamp: clock.map(message.timestamp) }
@@ -83,7 +99,7 @@ export const applyClockToHistory = (messages: Message[], char: CharacterProfile,
  * - 真實時鐘（流動或靜止）：照舊都標，只是不算距離上次多久
  */
 export const historyTimeOptions = (char: CharacterProfile, clock: DateClock | null): { showTimestamps: boolean | ((m: Message) => boolean); skipTimeGapHint: boolean } => {
-    if (char.dateTimeAwarenessEnabled === false) return { showTimestamps: false, skipTimeGapHint: true };
+    if (clock?.off || char.dateTimeAwarenessEnabled === false) return { showTimestamps: false, skipTimeGapHint: true };
     if (!clock) return { showTimestamps: true, skipTimeGapHint: false };
     return {
         showTimestamps: clock.custom ? (m: Message) => !!clock.storyId && m.metadata?.dateStoryId === clock.storyId : true,
