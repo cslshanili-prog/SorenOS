@@ -69,7 +69,13 @@ export interface StoryAffinityInput {
     delta: number;
     reason: string;
     awareness?: 'noticed' | 'unnoticed';
+    /** 好幾個你同場時：這條是哪一個你對這位角色的變化（utils/storyPresence.ts 的 key）；只有一位時不帶 */
+    userKey?: string;
+    userName?: string;
 }
+
+/** 好感度裡的「U」是誰：用戶側在場的每一位（好幾個你同場時每位各算各的） */
+export interface StoryAffinityUser { key: string; name: string }
 
 export interface ResolvedStoryTheaterMask {
     selection: StoryTheaterMaskSelection;
@@ -804,6 +810,10 @@ export const appendStoryAffinityInputs = (content: string, inputs: StoryAffinity
             '<u_affinity>',
             `<character_id>${escapeStoryXml(String(input.characterId || ''))}</character_id>`,
             `<character_name>${escapeStoryXml(String(input.characterName || '當前角色'))}</character_name>`,
+            ...(input.userKey ? [
+                `<user_id>${escapeStoryXml(input.userKey)}</user_id>`,
+                `<user_name>${escapeStoryXml(String(input.userName || ''))}</user_name>`,
+            ] : []),
             `<delta>${signed}</delta>`,
             `<reason>${escapeStoryXml(reason || '未填寫原因')}</reason>`,
             `<awareness>${awareness}</awareness>`,
@@ -838,35 +848,67 @@ const setAffinityTagValue = (source: string, tag: string, value: string): string
     return `${source.trimEnd()}\n<${tag}>${value}</${tag}>`;
 };
 
+/** 面板裡這一段是對哪一位用戶側身份（user_id 優先、對不到看 user_name）；這一段沒寫就是 undefined */
+const affinityUserOf = (body: string, users: StoryAffinityUser[]): StoryAffinityUser | undefined => {
+    const id = affinityIdentityKey(affinityTagValue(body, 'user_id'));
+    const name = affinityIdentityKey(affinityTagValue(body, 'user_name'));
+    return (id ? users.find(user => affinityIdentityKey(user.key) === id) : undefined)
+        || (name ? users.find(user => affinityIdentityKey(user.name) === name) : undefined);
+};
+const affinityPairKey = (charKey: string, user?: StoryAffinityUser): string =>
+    user ? `${charKey}|u:${affinityIdentityKey(user.key)}` : charKey;
+
+/**
+ * 從以前的面板讀每一格的分數。contents 由新到舊：每一格取最近一次出現的
+ * （有人離場幾輪再回來、或某一輪模型漏了面板，都接得回原本的分數，不會掉回 50）。
+ * users：用戶側在場的每一位。兩位以上時每格是（角色，哪一位你）；只有一位時，
+ * 以前好幾位同場留下的面板只認這一位的那幾段；舊面板沒寫對象的算第一位。
+ */
 const readAffinityScoreStates = (
-    content: string,
+    contents: string | string[],
     actors: Array<{ id: string; name: string }>,
+    users: StoryAffinityUser[] = [],
 ): Map<string, StoryAffinityScoreState> => {
     const states = new Map<string, StoryAffinityScoreState>();
+    const multi = users.length >= 2;
     const personPattern = /<affinity_person\b[^>]*>([\s\S]*?)<\/affinity_person\s*>/gi;
-    for (const match of content.matchAll(personPattern)) {
-        const body = match[1];
-        const state = {
-            cToU: clampAffinityScore(affinityInteger(affinityTagValue(body, 'c_to_u_score'), 50)),
-            uToC: clampAffinityScore(affinityInteger(affinityTagValue(body, 'u_to_c_score'), 50)),
-        };
-        const id = affinityIdentityKey(affinityTagValue(body, 'character_id'));
-        const name = affinityIdentityKey(affinityTagValue(body, 'character_name'));
-        if (id) states.set(`id:${id}`, state);
-        if (name) states.set(`name:${name}`, state);
-    }
-    // 兼容升級前的單角色根級面板；多人時絕不猜這一個舊槽屬於誰。
-    if (states.size === 0 && actors.length === 1) {
-        const cScore = affinityTagValue(content, 'c_score');
-        const uScore = affinityTagValue(content, 'u_score');
-        if (cScore || uScore) {
+    for (const content of Array.isArray(contents) ? contents : [contents]) {
+        // 同一則裡同一格寫了兩次照舊以後面那次為準；不同則之間，越近的優先
+        const local = new Map<string, StoryAffinityScoreState>();
+        const put = (key: string, state: StoryAffinityScoreState) => { local.set(key, state); };
+        let found = false;
+        for (const match of content.matchAll(personPattern)) {
+            found = true;
+            const body = match[1];
+            const hasUserTag = Boolean(affinityTagValue(body, 'user_id') || affinityTagValue(body, 'user_name'));
+            const tagged = users.length > 0 ? affinityUserOf(body, users) : undefined;
+            // 這一段寫了對象、但那一位現在不在場：不是現在這幾格的
+            if (users.length > 0 && hasUserTag && !tagged) continue;
+            const user = multi ? (tagged || users[0]) : undefined;
             const state = {
-                cToU: clampAffinityScore(affinityInteger(cScore, 50)),
-                uToC: clampAffinityScore(affinityInteger(uScore, 50)),
+                cToU: clampAffinityScore(affinityInteger(affinityTagValue(body, 'c_to_u_score'), 50)),
+                uToC: clampAffinityScore(affinityInteger(affinityTagValue(body, 'u_to_c_score'), 50)),
             };
-            states.set(`id:${affinityIdentityKey(actors[0].id)}`, state);
-            states.set(`name:${affinityIdentityKey(actors[0].name)}`, state);
+            const id = affinityIdentityKey(affinityTagValue(body, 'character_id'));
+            const name = affinityIdentityKey(affinityTagValue(body, 'character_name'));
+            if (id) put(affinityPairKey(`id:${id}`, user), state);
+            if (name) put(affinityPairKey(`name:${name}`, user), state);
         }
+        // 兼容升級前的單角色根級面板；多人時絕不猜這一個舊槽屬於誰。
+        if (!found && actors.length === 1) {
+            const cScore = affinityTagValue(content, 'c_score');
+            const uScore = affinityTagValue(content, 'u_score');
+            if (cScore || uScore) {
+                const state = {
+                    cToU: clampAffinityScore(affinityInteger(cScore, 50)),
+                    uToC: clampAffinityScore(affinityInteger(uScore, 50)),
+                };
+                const user = multi ? users[0] : undefined;
+                put(affinityPairKey(`id:${affinityIdentityKey(actors[0].id)}`, user), state);
+                put(affinityPairKey(`name:${affinityIdentityKey(actors[0].name)}`, user), state);
+            }
+        }
+        for (const [key, state] of local) if (!states.has(key)) states.set(key, state);
     }
     return states;
 };
@@ -874,18 +916,30 @@ const readAffinityScoreStates = (
 /**
  * 模型只決定“本輪變化多少”，絕對值由前端按上一輪 + delta 復算。
  * 這樣 U→C 的用戶輸入與 C→U 的模型變化都不會再依賴 LLM 心算。
+ * users 給兩位以上時，每一格是（角色，哪一位你）：面板每段用 user_id 標對象，沒標的算第一位並補上。
  */
 export const reconcileStoryAffinityScores = (
     generated: string,
-    previousAssistantContent: string,
+    /** 以前的劇場正文，由新到舊（只給一則字串也行） */
+    previousAssistantContent: string | string[],
     inputs: StoryAffinityInput[],
     actors: Array<{ id: string; name: string }>,
+    users: StoryAffinityUser[] = [],
 ): string => {
-    const previous = readAffinityScoreStates(previousAssistantContent, actors);
+    const multi = users.length >= 2;
+    const previous = readAffinityScoreStates(previousAssistantContent, actors, users);
     const actorById = new Map(actors.map(actor => [affinityIdentityKey(actor.id), actor]));
     const actorByName = new Map(actors.map(actor => [affinityIdentityKey(actor.name), actor]));
-    const inputById = new Map(inputs.filter(input => input.characterId).map(input => [affinityIdentityKey(input.characterId || ''), input]));
-    const inputByName = new Map(inputs.filter(input => input.characterName).map(input => [affinityIdentityKey(input.characterName || ''), input]));
+    // 這一格的 U→C 更新：先照角色 id 找、再照名字找（同一格填了兩次以後面那次為準）。
+    // 好幾個你同場時只看指給這一位的；沒寫是哪一位的更新算第一位。
+    const inputFor = (id: string, name: string, user?: StoryAffinityUser): StoryAffinityInput | undefined => {
+        const mine = user
+            ? inputs.filter(input => (input.userKey ? affinityIdentityKey(input.userKey) === affinityIdentityKey(user.key) : user.key === users[0].key))
+            : inputs;
+        const latest = (match: (input: StoryAffinityInput) => boolean) => [...mine].reverse().find(match);
+        return latest(input => Boolean(input.characterId) && affinityIdentityKey(input.characterId || '') === id)
+            || latest(input => Boolean(input.characterName) && affinityIdentityKey(input.characterName || '') === name);
+    };
     const personPattern = /(<affinity_person\b[^>]*>)([\s\S]*?)(<\/affinity_person\s*>)/gi;
 
     return generated.replace(personPattern, (_whole, opening: string, rawBody: string, closing: string) => {
@@ -894,13 +948,19 @@ export const reconcileStoryAffinityScores = (
         const actor = actorById.get(rawId) || actorByName.get(rawName);
         const id = affinityIdentityKey(actor?.id || rawId);
         const name = affinityIdentityKey(actor?.name || rawName);
-        const prior = previous.get(`id:${id}`) || previous.get(`name:${name}`) || { cToU: 50, uToC: 50 };
-        const input = inputById.get(id) || inputByName.get(name);
+        const user = multi ? (affinityUserOf(rawBody, users) || users[0]) : undefined;
+        const prior = previous.get(affinityPairKey(`id:${id}`, user)) || previous.get(affinityPairKey(`name:${name}`, user)) || { cToU: 50, uToC: 50 };
+        const input = inputFor(id, name, user);
         const cDelta = clampAffinityDelta(affinityInteger(affinityTagValue(rawBody, 'c_to_u_delta'), 0));
         const uDelta = clampAffinityDelta(input?.delta == null ? 0 : affinityInteger(input.delta, 0));
         const cScore = clampAffinityScore(prior.cToU + cDelta);
         const uScore = clampAffinityScore(prior.uToC + uDelta);
         let body = rawBody;
+        if (user) {
+            // 對象寫清楚（模型漏寫或寫了別的寫法就補正），下一輪才讀得回來
+            body = setAffinityTagValue(body, 'user_id', user.key);
+            body = setAffinityTagValue(body, 'user_name', user.name);
+        }
         body = setAffinityTagValue(body, 'c_to_u_score', String(cScore));
         body = setAffinityTagValue(body, 'c_to_u_delta', cDelta >= 0 ? `+${cDelta}` : String(cDelta));
         body = setAffinityTagValue(body, 'u_to_c_score', String(uScore));
@@ -909,14 +969,22 @@ export const reconcileStoryAffinityScores = (
     });
 };
 
-export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; name: string }>): string => {
+export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; name: string }>, users: StoryAffinityUser[] = []): string => {
     if (characters.length === 0) return '';
+    // 用戶側在場不只一位：每位角色對每一位各記一組（只有一位時下面多的那幾行都不出現，跟以前一樣）
+    const multi = users.length >= 2;
     const cast = characters.map(character => `- ${character.id}：${character.name}`).join('\n');
     return [
         '### 糯米機多人雙向關係溫度（覆蓋舊的單一“當前 C”槽）',
         '本劇場為每一位角色分別記錄 C→U、U→C、五維關係混音、察覺狀態與關係質地。禁止共享數值、串用事實、平均多人狀態或只輸出第一位角色。',
         '當前需要逐一維護的角色：',
         cast,
+        ...(multi ? [
+            '',
+            `用戶側在場的身份共 ${users.length} 位，每一位都是獨立的 U：`,
+            ...users.map(user => `- ${user.key}：${user.name}`),
+            '每位角色對每一位用戶側身份各自記一組 C→U、U→C、五維關係混音與關係質地，互不共享、不平均；面板每一段用 user_id／user_name 標明是對哪一位。',
+        ] : []),
         '',
         '【更新】',
         '- 從最近一次多人 <affinity_panel> 中按 character_id 讀取各自完整狀態；沒有舊記錄時，該角色的 C→U、U→C 從 50 開始，五維依據角色卡與共同經歷建立。舊歷史只有單人面板時，只能遷移給姓名明確匹配的角色。',
@@ -925,12 +993,17 @@ export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; nam
         '- U→C 新值 = 該角色上一輪 U→C + 對應 delta，並限制在 0—100。不得用某個角色的變化影響另一位角色。',
         '- 你只需正確決定每個 delta；前端會依據上一輪絕對值復算 C→U 與 U→C score，防止心算錯誤。',
         '- 察覺規則只作用於同一條 u_affinity 指向的角色；其他角色不會因為同伴被選擇為“已察覺”而共享透視。',
+        ...(multi ? [
+            '- <u_affinity> 帶 user_id 時，只更新那一位用戶側身份對該角色的 U→C；沒帶就是名單裡的第一位。某一位沒有對應更新時，她／他對該角色的 U→C 保持不變。',
+            '- C→U 與五維只讀取該角色跟「那一位」之間的親歷事實：對其中一位的變化不帶到另一位身上。讀舊面板時按 character_id＋user_id 對回同一格；舊段落沒有 user_id 的算名單裡的第一位。',
+        ] : []),
         '',
         '【輸出】',
         '用一個 <affinity_panel> 包住全部角色，並嚴格按當前角色名單順序為每人輸出一段：',
         '<affinity_person>',
         '<character_id>角色 ID</character_id>',
         '<character_name>角色名</character_name>',
+        ...(multi ? ['<user_id>用戶側身份 ID</user_id>', '<user_name>用戶側身份名字</user_name>'] : []),
         '<c_to_u_score>50</c_to_u_score>',
         '<c_to_u_delta>+0</c_to_u_delta>',
         '<c_to_u_note>改變角色 C→U 的本輪事實</c_to_u_note>',
@@ -944,16 +1017,20 @@ export const buildStoryMultiAffinityGuide = (characters: Array<{ id: string; nam
         '<relation_note>這一段雙向關係當前的質地</relation_note>',
         '<relation_fragment>可選的一條具體關係碎片</relation_fragment>',
         '</affinity_person>',
-        '按角色繼續排列 affinity_person，最後閉合 </affinity_panel>。不要再輸出舊版根級 c_score / u_score 單槽字段。',
+        multi
+            ? `先按角色、再按用戶側身份排列 affinity_person：每位角色對每一位在場的用戶側身份各一段（這一輪共 ${characters.length * users.length} 段），最後閉合 </affinity_panel>。不要再輸出舊版根級 c_score / u_score 單槽字段。`
+            : '按角色繼續排列 affinity_person，最後閉合 </affinity_panel>。不要再輸出舊版根級 c_score / u_score 單槽字段。',
     ].join('\n');
 };
 
 /** 用戶對本輪關係變化的知情邊界擁有最終決定權。 */
 export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | undefined, primaryCharacterName: string): string => {
     if (!input || (Number(input.delta) === 0 && !String(input.reason || '').trim())) return '';
+    // 好幾個你同場時說清楚是哪一位的變化；只有一位時照舊寫「用戶」
+    const who = input.userName?.trim() ? `用戶側的「${input.userName.trim()}」` : '用戶';
     if (input.awareness === 'noticed') return [
         '### 本輪 U→C 關係變化 · 角色完全透視（用戶明確指定，覆蓋常規感知檔）',
-        `- ${primaryCharacterName || '當前主要角色'}明確知道用戶→自己的關係溫度發生了數值層面的變化；這是直接、確定的透視信息，不是觀察氣氛、猜測態度或只知道“似乎有變化”。`,
+        `- ${primaryCharacterName || '當前主要角色'}明確知道${who}→自己的關係溫度發生了數值層面的變化；這是直接、確定的透視信息，不是觀察氣氛、猜測態度或只知道“似乎有變化”。`,
         '- 角色完整知道最新 delta 的正負、準確幅度、更新後的 U→C 絕對值，以及 <reason> 表達的原因；不得把它降級成模糊感應。',
         '- 本輪正文必須給出一次符合人物性格、現場節拍與邊界的明確反應；可以克制或隱藏，但行為、判斷或內心必須真實接住這項已知變化。',
         '- 角色擁有數值層面的知識，但默認將其自然翻譯為人物認知，不照念 XML 標籤或系統面板；世界觀本來存在數值界面時才可直接談具體數字。',
@@ -961,7 +1038,7 @@ export const buildStoryAffinityAwarenessReminder = (input: StoryAffinityInput | 
     ].join('\n');
     return [
         '### 本輪 U→C 關係變化 · 角色未察覺（用戶明確指定）',
-        `- ${primaryCharacterName || '對應角色'}不能讀取用戶→自己的這條 <u_affinity> 的 delta、reason 或準確方向，也不能憑空表演成已經知道；這條限制不覆蓋用戶對其他角色單獨設置的察覺狀態。`,
+        `- ${primaryCharacterName || '對應角色'}不能讀取${who}→自己的這條 <u_affinity> 的 delta、reason 或準確方向，也不能憑空表演成已經知道；這條限制不覆蓋用戶對其他角色單獨設置的察覺狀態。`,
         '- 其他角色更不能借此讀取不屬於自己的關係數值；多人之間不得共享這條變化。',
         '- 這次變化只作為模型維持關係連續性與敘事氛圍的低權重背景，不強制製造角色反應。',
         '- 若用戶正文另有真實可見的台詞或動作，角色仍可只依據那些現場證據正常推斷。',
@@ -1392,7 +1469,7 @@ const DISPLAY_TAG_LABELS: Record<string, string> = {
     trigger: '觸發條件', mt_title: '幕間', mt_system: '旁白', mt_ai: '人物', mt_user: '右側', name: '人物',
     choice: '備選', label: '方向', reply: '推進', relation_note: '關係天氣', u_note: '你的說明', c_note: '變化原因',
     c_score: '關係溫度', u_score: '你的關係溫度', u_affinity: '你的關係備註', u_delta: '你的變化', c_delta: '本輪變化', relation_fragment: '關係碎片',
-    character_id: '角色 ID', character_name: '人物',
+    character_id: '角色 ID', character_name: '人物', user_id: '對象 ID', user_name: '對象',
     c_to_u_score: '角色對你的溫度', c_to_u_delta: '角色本輪變化', c_to_u_note: '角色變化依據',
     u_to_c_score: '你對角色的溫度', u_to_c_delta: '你本輪的變化', u_to_c_note: '你的變化原因', awareness_state: '察覺狀態',
     trust: '信任', security: '安全感', possessive_pull: '佔有拉力', emotional_pressure: '情緒壓強', repair_will: '修復意願', state_note: '關係合力',
