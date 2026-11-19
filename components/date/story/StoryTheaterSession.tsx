@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
+import { defaultWriterKeys, lastRecordedPresent, messageWriters, presenceChangeNote, presenceMetadata, presentStamps, resolveStoryPresence, resolveWriters, storyPromptIdentityName, storyYouLabel } from '../../../utils/storyPresence';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
@@ -17,12 +18,12 @@ import {
     buildStoryActorMemoryEnvelope,
     buildStoryArchiveMemoryEnvelope,
     buildStoryMultiAffinityGuide,
-    buildStoryHistory,
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,
     buildStoryWorldbookScanMessages,
     buildTheaterNpcContext,
-    buildTheaterPersona,
+    buildTheaterPersonas,
+    formatStoryHistoryText,
     buildTheaterWorldbookSlots,
     compileStoryPreset,
     prepareStoryGenerationSettings,
@@ -42,7 +43,6 @@ import {
     parseStoryDisplayBlocks,
     REAL_COMPANION_MEMORY_GUARD,
     RELATIONSHIP_TEXTURE_GUIDE,
-    resolveStoryTheaterMask,
     resolveStoryPresetDocument,
     selectStoryArchiveBatch,
     storyTheaterMemoryRecipientIds,
@@ -77,10 +77,6 @@ interface Props {
     onEntryChange: (entry: StoryTheaterEntry) => Promise<void> | void;
 }
 
-const textFromHistory = (messages: Message[], identityName: string): string => buildStoryHistory(messages).map(message => {
-    const label = message.role === 'user' ? `${identityName}給出的推進（用戶側）` : '上一層劇場正文';
-    return `[${label}]\n${message.content}`;
-}).join('\n\n');
 
 const STORY_PAGE_SIZE = 10;
 
@@ -276,7 +272,7 @@ const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) => void
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onEntryChange }) => {
-    const { characters, npcs, userProfile, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
+    const { characters, npcs, userProfile, userProfileBase, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
     // 客串 NPC：只作為輕量補充出現在 actorContext / 名單類提示詞裡，不進記憶、好感度、
@@ -287,15 +283,32 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const recipientIds = new Set(storyTheaterMemoryRecipientIds(entry));
         return characters.filter(char => recipientIds.has(char.id));
     }, [characters, entry]);
-    const mask = useMemo(() => resolveStoryTheaterMask(entry.mask, userProfile, characters, masks), [characters, entry.mask, masks, userProfile]);
-    const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;
-    const promptIdentityName = mask.name.trim() && mask.name.trim() !== '你' ? mask.name.trim() : '當前用戶側角色';
+    // 在場的你（好幾個、或旁觀）：一律從 utils/storyPresence.ts 拿，別直接讀 entry.mask
+    const present = useMemo(() => resolveStoryPresence(entry, userProfileBase, characters, masks), [characters, entry, masks, userProfileBase]);
+    const lurking = present.length === 0;
+    const youLabel = storyYouLabel(present);
+    const promptIdentityName = storyPromptIdentityName(present);
+    // 記憶信封、歸檔、匯出這些只要一個稱呼的地方：一位照他的名字（跟以前一樣），好幾位用頓號接，旁觀是「作者」
+    const identityLabel = present.length === 1 ? present[0].name : promptIdentityName;
+    const identityNames = useMemo(() => present.map(item => item.name), [present]);
+    const presentCharacterIds = useMemo(() => present.flatMap(item => item.characterId ? [item.characterId] : []), [present]);
+    // 「這段是誰」：在場兩位以上才用得到；沒點過就照上一段（utils/storyPresence.ts 的 defaultWriterKeys）
+    const [writerKeys, setWriterKeys] = useState<string[] | null>(null);
+    // 你寫的那一段標誰：只有一位在場、寫的也是他，照舊寫「你」；其他情況寫名字；旁觀時寫的是「作者」
+    const writerLabel = (message: Pick<Message, 'metadata'>, suffix: string): string => {
+        const writers = messageWriters(message);
+        if (!writers) return `你${suffix}`;
+        if (writers.length === 0) return `作者${suffix}`;
+        if (present.length === 1 && writers.length === 1 && writers[0].key === present[0].key) return `你${suffix}`;
+        return `${writers.map(writer => writer.name).join('、')}${suffix}`;
+    };
     const effectivePreset = useMemo<StoryTheaterPreset>(() => ({
         ...preset,
         document: resolveStoryPresetDocument(preset, entry.presetOverride),
     }), [entry.presetOverride, preset]);
     const activeMiniTheater = useMemo(() => getActiveStoryMiniTheaterPrompt(effectivePreset.document), [effectivePreset.document]);
-    const affinityEnabled = useMemo(() => effectivePreset.document.prompts.some(prompt => prompt.id === 'nmj-v65-affinity-control' && prompt.enabled), [effectivePreset.document]);
+    // 旁觀時沒有 U，好感度那套整個不跑
+    const affinityEnabled = useMemo(() => !lurking && effectivePreset.document.prompts.some(prompt => prompt.id === 'nmj-v65-affinity-control' && prompt.enabled), [effectivePreset.document, lurking]);
     const selectedBooks = useMemo(() => dedupeTheaterWorldbooks(actors).filter(book => entry.selectedWorldbookIds.includes(book.id)), [actors, entry.selectedWorldbookIds]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -456,7 +469,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         setExporting(true);
         try {
             const result = await shareOrDownloadFile({
-                content: formatStoryTheaterExport(entry, mask.name, sceneActorNames, messages),
+                content: formatStoryTheaterExport(entry, identityLabel, sceneActorNames, messages),
                 fileName: makeStoryTheaterFileName(entry.title),
                 mimeType: 'text/plain;charset=utf-8',
                 shareTitle: `${entry.title || '未命名劇情'}的完整原文`,
@@ -468,7 +481,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         } finally {
             setExporting(false);
         }
-    }, [addToast, entry, exporting, mask.name, messages, sceneActorNames]);
+    }, [addToast, entry, exporting, identityLabel, messages, sceneActorNames]);
 
     const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<string> => {
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true);
@@ -520,7 +533,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const embedding = memoryPalaceConfig.embedding;
             if (actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
                 const rawRecall = await retrieveMemories(recent, actor.id, embedding, actor.activeBuffs?.[0]?.name, actor.personalityStyle || 'emotional', actor.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, actor.name);
-                recalled = buildStoryActorMemoryEnvelope(actor.name, rawRecall, userProfile.name, mask.name);
+                recalled = buildStoryActorMemoryEnvelope(actor.name, rawRecall, userProfile.name, identityLabel);
             }
             const theaterActor = { ...actor, memoryPalaceInjection: recalled };
             const core = ContextBuilder.buildCoreContext(theaterActor, userProfile, true, recalled, {
@@ -528,23 +541,26 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 skipWorldbookIds: allBookIds,
                 headerOverride: `[劇情角色：${actor.name}]`,
             }, { skipTimeAwareness: true });
-            blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, mask.name)}`.trim());
+            blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, identityLabel)}`.trim());
         }
         for (const npc of npcActors) blocks.push(buildTheaterNpcContext(npc, userProfile.name, actors));
         return blocks.join('\n\n---\n\n');
-    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, identityLabel, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
-        if (!entry.carryCharacterMemory || !mask.characterId) return '';
-        const maskCharacter = characters.find(char => char.id === mask.characterId);
-        if (!maskCharacter) return '';
+        if (!entry.carryCharacterMemory || presentCharacterIds.length === 0) return '';
+        // 你演的角色（現在可以好幾個）：各自帶自己的記憶和最近聊天
+        const blocks: string[] = [];
+        for (const characterId of presentCharacterIds) {
+        const maskCharacter = characters.find(char => char.id === characterId);
+        if (!maskCharacter) continue;
         const limit = Math.max(0, Math.min(500, entry.characterContextLimits[maskCharacter.id] ?? 100));
         const recent = await loadStoryActorContext(maskCharacter, entry.id, limit);
         let recalled = '';
         const embedding = memoryPalaceConfig.embedding;
         if (maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
             const rawRecall = await retrieveMemories(recent, maskCharacter.id, embedding, maskCharacter.activeBuffs?.[0]?.name, maskCharacter.personalityStyle || 'emotional', maskCharacter.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, maskCharacter.name);
-            recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, mask.name);
+            recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, maskCharacter.name);
         }
         const skipWorldbookIds = new Set([
             ...withGlobalWorldbooks(maskCharacter.mountedWorldbooks).map(book => book.id),
@@ -555,15 +571,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             skipWorldbookIds,
             headerOverride: `[你當前身份的既有記憶：${maskCharacter.name}]`,
         }, { skipTimeAwareness: true });
-        return `${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, mask.name)}`.trim();
-    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, mask.characterId, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+        blocks.push(`${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, maskCharacter.name)}`.trim());
+        }
+        return blocks.join('\n\n---\n\n');
+    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, presentCharacterIds, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
 
     const independentRecall = useCallback(async (query: string, recent: Message[], activeEntry: StoryTheaterEntry = entry): Promise<string> => {
         if (activeEntry.writesToCharacterMemory || !activeEntry.archives.some(archive => archive.strategy === 'vector')) return '';
         const embedding = memoryPalaceConfig.embedding;
         if (!embedding?.baseUrl || !embedding?.apiKey) return '（本劇情存在向量歸檔，但當前沒有可用的向量記憶配置。）';
-        return retrieveMemories(recent, threadId, embedding, undefined, 'emotional', 0.3, query, mask.name, remoteVectorConfig, activeEntry.title);
-    }, [entry, mask.name, memoryPalaceConfig.embedding, remoteVectorConfig, threadId]);
+        return retrieveMemories(recent, threadId, embedding, undefined, 'emotional', 0.3, query, identityLabel, remoteVectorConfig, activeEntry.title);
+    }, [entry, identityLabel, memoryPalaceConfig.embedding, remoteVectorConfig, threadId]);
 
     const applyActorMemoryPipeline = useCallback(async () => {
         if (!entry.writesToCharacterMemory) return;
@@ -575,9 +593,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             try {
                 setMemoryStatus(`${actor.name}正在整理這段相處……`);
                 const recent = await DB.getRecentMessagesByCharId(actor.id, 50);
-                await processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light, mask.name, false, setMemoryStatus);
+                await processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light, identityLabel, false, setMemoryStatus);
                 if (incrementDigestRound(actor.id)) {
-                    await runCognitiveDigestion(actor.id, actor.name, [actor.systemPrompt, actor.worldview].filter(Boolean).join('\n'), light, false, mask.name, embedding);
+                    await runCognitiveDigestion(actor.id, actor.name, [actor.systemPrompt, actor.worldview].filter(Boolean).join('\n'), light, false, identityLabel, embedding);
                 }
             } catch (error: any) {
                 console.warn('[StoryTheater] actor memory pipeline failed', actor.id, error?.message || error);
@@ -585,7 +603,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
         setMemoryStatus('');
         await loadMessages();
-    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, mask.name, memoryActors, memoryPalaceConfig, updateCharacter]);
+    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, identityLabel, memoryActors, memoryPalaceConfig, updateCharacter]);
 
     const archiveIfNeeded = useCallback(async (): Promise<StoryTheaterEntry | null> => {
         if (entry.writesToCharacterMemory || archiveLock.current) return null;
@@ -615,7 +633,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     return null;
                 }
                 setMemoryStatus(`正在寫入「${entry.title}」的獨立向量分區……`);
-                const result = await processMessageRange(threadId, entry.title, embedding, light, first.id, last.id, mask.name, setMemoryStatus);
+                const result = await processMessageRange(threadId, entry.title, embedding, light, first.id, last.id, identityLabel, setMemoryStatus);
                 if (result.error && result.stored === 0 && result.skipped === 0) throw new Error('這批正文沒有生成可用的向量記憶');
             }
 
@@ -645,7 +663,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             archiveLock.current = false;
             setMemoryStatus('');
         }
-    }, [addToast, apiConfig, callCompletion, entry, loadMessages, mask.name, memoryPalaceConfig, onEntryChange, threadId]);
+    }, [addToast, apiConfig, callCompletion, entry, loadMessages, identityLabel, memoryPalaceConfig, onEntryChange, threadId]);
 
     const send = useCallback(async (rerollTarget?: Message, continueRequested = false) => {
         if (sendLock.current || actors.length === 0) return;
@@ -671,6 +689,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const retry = !isReroll && latest?.role === 'user' && latest.content === text;
             // 重新生成與失敗重試都從消息標記恢復“繼續”，模型始終收到模式專屬調度詞；
             // 數據庫、閱讀頁與角色鏡像只留下簡潔的“（繼續）”。
+            // 這段是誰寫的：點過的照點的，沒點過照上一段；「繼續」那輪沒有人執筆
+            const writers = resolveWriters(present, writerKeys ?? defaultWriterKeys(present, before));
             const isContinueTurn = isReroll
                 ? previousUser?.metadata?.theaterContinue === true
                 : continueRequested || (retry && latest?.metadata?.theaterContinue === true);
@@ -691,6 +711,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         : await saveCentralAndMirrors('user', text, {
                             ...(affinityInputs.length > 0 ? { theaterAffinityInputs: affinityInputs } : {}),
                             ...(isContinueTurn ? { theaterContinue: true } : {}),
+                            // 這段當時誰在場、誰執筆：之後標名字、歸線都照這裡記的（「繼續」那輪沒有人執筆，只記在場）
+                            ...(isContinueTurn ? { theaterPresent: presentStamps(present) } : presenceMetadata(present, writers)),
                         });
             if (!isReroll && !assistantOpening) await loadMessages();
 
@@ -702,6 +724,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 .filter(message => message.metadata?.source === 'story_theater')
                 .sort((a, b) => a.id - b.id);
             const history = current.filter(message => message.id !== userMessageId && message.id !== rerollTarget?.id);
+            // 在場的人換了：這一輪跟模型說一聲（照上一段記的在場名單比）
+            const presenceNote = presenceChangeNote(lastRecordedPresent(history), present);
             const visibleHistory = history.filter(message => !mirrorArchived(message, promptEntry));
             const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
                 buildActorContexts(modelText),
@@ -723,20 +747,25 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 preset: effectivePreset,
                 userName: promptIdentityName,
                 characterNames: sceneActorNames,
+                userCount: present.length,
                 slots: {
                     actors: actorContext,
-                    persona: [buildTheaterPersona(mask), maskMemoryContext].filter(Boolean).join('\n\n'),
+                    persona: [buildTheaterPersonas(present), maskMemoryContext].filter(Boolean).join('\n\n'),
                     scenario,
                     worldBefore: worldbookSlots.worldBefore,
                     worldAfter: worldbookSlots.worldAfter,
-                    history: textFromHistory(visibleHistory, promptIdentityName),
+                    history: formatStoryHistoryText(visibleHistory, promptIdentityName),
                 },
             });
-            const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, sceneActorNames);
+            const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, sceneActorNames, present.length);
             const backstageAftermathReminder = buildStoryBackstageAftermathReminder(effectivePreset.document);
             const multiAffinityGuide = affinityEnabled ? buildStoryMultiAffinityGuide(actors.map(actor => ({ id: actor.id, name: actor.name }))) : '';
+            // 好感面板現在一個角色只有一格「對你」。用戶側好幾位時先說清楚這一格算誰的（第 4 批改成每位各一格）
+            const multiUserAffinityNote = affinityEnabled && present.length >= 2
+                ? `### 關係面板裡的 U 這一輪指誰\n用戶側在場不只一位。關係面板每個角色仍只有一組數值：這一輪的 U 指「${(isContinueTurn ? present : writers)[0].name}」，其他幾位的關係變化寫在正文裡，不要另外輸出面板條目。`
+                : '';
             const affinityAwarenessReminder = affinityInputs.map(item => buildStoryAffinityAwarenessReminder(item, item.characterName || '當前角色')).filter(Boolean).join('\n\n');
-            const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, sceneActorNames);
+            const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, sceneActorNames, identityNames);
             const modelInput = appendStoryAffinityInputs(modelText, affinityInputs);
             const payloadBeforeTurn = [
                 ...compiled.messages,
@@ -747,6 +776,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 ...(affinityEnabled ? [{ role: 'system' as const, content: RELATIONSHIP_TEXTURE_GUIDE }] : []),
                 ...(affinityAwarenessReminder ? [{ role: 'system' as const, content: affinityAwarenessReminder }] : []),
                 { role: 'system' as const, content: identityGuard },
+                ...(presenceNote ? [{ role: 'system' as const, content: presenceNote }] : []),
+                ...(multiUserAffinityNote ? [{ role: 'system' as const, content: multiUserAffinityNote }] : []),
                 ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
             ];
             const payload = appendStoryUserTurn(payloadBeforeTurn, modelInput, compiled.assistantPrefill, promptEntry.forceUserLastMessage === true);
@@ -773,6 +804,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 )
                 : rawContent;
             const replyMetadata = {
+                theaterPresent: presentStamps(present),
                 theaterPromptTokens: promptTokenCount,
                 theaterPromptTokensExact: promptTokenCountExact,
                 ...(affinityInputs.length > 0 ? { theaterAffinityInputs: affinityInputs } : {}),
@@ -806,8 +838,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setSending(false);
             setRerollingId(null);
         }
-    }, [actors, addToast, affinityDrafts, affinityEnabled, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, mask, promptIdentityName, saveCentralAndMirrors, sceneActorNames, selectedBooks, threadId]);
+    }, [actors, addToast, affinityDrafts, affinityEnabled, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, present, writerKeys, identityNames, promptIdentityName, saveCentralAndMirrors, sceneActorNames, selectedBooks, threadId]);
 
+    // 「這段是誰」現在亮著的：點過的照點的（濾掉已經不在場的），沒點過照上一段
+    const activeWriterKeys = useMemo(() => resolveWriters(present, writerKeys ?? defaultWriterKeys(present, messages)).map(item => item.key), [messages, present, writerKeys]);
+    const toggleWriter = (key: string) => setWriterKeys(() => {
+        const next = activeWriterKeys.includes(key) ? activeWriterKeys.filter(item => item !== key) : [...activeWriterKeys, key];
+        // 至少留一位：全部點掉等於沒選，回到「照上一段」
+        return next.length > 0 ? next : null;
+    });
     const archivedCount = messages.filter(message => mirrorArchived(message, entry)).length;
     const pendingRetryInput = getPendingStoryRetryInput(messages);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
@@ -830,13 +869,17 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             </div>
             <details className='group'>
                 <summary className='list-none cursor-pointer px-5 pb-3 flex items-center gap-3'>
-                    <span className='flex -space-x-1.5 shrink-0'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' /> : <span className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{mask.name.slice(0, 1)}</span>}{[...actors, ...npcActors].slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
+                    <span className='flex -space-x-1.5 shrink-0'>{lurking
+                        ? <span className='w-7 h-7 rounded-full bg-slate-200 text-slate-500 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10' title='旁觀'>觀</span>
+                        : present.slice(0, 3).map(item => item.avatar
+                            ? <TokenImg key={item.key} value={item.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' />
+                            : <span key={item.key} className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{item.name.slice(0, 1)}</span>)}{[...actors, ...npcActors].slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
                     <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{sceneActorNames.join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真實時間陪伴' : '虛構劇場'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小[剧劇][场場][｜·]?\s*/, '')}` : ''}</span></span>
                     <span className='shrink-0 text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本輪實際使用的完整上下文' : '按本輪完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
                     <CaretDown size={13} className='shrink-0 text-slate-400 transition-transform group-open:rotate-180' />
                 </summary>
                 <div className='mx-5 mb-3 pt-3 border-t border-slate-200 grid grid-cols-2 gap-x-6 gap-y-3 text-[10px]'>
-                    <div><span className='block text-[8px] font-bold text-slate-400'>你</span><span className='block mt-1 truncate text-slate-600'>{mask.selection.type === 'user' ? '本人' : mask.name}</span></div>
+                    <div><span className='block text-[8px] font-bold text-slate-400'>你</span><span className='block mt-1 truncate text-slate-600'>{lurking ? '旁觀（只當作者）' : present.length === 1 && present[0].selection.type === 'user' ? '本人' : identityLabel}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>記憶方式</span><span className='block mt-1 truncate text-slate-600'>{entry.writesToCharacterMemory ? '寫入角色記憶' : entry.archiveStrategy === 'summary' ? '獨立事件盒' : '獨立向量分區'}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>結尾模塊</span><span className='block mt-1 truncate text-slate-600'>{activeMiniTheater?.name || '未啟用小劇場'}</span></div>
                     <div><span className='block text-[8px] font-bold text-slate-400'>完整上下文</span><span className='block mt-1 truncate text-slate-600'>{displayedTokenInfo.count > 0 ? `${sending ? '本輪' : '上輪'}${displayedTokenInfo.exact ? '使用' : '估算'} ${displayedTokenInfo.count.toLocaleString()} tokens` : '推進時統計全部內容'}</span></div>
@@ -873,7 +916,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                     <Archive size={13} className='shrink-0' />
                                     <span className='min-w-0 flex-1'>
                                         <strong className='block text-[10px] font-semibold tracking-wide'>{archiveLabel}</strong>
-                                        <span className='block mt-0.5 text-[9px]'>{message.role === 'user' ? '你的推進' : '劇場正文'} · 展開查看原文</span>
+                                        <span className='block mt-0.5 text-[9px]'>{message.role === 'user' ? writerLabel(message, '的推進') : '劇場正文'} · 展開查看原文</span>
                                     </span>
                                     <CaretDown size={14} className='shrink-0 transition-transform group-open:rotate-180' />
                                 </summary>
@@ -884,7 +927,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                                 </div>}
                             </details>;
                         }
-                        if (message.role === 'user') return <section key={message.id} {...pressHandlersFor(message)} className='pl-4 border-l-2 border-violet-300'><div className='text-[9px] tracking-[.16em] font-bold text-violet-500'>你寫下</div><p className='mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
+                        if (message.role === 'user') return <section key={message.id} {...pressHandlersFor(message)} className='pl-4 border-l-2 border-violet-300'><div className='text-[9px] tracking-[.16em] font-bold text-violet-500'>{writerLabel(message, '寫下')}</div><p className='mt-2 text-sm leading-7 text-slate-600 whitespace-pre-wrap'>{message.content}</p></section>;
                         const isLatest = message.id === messages[messages.length - 1]?.id;
                         return <article key={message.id} {...pressHandlersFor(message)}><StoryOutput content={message.content} onChoose={choice => setInput(choice)} affinityInputs={affinityInputsFromMessage(message, actors)} />{isLatest && <div className='mt-4 flex items-center justify-end gap-2'><span className='w-1.5 h-1.5 rounded-full bg-violet-400' /><button disabled={sending} onClick={() => void send(message)} className='inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-white text-[10px] font-bold text-slate-500 disabled:opacity-40'>{rerollingId === message.id ? <SpinnerGap size={12} className='animate-spin' /> : <ArrowClockwise size={12} />}換一種寫法</button></div>}</article>;
                     })}
@@ -923,9 +966,21 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         </div>}
                     </div>}
                 </div>}
+                {present.length >= 2 && <div className='mb-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar' role='group' aria-label='這段是誰寫的' data-testid='story-writer-picker'>
+                    <span className='shrink-0 text-[9px] font-bold text-slate-400'>這段是誰</span>
+                    {present.map(item => {
+                        const active = activeWriterKeys.includes(item.key);
+                        return <button key={item.key} type='button' aria-pressed={active} disabled={sending} onClick={() => toggleWriter(item.key)}
+                            className={`shrink-0 h-7 pl-1 pr-2.5 rounded-full border flex items-center gap-1.5 text-[10px] font-bold transition disabled:opacity-50 ${active ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-500'}`}>
+                            {item.avatar ? <TokenImg value={item.avatar} alt='' className='w-5 h-5 rounded-full object-cover' /> : <span className={`w-5 h-5 rounded-full grid place-items-center text-[9px] ${active ? 'bg-white/25' : 'bg-violet-100 text-violet-700'}`}>{item.name.slice(0, 1)}</span>}
+                            <span className='max-w-[6rem] truncate'>{item.name}</span>
+                        </button>;
+                    })}
+                </div>}
+                {lurking && <div className='mb-2 text-[10px] text-slate-400' data-testid='story-lurking-note'>旁觀中：你只當作者，寫旁白或導演指示，角色演自己的戲。</div>}
                 <div className='flex items-end gap-2 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm'>
                     <button type='button' onClick={() => void send(undefined, true)} disabled={sending || actors.length === 0} className='self-end h-11 shrink-0 px-3 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 text-xs font-bold active:scale-95 transition-transform disabled:opacity-30' title='本輪不主動行動，讓劇情按當前預設繼續' aria-label='繼續當前劇情'>繼續</button>
-                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={sending} rows={2} placeholder={pendingRetryInput ? '留空並點擊推進，可繼續上次中斷' : canWriteOpening ? '也可以先寫一句；留空推進則由故事開場' : '寫下動作、對白、時間跳轉，或你希望故事發生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
+                    <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void send(); } }} disabled={sending} rows={2} placeholder={pendingRetryInput ? '留空並點擊推進，可繼續上次中斷' : canWriteOpening ? '也可以先寫一句；留空推進則由故事開場' : lurking ? '寫旁白、導演指示，或你希望故事發生的事……' : '寫下動作、對白、時間跳轉，或你希望故事發生的事……'} className='min-w-0 min-h-12 max-h-36 flex-1 px-2 py-2 bg-transparent text-sm leading-6 resize-none outline-none disabled:opacity-50' />
                     <button onClick={() => void send()} disabled={sending || (!input.trim() && !pendingRetryInput && !canWriteOpening)} title={!input.trim() && pendingRetryInput ? '繼續上次中斷' : canWriteOpening && !input.trim() ? '讓故事先開場' : '推進'} className='story-send-button self-end w-11 h-11 shrink-0 rounded-xl bg-slate-900 text-white grid place-items-center disabled:opacity-30'>{sending ? <SpinnerGap size={18} className='animate-spin' /> : <PaperPlaneTilt size={18} weight='fill' />}</button>
                 </div>
                 <div className='mt-2 text-center text-[9px] text-slate-400'>Ctrl / ⌘ + Enter 推進 · 長按樓層可編輯或刪除</div>
@@ -941,7 +996,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         {messageMenu && <div className='fixed inset-0 z-[70] flex items-end bg-slate-900/25' onClick={() => setMessageMenu(null)}>
             <div className='story-safe-sheet w-full rounded-t-3xl bg-stone-100 px-5 pt-4 shadow-2xl' onClick={event => event.stopPropagation()}>
                 <div className='mx-auto mb-4 h-1 w-9 rounded-full bg-slate-300' />
-                <div className='flex items-start justify-between gap-4'><div><div className='text-[9px] tracking-[.18em] font-bold text-violet-500'>{messageMenu.role === 'user' ? '你的推進' : '劇場正文'}</div><p className='mt-1 max-w-[75vw] truncate text-xs text-slate-500'>{messageMenu.content.replace(/<[^>]+>/g, ' ').trim()}</p></div><button onClick={() => setMessageMenu(null)} className='w-8 h-8 rounded-full grid place-items-center text-slate-400'><X size={16} /></button></div>
+                <div className='flex items-start justify-between gap-4'><div><div className='text-[9px] tracking-[.18em] font-bold text-violet-500'>{messageMenu.role === 'user' ? writerLabel(messageMenu, '的推進') : '劇場正文'}</div><p className='mt-1 max-w-[75vw] truncate text-xs text-slate-500'>{messageMenu.content.replace(/<[^>]+>/g, ' ').trim()}</p></div><button onClick={() => setMessageMenu(null)} className='w-8 h-8 rounded-full grid place-items-center text-slate-400'><X size={16} /></button></div>
                 <div className='mt-5 divide-y divide-slate-200 border-y border-slate-200'><button onClick={() => { setEditingMessage(messageMenu); setEditDraft(messageMenu.content); setMessageMenu(null); }} className='w-full py-4 flex items-center gap-3 text-left'><PencilSimple size={17} className='text-violet-600' /><span><strong className='block text-xs text-slate-700'>編輯這一層</strong><span className='block mt-0.5 text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '同步修改每位角色收到的鏡像內容' : '只修改本劇情沙盒'}</span></span></button><button onClick={() => { setDeletingMessage(messageMenu); setMessageMenu(null); }} className='w-full py-4 flex items-center gap-3 text-left'><Trash size={17} className='text-rose-500' /><span><strong className='block text-xs text-rose-600'>刪除這一層</strong><span className='block mt-0.5 text-[9px] text-slate-400'>不會自動刪除相鄰的推進或正文</span></span></button></div>
             </div>
         </div>}

@@ -1,6 +1,6 @@
 # 劇情 · 好幾個「你」同場
 
-> 狀態：**已定案**（Liora 2026-11-19：第 8 節三點照建議），分四批做，第 1 批開工中。照 `CLAUDE.md` 第一句規劃：故事能呈現最完整的狀態，不替用戶省 token；工大就分批，目標是完整版。
+> 狀態：**已定案**（Liora 2026-11-19：第 8 節三點照建議），分四批做。**第 1 批做完**（2026-11-19，實況見第 10 節），第 2～4 批還沒做。照 `CLAUDE.md` 第一句規劃：故事能呈現最完整的狀態，不替用戶省 token；工大就分批，目標是完整版。
 > 上層：[`persona-bond-redesign.md`](./persona-bond-redesign.md)（關係線）、[`persona-line-batch5.md`](./persona-line-batch5.md)（群聊裡好幾個身份同場）。
 
 Liora 的話：「劇情其實就是線下群聊。用戶一是妹妹、用戶二是姊姊，一家人出門卻一次只能一個出場，有夠怪。」
@@ -43,14 +43,14 @@ presence?: StoryTheaterMaskSelection[];
 
 現在劇情一開始身份就鎖住。改成隨時能改：姊姊先回家了，就把她從在場拿掉。
 
-- 每段訊息記當時的在場：`metadata.presentKeys`（身份鍵、`mask:<id>`、`char:<id>`）。之後歸線、標名字都照訊息上記的，不照現在的設定。
+- 每段訊息記當時的在場：`metadata.theaterPresent`（`{ key, name }` 一串，key 是 `persona:<身份鍵>`／`mask:<id>`／`char:<id>`，名字一起存，之後卡改名或刪了還標得出來）。之後歸線、標名字都照訊息上記的，不照現在的設定。
 - 在場換了的那一輪，提示詞多一句「『姊姊』這一輪起不在場」或「『姊姊』這一輪起在場」，只說一次。
 
 ### 1.3 這段是誰寫的
 
 在場兩個以上時，輸入框上面多一排頭像：這段主要是誰。可以點好幾個，預設跟上一段一樣。
 
-- 記 `metadata.personaKeys`。
+- 記 `metadata.theaterWriters`（同上的格式）。「繼續」那輪沒有人執筆，只記在場。
 - 用途有兩個：歷史裡那段標「（執筆：妹妹、姊姊）」；角色認識好幾個在場的你時，照它決定主看哪條線（見 2.2）。
 
 ### 1.4 旁觀
@@ -167,3 +167,22 @@ presence?: StoryTheaterMaskSelection[];
 
 - 劇情的記憶整理在記憶副 API 沒設時直接退回主 API，沒走 API 中心的解析（`utils/apiCenter.ts`）。第 3 批改記憶那段時一起接。
 - 劇情客串的舊 NPC 那條路（`npcIds`、`buildTheaterNpcContext`）：配角搬家時客串已經併進演員，搬完的人用不到。程式留著給還沒搬的，跟 `plans/todo.md` 第 3 條一起清，這次不動。
+
+## 10. 實況
+
+### 第 1 批：在場與提示詞（2026-11-19 做完）
+
+- **純邏輯在 `utils/storyPresence.ts`**：`resolveStoryPresence`（解析、濾已刪的、去重、全濾光回全域那張、空的是旁觀）、`togglePresenceSelection`（多選頁點一下）、`storyPromptIdentityName`（`{{user}}` 填什麼）、`storyYouLabel`、`defaultWriterKeys`／`resolveWriters`（這段是誰）、`presenceMetadata`、`presenceChangeNote`（在場換了的提醒）。劇情裡要知道「你是誰」一律從這裡拿，別再直接讀 `entry.mask`。
+- **資料**：`StoryTheaterMaskSelection` 多一種 `{ type: 'persona', key }`，`StoryTheaterEntry.presence`。舊的 `mask` 欄位留著，跟著是第一位。`normalizeStoryTheater` 會整理 `presence`。
+- **提示詞**（都在 `utils/storyTheater.ts`）：`buildTheaterPersonas`、`buildStoryIdentityGuard` 多一個參數（好幾位、旁觀各有自己的寫法）、`formatStoryHistoryText`（原本寫在對話頁裡的那段搬出來）、巨集 `{{users}}`／`{{user_count}}`。
+  - **一位、沒填補充設定時，送出去的跟以前一字不差**，`utils/storyPresence.test.ts` 拿舊的 `buildTheaterPersona` 當對照鎖著。填了補充設定就多一行，這是這批要的。
+  - 在場換了的那一輪多一段 system 提醒。
+- **介面**：面具箱改成多選（身份卡每張列出來、你演的角色、原創人物，有搜尋，頂上寫在場幾位、能一鍵改成旁觀）；編輯頁那顆「你」開始之後不再鎖（誰先落筆、真實／虛構模式照舊鎖）；對話頁頭像疊著放、在場兩位以上輸入框上有「這段是誰」、旁觀時有一行說明；每段你寫的照執筆者標名字；列表與匯出同理。
+- 你演的角色：勾了從演員名單拿掉，取消會放回去（以前切走不會放回）。
+
+**跟設計稿不一樣的地方**
+
+- **寫進角色記憶的劇情（真實時間陪伴）這一批還是只能本人**，多張身份卡同場在第 3 批（要先有鏡像分線）。所以現在「一家人出門」要在虛構劇場裡才選得到好幾個。
+- 刪身份卡、刪面具時**沒有**去改每條劇情存的 `presence`：解析時會濾掉已刪的，結果一樣，不必多寫一輪資料庫。
+- **好感度**還是每個角色一格。在場好幾位時多一段提醒說明這一輪的 U 指誰（執筆的第一位），第 4 批換成每位各一格。旁觀時好感度整套不跑。
+

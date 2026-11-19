@@ -2531,8 +2531,13 @@ export interface StoryTheaterArchive {
 
 /** 劇場裡用戶所扮演的身份；已有角色按 characterId 動態讀取，自定義身份來自面具箱。 */
 export type StoryTheaterMaskSelection =
+    /** 舊資料：全域當前那張身份卡。新的一律點名寫 persona */
     | { type: 'user' }
+    /** 某張身份卡（真實身份是 REAL_IDENTITY_PERSONA_ID） */
+    | { type: 'persona'; key: string }
+    /** 你演某個角色 */
     | { type: 'character'; id: string }
+    /** 自訂面具 */
     | { type: 'custom'; id: string };
 
 /** 獨立於用戶檔案與神經鏈接的可複用原創人物身份。 */
@@ -2557,8 +2562,13 @@ export interface StoryTheaterEntry {
     premise: string;
     /** 誰寫下本劇情第一段：用戶當前身份或模型故事正文。 */
     openingMode?: 'user' | 'assistant';
-    /** 本劇情中用戶執筆的身份；缺省時使用真實用戶檔案。 */
+    /** 舊欄位：本劇情中用戶執筆的身份（只有一個）。有 presence 時它跟著是第一位，讀一律走 utils/storyPresence.ts。 */
     mask?: StoryTheaterMaskSelection;
+    /**
+     * 在場的你（plans/story-multi-persona.md）：可以好幾個；[] ＝ 旁觀（你只當作者）；
+     * 沒有這個欄位 ＝ 舊劇情，讀 mask 當成一個。解析一律走 resolveStoryPresence。
+     */
+    presence?: StoryTheaterMaskSelection[];
     characterIds: string[];
     /**
      * 客串出場的 NPC（神經鏈接「NPC」分頁的 NPCProfile.id，非 characterIds）。真實時間陪伴、
