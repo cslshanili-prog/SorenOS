@@ -54,6 +54,7 @@ import {
     storyTheaterMemoryRecipientIds,
     storyTheaterThreadId,
     type StoryAffinityInput,
+    type StoryAffinityUser,
     type StoryGenerationSettings,
 } from '../../../utils/storyTheater';
 import {
@@ -105,6 +106,8 @@ const normalizeAffinityInput = (value: any, actor?: CharacterProfile): StoryAffi
         delta,
         reason,
         awareness,
+        // 好幾個你同場時：這條是哪一個你的
+        ...(typeof value.userKey === 'string' && value.userKey ? { userKey: value.userKey, userName: String(value.userName || '') } : {}),
     } : undefined;
 };
 
@@ -119,6 +122,7 @@ const affinityInputsFromMessage = (message: Message | undefined, actors: Charact
 
 interface AffinityDraft { delta: number; reason: string; awareness: 'noticed' | 'unnoticed'; }
 const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: 'unnoticed' };
+const affinityDraftKey = (actorId: string, userKey?: string): string => userKey ? `${actorId}|${userKey}` : actorId;
 
 const mirrorArchived = (message: Message, entry: StoryTheaterEntry): boolean => {
     if (!entry.writesToCharacterMemory) return message.metadata?.theaterArchived === true;
@@ -161,17 +165,17 @@ const StoryAffinityGroup: React.FC<{ group: DisplayGroup }> = ({ group }) => {
     const compactLabels = new Set<string>(['角色對你的溫度', '關係溫度', '你對角色的溫度', '你的關係溫度', ...AFFINITY_DIMENSIONS].map(scriptKey));
     const notes = group.lines.filter(line => !compactLabels.has(scriptKey(line.label || '')));
     return <section className='py-4 first:pt-0'>
-        <div className='text-[11px] font-bold text-rose-700'>{group.title || '主要角色'}</div>
+        <div className='text-[11px] font-bold text-rose-700'>{group.title || '主要角色'}{group.target ? ` ↔ ${group.target}` : ''}</div>
         {(cToU !== undefined || uToC !== undefined) && <div className='mt-2 grid grid-cols-2 gap-2'>
-            <div className='rounded-xl bg-rose-50 px-3 py-2'><div className='text-[8px] font-bold text-rose-400'>{group.title || '角色'} → 你</div><div className='mt-0.5 text-lg font-serif font-semibold text-rose-700'>{cToU ?? '—'}<span className='ml-1 text-[8px] font-sans text-rose-300'>/ 100</span></div></div>
-            <div className='rounded-xl bg-violet-50 px-3 py-2'><div className='text-[8px] font-bold text-violet-400'>你 → {group.title || '角色'}</div><div className='mt-0.5 text-lg font-serif font-semibold text-violet-700'>{uToC ?? '—'}<span className='ml-1 text-[8px] font-sans text-violet-300'>/ 100</span></div></div>
+            <div className='rounded-xl bg-rose-50 px-3 py-2'><div className='text-[8px] font-bold text-rose-400'>{group.title || '角色'} → {group.target || '你'}</div><div className='mt-0.5 text-lg font-serif font-semibold text-rose-700'>{cToU ?? '—'}<span className='ml-1 text-[8px] font-sans text-rose-300'>/ 100</span></div></div>
+            <div className='rounded-xl bg-violet-50 px-3 py-2'><div className='text-[8px] font-bold text-violet-400'>{group.target || '你'} → {group.title || '角色'}</div><div className='mt-0.5 text-lg font-serif font-semibold text-violet-700'>{uToC ?? '—'}<span className='ml-1 text-[8px] font-sans text-violet-300'>/ 100</span></div></div>
         </div>}
         {dimensions.length > 0 && <div className='mt-3 grid gap-2'>{dimensions.map(item => <div key={item.label} className='grid grid-cols-[56px_1fr_24px] items-center gap-2'><span className='text-[8px] font-bold text-slate-400'>{item.label}</span><span className='h-1.5 rounded-full bg-slate-200 overflow-hidden'><i className='block h-full rounded-full bg-gradient-to-r from-violet-300 to-rose-400' style={{ width: `${item.value}%` }} /></span><span className='text-[8px] text-right tabular-nums text-slate-400'>{item.value}</span></div>)}</div>}
         {notes.length > 0 && <div className='mt-3'><LabeledRows lines={notes} /></div>}
     </section>;
 };
 
-interface DisplayGroup { title: string; lines: DisplayLine[]; }
+interface DisplayGroup { title: string; lines: DisplayLine[]; /** 好感度：這一段是對哪一位用戶側身份（好幾個你同場時才有） */ target?: string; }
 
 const groupDisplayLines = (lines: DisplayLine[], anchorLabel: string, ignoredLabels: string[] = [], ignoredValues: string[] = []): DisplayGroup[] => {
     const ignoredLabelSet = new Set(ignoredLabels);
@@ -205,7 +209,7 @@ const StorySceneRelationships: React.FC<{ inputs: StoryAffinityInput[] }> = ({ i
         const characterName = input.characterName || '當前角色';
         const movement = input.delta > 0 ? '更靠近了一點' : input.delta < 0 ? '退遠了一點' : '有了新的變化';
         const noticed = input.awareness === 'noticed';
-        return <div key={input.characterId || `${characterName}-${index}`} className='py-2.5 flex items-start gap-3'><div className='min-w-0 flex-1'><div className='text-[10px] font-bold text-slate-600'>你 → {characterName}</div><p className='mt-1 text-[11px] leading-5 text-slate-600'>你{movement}{input.reason ? `：${input.reason}` : '。'}</p></div><div className={`shrink-0 mt-0.5 inline-flex items-center gap-1 text-[8px] font-bold ${noticed ? 'text-violet-600' : 'text-slate-400'}`}>{noticed ? <Eye size={11} weight='fill' /> : <EyeSlash size={11} />}{characterName}【{noticed ? '已察覺！' : '未察覺'}】</div></div>;
+        return <div key={`${input.characterId || characterName}-${input.userKey || ''}-${index}`} className='py-2.5 flex items-start gap-3'><div className='min-w-0 flex-1'><div className='text-[10px] font-bold text-slate-600'>{input.userName || '你'} → {characterName}</div><p className='mt-1 text-[11px] leading-5 text-slate-600'>{input.userName || '你'}{movement}{input.reason ? `：${input.reason}` : '。'}</p></div><div className={`shrink-0 mt-0.5 inline-flex items-center gap-1 text-[8px] font-bold ${noticed ? 'text-violet-600' : 'text-slate-400'}`}>{noticed ? <Eye size={11} weight='fill' /> : <EyeSlash size={11} />}{characterName}【{noticed ? '已察覺！' : '未察覺'}】</div></div>;
     })}</div>
 </div>;
 
@@ -261,16 +265,21 @@ const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) => void
                 return <section key={index} className='py-4 border-y border-slate-300'><div className='flex items-center gap-2 text-[10px] font-bold text-slate-600'><ArrowBendDownRight size={15} />下一步可以這樣寫</div><div className='mt-3 divide-y divide-slate-200'>{options.map((option, optionIndex) => <button key={optionIndex} onClick={() => onChoose?.(option)} className='w-full py-3 flex items-start gap-3 text-left'><span className='w-5 h-5 shrink-0 rounded-full bg-violet-100 text-violet-700 grid place-items-center text-[9px] font-bold'>{optionIndex + 1}</span><span className='text-[12px] leading-5 text-slate-700'>{option}</span></button>)}</div></section>;
             }
             if (block.kind === 'affinity') {
-                const personGroups = groupDisplayLines(lines, '人物', ['角色 ID']);
-                const groups = personGroups.length > 0 ? personGroups : [{ title: '主要角色', lines: lines.filter(line => !equalsAnyScript(line.label ?? '', '角色 ID')) }];
+                // 好幾個你同場時每段多一行「對象」：拿出來當這一段的對象，不當成一般備註列
+                const personGroups: DisplayGroup[] = groupDisplayLines(lines, '人物', ['角色 ID', '對象 ID']).map(group => {
+                    const target = group.lines.find(line => equalsAnyScript(line.label ?? '', '對象'))?.value;
+                    return target ? { ...group, target, lines: group.lines.filter(line => !equalsAnyScript(line.label ?? '', '對象')) } : group;
+                });
+                const groups: DisplayGroup[] = personGroups.length > 0 ? personGroups : [{ title: '主要角色', lines: lines.filter(line => !equalsAnyScript(line.label ?? '', '角色 ID')) }];
                 const preview = groups.slice(0, 3).map(group => {
                     const cToU = affinityNumber(group.lines, ['角色對你的溫度', '關係溫度']);
                     const uToC = affinityNumber(group.lines, ['你對角色的溫度', '你的關係溫度']);
-                    return `${group.title}${cToU !== undefined ? `→你 ${cToU}` : ''}${uToC !== undefined ? ` · 你→${group.title} ${uToC}` : ''}`;
+                    const you = group.target || '你';
+                    return `${group.title}${cToU !== undefined ? `→${you} ${cToU}` : ''}${uToC !== undefined ? ` · ${you}→${group.title} ${uToC}` : ''}`;
                 }).join(' · ');
                 return <details key={index} className='group border-y border-rose-200'>
-                    <summary className='list-none cursor-pointer py-3.5 flex items-center gap-3'><span className='w-8 h-8 rounded-full bg-rose-50 text-rose-500 grid place-items-center'><HeartStraight size={15} weight='fill' /></span><span className='min-w-0 flex-1'><strong className='block text-xs text-rose-700'>雙向關係 · {groups.length} 位角色</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{preview || '展開查看逐角色溫度與關係維度'}</span></span><CaretDown size={13} className='text-rose-400 transition-transform group-open:rotate-180' /></summary>
-                    <div className='pb-3 pl-11 divide-y divide-rose-100'>{groups.map((group, groupIndex) => <StoryAffinityGroup key={`${group.title}-${groupIndex}`} group={group} />)}</div>
+                    <summary className='list-none cursor-pointer py-3.5 flex items-center gap-3'><span className='w-8 h-8 rounded-full bg-rose-50 text-rose-500 grid place-items-center'><HeartStraight size={15} weight='fill' /></span><span className='min-w-0 flex-1'><strong className='block text-xs text-rose-700'>雙向關係 · {new Set(groups.map(group => group.title)).size} 位角色</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{preview || '展開查看逐角色溫度與關係維度'}</span></span><CaretDown size={13} className='text-rose-400 transition-transform group-open:rotate-180' /></summary>
+                    <div className='pb-3 pl-11 divide-y divide-rose-100'>{groups.map((group, groupIndex) => <StoryAffinityGroup key={`${group.title}-${group.target || ''}-${groupIndex}`} group={group} />)}</div>
                 </details>;
             }
             return <section key={index} className='pl-4 border-l-2 border-slate-300'><div className='text-[10px] font-bold text-slate-500'>{block.title || '附加信息'}</div><div className='mt-2'><LabeledRows lines={lines} /></div></section>;
@@ -301,6 +310,9 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const presentCharacterIds = useMemo(() => present.flatMap(item => item.characterId ? [item.characterId] : []), [present]);
     // 「這段是誰」：在場兩位以上才用得到；沒點過就照上一段（utils/storyPresence.ts 的 defaultWriterKeys）
     const [writerKeys, setWriterKeys] = useState<string[] | null>(null);
+    // 好感度裡的 U：用戶側在場的每一位。兩位以上時每位角色對每一位各一格（plans/story-multi-persona.md 第 4 批）
+    const affinityUsers = useMemo<StoryAffinityUser[]>(() => present.map(item => ({ key: item.key, name: item.name })), [present]);
+    const multiAffinity = affinityUsers.length >= 2;
     // 你寫的那一段標誰：只有一位在場、寫的也是他，照舊寫「你」；其他情況寫名字；旁觀時寫的是「作者」
     const writerLabel = (message: Pick<Message, 'metadata'>, suffix: string): string => {
         const writers = messageWriters(message);
@@ -326,6 +338,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const [showAffinityInput, setShowAffinityInput] = useState(false);
     const [affinityDrafts, setAffinityDrafts] = useState<Record<string, AffinityDraft>>({});
     const [selectedAffinityActorId, setSelectedAffinityActorId] = useState('');
+    // 好幾個你同場時：這條關係備註是哪一個你的（沒點過就是第一位）
+    const [selectedAffinityUserKey, setSelectedAffinityUserKey] = useState('');
     const [messagePage, setMessagePage] = useState(0);
     const [expandedArchivedIds, setExpandedArchivedIds] = useState<Set<number>>(() => new Set());
     const [exporting, setExporting] = useState(false);
@@ -362,10 +376,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         setEditingMessage(null);
         setDeletingMessage(null);
     }, [entry.id]);
-    const patchAffinityDraft = useCallback((characterId: string, patch: Partial<AffinityDraft>) => {
+    // 草稿的鍵：只有一個你時就是角色 id（跟以前一樣）；好幾個你同場時是「角色|哪一個你」
+    const patchAffinityDraft = useCallback((draftKey: string, patch: Partial<AffinityDraft>) => {
         setAffinityDrafts(current => ({
             ...current,
-            [characterId]: { ...(current[characterId] || EMPTY_AFFINITY_DRAFT), ...patch },
+            [draftKey]: { ...(current[draftKey] || EMPTY_AFFINITY_DRAFT), ...patch },
         }));
     }, []);
     const cancelLongPress = useCallback(() => {
@@ -737,10 +752,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 ? previousUser?.metadata?.theaterContinue === true
                 : continueRequested || (retry && latest?.metadata?.theaterContinue === true);
             const modelText = isContinueTurn ? buildStoryContinueInstruction(promptIdentityName) : text;
-            const draftAffinityInputs = affinityEnabled ? actors.map(actor => {
-                const draft = affinityDrafts[actor.id] || EMPTY_AFFINITY_DRAFT;
-                return normalizeAffinityInput({ ...draft, characterId: actor.id, characterName: actor.name }, actor);
-            }).filter((value): value is StoryAffinityInput => Boolean(value)) : [];
+            const draftAffinityInputs = affinityEnabled ? actors.flatMap(actor => (multiAffinity ? affinityUsers : [undefined]).map(user => {
+                const draft = affinityDrafts[affinityDraftKey(actor.id, user?.key)] || EMPTY_AFFINITY_DRAFT;
+                return normalizeAffinityInput({ ...draft, characterId: actor.id, characterName: actor.name, ...(user ? { userKey: user.key, userName: user.name } : {}) }, actor);
+            })).filter((value): value is StoryAffinityInput => Boolean(value)) : [];
             const savedAffinityInputs = affinityInputsFromMessage(isReroll ? previousUser : retry ? latest : undefined, actors);
             const rerollAffinityInputs = isReroll ? affinityInputsFromMessage(rerollTarget, actors) : [];
             const affinityInputs = savedAffinityInputs.length > 0 ? savedAffinityInputs : rerollAffinityInputs.length > 0 ? rerollAffinityInputs : draftAffinityInputs;
@@ -801,11 +816,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             });
             const miniTheaterReminder = buildStoryMiniTheaterReminder(effectivePreset.document, promptIdentityName, sceneActorNames, present.length);
             const backstageAftermathReminder = buildStoryBackstageAftermathReminder(effectivePreset.document);
-            const multiAffinityGuide = affinityEnabled ? buildStoryMultiAffinityGuide(actors.map(actor => ({ id: actor.id, name: actor.name }))) : '';
-            // 好感面板現在一個角色只有一格「對你」。用戶側好幾位時先說清楚這一格算誰的（第 4 批改成每位各一格）
-            const multiUserAffinityNote = affinityEnabled && present.length >= 2
-                ? `### 關係面板裡的 U 這一輪指誰\n用戶側在場不只一位。關係面板每個角色仍只有一組數值：這一輪的 U 指「${(isContinueTurn ? present : writers)[0].name}」，其他幾位的關係變化寫在正文裡，不要另外輸出面板條目。`
-                : '';
+            const multiAffinityGuide = affinityEnabled ? buildStoryMultiAffinityGuide(actors.map(actor => ({ id: actor.id, name: actor.name })), affinityUsers) : '';
             const affinityAwarenessReminder = affinityInputs.map(item => buildStoryAffinityAwarenessReminder(item, item.characterName || '當前角色')).filter(Boolean).join('\n\n');
             const identityGuard = buildStoryIdentityGuard(effectivePreset.document, promptIdentityName, sceneActorNames, identityNames);
             const modelInput = appendStoryAffinityInputs(modelText, affinityInputs);
@@ -819,7 +830,6 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 ...(affinityAwarenessReminder ? [{ role: 'system' as const, content: affinityAwarenessReminder }] : []),
                 { role: 'system' as const, content: identityGuard },
                 ...(presenceNote ? [{ role: 'system' as const, content: presenceNote }] : []),
-                ...(multiUserAffinityNote ? [{ role: 'system' as const, content: multiUserAffinityNote }] : []),
                 ...(isReroll ? [{ role: 'system' as const, content: STORY_REROLL_INSTRUCTION }] : []),
             ];
             const payload = appendStoryUserTurn(payloadBeforeTurn, modelInput, compiled.assistantPrefill, promptEntry.forceUserLastMessage === true);
@@ -836,13 +846,15 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const prefill = compiled.assistantPrefill?.content || '';
             const rawContent = prefill && !generated.startsWith(prefill) ? `${prefill}${generated}` : generated;
             // 關係絕對值要承接最近一輪，即使那輪剛被摺疊進事件盒，也不能回退到 50。
-            const previousAssistantContent = [...history].reverse().find(message => message.role === 'assistant')?.content || '';
+            // 由新到舊全部給：有人離場幾輪再回來、或某一輪模型漏了面板，都接得回原本的分數
+            const previousAssistantContents = [...history].reverse().filter(message => message.role === 'assistant').map(message => message.content || '');
             const content = affinityEnabled
                 ? reconcileStoryAffinityScores(
                     rawContent,
-                    previousAssistantContent,
+                    previousAssistantContents,
                     affinityInputs,
                     actors.map(actor => ({ id: actor.id, name: actor.name })),
+                    affinityUsers,
                 )
                 : rawContent;
             const replyMetadata = {
@@ -880,7 +892,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             setSending(false);
             setRerollingId(null);
         }
-    }, [actors, addToast, affinityDrafts, affinityEnabled, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, present, writerKeys, identityNames, promptIdentityName, saveCentralAndMirrors, sceneActorNames, selectedBooks, threadId]);
+    }, [actors, addToast, affinityDrafts, affinityEnabled, affinityUsers, multiAffinity, applyActorMemoryPipeline, archiveIfNeeded, buildActorContexts, buildMaskMemoryContext, callCompletion, effectivePreset, entry, independentRecall, input, loadMessages, present, writerKeys, identityNames, promptIdentityName, saveCentralAndMirrors, sceneActorNames, selectedBooks, threadId]);
 
     // 「這段是誰」現在亮著的：點過的照點的（濾掉已經不在場的），沒點過照上一段
     const activeWriterKeys = useMemo(() => resolveWriters(present, writerKeys ?? defaultWriterKeys(present, messages)).map(item => item.key), [messages, present, writerKeys]);
@@ -893,11 +905,14 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     const pendingRetryInput = getPendingStoryRetryInput(messages);
     const canWriteOpening = messages.length === 0 && entry.openingMode === 'assistant';
     const filledAffinityActorIds = actors.filter(actor => {
-        const draft = affinityDrafts[actor.id];
-        return Boolean(draft && (draft.delta !== 0 || draft.reason.trim()));
+        // 這位角色有沒有填過（好幾個你同場時，任何一位填了都算）
+        return Object.entries(affinityDrafts).some(([key, draft]) => (key === actor.id || key.startsWith(`${actor.id}|`)) && (draft.delta !== 0 || draft.reason.trim()));
     }).map(actor => actor.id);
     const selectedAffinityActor = actors.find(actor => actor.id === selectedAffinityActorId) || actors[0];
-    const selectedAffinityDraft = selectedAffinityActor ? (affinityDrafts[selectedAffinityActor.id] || EMPTY_AFFINITY_DRAFT) : EMPTY_AFFINITY_DRAFT;
+    const selectedAffinityUser = multiAffinity ? (affinityUsers.find(user => user.key === selectedAffinityUserKey) || affinityUsers[0]) : undefined;
+    const selectedAffinityKey = selectedAffinityActor ? affinityDraftKey(selectedAffinityActor.id, selectedAffinityUser?.key) : '';
+    const selectedAffinityDraft = selectedAffinityActor ? (affinityDrafts[selectedAffinityKey] || EMPTY_AFFINITY_DRAFT) : EMPTY_AFFINITY_DRAFT;
+    const affinityDraftFilled = (key: string) => { const draft = affinityDrafts[key]; return Boolean(draft && (draft.delta !== 0 || draft.reason.trim())); };
 
     return <div className='relative h-full w-full flex flex-col bg-stone-100 text-slate-800'>
         <header className='story-safe-header shrink-0 bg-stone-100/95 backdrop-blur border-b border-slate-200 z-10'>
@@ -999,11 +1014,22 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                     </button>
                     {showAffinityInput && <div className='px-3 pb-3 border-t border-rose-200/70'>
                         <div className='pt-3 flex gap-2 overflow-x-auto'>{actors.map(actor => { const filled = filledAffinityActorIds.includes(actor.id); const selected = selectedAffinityActor?.id === actor.id; return <button key={actor.id} type='button' onClick={() => setSelectedAffinityActorId(actor.id)} className={`shrink-0 px-2.5 py-2 rounded-xl flex items-center gap-2 border text-[10px] font-bold ${selected ? 'bg-white border-rose-300 text-rose-700' : 'border-transparent text-slate-500'}`}><TokenImg value={actor.avatar} alt='' className='w-6 h-6 rounded-full object-cover' /><span>{actor.name}</span><span className={`w-1.5 h-1.5 rounded-full ${filled ? 'bg-rose-500' : 'bg-slate-200'}`} /></button>; })}</div>
+                        {multiAffinity && selectedAffinityActor && <div className='mt-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar' role='group' aria-label='這條關係備註是哪一個你的' data-testid='story-affinity-user-picker'>
+                            <span className='shrink-0 text-[9px] font-bold text-rose-600'>哪一個你</span>
+                            {affinityUsers.map(user => {
+                                const active = selectedAffinityUser?.key === user.key;
+                                return <button key={user.key} type='button' aria-pressed={active} disabled={sending} onClick={() => setSelectedAffinityUserKey(user.key)}
+                                    className={`shrink-0 h-7 px-2.5 rounded-full border flex items-center gap-1.5 text-[10px] font-bold ${active ? 'bg-rose-500 border-rose-500 text-white' : 'bg-white border-rose-200 text-slate-500'}`}>
+                                    <span className='max-w-[6rem] truncate'>{user.name}</span>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${affinityDraftFilled(affinityDraftKey(selectedAffinityActor.id, user.key)) ? (active ? 'bg-white' : 'bg-rose-500') : (active ? 'bg-white/40' : 'bg-slate-200')}`} />
+                                </button>;
+                            })}
+                        </div>}
                         {selectedAffinityActor && <div className='mt-3 pt-3 border-t border-rose-200/70'>
-                            <div className='flex items-center justify-between gap-3'><div><span className='block text-[9px] font-bold text-rose-700'>你 → {selectedAffinityActor.name}</span><span className='block mt-0.5 text-[8px] text-slate-400'>這一欄只改變你和這位角色的關係</span></div><button type='button' onClick={() => setAffinityDrafts(current => { const next = { ...current }; delete next[selectedAffinityActor.id]; return next; })} className='text-[9px] font-bold text-slate-400'>清空這位</button></div>
-                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>變化</span><input disabled={sending} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
-                            <input disabled={sending} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityActor.id, { reason: event.target.value })} placeholder={`為什麼你對 ${selectedAffinityActor.name} 有這點變化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
-                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察覺 · 只變氛圍</span></button><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityActor.id, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察覺 · 完全透視</span></button></div>
+                            <div className='flex items-center justify-between gap-3'><div><span className='block text-[9px] font-bold text-rose-700'>{selectedAffinityUser?.name || '你'} → {selectedAffinityActor.name}</span><span className='block mt-0.5 text-[8px] text-slate-400'>{selectedAffinityUser ? `這一欄只改變「${selectedAffinityUser.name}」和這位角色的關係` : '這一欄只改變你和這位角色的關係'}</span></div><button type='button' onClick={() => setAffinityDrafts(current => { const next = { ...current }; delete next[selectedAffinityKey]; return next; })} className='text-[9px] font-bold text-slate-400'>清空這位</button></div>
+                            <div className='mt-3 flex items-center gap-3'><span className='text-[9px] font-bold text-rose-600'>變化</span><input disabled={sending} type='range' min={-10} max={10} step={1} value={selectedAffinityDraft.delta} onChange={event => patchAffinityDraft(selectedAffinityKey, { delta: Number(event.target.value) })} className='min-w-0 flex-1 accent-rose-500' /><strong className={`w-8 text-right text-xs ${selectedAffinityDraft.delta > 0 ? 'text-rose-600' : selectedAffinityDraft.delta < 0 ? 'text-slate-600' : 'text-slate-400'}`}>{selectedAffinityDraft.delta >= 0 ? '+' : ''}{selectedAffinityDraft.delta}</strong></div>
+                            <input disabled={sending} maxLength={200} value={selectedAffinityDraft.reason} onChange={event => patchAffinityDraft(selectedAffinityKey, { reason: event.target.value })} placeholder={`為什麼你對 ${selectedAffinityActor.name} 有這點變化？`} className='mt-2 w-full px-3 py-2.5 rounded-xl bg-white border border-rose-200 text-xs outline-none placeholder:text-slate-300' />
+                            <div className='mt-2 grid grid-cols-2 p-1 rounded-xl bg-white border border-rose-200'><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityKey, { awareness: 'unnoticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'unnoticed' ? 'bg-slate-100 text-slate-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><EyeSlash size={12} />未察覺 · 只變氛圍</span></button><button type='button' disabled={sending} onClick={() => patchAffinityDraft(selectedAffinityKey, { awareness: 'noticed' })} className={`py-2 rounded-lg text-[9px] font-bold ${selectedAffinityDraft.awareness === 'noticed' ? 'bg-violet-100 text-violet-700' : 'text-slate-400'}`}><span className='inline-flex items-center gap-1'><Eye size={12} />已察覺 · 完全透視</span></button></div>
                             <div className='mt-2 text-[9px] leading-4 text-rose-500'>可以繼續點另一位角色填寫；沒有填寫的角色本輪保持原關係。</div>
                         </div>}
                     </div>}
