@@ -4160,9 +4160,9 @@ export interface UserProfile {
     bio: string;
     /** 真實身份的性別，選填，跟身份卡的 UserGender 是同一套枚舉 */
     gender?: UserGender;
-    /** 真實身份的自定義設定：比 bio 更深一層的補充說明，會發給 AI */
+    /** 真實身份的補充設定（介面上一格；讀一律走 utils/personaSetting.ts 的 personaExtraSetting） */
     customSetting?: string;
-    /** 真實身份的其他補充：兜底的自由文本欄位，會發給 AI */
+    /** 舊的「其他補充」：2026-11-19 併進補充設定，編輯頁存檔時清掉；舊資料還可能有字，讀的時候接在後面 */
     otherDetails?: string;
     /** 生圖用的參考圖（鎖臉）和外觀提示詞，結構跟角色的 imageGenCharConfig 一樣；見面「拍下這一刻」用。身份卡各有各的 */
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];
@@ -4585,9 +4585,9 @@ export interface UserPersona {
     avatar: string;
     bio: string;
     gender?: UserGender;
-    /** 自定義設定：比 bio 更深一層的補充說明，會發給 AI */
+    /** 補充設定（介面上一格；讀一律走 utils/personaSetting.ts 的 personaExtraSetting） */
     customSetting?: string;
-    /** 其他補充：兜底的自由文本欄位，會發給 AI */
+    /** 舊的「其他補充」：2026-11-19 併進補充設定，編輯頁存檔時清掉；舊資料還可能有字，讀的時候接在後面 */
     otherDetails?: string;
     /** 這張身份卡的長相（生圖參考圖＋外觀提示詞）；同一世界裡不同身份卡是不同的人，不跟真實身份共用 */
     imageGenConfig?: CharacterProfile['imageGenCharConfig'];

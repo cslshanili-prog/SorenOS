@@ -3,6 +3,7 @@ import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
 import { lineViewPersonaKey } from './userPersona';
+import { personaExtraSetting } from './personaSetting';
 import { formatPersonaLinksBlock, sameIdentityKeys } from './personaLinks';
 import { formatCastRelationsBlock } from './castRelations';
 import { getCharNameById, getCharRelations, getRegisteredCharacter } from './charNameRegistry';
@@ -47,7 +48,7 @@ import { withGlobalWorldbooks } from './globalWorldbooks';
 
 /**
  * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
- * 性別/自定義設定/其他補充是新加的深度字段，選填，留空就不佔提示詞篇幅。
+ * 性別、補充設定選填，留空就不佔提示詞篇幅。補充設定是舊的「自定義設定」「其他補充」合起來的一行（utils/personaSetting.ts）。
  */
 function formatUserProfileBlock(user: UserProfile, holidayLine = ''): string {
     let block = `### 互動對象 (User)\n`;
@@ -56,8 +57,8 @@ function formatUserProfileBlock(user: UserProfile, holidayLine = ''): string {
     block += `- 名字: ${user.name}\n`;
     if (user.gender) block += `- 性別: ${user.gender}\n`;
     block += `- 設定/備註: ${user.bio || '無'}\n`;
-    if (user.customSetting?.trim()) block += `- 自定義設定: ${user.customSetting.trim()}\n`;
-    if (user.otherDetails?.trim()) block += `- 其他補充: ${user.otherDetails.trim()}\n`;
+    const extra = personaExtraSetting(user);
+    if (extra) block += `- 補充設定: ${extra}\n`;
     return block + `\n`;
 }
 
@@ -749,8 +750,8 @@ export const ContextBuilder = {
                 text += `#### 「${u.name}」\n`;
                 if (u.gender) text += `- 性別: ${u.gender}\n`;
                 text += `- 設定/備註: ${u.bio || '無'}\n`;
-                if (u.customSetting?.trim()) text += `- 自定義設定: ${u.customSetting.trim()}\n`;
-                if (u.otherDetails?.trim()) text += `- 其他補充: ${u.otherDetails.trim()}\n`;
+                const extra = personaExtraSetting(u);
+                if (extra) text += `- 補充設定: ${extra}\n`;
             }
             text += `\n`;
         } else {

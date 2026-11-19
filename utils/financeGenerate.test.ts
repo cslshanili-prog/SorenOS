@@ -112,7 +112,7 @@ describe('用戶那邊的設定', () => {
         const ctx = buildUserOwnerContext({ name: 'Liora', bio: '台北上班族', customSetting: '' } as any);
         expect(ctx).toContain('- 名字: Liora');
         expect(ctx).toContain('- 設定/備註: 台北上班族');
-        expect(ctx).not.toContain('自定義設定');
+        expect(ctx).not.toContain('補充設定');
     });
 });
 

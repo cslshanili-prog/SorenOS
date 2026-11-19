@@ -12,6 +12,7 @@ import PersonaLinksSection from './PersonaLinksSection';
 import VoiceProfileFields from '../voice/VoiceProfileFields';
 import { REAL_IDENTITY_PERSONA_ID } from '../../utils/userPersona';
 import { COMMON_TIMEZONES } from '../../utils/timezone';
+import { personaExtraSetting } from '../../utils/personaSetting';
 
 /** 有填任何一家的音色才存；全空就不留一個空殼 */
 const hasAnyVoice = (vp: CharacterProfile['voiceProfile']): boolean =>
@@ -37,8 +38,8 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
     const [draftAvatar, setDraftAvatar] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
     const [draftGender, setDraftGender] = useState<UserGender | ''>('');
-    const [draftCustomSetting, setDraftCustomSetting] = useState('');
-    const [draftOtherDetails, setDraftOtherDetails] = useState('');
+    // 補充設定：舊的「自定義設定」「其他補充」兩格合成一格（utils/personaSetting.ts）
+    const [draftExtra, setDraftExtra] = useState('');
     // 長相（生圖參考圖＋外觀提示詞），見面「拍下這一刻」用
     const [draftImageGen, setDraftImageGen] = useState<CharacterProfile['imageGenCharConfig']>(undefined);
     // 聲音（私聊發語音條用，plans/user-voice.md）
@@ -56,8 +57,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
         setDraftAvatar(source.avatar);
         setDraftAvatarUrl(/^https?:\/\//i.test(source.avatar) ? source.avatar : '');
         setDraftGender(source.gender || '');
-        setDraftCustomSetting(source.customSetting || '');
-        setDraftOtherDetails(source.otherDetails || '');
+        setDraftExtra(personaExtraSetting(source));
     };
 
     // 只在打開時載入一次草稿，編輯途中別被外部更新蓋掉
@@ -109,8 +109,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
             avatar: draftAvatar,
             bio: draftBio.trim(),
             gender: draftGender || undefined,
-            customSetting: draftCustomSetting.trim() || undefined,
-            otherDetails: draftOtherDetails.trim() || undefined,
+            customSetting: draftExtra.trim() || undefined,
+            // 舊的那格併進來了，存檔時清掉，免得讀的時候又接一次
+            otherDetails: undefined,
             imageGenConfig: draftImageGen && (draftImageGen.referenceImage || draftImageGen.characterPrompt?.trim()) ? draftImageGen : undefined,
             voiceProfile: hasAnyVoice(draftVoice) ? draftVoice : undefined,
             timezone: draftTimezone || undefined,
@@ -218,26 +219,18 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                             placeholder={editingId === 'real' ? '關於我 / 設定：會發給 AI，讓它更瞭解你（例如：大學生、喜歡吃辣、性格內向）' : '這個身份的簡介，會發給 AI（可留空）'}
                             className="w-full h-28 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">所有功能都讀這格。一兩句就能認出你的基本設定寫這裡。</p>
                     </div>
 
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">自定義設定 (Custom Setting)</label>
-                        <ExpandableTextarea title="自定義設定"
-                            value={draftCustomSetting}
-                            onChange={v => setDraftCustomSetting(v)}
-                            placeholder="比簡介更深度的補充，會發給 AI（可留空）"
-                            className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">補充設定 (Details)</label>
+                        <ExpandableTextarea title="補充設定"
+                            value={draftExtra}
+                            onChange={v => setDraftExtra(v)}
+                            placeholder="比較長的細節：背景故事、跟角色的關係、喜好忌諱、想提醒 AI 的事（可留空）"
+                            className="w-full h-32 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">其他補充 (Other Details)</label>
-                        <ExpandableTextarea title="其他補充"
-                            value={draftOtherDetails}
-                            onChange={v => setDraftOtherDetails(v)}
-                            placeholder="任何想讓 AI 知道的其他信息（可留空）"
-                            className="w-full h-24 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
-                        />
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">聊天、群聊、電話、見面都會帶上。劇情（沒戴面具時）、協同工作、記憶整理、小說、好友申請只看上面的簡介，最要緊的請寫在簡介。</p>
                     </div>
                 </div>
 

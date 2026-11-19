@@ -19,6 +19,7 @@ import {
 } from './finance';
 import { MONEY_SYMBOL } from './realBalance';
 import { extractContent, extractJson, safeResponseJson } from './safeApi';
+import { personaExtraSetting } from './personaSetting';
 
 // ── 小工具 ───────────────────────────────────────────
 
@@ -43,8 +44,8 @@ export function buildUserOwnerContext(user: UserProfile): string {
     const lines = [`[System: 這是用戶本人（${user.name}）的資料]`, `- 名字: ${user.name}`];
     if (user.gender) lines.push(`- 性別: ${user.gender}`);
     if (user.bio?.trim()) lines.push(`- 設定/備註: ${user.bio.trim()}`);
-    if (user.customSetting?.trim()) lines.push(`- 自定義設定: ${user.customSetting.trim()}`);
-    if (user.otherDetails?.trim()) lines.push(`- 其他補充: ${user.otherDetails.trim()}`);
+    const extra = personaExtraSetting(user);
+    if (extra) lines.push(`- 補充設定: ${extra}`);
     return lines.join('\n');
 }
 

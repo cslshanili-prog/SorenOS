@@ -78,4 +78,5 @@ interface ApiCenterConfig {
 - 接線在 OSContext 的全局 fetch 攔截器：`originalFetch` 丟網路錯、或回來的狀態值得換家，就 `tryFailover`：認槽 → 把掛的那家記冷卻 → 照鏈順序換家重發，拿到不是「值得換家」的回應就用它（成功或 4xx 都算定案）。換了家：toast、系統日誌一條、調用記錄的用途後面標「（備援 主 API：甲 → 乙）」、`syncAmsgLlmCredentials` 把雲端憑據行重傳。沒排鏈的槽跟以前一樣不重發。串流只有狀態就錯才換（還沒吐字）。
 - 憑據行：`buildCharChatCredRow`／`buildCharEmotionCredRow`／`buildCharMemoryCredRow` 挑好來源後都問一聲 `applyFailoverOverride`，冷卻期內指到換到的那家。
 - 介面：副 API 中心每格底下「備援鏈 ▸」（主 API 也有一格只排鏈），開全螢幕 `components/settings/FailoverChainPage.tsx`：勾預設、▲▼ 排順序、每個標活著／冷卻中 n 分／目前頂著用；底下寫明雲端不會自己換。
+- 用戶自己按停不算掛（2026-11-19 補）：`isUserAbort` 認 `AbortError`，攔截器遇到就原樣丟回去，不記冷卻、不換家、不重發；換家途中按停也一樣。逾時是帶理由的中止，照樣換家，重發時用 `failoverInit` 拿掉那個已經中止的 signal（不然下一家會立刻又失敗、整條鏈被記成掛了）。
 - 沒做：雲端到點自己換家（要改上游）。

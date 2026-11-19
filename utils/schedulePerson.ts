@@ -27,7 +27,7 @@ export interface SchedulePerson {
     style: 'lifestyle' | 'mindful';
     /** 角色才有 */
     char?: CharacterProfile;
-    /** 身份卡才有：那張卡的資料（名字、簡介、自定義設定） */
+    /** 身份卡才有：那張卡的資料（名字、簡介、補充設定） */
     personaProfile?: UserProfile;
 }
 

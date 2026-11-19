@@ -30,6 +30,25 @@ export const isFailoverWorthy = (status: number | undefined, networkError = fals
     return status === 408 || status === 429 || status >= 500;
 };
 
+const isAbortError = (e: unknown): boolean => (e as { name?: string } | null | undefined)?.name === 'AbortError';
+
+/**
+ * 用戶自己按停（`AbortController.abort()` 不帶理由）不是那家掛了：不記冷卻、不換家、不重發。
+ * 逾時是帶理由的中止（safeApi 丟 `Error('timeout …')`、`AbortSignal.timeout` 是 TimeoutError），不在此列，照樣換家。
+ */
+export const isUserAbort = (err: unknown, signal?: AbortSignal | null): boolean =>
+    isAbortError(err) || (!!signal?.aborted && isAbortError(signal.reason));
+
+/**
+ * 換家重發時用的 init：原本那個 signal 已經因為逾時中止了，帶著它重發會立刻又失敗（還會把整條鏈都記成掛了），拿掉。
+ * 還沒中止的 signal 留著，用戶之後按停照樣停得下來。
+ */
+export const failoverInit = (init: RequestInit | undefined): RequestInit | undefined => {
+    if (!init?.signal?.aborted) return init;
+    const { signal: _dead, ...rest } = init;
+    return rest;
+};
+
 /** 從請求的 URL 和 Authorization 認出它是打給哪組 API */
 export const requestApiIdentity = (url: string, headers: HeadersInit | undefined): Pick<SlotApi, 'baseUrl' | 'apiKey'> | null => {
     const m = /^(.*?)\/chat\/completions(?:[?#].*)?$/i.exec(url || '');

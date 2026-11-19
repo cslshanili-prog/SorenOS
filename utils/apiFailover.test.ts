@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-    __resetFailoverState, apiCooldownMinutes, applyFailoverOverride, describeSwitch, identifySlot, isApiDown, isFailoverWorthy, markApiDown, nextCandidates,
+    __resetFailoverState, apiCooldownMinutes, applyFailoverOverride, describeSwitch, failoverInit, identifySlot, isUserAbort, isApiDown, isFailoverWorthy, markApiDown, nextCandidates,
     requestApiIdentity, rewriteRequestForApi, sameApi, setFailoverOverride, shouldToastSwitch, type ChainEntry,
 } from './apiFailover';
 import { buildCharChatCredRow, buildCharEmotionCredRow, buildCharMemoryCredRow } from './amsgLlmCredentials';
@@ -25,6 +25,27 @@ describe('什麼算掛', () => {
         expect(isFailoverWorthy(400)).toBe(false);
         expect(isFailoverWorthy(200)).toBe(false);
         expect(isFailoverWorthy(undefined)).toBe(false);
+    });
+});
+
+describe('用戶自己按停不算掛', () => {
+    it('AbortController.abort() 不帶理由：是用戶按停；逾時（帶理由的中止）不是', () => {
+        const stopped = new AbortController(); stopped.abort();
+        expect(isUserAbort(new DOMException('aborted', 'AbortError'))).toBe(true);
+        expect(isUserAbort(new TypeError('Failed to fetch'), stopped.signal)).toBe(true);
+        const timedOut = new AbortController(); timedOut.abort(new Error('timeout 60000ms'));
+        expect(isUserAbort(new Error('timeout 60000ms'), timedOut.signal)).toBe(false);
+        expect(isUserAbort(new TypeError('Failed to fetch'))).toBe(false);
+        expect(isUserAbort(new TypeError('Failed to fetch'), new AbortController().signal)).toBe(false);
+        expect(isUserAbort(null, stopped.signal)).toBe(true);
+    });
+    it('換家重發：逾時中止過的 signal 拿掉，還活著的留著，其他欄位不動', () => {
+        const dead = new AbortController(); dead.abort(new Error('timeout 1ms'));
+        const live = new AbortController();
+        expect(failoverInit({ method: 'POST', body: '{}', signal: dead.signal })).toEqual({ method: 'POST', body: '{}' });
+        const kept = { method: 'POST', signal: live.signal };
+        expect(failoverInit(kept)).toBe(kept);
+        expect(failoverInit(undefined)).toBeUndefined();
     });
 });
 
