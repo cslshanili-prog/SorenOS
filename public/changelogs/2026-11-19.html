@@ -1,0 +1,39 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>2026 年 11 月 19 日更新說明 · S4.2 劇情裡好幾個你同場</title><style>:root{--ink:#2a2620;--soft:#635c50;--paper:#f6f3ec;--card:#fff;--line:#e4ddcd;--accent:#2f8f6b;--wash:#e6f4ee}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.9 system-ui,-apple-system,"PingFang TC","Noto Sans TC",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:auto;padding:38px 22px 64px}
+header{border-bottom:1px solid var(--line);padding-bottom:26px;margin-bottom:8px}
+header small{letter-spacing:3px;color:var(--accent);font-size:10px;font-weight:700}
+h1{font:34px/1.4 "Songti TC","Noto Serif TC",serif;margin:18px 0 12px;letter-spacing:-.01em}
+.lede{color:var(--soft);margin:0}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:22px 0 0;padding:0;list-style:none}
+.toc li{margin:0;padding:3px 10px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--soft);background:var(--card)}
+.toc li:before{display:none}
+h2{font:22px/1.6 "Songti TC","Noto Serif TC",serif;margin:40px 0 6px}
+h2 span{color:var(--accent);font:700 12px/1 ui-monospace,monospace;letter-spacing:2px;display:block;margin-bottom:6px}
+.where{display:inline-block;margin:0 0 6px;padding:1px 9px;border-radius:8px;background:var(--wash);color:var(--accent);font-size:11px;font-weight:700}
+p{margin:8px 0 14px;color:var(--soft)}
+ul{margin:10px 0 18px;padding:0;list-style:none}
+li{position:relative;padding:6px 0 6px 20px;color:var(--soft)}
+li:before{content:"";position:absolute;left:3px;top:16px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+li b,p b{color:var(--ink);font-weight:600}
+.note{margin:18px 0;border-left:3px solid var(--accent);border-radius:3px 12px 12px 3px;background:var(--wash);padding:12px 16px;color:var(--soft);font-size:12.5px}
+footer{border-top:1px solid var(--line);margin-top:44px;padding-top:16px;font-size:11px;letter-spacing:2px;color:var(--accent)}</style></head><body><main>
+<header><small>SOREN S4.2 · ALMANAC · 2026.11.19</small><h1>一家人出門，<br>不用再輪流出場。</h1><p class="lede">劇情其實就是線下的群聊，以前卻一次只能有一個你。現在妹妹、姊姊可以一起在場：每個角色照自己認識的人看你們，那天的事各自記進對的地方，關係溫度也各算各的。</p>
+<ul class="toc"><li>好幾個你同場</li><li>角色怎麼看你們</li><li>寫進記憶</li><li>關係溫度</li><li>順手改的</li></ul></header>
+<h2><span>01</span>好幾個你同場</h2>
+<div class="where">見面 → 劇情 → 編輯劇情 →「你」那一格（面具箱）</div>
+<ul><li><b>面具箱改成多選</b>：每張身份卡都列出來，加上「成為某位角色」和原創人物，可以混著勾，有搜尋。頂上寫在場幾位。</li><li><b>旁觀</b>：一個都不勾，你只當作者，寫旁白和導演指示，角色演自己的戲。</li><li><b>開始之後照樣能改</b>：姊姊先回家，就回面具箱把她拿掉。下一輪模型會知道她這一輪起不在場。</li><li><b>這段是誰</b>：在場兩位以上時，輸入框上面多一排頭像，點這段是誰寫的，可以點好幾個，預設跟上一段一樣。每段你寫的會標出執筆的人。</li><li>模型拿到每一位的資料（簡介、補充設定都有），誰都不准代寫；旁白一律寫名字，不會用分不出是誰的「你」。</li><li>預設作者多兩個巨集：<b>{{users}}</b>（在場的名字）、<b>{{user_count}}</b>（幾位）。<b>{{user}}</b> 在好幾位時填「妹妹、姊姊」。</li></ul>
+<h2><span>02</span>每個角色照自己認識的人看你們</h2>
+<div class="where">帶角色記憶的劇情（真實時間陪伴，或虛構劇場開了攜帶記憶）</div>
+<ul><li><b>認識一位</b>：照他跟那一位的那條線建檔案，帶那條線的最近聊天。以前不管他認識誰，一律拿目前身份那張卡去配，認識的不是那張時會配錯人，這次一起修好。</li><li><b>兩位都認識</b>：主看最近執筆的那位，另一位補上他對她的印象、長期記憶和最近聊天。</li><li><b>不認識的</b>：跟他說清楚這是另一個人。你設過「妹妹和姊姊互相認識」的話，認識其中一位的角色會知道。</li><li>演員各自私下認識的人不同時，多一段幕後須知，免得大家說「她」分不清是誰。</li><li>回想起來的記憶會標<b>是跟誰的事</b>；好幾個你同場時，會講明記憶裡的「你」是在場的哪一位。</li></ul>
+<h2><span>03</span>寫進記憶</h2>
+<div class="where">劇情 → 真實時間陪伴</div>
+<ul><li><b>真實時間陪伴可以好幾張身份卡同場</b>，也能旁觀。這個模式只能勾身份卡，寫進真實記憶的必須是真的你。</li><li>正文<b>照線寫進私聊紀錄</b>：角色認識妹妹也認識姊姊、兩人都在場，那一段就寫進他跟兩人的聊天裡。之後用哪張卡找他，往上翻都看得到那天。</li><li>有人先離開，之後的段落不會出現在她那條線上。在場的人他一個都不認識時，只記在他自己的主線，並標明他認識的那位不在場。</li><li>同一件事<b>只記一筆</b>。回想時，一起經歷的事會說「這是你跟妹妹、姊姊一起的事」，不會再說「姊姊不一定知道」。</li><li>朋友圈裡，劇情同場過的身份卡，角色算「見過」。</li></ul>
+<h2><span>04</span>關係溫度：每個角色對每個你各一格</h2>
+<div class="where">劇情預設開著關係溫度時</div>
+<ul><li>兩個你同場，角色對妹妹一格、對姊姊一格，不共享也不平均。面板每段標題是「角色 ↔ 哪一位」。</li><li>填「你對角色的變化」時，選完角色再選<b>哪一個你</b>。</li><li>姊姊先回家，接的是妹妹那格；她過幾輪回來，接回她上次的分數；原本只有一個你的劇情後來加人，舊分數算第一位的。</li><li>以前模型某一輪漏了面板，下一輪分數會掉回 50。現在會往回找最近一次的分數，只有一個你時也一樣受惠。</li></ul>
+<h2><span>05</span>順手改的</h2>
+<div class="where">檔案 → 編輯身份；見面</div>
+<ul><li><b>身份卡的「自定義設定」「其他補充」合成一格「補充設定」</b>。舊的兩格有字的會接在一起，不會掉。簡介是所有功能都讀的；補充設定聊天、群聊、電話、見面、劇情都會帶上，協同工作、記憶整理、小說、好友申請只看簡介，最要緊的請寫在簡介。</li><li><b>見面開場還在生成也能離開</b>：左上角有返回鍵，「正在感知…」底下有「不等了，悄悄離開」，會真的中止那次請求。生成到一半也能直接換「我走過去／讓 ta 來找我」。</li><li>你自己按停（停止生成、離開頁面）不再被當成 API 掛了，不會害那家冷卻、也不會換下一家偷偷重發。</li></ul>
+<p class="note">只有一個你的劇情，送給模型的內容和寫進記憶的東西都跟以前一樣，不用重設。</p>
+<footer>人到齊了，戲才好看。</footer></main></body></html>
