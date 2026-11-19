@@ -16,12 +16,19 @@ type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock' | 'groupId'>
 type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships' | 'knownPersonaId'>;
 
 let registered: { characters: GraphChar[]; npcs: GraphNpc[]; graph: FriendGraph } | null = null;
+let lastInputs: Parameters<typeof setMomentsGraphInputs> | null = null;
+
+/** 劇情的同場名單變了（utils/storySceneRegistry.ts）：照上次登記的資料把好友關係重算一次 */
+export function refreshMomentsGraph(): void {
+    if (lastInputs) setMomentsGraphInputs(...lastInputs);
+}
 
 export function setMomentsGraphInputs(
     characters: GraphChar[],
     npcs: GraphNpc[],
     personas?: { profileBase: UserProfile; groups: Array<Pick<GroupProfile, 'id' | 'members'>> },
 ): void {
+    lastInputs = [characters, npcs, personas];
     const slimChars = characters.map(c => ({ id: c.id, name: c.name, groupId: c.groupId, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
     const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships, knownPersonaId: n.knownPersonaId }));
     const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups, slimNpcs) : undefined;

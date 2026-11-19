@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
 import { buildStoryKnownPeopleNote } from '../../../utils/storyActorView';
 import { buildStoryActorBlock } from '../../../utils/storyActorContext';
+import { mirrorIdsOf, mirrorKeyCharId, storyMirrorMetadata, storyMirrorTargets } from '../../../utils/storyMirror';
+import { withLineFields } from '../../../utils/chatLine';
 import { memoryLineLabelsFor } from '../../../utils/memoryPalace/lineLabels';
 import { resolveUserProfileForChar } from '../../../utils/userPersona';
 import { defaultWriterKeys, lastRecordedPresent, messageWriters, presenceChangeNote, presenceMetadata, presentStamps, resolveStoryPresence, resolveWriters, storyPromptIdentityName, storyYouLabel } from '../../../utils/storyPresence';
@@ -120,12 +122,13 @@ const EMPTY_AFFINITY_DRAFT: AffinityDraft = { delta: 0, reason: '', awareness: '
 
 const mirrorArchived = (message: Message, entry: StoryTheaterEntry): boolean => {
     if (!entry.writesToCharacterMemory) return message.metadata?.theaterArchived === true;
+    // 鏡像以「線」為鍵（utils/storyMirror.ts）；記憶宮殿的水位一個角色只有一條
     const mirrorIds = message.metadata?.theaterMirrorIds as Record<string, number> | undefined;
-    const recipientIds = Object.keys(mirrorIds || {});
-    if (!mirrorIds || recipientIds.length === 0) return false;
-    return recipientIds.every(charId => {
-        const mirrorId = Number(mirrorIds[charId] || 0);
-        return mirrorId > 0 && mirrorId <= getMemoryPalaceHighWaterMark(charId);
+    const mirrorKeys = Object.keys(mirrorIds || {});
+    if (!mirrorIds || mirrorKeys.length === 0) return false;
+    return mirrorKeys.every(key => {
+        const mirrorId = Number(mirrorIds[key] || 0);
+        return mirrorId > 0 && mirrorId <= getMemoryPalaceHighWaterMark(mirrorKeyCharId(key));
     });
 };
 
@@ -401,8 +404,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
     });
 
     const relatedMessageIds = useCallback((message: Message): number[] => {
-        const mirrorIds = Object.values((message.metadata?.theaterMirrorIds || {}) as Record<string, number>).map(Number).filter(id => Number.isFinite(id) && id > 0);
-        return [...new Set([message.id, ...mirrorIds])];
+        return [...new Set([message.id, ...mirrorIdsOf(message)])];
     }, []);
     const saveMessageEdit = useCallback(async () => {
         if (!editingMessage || !editDraft.trim() || mutatingMessage) return;
@@ -504,24 +506,38 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         return content;
     }, [apiConfig, entry.omitSamplingParams]);
 
-    const saveCentralAndMirrors = useCallback(async (role: 'user' | 'assistant', content: string, centralMetadata: Record<string, unknown> = {}): Promise<number> => {
+    /**
+     * 存中央那則，並鏡像進演員的私聊紀錄（只有寫進角色記憶的劇情）。
+     * 每個演員照自己認識的卡落線：認識、而且這一段在場的每條線各一份（utils/storyMirror.ts）。
+     */
+    const saveCentralAndMirrors = useCallback(async (
+        role: 'user' | 'assistant',
+        content: string,
+        centralMetadata: Record<string, unknown> = {},
+        scene: { storyMsgs: Message[]; writerKeys: string[] } = { storyMsgs: [], writerKeys: [] },
+    ): Promise<number> => {
         const now = Date.now();
         const centralId = await DB.saveMessage({ charId: threadId, role, type: 'text', content, timestamp: now, metadata: { source: 'story_theater', theaterId: entry.id, ...centralMetadata } });
         if (!entry.writesToCharacterMemory) return centralId;
+        const presentPersonaKeys = present.flatMap(item => item.personaKey ? [item.personaKey] : []);
         const theaterMirrorIds: Record<string, number> = {};
-        for (const actor of memoryActors) {
-            theaterMirrorIds[actor.id] = await DB.saveMessage({
-                charId: actor.id,
-                role,
-                type: 'text',
-                content,
-                timestamp: memoryTimestampForCharacter(entry, actor.id, now),
-                metadata: { source: 'story_theater_memory', theaterId: entry.id, theaterTitle: entry.title, theaterCentralId: centralId },
-            });
+        for (const rawActor of memoryActors) {
+            const actor = withLineFields(userProfileBase, rawActor);
+            for (const target of storyMirrorTargets({ actor, profileBase: userProfileBase, presentPersonaKeys, storyMsgs: scene.storyMsgs, role, writerKeys: scene.writerKeys })) {
+                theaterMirrorIds[target.key] = await DB.saveMessage({
+                    charId: actor.id,
+                    ...(target.personaKey ? { personaKey: target.personaKey } : {}),
+                    role,
+                    type: 'text',
+                    content,
+                    timestamp: memoryTimestampForCharacter(entry, actor.id, now),
+                    metadata: { source: 'story_theater_memory', theaterId: entry.id, theaterTitle: entry.title, theaterCentralId: centralId, ...storyMirrorMetadata(target) },
+                });
+            }
         }
         await DB.updateMessageMetadata(centralId, previous => ({ ...previous, theaterMirrorIds }));
         return centralId;
-    }, [entry, memoryActors, threadId]);
+    }, [entry, memoryActors, present, threadId, userProfileBase]);
 
     /**
      * 每個演員的檔案塊。演員照自己認識的卡看在場的你（plans/story-multi-persona.md 第 2 批，口徑跟群聊同一套）：
@@ -612,9 +628,11 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             try {
                 setMemoryStatus(`${actor.name}正在整理這段相處……`);
                 const recent = await DB.getRecentMessagesByCharId(actor.id, 50);
-                await processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light, identityLabel, false, setMemoryStatus);
+                // 主線上的你叫什麼（別條線管線自己會換成那條線的名字）；不是「在場的名字全部接起來」
+                const mainName = resolveUserProfileForChar(userProfileBase, actor).name;
+                await processNewMessagesWithAutoArchive(recent, actor.id, actor.name, embedding, light, mainName, false, setMemoryStatus);
                 if (incrementDigestRound(actor.id)) {
-                    await runCognitiveDigestion(actor.id, actor.name, [actor.systemPrompt, actor.worldview].filter(Boolean).join('\n'), light, false, identityLabel, embedding);
+                    await runCognitiveDigestion(actor.id, actor.name, [actor.systemPrompt, actor.worldview].filter(Boolean).join('\n'), light, false, mainName, embedding);
                 }
             } catch (error: any) {
                 console.warn('[StoryTheater] actor memory pipeline failed', actor.id, error?.message || error);
@@ -622,7 +640,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         }
         setMemoryStatus('');
         await loadMessages();
-    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, identityLabel, memoryActors, memoryPalaceConfig, updateCharacter]);
+    }, [apiConfig, characters, entry.writesToCharacterMemory, loadMessages, memoryActors, memoryPalaceConfig, updateCharacter, userProfileBase]);
 
     const archiveIfNeeded = useCallback(async (): Promise<StoryTheaterEntry | null> => {
         if (entry.writesToCharacterMemory || archiveLock.current) return null;
@@ -639,7 +657,12 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
             if (entry.archiveStrategy === 'summary') {
                 setMemoryStatus(`正在把 ${batch.length} 條正文壓成事件盒……`);
-                const transcript = batch.map(message => `${message.role === 'user' ? '推進' : '正文'}：${message.content}`).join('\n\n');
+                // 你寫的那幾段照執筆者標名字（好幾個你同場時才分得出誰做了什麼）；舊訊息沒記就照舊寫「推進」
+                const transcript = batch.map(message => {
+                    const writers = message.role === 'user' ? messageWriters(message) : undefined;
+                    const label = message.role !== 'user' ? '正文' : !writers ? '推進' : writers.length === 0 ? '作者的推進' : `${writers.map(writer => writer.name).join('、')}的推進`;
+                    return `${label}：${message.content}`;
+                }).join('\n\n');
                 summary = await callCompletion([
                     { role: 'system', content: '把劇場片段壓縮成一隻可長期常駐上下文的事件盒。使用第三人稱，嚴格保留人物、因果、承諾、關係變化、未解決衝突和當前場景落點；不要評論寫作，不要虛構片段外事實。控制在 800 字以內。' },
                     { role: 'user', content: `劇情：${entry.title}\n\n${transcript}` },
@@ -732,7 +755,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                             ...(isContinueTurn ? { theaterContinue: true } : {}),
                             // 這段當時誰在場、誰執筆：之後標名字、歸線都照這裡記的（「繼續」那輪沒有人執筆，只記在場）
                             ...(isContinueTurn ? { theaterPresent: presentStamps(present) } : presenceMetadata(present, writers)),
-                        });
+                        }, { storyMsgs: before, writerKeys: isContinueTurn ? [] : writers.flatMap(item => item.personaKey ? [item.personaKey] : []) });
             if (!isReroll && !assistantOpening) await loadMessages();
 
             // 歸檔不能只放在成功生成之後：一旦會話已經碰到上游上下文上限，正文永遠生成
@@ -832,7 +855,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 if (mirrorArchived(rerollTarget, promptEntry)) throw new Error('這條回覆已進入記憶歸檔，請刷新後查看');
                 await replaceStoryTheaterReply(rerollTarget, content, replyMetadata);
             } else {
-                await saveCentralAndMirrors('assistant', content, replyMetadata);
+                await saveCentralAndMirrors('assistant', content, replyMetadata, { storyMsgs: current, writerKeys: [] });
             }
             if (!isContinueTurn) setInput('');
             setAffinityDrafts({});

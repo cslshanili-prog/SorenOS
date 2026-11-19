@@ -1,5 +1,6 @@
 import { loadRangeMessageContents } from './rangeMessagePage';
 import { buildMemoryLineLabels, type MemoryLineLabels } from './lineLabels';
+import { isSecondaryStoryMirror, mirrorWithKeys } from '../storyMirrorMeta';
 import { loadCharacterContextMessages } from '../chatContextRange';
 /**
  * Memory Palace — 集成管線 (Pipeline)
@@ -1778,6 +1779,8 @@ async function extractAndStoreMemories(
      * 提取出來的記憶都標上這條線（MemoryNode.personaKey）。
      */
     personaKey?: string,
+    /** 這批訊息是好幾個你同場的劇情段落：同場、角色也認識的其他卡，標在記憶上（MemoryNode.withPersonaKeys） */
+    withPersonaKeys?: string[],
 ): Promise<ExtractCoreResult> {
         // 5. 構建精簡上下文：角色檔案 + 用戶檔案 + 相關已有記憶
         let charContext = '';
@@ -1941,6 +1944,7 @@ async function extractAndStoreMemories(
 
         const memories = allMemories;
         if (personaKey) for (const memory of memories) memory.personaKey = personaKey;
+        if (withPersonaKeys?.length) for (const memory of memories) memory.withPersonaKeys = withPersonaKeys;
 
         if (memories.length === 0) {
             console.warn(`🏰 [Pipeline] 所有批次共提取 0 條記憶（${toProcess.length} 條消息），不更新高水位，下次重試`);
@@ -1979,16 +1983,24 @@ async function extractAndStoreMemories(
 }
 
 /** 關係線：把一批訊息按線分組（沒標身份的是主線），組內保持原本的順序，主線排第一。 */
-export function groupMessagesByLine(messages: Message[]): { personaKey?: string; messages: Message[] }[] {
-    const groups = new Map<string, Message[]>();
+export function groupMessagesByLine(messages: Message[]): { personaKey?: string; withPersonaKeys?: string[]; messages: Message[] }[] {
+    // 同一條線裡，「好幾個你同場」的劇情段落（鏡像訊息記了同場還有誰）另成一組：
+    // 那一組抽出來的記憶要標上同場的人（MemoryNode.withPersonaKeys）。一般私聊、只有一個你的劇情不受影響。
+    const groups = new Map<string, { personaKey: string; withKeys: string[]; messages: Message[] }>();
     for (const message of messages) {
-        const key = message.personaKey || '';
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(message);
+        const personaKey = message.personaKey || '';
+        const withKeys = mirrorWithKeys(message).slice().sort();
+        const key = `${personaKey}\u0000${withKeys.join('\u0001')}`;
+        if (!groups.has(key)) groups.set(key, { personaKey, withKeys, messages: [] });
+        groups.get(key)!.messages.push(message);
     }
-    return [...groups.entries()]
-        .sort(([a], [b]) => (a === '' ? -1 : b === '' ? 1 : 0))
-        .map(([key, list]) => (key ? { personaKey: key, messages: list } : { messages: list }));
+    return [...groups.values()]
+        .sort((a, b) => (a.personaKey === b.personaKey ? 0 : a.personaKey === '' ? -1 : b.personaKey === '' ? 1 : 0))
+        .map(group => ({
+            ...(group.personaKey ? { personaKey: group.personaKey } : {}),
+            ...(group.withKeys.length > 0 ? { withPersonaKeys: group.withKeys } : {}),
+            messages: group.messages,
+        }));
 }
 
 function mergeExtractCores(cores: ExtractCoreResult[]): ExtractCoreResult {
@@ -2153,8 +2165,9 @@ export async function processNewMessages(
         const privateMessages = allMessages
             .filter(message => !message.groupId)
             .sort((a, b) => a.id - b.id);
+        // 劇情裡好幾個你同場時，同一段正文在角色認識的每條線各有一份鏡像；只從主看的那份抽，別的跳過
         const textMessages = privateMessages
-            .filter(m => isMessageSemanticallyRelevant(m))
+            .filter(m => isMessageSemanticallyRelevant(m) && !isSecondaryStoryMirror(m))
             .sort((a, b) => a.id - b.id);
 
         const totalCount = textMessages.length;
@@ -2260,7 +2273,7 @@ export async function processNewMessages(
         for (const group of lineGroups) {
             const groupCore = await extractAndStoreMemories(
                 group.messages, charId, charName, embeddingConfig, llmConfig, userName, onProgress, true,
-                options.requireAllBatches === true, group.personaKey,
+                options.requireAllBatches === true, group.personaKey, group.withPersonaKeys,
             );
             lineCores.push({ personaKey: group.personaKey, core: groupCore });
             if (options.requireAllBatches && groupCore.batches.some(batch => !batch.ok)) break;
@@ -2629,7 +2642,7 @@ export async function processMessageRange(
             rangeCores.push({
                 personaKey: group.personaKey,
                 core: await extractAndStoreMemories(
-                    group.messages, charId, charName, embeddingConfig, llmConfig, userName, onProgress, false, false, group.personaKey,
+                    group.messages, charId, charName, embeddingConfig, llmConfig, userName, onProgress, false, false, group.personaKey, group.withPersonaKeys,
                 ),
             });
         }

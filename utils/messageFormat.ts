@@ -23,6 +23,7 @@ import { formatTransferRecord } from './transferFormat';
 import { formatMallOrderRecord } from './mallOrderFormat';
 import { formatStatCount } from './videoParser';
 import { formatSARModuleEventsForContext } from './vrWorld/sarModuleRuntime';
+import { mirrorSceneNote, mirrorWriterLabel } from './storyMirrorMeta';
 
 /**
  * 總結器只在輸入確實含 SAR 雙軌記錄時收到這段硬邊界；普通聊天/總結提示詞保持原樣。
@@ -412,10 +413,12 @@ export function formatMessageForPrompt(
     charName: string,
     userName: string,
 ): string {
-    const sender = msg.role === 'user' ? userName
+    // 劇情鏡像（好幾個你同場、或這條線的你不在場）：你寫的那段標真正執筆的人，並帶上同場的說明
+    const sender = msg.role === 'user' ? (mirrorWriterLabel(msg) || userName)
         : msg.role === 'system' ? '[系統]'
         : charName;
-    return `[${sender}]: ${normalizeMessageContent(msg, charName, userName)}`;
+    const sceneNote = mirrorSceneNote(msg);
+    return `[${sender}]: ${sceneNote ? `〔線下劇情：${sceneNote}〕` : ''}${normalizeMessageContent(msg, charName, userName)}`;
 }
 
 /** 帶時間戳的版本（歸檔常用）：`[HH:MM] 發送者: 內容` */

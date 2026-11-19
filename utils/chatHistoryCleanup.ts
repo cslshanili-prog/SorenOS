@@ -137,8 +137,10 @@ export async function deleteChatHistoryCleanup(plan: ChatCleanupPlan, confirmati
                             const central = centralRequest.result as Message | undefined;
                             if (!central || central.charId === plan.charId || central.metadata?.source !== 'story_theater' || central.metadata?.theaterId !== message.metadata?.theaterId) return;
                             const mirrors = central.metadata?.theaterMirrorIds as Record<string, number> | undefined;
-                            if (Number(mirrors?.[plan.charId]) !== message.id) return;
-                            const nextMirrors = { ...mirrors }; delete nextMirrors[plan.charId];
+                            // 鏡像以「線」為鍵（主線是 charId，別條線是 charId::身份鍵），照 id 找是哪一份
+                            const mirrorKey = Object.keys(mirrors || {}).find(key => Number(mirrors?.[key]) === message.id);
+                            if (!mirrorKey) return;
+                            const nextMirrors = { ...mirrors }; delete nextMirrors[mirrorKey];
                             store.put({ ...central, metadata: { ...central.metadata, theaterMirrorIds: nextMirrors } });
                         };
                     }

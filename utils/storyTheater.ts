@@ -21,7 +21,7 @@ import {
 import { shareOrDownloadFile } from './shareExport';
 import { buildNpcMemoryBlock } from './npcMemory';
 import { withGlobalWorldbooks } from './globalWorldbooks';
-import { messageWriters, normalizePresenceSelections, presenceCharacterIds, storyPromptIdentityName, type StoryPresent } from './storyPresence';
+import { isPersonaSelection, messageWriters, normalizePresenceSelections, presenceCharacterIds, storyPromptIdentityName, type StoryPresent } from './storyPresence';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export interface StoryApiMessage { role: StoryApiRole; content: string; }
@@ -208,8 +208,9 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
 export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEntry => {
     const archiveAfter = Math.round(clampNumber(entry.archiveAfter, 2, 200, 40));
     const archiveKeepRecent = Math.round(clampNumber(entry.archiveKeepRecent, 1, Math.max(1, archiveAfter - 1), Math.min(5, archiveAfter - 1)));
-    // 在場的你（好幾個）：寫進角色記憶的劇情這一批還是只能本人（第 3 批開放多張身份卡）
-    const presence = entry.writesToCharacterMemory ? undefined : normalizePresenceSelections(entry.presence);
+    // 在場的你（好幾個）。寫進角色記憶的劇情只能選身份卡（寫進真實記憶的必須是真的你），面具和你演的角色濾掉
+    const rawPresence = normalizePresenceSelections(entry.presence);
+    const presence = entry.writesToCharacterMemory ? rawPresence?.filter(isPersonaSelection) : rawPresence;
     const legacyMask: StoryTheaterMaskSelection = entry.mask?.type === 'character' && entry.mask.id
         ? { type: 'character', id: entry.mask.id }
         : entry.mask?.type === 'custom' && entry.mask.id
@@ -223,7 +224,7 @@ export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEnt
         premise: String(entry.premise || ''),
         openingMode: entry.openingMode === 'assistant' ? 'assistant' : 'user',
         // 舊欄位跟著是第一位（旁觀時留本人），給還沒看 presence 的地方一個說得通的值
-        mask: entry.writesToCharacterMemory ? { type: 'user' } : presence ? (presence[0] || { type: 'user' }) : legacyMask,
+        mask: presence ? (presence[0] || { type: 'user' }) : entry.writesToCharacterMemory ? { type: 'user' } : legacyMask,
         presence,
         characterIds: Array.isArray(entry.characterIds) ? entry.characterIds.filter(Boolean) : [],
         npcIds: Array.isArray(entry.npcIds) ? entry.npcIds.filter(Boolean) : [],

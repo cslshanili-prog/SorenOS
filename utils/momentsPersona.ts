@@ -2,11 +2,14 @@ import type { CharacterProfile, GroupProfile, MomentPost, UserProfile } from '..
 import type { PersonaKnowledge } from './momentsPool';
 import { personaKeyForChar, personaKeyForNpc, personaNameForKey, type NpcPersonaRef } from './userPersona';
 import { presentPersonaKeys } from './groupChat/presence';
+import { storyPresentPersonaKeys } from './storyPresence';
+import { getStoryScenes, type StoryScene } from './storySceneRegistry';
 
 /**
  * 朋友圈的身份資料（多身份隔離 2a，見 plans/multi-persona-isolation-design.md）：
  * - 角色的主身份＝它私聊那條線綁的身份卡（personaKeyForChar）。
- * - 見過的身份＝它所在的群的群身份，跟主身份不同的那些（群友，不是朋友）。
+ * - 見過的身份＝它所在的群的群身份，跟主身份不同的那些（群友，不是朋友）；
+ *   在劇情裡同場過的身份卡也算（utils/storySceneRegistry.ts，面具和你演的角色不算）。
  * - NPC 的主身份：手動指定的「認識的身份」，沒指定就從它關係清單裡的角色推（personaKeyForNpc）。
  */
 export function buildPersonaKnowledge(
@@ -14,6 +17,8 @@ export function buildPersonaKnowledge(
     characters: Array<Pick<CharacterProfile, 'id' | 'groupId'> & { knownPersonaKeys?: string[]; primaryPersonaKey?: string }>,
     groups: Array<Pick<GroupProfile, 'id' | 'members'>>,
     npcs: NpcPersonaRef[] = [],
+    /** 劇情裡誰跟誰同場過；不給就用登記表裡的 */
+    stories: StoryScene[] = getStoryScenes(),
 ): PersonaKnowledge {
     const main = new Map<string, string>();
     // 關係線：角色認識的每張卡都是「認識的人」（plans/persona-line-batch3.md）
@@ -29,6 +34,17 @@ export function buildPersonaKnowledge(
         // 在場的每張卡都算見過（關係線第 5 批）；旁觀的群沒有你，不算見過
         for (const key of presentPersonaKeys(profileBase, g, characters)) {
             for (const member of g.members || []) {
+                if (main.get(member) === key) continue;
+                const set = seen.get(member) || new Set<string>();
+                set.add(key);
+                seen.set(member, set);
+            }
+        }
+    }
+    // 劇情：在場的每張身份卡，演員都算見過（旁觀的劇情沒有你，不算）
+    for (const story of stories) {
+        for (const key of storyPresentPersonaKeys(story, profileBase)) {
+            for (const member of story.characterIds || []) {
                 if (main.get(member) === key) continue;
                 const set = seen.get(member) || new Set<string>();
                 set.add(key);
