@@ -6,6 +6,7 @@ import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMessageContent } from './messageFormat';
 import { stripLeakedReasoning } from './reasoningLeak';
 import { characterVoice } from './momentsVoice';
+import { personaExtraSetting } from './personaSetting';
 
 /**
  * 「AI 幫我回覆」（聊天設定 · Scenario）：「+」面板按一下，替用戶想三個回覆草稿，掛在輸入欄上方；
@@ -32,7 +33,7 @@ export function resolveReplyDraftApi(lightLLM: Partial<Api> | undefined, char: C
     return resolveCharacterChatApi(char, apiConfig);
 }
 
-type DraftUser = Pick<UserProfile, 'name' | 'bio' | 'customSetting'>;
+type DraftUser = Pick<UserProfile, 'name' | 'bio' | 'customSetting' | 'otherDetails'>;
 type DraftChar = Pick<CharacterProfile, 'name' | 'description' | 'systemPrompt' | 'briefPersona'
     | 'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'>;
 
@@ -58,7 +59,7 @@ export function buildReplyDraftPrompt(params: {
     const { char, user, history, withActions } = params;
     const partial = params.partial?.trim();
     const me = user.name || '我';
-    const userPersona = squash([user.bio, user.customSetting].filter(Boolean).join(' '));
+    const userPersona = squash([user.bio, personaExtraSetting(user)].filter(Boolean).join(' '));
     const relation = [
         char.userViewRelationship?.trim() && `${me} 認為兩人的關係：${char.userViewRelationship.trim()}`,
         char.charViewRelationship?.trim() && `${char.name} 認為兩人的關係：${char.charViewRelationship.trim()}`,

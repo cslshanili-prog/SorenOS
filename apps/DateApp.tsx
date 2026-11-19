@@ -201,6 +201,8 @@ const DateApp: React.FC = () => {
     const [openingMode, setOpeningMode] = useState<DateOpeningMode>(loadRememberedOpening);
     // 切換開場方式時舊的感知請求晚回來不能蓋掉新的
     const peekRequestRef = useRef(0);
+    // 開場生成中的那個請求：離開、重新感知、換開場方式時真的中止它（不只是丟掉結果），免得白燒一次
+    const peekAbortRef = useRef<AbortController | null>(null);
     // 從角色的見面邀請卡赴約時帶過來的約定；這一次見面的開場都照它寫，換角色就清掉
     const [peekMeetup, setPeekMeetup] = useState<DateMeetup | null>(null);
     // 用開場白庫開場時，這次挑到的是哪一條（重新感知就換一條）
@@ -342,8 +344,18 @@ const DateApp: React.FC = () => {
     }, []); // 僅掛載時檢查一次
 
     // --- Navigation Helpers ---
+    /** 開場還在生成就離開：作廢這一次（晚到的結果不落地）、中止請求、收掉「正在感知」 */
+    const cancelPeek = () => {
+        peekRequestRef.current += 1;
+        peekAbortRef.current?.abort();
+        peekAbortRef.current = null;
+        setPeekLoading(false);
+    };
+
     const handleBack = () => {
         if (mode === 'peek') {
+            // 生成到一半也能走：作廢這一次、中止請求，回上一頁
+            cancelPeek();
             // 來自聊天：從感知頁退出直接回聊天，不落在見面選擇頁
             if (cameFromChat) { returnToChat(); return; }
             setMode('select');
@@ -359,7 +371,7 @@ const DateApp: React.FC = () => {
     // 見面跟私聊用同一個模型：角色設了專屬「對話模型」就用它，沒設才落到全局 API
     // 生成中的那一則（開了串流才有）：正文和原生思考邊到邊顯示，收完就清掉
     const [liveReply, setLiveReply] = useState<{ text: string; reasoning: string } | null>(null);
-    const callLLMReply = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<DateReply> => {
+    const callLLMReply = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration, signal?: AbortSignal): Promise<DateReply> => {
         const chatApi = char ? resolveCharacterChatApi(char, apiConfig) : apiConfig;
         const stream = apiConfig.stream ?? false;
         setLiveReply(null);
@@ -367,6 +379,7 @@ const DateApp: React.FC = () => {
             const data = await safeFetchJson(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${chatApi.apiKey}` },
+                ...(signal ? { signal } : {}),
                 body: JSON.stringify({
                     model: chatApi.model,
                     messages,
@@ -395,8 +408,8 @@ const DateApp: React.FC = () => {
             setLiveReply(null);
         }
     };
-    const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration): Promise<string> =>
-        (await callLLMReply(messages, temperature, generation)).content;
+    const callLLM = async (messages: ApiMessage[], temperature: number, generation?: MeetingPresetGeneration, signal?: AbortSignal): Promise<string> =>
+        (await callLLMReply(messages, temperature, generation, signal)).content;
 
     /**
      * 角色選了自訂預設：開場也照預設跑（以前開場一律走內建的感知提示詞，預設要的格式、結構都不會出現）。
@@ -411,6 +424,7 @@ const DateApp: React.FC = () => {
         meetup?: DateMeetup;
         clock: ReturnType<typeof makeDateClock>;
         temperature: number;
+        signal?: AbortSignal;
     }): Promise<{ content: string; meta: Record<string, string> }> => {
         const instruction = buildDateOpeningInstruction({ charName: input.char.name, userName: input.userProfile.name, openingMode: input.openingMode, meetup: input.meetup });
         const pending = { id: -1, charId: input.char.id, role: 'user', type: 'text', content: instruction, timestamp: Date.now(), metadata: { source: 'date' } } as Message;
@@ -420,7 +434,7 @@ const DateApp: React.FC = () => {
             userText: instruction, useVisionDescriptions: apiConfig.visionApi?.enabled === true,
             model: resolveCharacterChatApi(input.char, apiConfig).model, clock: input.clock,
         });
-        const reply = await callLLMReply(messages, input.temperature, generation);
+        const reply = await callLLMReply(messages, input.temperature, generation, input.signal);
         const env = { charName: input.char.name, userName: input.userProfile.name || '', vars: {}, globalVars: {} };
         const content = applyRegexScripts(reply.content, input.preset.doc.regexScripts, { placement: REGEX_PLACEMENT.aiOutput, stage: 'store', env });
         return { content, meta: dateReplyMeta(reply, content, input.preset.doc.name) };
@@ -715,6 +729,10 @@ const DateApp: React.FC = () => {
         sourceOverride?: 'generate' | 'greeting',
     ) => {
         const requestId = ++peekRequestRef.current;
+        // 上一次還在跑（重新感知、生成到一半換開場方式）就中止它
+        peekAbortRef.current?.abort();
+        const abort = new AbortController();
+        peekAbortRef.current = abort;
         if (selectedOpening !== openingMode) {
             setOpeningMode(selectedOpening);
             if (rememberOpening) {
@@ -749,6 +767,7 @@ const DateApp: React.FC = () => {
                     preset, char: c, userProfile: resolveUserProfileForChar(userProfileBase, c), msgs: preparedMsgs,
                     openingMode: selectedOpening, meetup: meetup || undefined, clock: makeDateClock(c, null),
                     temperature: apiConfig.temperature ?? 0.85,
+                    signal: abort.signal,
                 });
                 if (requestId === peekRequestRef.current) { setPeekStatus(opening.content); setPeekMeta(opening.meta); }
                 return;
@@ -767,7 +786,7 @@ const DateApp: React.FC = () => {
                 // 新故事的開場：時間照「下一場故事」的設定
                 clock: makeDateClock(c, null),
             });
-            const content = await callLLM(messages, apiConfig.temperature ?? 0.85);
+            const content = await callLLM(messages, apiConfig.temperature ?? 0.85, undefined, abort.signal);
             if (requestId === peekRequestRef.current) setPeekStatus(content);
 
         } catch (e: any) {
@@ -1790,6 +1809,12 @@ const DateApp: React.FC = () => {
     if (mode === 'peek') {
         return (
             <div className="h-full w-full bg-black relative flex flex-col font-sans overflow-hidden">
+                {/* 隨時能走：開場還在生成也能按（會中止那次請求）。位置跟選人頁的返回鍵同一條式子（從 --safe-top 往下放，別壓到系統狀態列） */}
+                <button type="button" onClick={handleBack} aria-label="返回上一頁" data-testid="date-peek-back"
+                    className="absolute left-3 z-20 p-2 rounded-full text-neutral-400 hover:text-white hover:bg-white/10 active:scale-90 transition"
+                    style={{ top: 'calc(max(1.25rem, var(--safe-top)) + 0.5rem)' }}>
+                    <CaretLeft size={22} weight="bold" />
+                </button>
                 <div className="pt-24 flex flex-col items-center z-10 shrink-0">
                      <div className="text-xs font-mono text-neutral-500 mb-2 tracking-[0.2em] font-medium">{virtualTime.day.toUpperCase()} {formatTime()}</div>
                      <h2 className="text-4xl font-light text-white tracking-[0.3em] uppercase">{char.name}</h2>
@@ -1799,9 +1824,8 @@ const DateApp: React.FC = () => {
                                  key={value}
                                  role="radio"
                                  aria-checked={openingMode === value}
-                                 disabled={peekLoading}
                                  onClick={() => { if (openingMode !== value) startPeek(char, value); }}
-                                 className={`rounded-full px-4 py-1.5 transition disabled:opacity-50 ${openingMode === value ? 'bg-white text-black font-bold' : 'text-neutral-500 hover:text-neutral-300'}`}
+                                 className={`rounded-full px-4 py-1.5 transition ${openingMode === value ? 'bg-white text-black font-bold' : 'text-neutral-500 hover:text-neutral-300'}`}
                              >
                                  {label}
                              </button>
@@ -1814,7 +1838,7 @@ const DateApp: React.FC = () => {
                             {([['generate', '模型寫開場'], ['greeting', '用開場白']] as const).map(([value, label]) => {
                                 const active = (char.dateOpeningSource || 'generate') === value;
                                 return (
-                                    <button key={value} type="button" role="radio" aria-checked={active} disabled={peekLoading}
+                                    <button key={value} type="button" role="radio" aria-checked={active}
                                         onClick={() => { if (active) return; updateCharacter(char.id, { dateOpeningSource: value }); startPeek(char, openingMode, peekMeetup, true, value); }}
                                         className={`rounded-full px-4 py-1.5 transition disabled:opacity-50 ${active ? 'bg-white text-black font-bold' : 'text-neutral-500 hover:text-neutral-300'}`}>
                                         {label}
@@ -1825,7 +1849,8 @@ const DateApp: React.FC = () => {
                     </div>
                 )}
                 {peekLoading && (
-                    <div className="flex-1 flex flex-col items-center justify-center -mt-20 z-10"><div className="w-12 h-[1px] bg-neutral-800 mb-12"></div><div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white to-transparent animate-pulse mb-6"></div><p className="text-sm font-light text-neutral-500 italic tracking-widest">{openingMode === 'invite' ? `${char.name} 正在過來...` : '正在感知...'}</p></div>
+                    /* 這塊往上拉了 80px（-mt-20），會疊在上面那排開場方式上：本身不收點擊，只有裡面的按鈕收 */
+                    <div className="flex-1 flex flex-col items-center justify-center -mt-20 z-10 pointer-events-none"><div className="w-12 h-[1px] bg-neutral-800 mb-12"></div><div className="w-[1px] h-12 bg-gradient-to-b from-transparent via-white to-transparent animate-pulse mb-6"></div><p className="text-sm font-light text-neutral-500 italic tracking-widest">{openingMode === 'invite' ? `${char.name} 正在過來...` : '正在感知...'}</p><button type="button" onClick={handleBack} data-testid="date-peek-cancel" className="pointer-events-auto mt-10 h-10 px-6 rounded-full border border-neutral-700 text-[12px] text-neutral-400 tracking-widest hover:text-white hover:border-neutral-500 active:scale-95 transition">不等了，悄悄離開</button></div>
                 )}
                 {!peekLoading && peekStatus && (
                     <div className="flex-1 min-h-0 flex flex-col px-8 pb-10 z-10 animate-fade-in">
@@ -1851,7 +1876,7 @@ const DateApp: React.FC = () => {
                 {/* 兜底：感知結束但 peekStatus 為空（歷史上模型空回覆會走到這）——
                     以前這裡什麼都不渲染，頁面只剩角色名的純黑屏，連退出按鈕都沒有 */}
                 {!peekLoading && !peekStatus && (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-8 -mt-20 z-10 animate-fade-in">
+                    <div className="flex-1 flex flex-col items-center justify-center gap-8 -mt-20 z-10 animate-fade-in pointer-events-none [&>button]:pointer-events-auto">
                         <p className="text-sm font-light text-neutral-500 italic tracking-widest">未能感知到 {char.name} 的狀態</p>
                         <button onClick={() => { trackEvent('重新感知一次角色状态'); startPeek(char); }} className="h-12 px-10 bg-white text-black rounded-full font-bold tracking-[0.1em] text-sm active:scale-95 transition-transform hover:bg-neutral-200">重新感知</button>
                         <button onClick={handleBack} className="text-[10px] text-neutral-600 font-medium tracking-wider hover:text-neutral-400 transition-colors">悄悄離開</button>

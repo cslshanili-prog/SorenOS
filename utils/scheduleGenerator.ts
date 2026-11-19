@@ -20,17 +20,17 @@ import {
     parseWeekOutline, resolveDoneTodos, toScheduleSlot, weekdayOf, type NamedParticipant,
 } from './scheduleGenParts';
 import { REAL_IDENTITY_PERSONA_ID, personaNameForKey } from './userPersona';
+import { personaExtraSetting } from './personaSetting';
 import { buildCharSchedulePrompt, buildPersonaSchedulePrompt, SCHEDULE_LLM_MAX_TOKENS, SCHEDULE_LLM_TEMPERATURE } from './schedulePromptCore';
 
-/** 身份卡的「這個人」幾行（名字、簡介、自定義設定） */
+/** 身份卡的「這個人」幾行（名字、簡介、補充設定） */
 const personaLines = (person: SchedulePerson): string => {
     const p = person.personaProfile;
     return [
         `名字：${person.name}`,
         p?.gender ? `性別：${p.gender}` : '',
         p?.bio ? `簡介：${p.bio}` : '',
-        p?.customSetting ? `自定義設定：${p.customSetting}` : '',
-        p?.otherDetails ? `其他補充：${p.otherDetails}` : '',
+        personaExtraSetting(p) ? `補充設定：${personaExtraSetting(p)}` : '',
     ].filter(Boolean).join('\n');
 };
 import { tripOn } from './trips';
