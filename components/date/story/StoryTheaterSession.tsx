@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
+import { buildStoryKnownPeopleNote } from '../../../utils/storyActorView';
+import { buildStoryActorBlock } from '../../../utils/storyActorContext';
+import { memoryLineLabelsFor } from '../../../utils/memoryPalace/lineLabels';
+import { resolveUserProfileForChar } from '../../../utils/userPersona';
 import { defaultWriterKeys, lastRecordedPresent, messageWriters, presenceChangeNote, presenceMetadata, presentStamps, resolveStoryPresence, resolveWriters, storyPromptIdentityName, storyYouLabel } from '../../../utils/storyPresence';
 import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, CaretDown, CaretLeft, CaretRight, ChatCircleDots, Clock, Database, DownloadSimple, Eye, EyeSlash, FilmSlate, GearSix, HeartStraight, Key, MapPin, PaperPlaneTilt, PencilSimple, SlidersHorizontal, SpinnerGap, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../../../context/OSContext';
@@ -519,33 +523,47 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         return centralId;
     }, [entry, memoryActors, threadId]);
 
-    const buildActorContexts = useCallback(async (query: string): Promise<string> => {
+    /**
+     * 每個演員的檔案塊。演員照自己認識的卡看在場的你（plans/story-multi-persona.md 第 2 批，口徑跟群聊同一套）：
+     * 主看的那條線建檔案、帶那條線的最近聊天；其他認識的在場卡各補一段；不認識的照資料認人。
+     * 記憶宮殿只有一份，召回一次，別條線的記憶照主看的線加標籤。
+     */
+    const buildActorContexts = useCallback(async (query: string, storyMsgs: Message[]): Promise<string> => {
         const allBookIds = new Set(actors.flatMap(actor => withGlobalWorldbooks(actor.mountedWorldbooks).map(book => book.id)));
         const blocks: string[] = [];
-        for (const actor of actors) {
+        const presentPersonaKeys = present.flatMap(item => item.personaKey ? [item.personaKey] : []);
+        const embedding = memoryPalaceConfig.embedding;
+        for (const rawActor of actors) {
             if (!entry.carryCharacterMemory) {
-                blocks.push(buildBareTheaterActorContext(actor));
+                blocks.push(buildBareTheaterActorContext(rawActor));
                 continue;
             }
-            const limit = Math.max(0, Math.min(500, entry.characterContextLimits[actor.id] ?? 100));
-            const recent = await loadStoryActorContext(actor, entry.id, limit);
-            let recalled = '';
-            const embedding = memoryPalaceConfig.embedding;
-            if (actor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
-                const rawRecall = await retrieveMemories(recent, actor.id, embedding, actor.activeBuffs?.[0]?.name, actor.personalityStyle || 'emotional', actor.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, actor.name);
-                recalled = buildStoryActorMemoryEnvelope(actor.name, rawRecall, userProfile.name, identityLabel);
-            }
-            const theaterActor = { ...actor, memoryPalaceInjection: recalled };
-            const core = ContextBuilder.buildCoreContext(theaterActor, userProfile, true, recalled, {
-                skipUserProfile: true,
-                skipWorldbookIds: allBookIds,
-                headerOverride: `[劇情角色：${actor.name}]`,
-            }, { skipTimeAwareness: true });
-            blocks.push(`${core}\n${formatActorRecentMessages(actor, recent, userProfile.name, identityLabel)}`.trim());
+            const limit = Math.max(0, Math.min(500, entry.characterContextLimits[rawActor.id] ?? 100));
+            blocks.push(await buildStoryActorBlock({
+                actor: rawActor,
+                profileBase: userProfileBase,
+                presentPersonaKeys,
+                identityNames,
+                identityLabel,
+                lurking,
+                storyMsgs,
+                loadRecent: view => loadStoryActorContext(view, entry.id, limit),
+                recall: async (view, recent, userName) => rawActor.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey
+                    ? retrieveMemories(recent, rawActor.id, embedding, rawActor.activeBuffs?.[0]?.name, rawActor.personalityStyle || 'emotional', rawActor.ruminationTendency ?? 0.3, query, userName, remoteVectorConfig, rawActor.name, undefined, { lineLabels: memoryLineLabelsFor(view, userProfileBase) })
+                    : '',
+                buildCore: (view, profile, recalled) => ContextBuilder.buildCoreContext({ ...view, memoryPalaceInjection: recalled }, profile, true, recalled, {
+                    skipUserProfile: true,
+                    skipWorldbookIds: allBookIds,
+                    headerOverride: `[劇情角色：${rawActor.name}]`,
+                }, { skipTimeAwareness: true }),
+                lineSections: (view, profile) => ContextBuilder.buildCoreSections(view, profile, false),
+            }));
         }
         for (const npc of npcActors) blocks.push(buildTheaterNpcContext(npc, userProfile.name, actors));
-        return blocks.join('\n\n---\n\n');
-    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, identityLabel, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+        // 演員各自私下認識的人不是同一位：幕後須知（不帶記憶的劇情用不到）
+        const knownPeopleNote = entry.carryCharacterMemory ? buildStoryKnownPeopleNote(actors, userProfileBase) : '';
+        return [blocks.join('\n\n---\n\n'), knownPeopleNote].filter(Boolean).join('\n\n---\n\n');
+    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, identityLabel, identityNames, lurking, memoryPalaceConfig.embedding, present, remoteVectorConfig, userProfile.name, userProfileBase]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || presentCharacterIds.length === 0) return '';
@@ -554,27 +572,28 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         for (const characterId of presentCharacterIds) {
         const maskCharacter = characters.find(char => char.id === characterId);
         if (!maskCharacter) continue;
+        const maskKnown = resolveUserProfileForChar(userProfileBase, maskCharacter);
         const limit = Math.max(0, Math.min(500, entry.characterContextLimits[maskCharacter.id] ?? 100));
         const recent = await loadStoryActorContext(maskCharacter, entry.id, limit);
         let recalled = '';
         const embedding = memoryPalaceConfig.embedding;
         if (maskCharacter.memoryPalaceEnabled && embedding?.baseUrl && embedding?.apiKey) {
-            const rawRecall = await retrieveMemories(recent, maskCharacter.id, embedding, maskCharacter.activeBuffs?.[0]?.name, maskCharacter.personalityStyle || 'emotional', maskCharacter.ruminationTendency ?? 0.3, query, userProfile.name, remoteVectorConfig, maskCharacter.name);
-            recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, userProfile.name, maskCharacter.name);
+            const rawRecall = await retrieveMemories(recent, maskCharacter.id, embedding, maskCharacter.activeBuffs?.[0]?.name, maskCharacter.personalityStyle || 'emotional', maskCharacter.ruminationTendency ?? 0.3, query, maskKnown.name, remoteVectorConfig, maskCharacter.name);
+            recalled = buildStoryActorMemoryEnvelope(maskCharacter.name, rawRecall, maskKnown.name, maskCharacter.name);
         }
         const skipWorldbookIds = new Set([
             ...withGlobalWorldbooks(maskCharacter.mountedWorldbooks).map(book => book.id),
             ...actors.flatMap(actor => withGlobalWorldbooks(actor.mountedWorldbooks).map(book => book.id)),
         ]);
-        const core = ContextBuilder.buildCoreContext({ ...maskCharacter, memoryPalaceInjection: recalled }, userProfile, true, recalled, {
+        const core = ContextBuilder.buildCoreContext({ ...maskCharacter, memoryPalaceInjection: recalled }, maskKnown, true, recalled, {
             skipUserProfile: true,
             skipWorldbookIds,
             headerOverride: `[你當前身份的既有記憶：${maskCharacter.name}]`,
         }, { skipTimeAwareness: true });
-        blocks.push(`${core}\n${formatActorRecentMessages(maskCharacter, recent, userProfile.name, maskCharacter.name)}`.trim());
+        blocks.push(`${core}\n${formatActorRecentMessages(maskCharacter, recent, maskKnown.name, maskCharacter.name)}`.trim());
         }
         return blocks.join('\n\n---\n\n');
-    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, presentCharacterIds, memoryPalaceConfig.embedding, remoteVectorConfig, userProfile]);
+    }, [actors, characters, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, presentCharacterIds, memoryPalaceConfig.embedding, remoteVectorConfig, userProfileBase]);
 
     const independentRecall = useCallback(async (query: string, recent: Message[], activeEntry: StoryTheaterEntry = entry): Promise<string> => {
         if (activeEntry.writesToCharacterMemory || !activeEntry.archives.some(archive => archive.strategy === 'vector')) return '';
@@ -728,7 +747,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             const presenceNote = presenceChangeNote(lastRecordedPresent(history), present);
             const visibleHistory = history.filter(message => !mirrorArchived(message, promptEntry));
             const [actorContext, maskMemoryContext, vectorRecall] = await Promise.all([
-                buildActorContexts(modelText),
+                buildActorContexts(modelText, history),
                 buildMaskMemoryContext(modelText),
                 independentRecall(modelText, visibleHistory.slice(-8), promptEntry),
             ]);

@@ -1249,14 +1249,24 @@ export const buildStoryActorMemoryEnvelope = (
     recalled: string,
     originalUserName: string,
     currentIdentityName: string,
+    /**
+     * othersPresent：同場的其他用戶側身份（好幾個你同場時才給），記憶裡的「你」是其中一位，要說清楚是哪一位。
+     * absent：記憶裡的那位這場戲不在場（旁觀、或在場的都不是它認識的人）。
+     */
+    opts: { othersPresent?: string[]; absent?: boolean } = {},
 ): string => {
     const content = recalled.trim();
     if (!content) return '';
     const owner = characterName.trim() || '當前角色';
     const originalUser = originalUserName.trim() || '原本的你';
     const currentIdentity = currentIdentityName.trim() || originalUser;
-    const identityReminder = currentIdentity === originalUser
-        ? `- 本劇情當前用戶側身份仍是「${originalUser}」；記憶原文裡的“你”繼續指這個身份。`
+    const others = (opts.othersPresent || []).map(name => name.trim()).filter(name => name && name !== originalUser);
+    const identityReminder = opts.absent
+        ? `- 「${originalUser}」這場戲不在場：記憶原文裡的“你”指的是 TA，在場的人都不是 TA，不得把這些記憶改綁到在場的人身上。`
+        : currentIdentity === originalUser
+        ? others.length > 0
+            ? `- 「${originalUser}」這場戲也在場：記憶原文裡的“你”指的就是在場的「${originalUser}」，不是同場的${others.map(name => `「${name}」`).join('')}。`
+            : `- 本劇情當前用戶側身份仍是「${originalUser}」；記憶原文裡的“你”繼續指這個身份。`
         : `- 本劇情當前用戶側執筆身份是「${currentIdentity}」，不得因此把舊記憶裡的“你”從「${originalUser}」改綁到當前身份。`;
 
     return [
@@ -1536,17 +1546,22 @@ export const formatActorRecentMessages = (
     messages: Message[],
     originalUserName?: string,
     currentIdentityName?: string,
+    /** 同上：othersPresent 是同場的其他用戶側身份；absent 是記憶裡的那位這場戲不在場 */
+    opts: { othersPresent?: string[]; absent?: boolean } = {},
 ): string => {
     if (messages.length === 0) return '';
     const originalUser = originalUserName?.trim() || '你';
     const currentIdentity = currentIdentityName?.trim() || originalUser;
+    const others = (opts.othersPresent || []).map(name => name.trim()).filter(name => name && name !== originalUser);
     const rows = messages.map(message => {
         const speaker = message.role === 'user' ? `記憶中的你（${originalUser}）` : message.role === 'assistant' ? char.name : '系統';
         const clean = String(message.content || '').replace(/data:[^\s]+/gi, '[媒體]').slice(0, 4000);
         return `- [${new Date(message.timestamp).toLocaleString()}] ${speaker}：${clean}`;
     });
-    const identityReminder = currentIdentity === originalUser
-        ? ''
+    const identityReminder = opts.absent
+        ? `\n「${originalUser}」這場戲不在場；下列“記憶中的你”是 TA，不是在場的任何人。`
+        : currentIdentity === originalUser
+        ? (others.length > 0 ? `\n「${originalUser}」這場戲也在場；下列“記憶中的你”就是在場的「${originalUser}」，不是同場的${others.map(name => `「${name}」`).join('')}。` : '')
         : `\n當前執筆身份是「${currentIdentity}」；不得把下列“記憶中的你”重新解釋成當前身份。`;
     return `### ${char.name} 最近攜帶的專屬原文上下文（${messages.length} 條）\n以下記錄只屬於「${char.name}」與原互動對象「${originalUser}」，不得併入其他角色的經歷。${identityReminder}\n${rows.join('\n')}`;
 };
