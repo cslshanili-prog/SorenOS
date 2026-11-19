@@ -114,7 +114,7 @@ import { refreshTripRegistry } from '../utils/trips';
 import { globalAmsgApi } from '../utils/apiCenter';
 import { syncAmsgLlmCredentials } from '../utils/amsgStateSync';
 import {
-  FAILOVER_SLOTS, apiKeyOf as failoverApiKeyOf, describeSwitch, identifySlot, isFailoverWorthy, markApiDown, markApiUp, nextCandidates, requestApiIdentity,
+  FAILOVER_SLOTS, apiKeyOf as failoverApiKeyOf, describeSwitch, failoverInit, identifySlot, isFailoverWorthy, isUserAbort, markApiDown, markApiUp, nextCandidates, requestApiIdentity,
   rewriteRequestForApi, sameApi, setFailoverOverride, shouldToastSwitch, type ChainEntry, type FailoverSlot, type SlotApi,
 } from '../utils/apiFailover';
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
@@ -1307,8 +1307,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           if (chain.length === 0) return null;
           markApiDown(identity);
           const fromName = presets.find(p => sameApi(p.config, identity))?.name;
+          // 逾時中止過的 signal 不能帶去下一家（會立刻又失敗）；還活著的留著，用戶按停照樣停
+          const baseInit = failoverInit(sendArgs[1] as RequestInit | undefined);
           for (const cand of nextCandidates(chain, identity)) {
-              const [nextUrl, nextInit] = rewriteRequestForApi(urlStr, sendArgs[1] as RequestInit | undefined, identity, cand);
+              const [nextUrl, nextInit] = rewriteRequestForApi(urlStr, baseInit, identity, cand);
               try {
                   const res = await originalFetch(nextUrl, nextInit);
                   if (!isFailoverWorthy(res.status)) {
@@ -1318,7 +1320,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       return { response: res, note: describeSwitch(slot, { baseUrl: identity.baseUrl, name: fromName }, cand), slot, to: cand };
                   }
                   markApiDown(cand);
-              } catch {
+              } catch (err) {
+                  // 換家途中用戶按停：不是這家掛了，別記冷卻，也別再往下試
+                  if (isUserAbort(err, nextInit.signal)) throw err;
                   markApiDown(cand);
               }
           }
@@ -1414,9 +1418,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           try {
               let response: Response;
               let failoverNote: string | null = null;
+              const requestSignal = (sendArgs[1] as RequestInit | undefined)?.signal
+                  ?? (typeof Request !== 'undefined' && sendArgs[0] instanceof Request ? sendArgs[0].signal : undefined);
               try {
                   response = await originalFetch(...sendArgs);
               } catch (err) {
+                  // 用戶自己按停（停止生成、離開頁面）不是 API 掛了：不記冷卻、不換家重發
+                  if (isUserAbort(err, requestSignal)) throw err;
                   // 網路錯／逾時：有備援鏈就換家再發一次（plans/api-center-failover.md）
                   const fo = await tryFailover(sendArgs, urlStr);
                   if (!fo) throw err;
@@ -1426,7 +1434,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               }
               // HTTP 408／429／5xx 同樣換家。4xx 其他不換：那是 Key 錯或請求體有問題，換家一樣錯。
               // 中轉站可能在回錯之前已經把任務交給上游，換家是用戶在備援鏈設定裡明確要的（沒排鏈就跟以前一樣不重發）。
-              if (!failoverNote && urlStr.includes('/chat/completions') && isFailoverWorthy(response.status)) {
+              if (!failoverNote && urlStr.includes('/chat/completions') && isFailoverWorthy(response.status) && !isUserAbort(null, requestSignal)) {
                   const fo = await tryFailover(sendArgs, urlStr);
                   if (fo) {
                       response = fo.response;
