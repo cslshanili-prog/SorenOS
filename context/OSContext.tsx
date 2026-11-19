@@ -120,7 +120,8 @@ import {
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
-import { setMomentsGraphInputs } from '../utils/momentsContext';
+import { refreshMomentsGraph, setMomentsGraphInputs } from '../utils/momentsContext';
+import { setStoryScenes } from '../utils/storySceneRegistry';
 import { setMinimaxRegion } from '../utils/minimaxEndpoint';
 import { setElevenLabsModel, setTtsProvider, setVoicePromptOverrides } from '../utils/ttsProvider';
 import { LocalNotifications } from '@capacitor/local-notifications';
@@ -2503,6 +2504,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     setMomentsGraphInputs(characters, npcs, { profileBase: userProfileBase, groups });
   }, [characters, npcs, userProfileBase, groups]);
+  // 劇情裡誰跟誰同場過（朋友圈「見過的身份」用）：開機載一次，之後劇情頁存檔、刪除時自己更新
+  useEffect(() => {
+    let cancelled = false;
+    DB.getStoryTheaters().then(entries => {
+      if (cancelled) return;
+      setStoryScenes(entries);
+      refreshMomentsGraph();
+    }).catch(() => { /* 讀不到就當沒有劇情 */ });
+    return () => { cancelled = true; };
+  }, []);
   const apiConfigRef = useRef(apiConfig);
   apiConfigRef.current = apiConfig;
   const apiPresetsRef = useRef(apiPresets);

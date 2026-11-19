@@ -69,6 +69,7 @@ import { FOOD_DELIVER_MIN } from './mallOrders';
 import { buildCharDecidesPrompt, buildResumeAfterNoReplyNote, resolveReadNoReply } from './readNoReply';
 import { buildLibraryPhotoBlock, pickCharLibraryPhotos } from './libraryPrompt';
 import { formatLibraryFileRecord } from './libraryShare';
+import { mirrorSceneNote } from './storyMirrorMeta';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
@@ -1481,7 +1482,11 @@ ${voiceActingGuide()}`);
                     const source = m.metadata?.source;
                     if (source === 'call') return '[通話]';
                     if (source === 'date') return '[約會]';
-                    if (source === 'story_theater_memory') return `[劇情：${m.metadata?.theaterTitle || '共同經歷'}]`;
+                    if (source === 'story_theater_memory') {
+                        // 好幾個你同場、或這條線的你不在場時，帶上同場的說明（utils/storyMirror.ts 寫入時算好的）
+                        const sceneNote = mirrorSceneNote(m);
+                        return `[劇情：${m.metadata?.theaterTitle || '共同經歷'}${sceneNote ? `｜${sceneNote}` : ''}]`;
+                    }
                     return '[聊天]';
                 })();
                 

@@ -266,3 +266,16 @@ export const lastRecordedPresent = (messages: Array<Pick<Message, 'role' | 'meta
 /** 這條劇情裡你演的角色（他們不當演員，但寫回記憶、帶記憶時要算進去） */
 export const presenceCharacterIds = (entry: Pick<StoryTheaterEntry, 'presence' | 'mask'>): string[] =>
     storyPresenceSelections(entry).flatMap(selection => selection.type === 'character' ? [selection.id] : []);
+
+/** 是不是身份卡（含舊的「本人」）。寫進角色記憶的劇情只能選這種：寫進真實記憶的必須是真的你 */
+export const isPersonaSelection = (selection: StoryTheaterMaskSelection): boolean =>
+    selection.type === 'user' || selection.type === 'persona';
+
+/** 這條劇情在場的身份卡（身份鍵）；面具、你演的角色不算。朋友圈「見過的身份」用 */
+export const storyPresentPersonaKeys = (entry: Pick<StoryTheaterEntry, 'presence' | 'mask'>, profileBase: UserProfile): string[] => {
+    const keys = storyPresenceSelections(entry).flatMap(selection =>
+        selection.type === 'user' ? [globalPersonaKey(profileBase)]
+            : selection.type === 'persona' && personaExists(profileBase, selection.key) ? [selection.key] : []);
+    return [...new Set(keys)];
+};
+

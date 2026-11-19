@@ -18,7 +18,8 @@ export async function deleteStoryTheaterData(
     const recipientIds = storyTheaterMemoryRecipientIds(entry);
     const [centralMessages, recipientMessages, vectorNodes] = await Promise.all([
         DB.getMessagesByCharId(threadId, true),
-        Promise.all(recipientIds.map(id => DB.getMessagesByCharId(id, true))),
+        // 鏡像可能落在角色認識的任何一條線上（好幾個你同場），每條線都要掃
+        Promise.all(recipientIds.map(id => DB.getPrivateMessagesAllLines(id))),
         listStoryVectorMemories(entry.id),
     ]);
 

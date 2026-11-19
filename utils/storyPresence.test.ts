@@ -52,16 +52,16 @@ describe('在場的你：解析', () => {
         expect(normalizePresenceSelections(undefined)).toBeUndefined();
         expect(normalizePresenceSelections([])).toEqual([]);
     });
-    it('劇情正規化：presence 留著、舊 mask 跟著是第一位；寫進角色記憶的還是只能本人', () => {
+    it('劇情正規化：presence 留著、舊 mask 跟著是第一位；寫進角色記憶的只留身份卡（第 3 批起可以好幾張）', () => {
         const draft = createStoryTheaterDraft(1);
         const multi = normalizeStoryTheater({ ...draft, presence: [{ type: 'persona', key: 'elder' }, { type: 'character', id: 'c2' }] });
         expect(multi.presence).toEqual([{ type: 'persona', key: 'elder' }, { type: 'character', id: 'c2' }]);
         expect(multi.mask).toEqual({ type: 'persona', key: 'elder' });
         expect(storyTheaterMemoryRecipientIds({ ...multi, characterIds: ['c1'] })).toEqual(['c1', 'c2']);
         expect(normalizeStoryTheater({ ...draft, presence: [] })).toMatchObject({ presence: [], mask: { type: 'user' } });
-        const real = normalizeStoryTheater({ ...draft, writesToCharacterMemory: true, presence: [{ type: 'persona', key: 'elder' }] });
-        expect(real.presence).toBeUndefined();
-        expect(real.mask).toEqual({ type: 'user' });
+        const real = normalizeStoryTheater({ ...draft, writesToCharacterMemory: true, presence: [{ type: 'persona', key: 'elder' }, { type: 'character', id: 'c2' }] });
+        expect(real.presence).toEqual([{ type: 'persona', key: 'elder' }]);
+        expect(real.mask).toEqual({ type: 'persona', key: 'elder' });
         expect(normalizeStoryTheater({ ...draft, mask: { type: 'custom', id: 'm1' } }).presence).toBeUndefined();
     });
 });

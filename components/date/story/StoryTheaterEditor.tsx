@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import ExpandableTextarea from '../../common/ExpandableTextarea';
-import { ArrowLeft, DownloadSimple, LockSimple, UploadSimple, UserCircle } from '@phosphor-icons/react';
+import { ArrowLeft, DownloadSimple, UploadSimple, UserCircle } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
 import type { CharacterProfile, NPCProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, UserProfile } from '../../../types';
 import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument } from '../../../utils/storyTheater';
-import { joinPresentNames, presenceCharacterIds, resolveStoryPresence } from '../../../utils/storyPresence';
+import { isPersonaSelection, joinPresentNames, presenceCharacterIds, resolveStoryPresence, storyPresenceSelections } from '../../../utils/storyPresence';
 
 interface Props {
     initial: StoryTheaterEntry;
@@ -35,8 +35,8 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBa
     const [saving, setSaving] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
     const actors = useMemo(() => characters.filter(char => draft.characterIds.includes(char.id)), [characters, draft.characterIds]);
-    // 在場的你（好幾個、或旁觀）。寫進角色記憶的劇情這一批還是只能本人
-    const present = useMemo(() => resolveStoryPresence(draft.writesToCharacterMemory ? { mask: { type: 'user' } } : draft, userBase, characters, masks), [characters, draft, masks, userBase]);
+    // 在場的你（好幾個、或旁觀）。寫進角色記憶的劇情只能是身份卡
+    const present = useMemo(() => resolveStoryPresence(draft, userBase, characters, masks), [characters, draft, masks, userBase]);
     const playedIds = useMemo(() => new Set(draft.writesToCharacterMemory ? [] : presenceCharacterIds(draft)), [draft]);
     const memoryParticipants = useMemo(() => {
         const participantIds = new Set([...draft.characterIds, ...playedIds]);
@@ -103,16 +103,16 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBa
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>02 / Cast</div><h2 className='mt-1 text-lg font-semibold'>讓誰參與</h2>
                 <p className='text-[11px] text-slate-500'>先決定你是誰，再一次選好這段劇情裡的角色。你選擇的身份只由你控制，不會自行行動。</p>
-                <button disabled={draft.writesToCharacterMemory} onClick={() => onOpenMaskBox(draft)} data-testid='story-open-mask-box' className='mt-4 w-full p-4 rounded-2xl bg-slate-900 text-white flex items-center gap-3 text-left disabled:cursor-not-allowed'>
+                <button onClick={() => onOpenMaskBox(draft)} data-testid='story-open-mask-box' className='mt-4 w-full p-4 rounded-2xl bg-slate-900 text-white flex items-center gap-3 text-left disabled:cursor-not-allowed'>
                     <span className='flex -space-x-2 shrink-0'>{present.length === 0
                         ? <span className='w-11 h-11 rounded-full bg-white/10 grid place-items-center text-xs'>觀</span>
                         : present.slice(0, 3).map(you => you.avatar
                             ? <TokenImg key={you.key} value={you.avatar} alt='' className='w-11 h-11 rounded-full object-cover border-2 border-slate-900' />
                             : <span key={you.key} className='w-11 h-11 rounded-full bg-white/10 border-2 border-slate-900 grid place-items-center'><UserCircle size={24} /></span>)}</span>
                     <span className='min-w-0 flex-1'><span className='block text-[9px] uppercase tracking-[.18em] text-violet-200'>你{present.length >= 2 ? ` · ${present.length} 位同場` : ''}</span><strong className='block mt-1 text-sm truncate'>{present.length === 0 ? '旁觀' : present.length === 1 && present[0].selection.type === 'user' ? '本人' : joinPresentNames(present.map(you => you.name))}</strong><span className='block mt-1 text-[9px] text-slate-300 truncate'>{present.length === 0 ? '你只當作者，角色演自己的戲' : present.length >= 2 ? '各是各的人，都由你執筆' : present[0].kind === 'persona' ? (present[0].selection.type === 'user' ? '以真實的自己進入劇場' : '用這張身份卡進入劇場') : present[0].kind === 'character' ? '扮演已有角色' : '扮演原創人物'}</span></span>
-                    <span className='text-[10px] font-bold text-violet-200'>{draft.writesToCharacterMemory ? <span className='inline-flex items-center gap-1'><LockSimple size={13} />真實身份</span> : '面具箱'}</span>
+                    <span className='text-[10px] font-bold text-violet-200'>{draft.writesToCharacterMemory ? '身份卡' : '面具箱'}</span>
                 </button>
-                {draft.writesToCharacterMemory ? <p className='mt-2 text-[10px] leading-5 text-slate-500'>真實時間陪伴只能使用真實的你，不能扮演已有角色或原創人物。</p> : <p className='mt-2 text-[10px] leading-5 text-slate-500'>可以好幾個你一起在場，也可以一個都不選（旁觀）。劇情開始之後照樣能改。</p>}
+                <p className='mt-2 text-[10px] leading-5 text-slate-500'>{draft.writesToCharacterMemory ? '真實時間陪伴只能用身份卡：寫進角色記憶的必須是真的你。可以好幾張一起在場，每個角色照自己認識的卡記這場戲；也可以一張都不選（旁觀）。' : '可以好幾個你一起在場，也可以一個都不選（旁觀）。劇情開始之後照樣能改。'}</p>
                 <div className='mt-4 grid grid-cols-2 gap-2.5'>{characters.map(char => { const selected = draft.characterIds.includes(char.id); const isMask = playedIds.has(char.id); return <button key={char.id} disabled={isMask} onClick={() => toggleCharacter(char)} className={`flex items-center gap-3 p-3 rounded-2xl border text-left disabled:opacity-45 ${selected ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-200'}`}><TokenImg value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover' /><span className='min-w-0 flex-1'><span className='block text-sm font-semibold truncate'>{char.name}</span>{isMask && <span className='block text-[9px] text-violet-500'>當前由你扮演</span>}</span><span className={`w-4 h-4 rounded-full border-2 ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`} /></button>; })}</div>
                 <div className='mt-5 pt-5 border-t border-slate-200'>
                     <div className='text-sm font-semibold'>客串 NPC · 可選</div>
@@ -122,7 +122,13 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBa
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>03 / Memory</div><h2 className='mt-1 text-lg font-semibold'>這段故事是真的嗎</h2>
-                <div className='mt-4 grid grid-cols-2 p-1 rounded-xl bg-slate-200'><button disabled={maskLocked} onClick={() => setDraft(current => ({ ...current, mask: { type: 'user' }, presence: undefined, writesToCharacterMemory: true, carryCharacterMemory: true, updatedAt: Date.now() }))} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>真實時間陪伴</button><button disabled={maskLocked} onClick={() => setDraft(current => ({ ...current, writesToCharacterMemory: false, carryCharacterMemory: false, updatedAt: Date.now() }))} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${!draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>虛構劇場</button></div>
+                <div className='mt-4 grid grid-cols-2 p-1 rounded-xl bg-slate-200'><button disabled={maskLocked} onClick={() => setDraft(current => {
+                    // 切到真實時間陪伴：在場的只留身份卡（都不是身份卡就回到本人）；你原本演的角色放回演員名單
+                    const kept = storyPresenceSelections(current).filter(isPersonaSelection);
+                    const presence = current.presence && (kept.length > 0 || current.presence.length === 0) ? kept : undefined;
+                    const back = presenceCharacterIds(current).filter(id => characters.some(char => char.id === id));
+                    return { ...current, mask: presence?.[0] || { type: 'user' }, presence, characterIds: [...new Set([...current.characterIds, ...back])], writesToCharacterMemory: true, carryCharacterMemory: true, updatedAt: Date.now() };
+                })} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>真實時間陪伴</button><button disabled={maskLocked} onClick={() => setDraft(current => ({ ...current, writesToCharacterMemory: false, carryCharacterMemory: false, updatedAt: Date.now() }))} className={`py-3 rounded-lg text-[11px] font-bold disabled:opacity-35 ${!draft.writesToCharacterMemory ? 'bg-white shadow-sm text-violet-700' : 'text-slate-500'}`}>虛構劇場</button></div>
                 {maskLocked && <p className='mt-2 text-[10px] text-slate-400'>故事開始後，真實/虛構模式也會固定；虛構劇場的記憶輸入仍可單獨調整。</p>}
                 {draft.writesToCharacterMemory ? <div className='mt-5 p-4 rounded-2xl bg-amber-50 border border-amber-200'>
                     <div className='text-xs font-bold text-amber-800'>記憶輸入與輸出都會開啟</div>

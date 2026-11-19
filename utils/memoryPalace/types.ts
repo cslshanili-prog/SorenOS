@@ -72,6 +72,8 @@ export interface MemoryNode {
      * **沒有＝主線**，舊記憶不用搬。召回時整個角色的記憶一起找，別條線的會標清楚是跟誰的。
      */
     personaKey?: string;
+    /** 那次同場、角色也認識的其他身份卡（劇情裡好幾個你同場，plans/story-multi-persona.md 4.2）。召回時標「一起的事」 */
+    withPersonaKeys?: string[];
     charId: string;
     content: string;            // 記憶內容（提取記憶為第三人稱敘事，消化衍生記憶為第一人稱內心獨白）
     room: MemoryRoom;

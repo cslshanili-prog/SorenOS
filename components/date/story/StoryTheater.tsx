@@ -17,7 +17,9 @@ import {
     withBuiltInStoryPresets,
 } from '../../../utils/storyTheater';
 import StoryMaskBox from './StoryMaskBox';
-import { resolveStoryPresence, storyPresenceSelections, storyYouLabel, togglePresenceSelection } from '../../../utils/storyPresence';
+import { removeStoryScene, setStoryScenes, upsertStoryScene } from '../../../utils/storySceneRegistry';
+import { refreshMomentsGraph } from '../../../utils/momentsContext';
+import { isPersonaSelection, resolveStoryPresence, storyPresenceSelections, storyYouLabel, togglePresenceSelection } from '../../../utils/storyPresence';
 import StoryPresetMaker from './StoryPresetMaker';
 import StoryTheaterEditor from './StoryTheaterEditor';
 import StoryTheaterSession from './StoryTheaterSession';
@@ -50,6 +52,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const reload = useCallback(async () => {
         const [storedEntries, storedPresets, storedMasks] = await Promise.all([DB.getStoryTheaters(), DB.getStoryTheaterPresets(), DB.getStoryTheaterMasks()]);
         setEntries(storedEntries.map(normalizeStoryTheater).sort((a, b) => b.updatedAt - a.updatedAt));
+        setStoryScenes(storedEntries);
+        refreshMomentsGraph();
         setCustomPresets(storedPresets.filter(preset => !preset.builtIn).sort((a, b) => b.updatedAt - a.updatedAt));
         setMasks(storedMasks.sort((a, b) => b.updatedAt - a.updatedAt));
     }, []);
@@ -73,6 +77,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const saveEntry = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
         await DB.saveStoryTheater(normalized);
+        upsertStoryScene(normalized);
+        refreshMomentsGraph();
         setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
         setActiveEntry(normalized);
         setView('session');
@@ -81,6 +87,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const persistEntryInSession = useCallback(async (next: StoryTheaterEntry) => {
         const normalized = normalizeStoryTheater(next);
         await DB.saveStoryTheater(normalized);
+        upsertStoryScene(normalized);
         setActiveEntry(normalized);
         setEntries(current => [normalized, ...current.filter(item => item.id !== normalized.id)].sort((a, b) => b.updatedAt - a.updatedAt));
     }, []);
@@ -131,6 +138,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         setDeletingStory(true);
         try {
             const result = await deleteStoryTheaterData(deletingEntry, remoteVectorConfig);
+            removeStoryScene(deletingEntry.id);
+            refreshMomentsGraph();
             setEntries(current => current.filter(item => item.id !== deletingEntry.id));
             if (activeEntry?.id === deletingEntry.id) setActiveEntry(null);
             setDeletingEntry(null);
@@ -151,8 +160,8 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     /** 面具箱點一下：加入或拿掉一個在場的你。劇情開始之後也能改（plans/story-multi-persona.md 1.2）。 */
     const togglePresent = useCallback((selection: StoryTheaterMaskSelection) => {
         setActiveEntry(current => {
-            // 寫進角色記憶的劇情這一批還是只能本人
-            if (!current || current.writesToCharacterMemory) return current;
+            // 寫進角色記憶的劇情只能選身份卡（寫進真實記憶的必須是真的你）
+            if (!current || (current.writesToCharacterMemory && !isPersonaSelection(selection))) return current;
             const before = storyPresenceSelections(current);
             const presence = togglePresenceSelection(before, selection, userProfileBase);
             const adding = presence.length > before.length;
@@ -191,7 +200,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     /** 全部拿掉：旁觀（你只當作者）。你演的角色放回演員名單。 */
     const clearPresent = useCallback(() => {
         setActiveEntry(current => {
-            if (!current || current.writesToCharacterMemory) return current;
+            if (!current) return current;
             const back = storyPresenceSelections(current).flatMap(item => item.type === 'character' && characters.some(char => char.id === item.id) ? [item.id] : []);
             return { ...current, presence: [], mask: { type: 'user' }, characterIds: [...new Set([...current.characterIds, ...back])], updatedAt: Date.now() };
         });
@@ -221,6 +230,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onSave={saveMask}
         onDelete={deleteMask}
         onBack={() => setView('editor')}
+        personaOnly={activeEntry.writesToCharacterMemory}
     />;
 
     if (view === 'editor' && activeEntry) return <StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
@@ -235,7 +245,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onSave={saveEntry}
         onImportPreset={importPreset}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
-        onOpenMaskBox={draft => { if (draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
+        onOpenMaskBox={draft => { setActiveEntry(draft); setView('masks'); }}
     />;
 
     if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} onBack={() => setView('session')} />;

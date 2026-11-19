@@ -22,10 +22,15 @@ export interface MemoryLineLabels {
 }
 
 /** 這條記憶要不要標、標什麼；同一條線回空字串。 */
-export function memoryLineLabel(node: { personaKey?: string }, labels?: MemoryLineLabels): string {
+export function memoryLineLabel(node: { personaKey?: string; withPersonaKeys?: string[] }, labels?: MemoryLineLabels): string {
     if (!labels) return '';
     const nodeKey = node.personaKey || labels.primaryKey;
-    if (nodeKey === labels.currentKey) return '';
+    const nameOf = (key: string) => `「${labels.names[key] || '另一個人'}」`;
+    // 好幾個你同場的事（劇情）：那次在場、角色也認識的其他卡
+    const withKeys = (node.withPersonaKeys || []).filter(key => key !== nodeKey);
+    if (nodeKey === labels.currentKey) return withKeys.length > 0 ? `〔那次${withKeys.map(nameOf).join('')}也在場〕` : '';
+    // 現在這位當時也在場：是一起經歷的事，不是「TA 不一定知道」
+    if (withKeys.includes(labels.currentKey)) return `〔這是你跟${[nodeKey, ...withKeys].map(nameOf).join('')}一起的事〕`;
     const other = labels.names[nodeKey] || '另一個人';
     if (labels.sameAs?.includes(nodeKey)) return `〔這是TA用「${other}」的身份跟你經歷的事〕`;
     const current = labels.names[labels.currentKey] || '現在跟你說話的人';
