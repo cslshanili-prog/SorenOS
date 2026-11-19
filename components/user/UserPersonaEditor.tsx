@@ -230,7 +230,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                             placeholder="比較長的細節：背景故事、跟角色的關係、喜好忌諱、想提醒 AI 的事（可留空）"
                             className="w-full h-32 bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 leading-relaxed resize-none outline-none transition-all placeholder:text-slate-300"
                         />
-                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">聊天、群聊、電話、見面都會帶上。劇情（沒戴面具時）、協同工作、記憶整理、小說、好友申請只看上面的簡介，最要緊的請寫在簡介。</p>
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">聊天、群聊、電話、見面、劇情都會帶上。協同工作、記憶整理、小說、好友申請只看上面的簡介，最要緊的請寫在簡介。</p>
                     </div>
                 </div>
 
