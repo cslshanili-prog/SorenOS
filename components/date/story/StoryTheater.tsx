@@ -13,11 +13,11 @@ import {
     normalizeStoryTheater,
     parseStoryTheaterPreset,
     dedupeTheaterWorldbooks,
-    resolveStoryTheaterMask,
     storyTheaterThreadId,
     withBuiltInStoryPresets,
 } from '../../../utils/storyTheater';
 import StoryMaskBox from './StoryMaskBox';
+import { resolveStoryPresence, storyPresenceSelections, storyYouLabel, togglePresenceSelection } from '../../../utils/storyPresence';
 import StoryPresetMaker from './StoryPresetMaker';
 import StoryTheaterEditor from './StoryTheaterEditor';
 import StoryTheaterSession from './StoryTheaterSession';
@@ -34,7 +34,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, npcs, userProfile, userProfileBase, addToast, remoteVectorConfig } = useOS();
+    const { characters, npcs, userProfileBase, addToast, remoteVectorConfig } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -118,8 +118,10 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     const deleteMask = useCallback(async (mask: StoryTheaterMask) => {
         await DB.deleteStoryTheaterMask(mask.id);
         setMasks(current => current.filter(item => item.id !== mask.id));
-        if (activeEntry?.mask?.type === 'custom' && activeEntry.mask.id === mask.id) {
-            setActiveEntry({ ...activeEntry, mask: { type: 'user' }, updatedAt: Date.now() });
+        // 正在編的這條劇情有用到它：從在場名單拿掉（別的劇情解析時自己會濾掉已刪的）
+        if (activeEntry && storyPresenceSelections(activeEntry).some(item => item.type === 'custom' && item.id === mask.id)) {
+            const presence = storyPresenceSelections(activeEntry).filter(item => !(item.type === 'custom' && item.id === mask.id));
+            setActiveEntry({ ...activeEntry, presence, mask: presence[0] || { type: 'user' }, updatedAt: Date.now() });
         }
         addToast('原創身份已移出面具箱', 'info');
     }, [activeEntry, addToast]);
@@ -146,35 +148,54 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         }
     }, [activeEntry?.id, addToast, deletingEntry, deletingStory, remoteVectorConfig]);
 
-    const selectMask = useCallback((selection: StoryTheaterMaskSelection) => {
-        if (maskLocked) return;
+    /** 面具箱點一下：加入或拿掉一個在場的你。劇情開始之後也能改（plans/story-multi-persona.md 1.2）。 */
+    const togglePresent = useCallback((selection: StoryTheaterMaskSelection) => {
         setActiveEntry(current => {
+            // 寫進角色記憶的劇情這一批還是只能本人
             if (!current || current.writesToCharacterMemory) return current;
-            const characterIds = selection.type === 'character'
-                ? current.characterIds.filter(id => id !== selection.id)
-                : current.characterIds;
-            const remainingActors = characters.filter(char => characterIds.includes(char.id));
-            const validBookIds = new Set(dedupeTheaterWorldbooks(remainingActors).map(book => book.id));
+            const before = storyPresenceSelections(current);
+            const presence = togglePresenceSelection(before, selection, userProfileBase);
+            const adding = presence.length > before.length;
+            let characterIds = current.characterIds;
             const characterMemoryDates = { ...current.characterMemoryDates };
             const characterContextLimits = { ...current.characterContextLimits };
             if (selection.type === 'character') {
-                if (!characterMemoryDates[selection.id]) {
-                    const now = new Date();
-                    characterMemoryDates[selection.id] = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+                if (adding) {
+                    // 你來演他：他不再當演員
+                    characterIds = characterIds.filter(id => id !== selection.id);
+                    if (!characterMemoryDates[selection.id]) {
+                        const now = new Date();
+                        characterMemoryDates[selection.id] = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+                    }
+                    if (characterContextLimits[selection.id] === undefined) characterContextLimits[selection.id] = 100;
+                } else if (characters.some(char => char.id === selection.id) && !characterIds.includes(selection.id)) {
+                    // 不演了：放回演員名單
+                    characterIds = [...characterIds, selection.id];
                 }
-                if (characterContextLimits[selection.id] === undefined) characterContextLimits[selection.id] = 100;
             }
+            const remainingActors = characters.filter(char => characterIds.includes(char.id));
+            const validBookIds = new Set(dedupeTheaterWorldbooks(remainingActors).map(book => book.id));
             return {
                 ...current,
-                mask: selection,
+                presence,
+                mask: presence[0] || { type: 'user' },
                 characterIds,
-                selectedWorldbookIds: current.selectedWorldbookIds.filter(id => validBookIds.has(id)),
+                selectedWorldbookIds: adding ? current.selectedWorldbookIds.filter(id => validBookIds.has(id)) : current.selectedWorldbookIds,
                 characterMemoryDates,
                 characterContextLimits,
                 updatedAt: Date.now(),
             };
         });
-    }, [characters, maskLocked]);
+    }, [characters, userProfileBase]);
+
+    /** 全部拿掉：旁觀（你只當作者）。你演的角色放回演員名單。 */
+    const clearPresent = useCallback(() => {
+        setActiveEntry(current => {
+            if (!current || current.writesToCharacterMemory) return current;
+            const back = storyPresenceSelections(current).flatMap(item => item.type === 'character' && characters.some(char => char.id === item.id) ? [item.id] : []);
+            return { ...current, presence: [], mask: { type: 'user' }, characterIds: [...new Set([...current.characterIds, ...back])], updatedAt: Date.now() };
+        });
+    }, [characters]);
 
     const openEntryEditor = useCallback(async (entry: StoryTheaterEntry) => {
         const rows = await DB.getMessagesByCharId(storyTheaterThreadId(entry.id), true);
@@ -191,22 +212,22 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     />;
 
     if (view === 'masks' && activeEntry) return <StoryMaskBox
-        user={userProfile}
+        profileBase={userProfileBase}
         characters={characters}
         masks={masks}
-        selected={activeEntry.mask || { type: 'user' }}
-        onSelect={selectMask}
+        selected={storyPresenceSelections(activeEntry)}
+        onToggle={togglePresent}
+        onClear={clearPresent}
         onSave={saveMask}
         onDelete={deleteMask}
         onBack={() => setView('editor')}
-        locked={maskLocked}
     />;
 
     if (view === 'editor' && activeEntry) return <StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
         initial={activeEntry}
         characters={characters}
         npcs={npcs}
-        user={userProfile}
+        userBase={userProfileBase}
         masks={masks}
         maskLocked={maskLocked}
         presets={presets}
@@ -214,7 +235,7 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
         onSave={saveEntry}
         onImportPreset={importPreset}
         onEditPreset={(preset, draft) => { setActiveEntry(draft); setEditingPreset(preset); setView('preset'); }}
-        onOpenMaskBox={draft => { if (maskLocked || draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
+        onOpenMaskBox={draft => { if (draft.writesToCharacterMemory) return; setActiveEntry(draft); setView('masks'); }}
     />;
 
     if (view === 'vectors' && activeEntry) return <StoryVectorMemoryPanel entry={activeEntry} onBack={() => setView('session')} />;
@@ -249,13 +270,17 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
                 <section className='py-6'>
                     {entries.length === 0 ? <button onClick={() => { setMaskLocked(false); setActiveEntry({ ...createStoryTheaterDraft(), presetId: defaultStoryPresetId(userProfileBase, presets.map(item => item.id)) }); setView('editor'); }} className='w-full py-14 rounded-3xl border border-dashed border-slate-300 text-center'><span className='block text-sm font-semibold'>新增第一條劇情</span><span className='block mt-2 text-[10px] text-slate-400'>選擇多位角色、記憶方式、世界書與原生預設</span></button> : <div className='divide-y divide-slate-200'>{entries.map(item => {
                         const cast = characters.filter(char => item.characterIds.includes(char.id));
-                        const mask = resolveStoryTheaterMask(item.mask, userProfile, characters, masks);
-                        const youLabel = mask.selection.type === 'user' ? '你' : `你（${mask.name}）`;
+                        const present = resolveStoryPresence(item, userProfileBase, characters, masks);
+                        const youLabel = storyYouLabel(present);
                         const vectorEnabled = item.archiveStrategy === 'vector' && !item.writesToCharacterMemory;
                         const hasVectorArchive = vectorEnabled || item.archives.some(archive => archive.strategy === 'vector');
                         return <div key={item.id} className='w-full py-5 flex items-center gap-2'>
                             <button onClick={() => { setActiveEntry(item); setView('session'); }} className='min-w-0 flex-1 flex items-center gap-4 text-left'>
-                                <div className='flex -space-x-2'>{mask.avatar ? <TokenImg value={mask.avatar} alt='' className='w-10 h-10 rounded-full object-cover border-2 border-slate-800 relative z-10' /> : <span className='w-10 h-10 rounded-full bg-slate-800 text-white grid place-items-center border-2 border-slate-800 relative z-10 text-xs font-serif'>{mask.name.slice(0, 1)}</span>}{cast.slice(0, 2).map(char => <TokenImg key={char.id} value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover border-2 border-stone-100' />)}{cast.length === 0 && <span className='w-10 h-10 rounded-full bg-slate-200 grid place-items-center'><UsersThree size={18} /></span>}</div>
+                                <div className='flex -space-x-2'>{present.length === 0
+                                    ? <span className='w-10 h-10 rounded-full bg-slate-300 text-slate-600 grid place-items-center border-2 border-slate-800 relative z-10 text-xs font-serif' title='旁觀'>觀</span>
+                                    : present.slice(0, 3).map(you => you.avatar
+                                        ? <TokenImg key={you.key} value={you.avatar} alt='' className='w-10 h-10 rounded-full object-cover border-2 border-slate-800 relative z-10' />
+                                        : <span key={you.key} className='w-10 h-10 rounded-full bg-slate-800 text-white grid place-items-center border-2 border-slate-800 relative z-10 text-xs font-serif'>{you.name.slice(0, 1)}</span>)}{cast.slice(0, 2).map(char => <TokenImg key={char.id} value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover border-2 border-stone-100' />)}{cast.length === 0 && <span className='w-10 h-10 rounded-full bg-slate-200 grid place-items-center'><UsersThree size={18} /></span>}</div>
                                 <div className='min-w-0 flex-1'><h3 className='font-serif font-semibold truncate'>{item.title}</h3><p className='mt-1 text-[10px] text-slate-400 truncate'>{youLabel} · 角色：{cast.map(char => char.name).join('、') || '暫無'} · {item.writesToCharacterMemory ? '進入角色記憶' : vectorEnabled ? '獨立向量劇場' : '獨立事件盒'}</p></div>
                                 <time className='text-[9px] text-slate-400'>{new Date(item.updatedAt).toLocaleDateString()}</time>
                             </button>

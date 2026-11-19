@@ -21,6 +21,7 @@ import {
 import { shareOrDownloadFile } from './shareExport';
 import { buildNpcMemoryBlock } from './npcMemory';
 import { withGlobalWorldbooks } from './globalWorldbooks';
+import { messageWriters, normalizePresenceSelections, presenceCharacterIds, storyPromptIdentityName, type StoryPresent } from './storyPresence';
 
 export type StoryApiRole = 'system' | 'user' | 'assistant';
 export interface StoryApiMessage { role: StoryApiRole; content: string; }
@@ -166,7 +167,10 @@ export const formatStoryTheaterExport = (
     lines.push('', '===== 完整原文 =====');
 
     for (const message of [...messages].sort((a, b) => a.id - b.id)) {
-        const speaker = message.role === 'user' ? userLabel : message.role === 'assistant' ? '劇場正文' : '系統';
+        // 你寫的那一段照訊息上記的執筆者標名字；舊訊息沒記就用現在的稱呼
+        const writers = message.role === 'user' ? messageWriters(message) : undefined;
+        const writerLabel = !writers ? userLabel : writers.length === 0 ? '作者' : writers.map(writer => writer.name).join('、');
+        const speaker = message.role === 'user' ? writerLabel : message.role === 'assistant' ? '劇場正文' : '系統';
         lines.push('', `[${formatStoryExportTime(message.timestamp)}] ${speaker}`, message.content?.trim() || '（無內容）');
     }
     return `\uFEFF${lines.join('\n')}`;
@@ -204,16 +208,23 @@ export const createStoryTheaterDraft = (now: number = Date.now()): StoryTheaterE
 export const normalizeStoryTheater = (entry: StoryTheaterEntry): StoryTheaterEntry => {
     const archiveAfter = Math.round(clampNumber(entry.archiveAfter, 2, 200, 40));
     const archiveKeepRecent = Math.round(clampNumber(entry.archiveKeepRecent, 1, Math.max(1, archiveAfter - 1), Math.min(5, archiveAfter - 1)));
+    // 在場的你（好幾個）：寫進角色記憶的劇情這一批還是只能本人（第 3 批開放多張身份卡）
+    const presence = entry.writesToCharacterMemory ? undefined : normalizePresenceSelections(entry.presence);
+    const legacyMask: StoryTheaterMaskSelection = entry.mask?.type === 'character' && entry.mask.id
+        ? { type: 'character', id: entry.mask.id }
+        : entry.mask?.type === 'custom' && entry.mask.id
+            ? { type: 'custom', id: entry.mask.id }
+            : entry.mask?.type === 'persona' && entry.mask.key
+                ? { type: 'persona', key: entry.mask.key }
+                : { type: 'user' };
     return {
         ...entry,
         title: String(entry.title || '未命名劇情'),
         premise: String(entry.premise || ''),
         openingMode: entry.openingMode === 'assistant' ? 'assistant' : 'user',
-        mask: entry.writesToCharacterMemory ? { type: 'user' } : entry.mask?.type === 'character' && entry.mask.id
-            ? { type: 'character', id: entry.mask.id }
-            : entry.mask?.type === 'custom' && entry.mask.id
-                ? { type: 'custom', id: entry.mask.id }
-                : { type: 'user' },
+        // 舊欄位跟著是第一位（旁觀時留本人），給還沒看 presence 的地方一個說得通的值
+        mask: entry.writesToCharacterMemory ? { type: 'user' } : presence ? (presence[0] || { type: 'user' }) : legacyMask,
+        presence,
         characterIds: Array.isArray(entry.characterIds) ? entry.characterIds.filter(Boolean) : [],
         npcIds: Array.isArray(entry.npcIds) ? entry.npcIds.filter(Boolean) : [],
         writesToCharacterMemory: entry.writesToCharacterMemory === true,
@@ -700,8 +711,10 @@ export const applyStoryPresetChoice = (
     prompts: document.prompts.map(prompt => optionIds.includes(prompt.id) ? { ...prompt, enabled: prompt.id === selectedId } : prompt),
 });
 
-const macroReplace = (text: string, userName: string, characterNames: string[]): string => text
-    .replace(/\{\{user\}\}/gi, userName || '你')
+// {{user}}／{{users}}：用戶側在場的名字（好幾個用頓號接）；{{user_count}}：有幾位（旁觀是 0）
+const macroReplace = (text: string, userName: string, characterNames: string[], userCount: number = 1): string => text
+    .replace(/\{\{users?\}\}/gi, userName || '你')
+    .replace(/\{\{user_count\}\}/gi, String(userCount))
     .replace(/\{\{char\}\}/gi, characterNames.join('、') || '角色')
     .replace(/\{\{group\}\}/gi, characterNames.join('、') || '角色');
 
@@ -727,6 +740,7 @@ export const buildStoryMiniTheaterReminder = (
     document: StoryTheaterPresetDocument,
     userName: string,
     characterNames: string[],
+    userCount: number = 1,
 ): string => {
     const prompt = getActiveStoryMiniTheaterPrompt(document);
     if (!prompt?.content.trim()) return '';
@@ -734,7 +748,7 @@ export const buildStoryMiniTheaterReminder = (
         `### 本輪結尾模塊：${prompt.name}`,
         '這一模塊已經由用戶在本劇情的快捷預設中啟用。本輪必須在主正文之後完整執行，不得因其它輸出規則而省略。',
         '格式守門：每個 <mt_ai> / <mt_user> 內都必須同時寫出一組完整的 <name> 與 <text>，閉合所有標籤；不得把“… / ... / 按需要繼續排列”等示例佔位符當成實際消息輸出。',
-        macroReplace(prompt.content, userName, characterNames),
+        macroReplace(prompt.content, userName, characterNames, userCount),
         '無論上方條目是完整模板還是簡寫說明，最終都必須使用這個可渲染外殼：',
         '<mini_theater>',
         '<mt_title>本輪實際標題</mt_title>',
@@ -967,10 +981,33 @@ export const buildStoryIdentityGuard = (
     document: StoryTheaterPresetDocument,
     identityName: string,
     characterNames: string[],
+    /** 用戶側在場的每一位的名字。不給或只有一位照舊；兩位以上、或空的（旁觀）各有自己的寫法 */
+    identities?: string[],
 ): string => {
     const identity = identityName.trim() && identityName.trim() !== '你' ? identityName.trim() : '當前用戶側角色（未命名）';
     const cast = characterNames.filter(Boolean).join('、') || '暫無其他角色';
     const mode = resolveStoryNarrationMode(document);
+    const generatorRule = '- 生成回覆的一方不屬於故事人物。系統指令為方便表達而出現的“你”，只是執行語法，不能據此把生成端寫進故事，也不能把故事裡的“你”解釋成生成端自己。';
+    const historyRule = '- 歷史助手回覆只是已經發生的舊劇情：繼承事實，不繼承它過去使用的第一、第二或第三人稱。當前啟用的人稱模式是本輪唯一標準。';
+    if (identities && identities.length === 0) return [
+        '### 糯米機運行時身份與人稱錨點（覆蓋舊樓層的寫法，不覆蓋角色卡事實）',
+        `- 這場戲沒有用戶側的劇情身份在場：用戶只當作者，給出的推進是旁白與導演指示。本輪參與角色：${cast}。`,
+        generatorRule,
+        '- 不要在故事裡憑空寫出一個「用戶」或「你」。旁白、場景條和關係面板裡不得出現指向用戶的“你／你的”；角色之間對白裡互稱“你”是正常稱呼。',
+        '- 關係協議中的 U 這一輪不存在：不要輸出任何 U 相關的關係數值或面板條目。',
+        historyRule,
+    ].join('\n');
+    if (identities && identities.length >= 2) {
+        const names = identities.map(name => `「${name.trim() || '未命名'}」`).join('');
+        return [
+            '### 糯米機運行時身份與人稱錨點（覆蓋舊樓層的寫法，不覆蓋角色卡事實）',
+            `- 用戶側劇情身份共 ${identities.length} 位：${names}，是不同的人，都由用戶親自執筆。本輪參與角色：${cast}。關係協議中的 U 指這幾位用戶側身份（各算各的），C 才指名單中的各個角色。`,
+            generatorRule,
+            '- 用戶最新輸入仍按實際句法辨認說話人與受話人，並分清是哪一位用戶側身份在說話或行動。',
+            `- 用戶側身份不只一位：<story_text> 的旁白、場景條和關係面板一律用各自的姓名或稱謂寫明是哪一位，不得用未點名的“你／你的”籠統指代（分不出是${names}裡的誰）。角色對白裡對其中一位說“你”是正常稱呼，不要誤改。`,
+            historyRule,
+        ].join('\n');
+    }
     const perspectiveRule = mode === 'third'
         ? `- 當前啟用第三人稱有限。<story_text> 的旁白必須用「${identity}」已確立的姓名、稱謂、合適代詞或自然省略主語；旁白中的“你／你的”必須改掉。角色對白裡對「${identity}」說“你”是正常稱呼，不要誤改。`
         : mode === 'second'
@@ -1010,8 +1047,10 @@ export const compileStoryPreset = (input: {
     slots: StoryPromptSlots;
     userName: string;
     characterNames: string[];
+    /** 用戶側在場幾位（{{user_count}}）；不給就是 1 */
+    userCount?: number;
 }): { messages: StoryApiMessage[]; settings: StoryGenerationSettings; assistantPrefill?: StoryApiMessage } => {
-    const { preset, slots, userName, characterNames } = input;
+    const { preset, slots, userName, characterNames, userCount = 1 } = input;
     const document = (preset || BUILTIN_NIGHT_SCREENING_PRESET).document;
     const messages: StoryApiMessage[] = [];
 
@@ -1038,7 +1077,7 @@ export const compileStoryPreset = (input: {
             pushPromptMessage(
                 messages,
                 enabledWorldBeforePrompt?.role || 'system',
-                macroReplace(slots.worldBefore, userName, characterNames),
+                macroReplace(slots.worldBefore, userName, characterNames, userCount),
             );
             injectedMarkers.add('world_before');
         }
@@ -1050,16 +1089,16 @@ export const compileStoryPreset = (input: {
             raw = slotForMarker(prompt.marker, slots);
         }
         if (!raw.trim()) continue;
-        pushPromptMessage(messages, prompt.role, macroReplace(raw, userName, characterNames));
+        pushPromptMessage(messages, prompt.role, macroReplace(raw, userName, characterNames, userCount));
     }
 
     // 兼容沒有任何原生槽位的舊自定義預設，確保角色設定前世界書不會靜默丟失。
     if (shouldBackfillWorldBefore && firstEnabledCharacterIndex < 0 && !injectedMarkers.has('world_before')) {
-        messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames).trim() });
+        messages.unshift({ role: 'system', content: macroReplace(slots.worldBefore, userName, characterNames, userCount).trim() });
     }
 
     const prefill = String(document.assistantPrefill || '').trim();
-    const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames) } : undefined;
+    const assistantPrefill = prefill ? { role: 'assistant' as const, content: macroReplace(prefill, userName, characterNames, userCount) } : undefined;
 
     return {
         messages,
@@ -1255,9 +1294,69 @@ export const buildTheaterPersona = (mask: ResolvedStoryTheaterMask): string => [
     '- 這是用戶側本輪親自執筆的故事身份，不是生成回覆的一方。除非預設明確允許代寫，續寫不得把該身份當作普通角色擅自決定重大選擇。',
 ].join('\n');
 
+const personaBody = (present: StoryPresent): string[] => [
+    `- 身份/外在設定：${present.description || '無'}`,
+    present.extra?.trim() ? `- 補充設定：\n${present.extra.trim()}` : '',
+    present.coreInstruction?.trim() ? `- 核心性格與行動邊界：\n${present.coreInstruction.trim()}` : '',
+    present.worldview?.trim() ? `- 所屬世界觀：\n${present.worldview.trim()}` : '',
+];
+
+/**
+ * 「用戶側執筆身份」那段（plans/story-multi-persona.md 第 3 節）。
+ * - 一位：跟以前 buildTheaterPersona 一字不差；只有填了補充設定才多一行。
+ * - 好幾位：每位一塊，最後一句不准代寫改成複數。
+ * - 旁觀：沒有用戶側的人物，用戶只當作者。
+ */
+export const buildTheaterPersonas = (present: StoryPresent[]): string => {
+    if (present.length === 0) return [
+        '### 當前用戶側執筆身份',
+        '- 這場戲裡沒有用戶側的人物在場。用戶只當作者：給出的推進是旁白與導演指示，不是故事裡某個人說的話或做的事。',
+        '- 不要在故事裡憑空寫出一個「用戶」或「你」；照作者給的方向，讓在場的角色演自己的戲。',
+    ].join('\n');
+    if (present.length === 1) {
+        const only = present[0];
+        // 這一段照舊版一行不動（沒填的那兩項本來就各留一個空行），只有填了補充設定才多一行
+        return [
+            '### 當前用戶側執筆身份',
+            `- 名字：${only.name || '你'}`,
+            `- 身份/外在設定：${only.description || '無'}`,
+            ...(only.extra?.trim() ? [`- 補充設定：\n${only.extra.trim()}`] : []),
+            only.coreInstruction?.trim() ? `- 核心性格與行動邊界：\n${only.coreInstruction.trim()}` : '',
+            only.worldview?.trim() ? `- 所屬世界觀：\n${only.worldview.trim()}` : '',
+            '- 這是用戶側本輪親自執筆的故事身份，不是生成回覆的一方。除非預設明確允許代寫，續寫不得把該身份當作普通角色擅自決定重大選擇。',
+        ].join('\n');
+    }
+    return [
+        `### 當前用戶側執筆身份（共 ${present.length} 位，是不同的人）`,
+        ...present.flatMap(item => [`#### 「${item.name || '未命名'}」`, ...personaBody(item)]),
+        '- 以上每一位都是用戶側親自執筆的故事身份，不是生成回覆的一方。除非預設明確允許代寫，續寫不得把其中任何一位當作普通角色擅自決定重大選擇。',
+        '- 用戶這一輪沒寫到的那幾位照樣在場：可以被看見、被搭話，但他們怎麼回應、做什麼決定，留給用戶寫。',
+    ].filter(Boolean).join('\n');
+};
+
+/**
+ * 劇情歷史那段。你寫的每一段照訊息上記的執筆者標名字：
+ * 舊訊息沒記就用現在的名字（跟以前一樣）；旁觀時寫的標成作者。
+ */
+export const formatStoryHistoryText = (messages: Message[], identityName: string): string => messages
+    .filter(message => !message.metadata?.theaterArchived && message.role !== 'system')
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .map(message => {
+        if (message.role !== 'user') return `[上一層劇場正文]\n${String(message.content || '')}`;
+        const writers = messageWriters(message);
+        const label = !writers
+            ? `${identityName}給出的推進（用戶側）`
+            : writers.length === 0
+                ? '作者給出的推進（旁白與導演指示，不是故事裡的人）'
+                : `${storyPromptIdentityName(writers)}給出的推進（用戶側）`;
+        return `[${label}]\n${String(message.content || '')}`;
+    })
+    .join('\n\n');
+
 export const storyTheaterMemoryRecipientIds = (entry: StoryTheaterEntry): string[] => {
     const ids = new Set(entry.characterIds);
-    if (entry.mask?.type === 'character') ids.add(entry.mask.id);
+    // 你演的角色不當演員，但寫回記憶、刪除鏡像時要算進去（現在可以好幾個）
+    for (const id of presenceCharacterIds(entry)) ids.add(id);
     return [...ids];
 };
 
