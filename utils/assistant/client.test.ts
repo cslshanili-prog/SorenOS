@@ -55,3 +55,20 @@ describe('stripThinkTags', () => {
         expect(stripThinkTags('讓我看看現在的狀況')).toBe('讓我看看現在的狀況');
     });
 });
+
+describe('makeSoreCall：逾時和按停要分開', () => {
+    const api = { baseUrl: 'https://x/v1', apiKey: KEY, model: 'm' };
+    const abortErr = () => Object.assign(new Error('Fetch is aborted'), { name: 'AbortError' });
+    it('逾時（瀏覽器給的也是 AbortError）：丟一般錯誤，畫面看得到', async () => {
+        vi.spyOn(globalThis, 'fetch').mockRejectedValue(abortErr());
+        const err = await makeSoreCall(api, new AbortController().signal)([{ role: 'user', content: 'hi' }]).catch(e => e);
+        expect(err.name).not.toBe('AbortError');
+        expect(err.message).toContain('逾時');
+    });
+    it('用戶按停：照 AbortError 往外丟', async () => {
+        const controller = new AbortController();
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => { controller.abort(); throw abortErr(); });
+        const err = await makeSoreCall(api, controller.signal)([{ role: 'user', content: 'hi' }]).catch(e => e);
+        expect(err.name).toBe('AbortError');
+    });
+});

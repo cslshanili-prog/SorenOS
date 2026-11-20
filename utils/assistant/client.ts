@@ -61,7 +61,9 @@ export const makeSoreCall = (api: SoreEndpoint, signal?: AbortSignal): ChatCall 
         if (!raw.trim()) throw new Error('模型回了空白');
         return stripThinkTags(raw);
     } catch (error: any) {
-        if (error?.name === 'AbortError') throw error;
+        // 用戶按停才照 AbortError 往外丟（畫面不顯示錯誤）；逾時也是 AbortError，但那要讓人看到
+        if (signal?.aborted) { if (error?.name === 'AbortError') throw error; const stop = new Error('已停下'); stop.name = 'AbortError'; throw stop; }
+        if (error?.name === 'AbortError' || /abort|timeout/i.test(String(error?.message || ''))) throw new Error('等了兩分鐘模型沒回（逾時）。可能是這組 API 太慢或卡住了，再送一次，或點右上角齒輪換一組。');
         throw new Error(scrubSecret(error?.message || String(error), api.apiKey));
     }
 };

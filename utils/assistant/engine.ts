@@ -3,7 +3,7 @@
  * 畫面每多一則就收到一次 onMessage（存 DB、畫出來）。plans/ai-assistant.md 第 4 節。
  */
 import { describeOldFiles, formatFilesForModel, SORE_FILE_MESSAGES_SENT } from './attachments';
-import { formatImageNotes, hasImageNotes } from './vision';
+import { formatImageNotes, imagesHandled } from './vision';
 import type { AssistantMessage, AssistantProposal } from '../../types';
 import { SORE_BASE_KNOWLEDGE } from './knowledge';
 import { formatToolResult, parseAssistantReply } from './protocol';
@@ -30,6 +30,7 @@ export const SORE_PERSONA = `你是 Sore，Soren（一支裝在瀏覽器裡的�
 - 用戶會傳截圖：可能是想要的樣子（照著做），也可能是自己畫面哪裡壞了（找原因）。看不清楚就直說。
 - 訊息裡寫著「這則附了 N 張圖」你卻沒看到圖：是你這組模型看不了圖（或中轉把圖丟了），不是用戶沒傳，別怪系統。直說你這組看不了圖，請用戶二選一：點右上角齒輪換一組能看圖的 API，或到「設置 → API 設定 → 識圖 API」接一組識圖模型（接好之後圖會先轉成文字給你）。
 - 帶【附圖 N】的是識圖模型替你看的轉述：照著做，但顏色、位置是估的，細節拿不準就說，或請用戶補一句。
+- 【附圖 N】寫著「識圖沒成功」：那張你沒看到，別裝作看到。照文字能答的先答，再跟用戶說那張圖沒看到（把原因講一下），可以按圖下面的「重試」，或直接用文字描述。
 - 用戶會附檔（.css／.txt／.json，在【附件：檔名】裡）：多半是想照著改、或要你看哪裡有問題。附的是別處的美化，要套到這裡先「讀取CSS」看這裡能用哪些選擇器，對不上的要改寫，別原樣塞。
 - 聊天裝扮（佈局、氣泡、背景底紋、提示音、白框 CSS）：先「讀取聊天裝扮」「讀取裝扮模板」看現況，再用「改裝扮」出提案。用戶的聊天多半綁著模板：說「把阿澈的聊天改成…」時，要問清楚是改那份模板（用它的聊天全都會變）還是只改阿澈（會變成自訂，脫離模板）；想要兩個聊天只差一點點，就建議「新建模板」從現在的樣子複製一份再改。背景圖你給不了，請用戶到裝扮 App 自己上傳。
 - 用戶在罵或很急，先把事情解決，少開玩笑。`;
@@ -74,8 +75,8 @@ export const toModelMessages = (history: AssistantMessage[]): SoreModelMessage[]
         let text = m.proposal ? `${m.text}\n[提案狀態：${PROPOSAL_STATUS_TEXT[m.proposal.status]}]` : m.text;
         if (m.files?.length) text = `${text}\n\n${withFiles.includes(m.id) ? formatFilesForModel(m.files) : describeOldFiles(m.files)}`;
         if (!m.images?.length) return { role: 'user', content: text };
-        // 識圖轉述過的：送文字、不送原圖（文字不貴，舊的也照帶）
-        if (hasImageNotes(m)) return { role: 'user', content: `${text}\n\n${formatImageNotes(m.imageNotes!)}` };
+        // 過了識圖的：送文字、不送原圖（文字不貴，舊的也照帶）；沒成功的那幾張寫明沒看到，不擋住這一輪
+        if (imagesHandled(m)) return { role: 'user', content: `${text}\n\n${formatImageNotes(m)}` };
         if (!withImages.includes(m.id)) return { role: 'user', content: `${text}\n（附了 ${m.images.length} 張圖，太舊了沒再送）` };
         // 寫明附了幾張：模型看不了圖時才知道是自己看不到，不是用戶沒傳
         return { role: 'user', content: [{ type: 'text', text: `${text}\n（這則附了 ${m.images.length} 張圖）` }, ...m.images.map(url => ({ type: 'image_url' as const, image_url: { url } }))] };
