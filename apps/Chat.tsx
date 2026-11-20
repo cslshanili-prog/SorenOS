@@ -4245,7 +4245,7 @@ const Chat: React.FC = () => {
                     addToast={addToast}
                 />
             )}
-             </>, document.body)}
+            {/* 切換聊天、氣泡挑選也是全螢幕頁，同樣要在這個 portal 裡（之前漏在外面，白框 CSS 把返回鍵和篩選鈕套上了底色與陰影） */}
             {switcherOpen && char && (
                 <ChatSwitcherPage
                     characters={characters}
@@ -4279,6 +4279,7 @@ const Chat: React.FC = () => {
                     onFollowTemplate={boundTemplate && char.bubbleOwn ? () => updateCharacter(char.id, followTemplateBubblePatch(boundTemplate)) : undefined}
                 />
             )}
+             </>, document.body)}
             <ChatModals
                 modalType={modalType} setModalType={setModalType}
                 transferAmt={transferAmt} setTransferAmt={setTransferAmt}
