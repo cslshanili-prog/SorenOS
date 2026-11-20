@@ -89,7 +89,7 @@ export const describeSettings = (s: SoreSettingsInput): string => {
         `全域 API：網址${has(a.baseUrl)}、Key ${has(a.apiKey)}、模型 ${a.model?.trim() || '（沒填）'}`,
         `副 API（記憶宮殿）：${s.lightLLM?.baseUrl?.trim() && s.lightLLM?.model?.trim() ? `有設，模型 ${s.lightLLM.model}` : '沒設（背景活兒會用全域）'}`,
         `API 庫：${s.apiPresetCount} 組`,
-        `識圖中轉：${a.visionApi?.enabled ? '開' : '關'}`,
+        `識圖 API：${a.visionApi?.enabled ? `開（模型 ${a.visionApi.model?.trim() || '沒填'}；用戶傳的圖會先轉成文字再給角色和你）` : '關（圖直接交給各自的模型，模型要能看圖）'}`,
         `生圖：${img?.charImageGenEnabled ? `開（網址${has(img.baseUrl)}、模型 ${img.model?.trim() || '沒填'}）` : '關'}；角色在聊天裡發照片：${img?.charImageSendEnabled ? '開' : '關'}`,
         `語音：${a.ttsProvider || 'minimax'}（MiniMax Key ${has(a.minimaxApiKey)}、Fish Key ${has(a.fishAudioApiKey)}、ElevenLabs Key ${has(a.elevenLabsApiKey)}）`,
         `主動消息 2.0 Worker 網址：${has(s.amsgWorkerUrl)}；開了 2.0 的角色 ${amsgOn} 個`,
