@@ -66,6 +66,8 @@ export interface VisionDescribeOptions {
   /** API 記錄上標哪個 App、做什麼 */
   meta?: { appId?: string; appName: string; purpose: string };
   signal?: AbortSignal;
+  /** 等多久算逾時（毫秒，預設 60 秒）：問法要得細、回得長的給久一點 */
+  timeoutMs?: number;
 }
 
 /** 調用 OpenAI 兼容視覺端點，把一張圖片變成可交給純文本模型的描述。 */
@@ -109,7 +111,7 @@ export async function describeImageWithVisionApi(
         stream: false,
       }),
       ...(options.signal ? { signal: options.signal } : {}),
-    }, 1, 60_000, options.meta || { appName: '消息', purpose: '識圖' });
+    }, 1, options.timeoutMs || 60_000, options.meta || { appName: '消息', purpose: '識圖' });
 
     const description = cleanDescription(extractContent(data), options.keepLines);
     if (!description) throw new Error('識圖 API 沒有返回圖片描述');

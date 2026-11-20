@@ -6,7 +6,7 @@ import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
 import { runSoreTurn, SORE_IMAGE_MESSAGES_SENT } from '../utils/assistant/engine';
-import { describeSoreImages, hasImageNotes } from '../utils/assistant/vision';
+import { describeSoreImages, dropFailedNotes, failedImageCount, hasAnyImageNote, imagesHandled } from '../utils/assistant/vision';
 import { loadSorePrefs, resolveSoreApi, saveSorePrefs, type SoreApiSource } from '../utils/assistant/api';
 import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
@@ -279,13 +279,19 @@ const AssistantApp: React.FC = () => {
         abortRef.current = controller;
         setRunning(true);
         try {
-            // 識圖 API 開著：圖先轉成文字，轉述跟著訊息存，同一張只識別一次（utils/assistant/vision.ts）
+            // 識圖 API 開著：圖先轉成文字，轉述跟著訊息存，同一張只識別一次（utils/assistant/vision.ts）。
+            // 沒成功不擋：原因記在那則訊息上，Sore 照樣回答（它知道哪張沒看到），之後也不會每輪自動再試
             if (apiConfig.visionApi?.enabled === true) {
                 setLooking(true);
                 try {
                     const seen = await describeSoreImages(session.messages, apiConfig.visionApi, { limit: SORE_IMAGE_MESSAGES_SENT, signal: controller.signal });
                     if (seen.changed) { session = { ...session, messages: seen.messages }; await persist(session); }
+                    if (seen.failed) addToast(`有 ${seen.failed} 張圖識圖沒成功，Sore 先照文字回答`, 'info');
                 } finally { setLooking(false); }
+            } else {
+                // 識圖關掉了：之前整則沒成功的改成直接送原圖
+                const cleared = dropFailedNotes(session.messages);
+                if (cleared.changed) { session = { ...session, messages: cleared.messages }; await persist(session); }
             }
             await runSoreTurn({
                 history: session.messages,
@@ -299,9 +305,10 @@ const AssistantApp: React.FC = () => {
                 },
             });
         } catch (err: any) {
-            if (err?.name !== 'AbortError' && !controller.signal.aborted) {
-                // 直接送圖就失敗，多半是這組模型不收圖（識圖轉述過的不算，那是純文字）
-                const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length && !hasImageNotes(m));
+            // 只有用戶自己按停才不顯示；逾時也是 AbortError，那個要讓人看到
+            if (!controller.signal.aborted) {
+                // 直接送圖就失敗，多半是這組模型不收圖（過了識圖的不算，那是純文字）
+                const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length && !imagesHandled(m));
                 setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖。點右上角齒輪換一組能看圖的，或到「設置 → API 設定 → 識圖 API」接一組識圖模型，圖會先轉成文字給 Sore。' : ''}`);
             }
         } finally {
@@ -416,6 +423,27 @@ const AssistantApp: React.FC = () => {
         setRunning(false);
     };
 
+    /** 圖下面的「重試」：只把那則沒成功的圖再識別一次，不叫 Sore；成功了再問一句它就看得到 */
+    const retryVision = async (messageId: string) => {
+        if (!current || running || apiConfig.visionApi?.enabled !== true) return;
+        const controller = new AbortController();
+        abortRef.current = controller;
+        setError('');
+        setRunning(true);
+        setLooking(true);
+        try {
+            const seen = await describeSoreImages(current.messages, apiConfig.visionApi, { limit: 0, retryIds: [messageId], signal: controller.signal });
+            if (seen.changed && !controller.signal.aborted) await persist({ ...current, messages: seen.messages, updatedAt: Date.now() });
+            addToast(seen.failed ? '這次還是沒成功，原因寫在圖下面' : '看到了，再問 Sore 一次就行', seen.failed ? 'error' : 'success');
+        } catch (err: any) {
+            if (!controller.signal.aborted) setError(err?.message || String(err));
+        } finally {
+            if (abortRef.current === controller) abortRef.current = null;
+            setLooking(false);
+            setRunning(false);
+        }
+    };
+
     const startNew = () => {
         if (running) stop();
         setCurrent(null);
@@ -510,14 +538,25 @@ const AssistantApp: React.FC = () => {
                                     {m.images.map((url, i) => <img key={i} src={url} alt={`附圖 ${i + 1}`} className="h-24 w-24 rounded-xl object-cover border border-slate-200" />)}
                                 </div>
                             )}
-                            {hasImageNotes(m) && (
+                            {hasAnyImageNote(m) && (
                                 <div className="flex max-w-full flex-col items-end gap-1" data-sore-image-notes>
                                     <button type="button" onClick={() => setNotesOpen(prev => (prev === m.id ? '' : m.id))}
                                         className="text-[11px] text-slate-400 underline decoration-dotted underline-offset-2">{notesOpen === m.id ? '收起識圖轉述' : '識圖已轉成文字給 Sore · 看轉述'}</button>
                                     {notesOpen === m.id && (
                                         <div className="max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[12px] leading-relaxed text-slate-600 whitespace-pre-wrap break-words" style={SELECTABLE_TEXT}>
-                                            {m.imageNotes!.map((note, i) => `【附圖 ${i + 1}】\n${note}`).join('\n\n')}
+                                            {m.images!.map((_, i) => `【附圖 ${i + 1}】\n${(m.imageNotes?.[i] || '').trim() || `沒成功：${m.imageNoteErrors?.[i] || '不明原因'}`}`).join('\n\n')}
                                         </div>
+                                    )}
+                                </div>
+                            )}
+                            {failedImageCount(m) > 0 && (
+                                <div className="flex max-w-full flex-col items-end gap-1 text-right" data-sore-image-failed>
+                                    <div className="text-[11px] leading-snug text-amber-700" style={SELECTABLE_TEXT}>
+                                        {failedImageCount(m) === m.images!.length ? '識圖沒成功，Sore 沒看到圖' : `有 ${failedImageCount(m)} 張識圖沒成功，Sore 沒看到`}：{m.imageNoteErrors?.find(Boolean)}
+                                    </div>
+                                    {apiConfig.visionApi?.enabled === true && (
+                                        <button type="button" disabled={running} onClick={() => void retryVision(m.id)}
+                                            className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700 active:scale-95 transition disabled:opacity-40">重試識圖</button>
                                     )}
                                 </div>
                             )}
