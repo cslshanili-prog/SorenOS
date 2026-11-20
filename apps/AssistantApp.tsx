@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { CaretLeft, ChatsCircle, FileText, Gear, Paperclip, PaperPlaneRight, Plus, SmileyWink, Stop, Trash, X } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { AppID, type AssistantCssProposal, type AssistantDecorationProposal, type AssistantMessage, type AssistantPresetBinding, type AssistantProposal, type AssistantSession } from '../types';
 import { DB } from '../utils/db';
 import { ActiveMsgStore } from '../utils/activeMsgStore';
 import { trackEvent } from '../utils/analytics';
-import { runSoreTurn } from '../utils/assistant/engine';
+import { runSoreTurn, SORE_IMAGE_MESSAGES_SENT } from '../utils/assistant/engine';
+import { describeSoreImages, hasImageNotes } from '../utils/assistant/vision';
 import { loadSorePrefs, resolveSoreApi, saveSorePrefs, type SoreApiSource } from '../utils/assistant/api';
 import { makeSoreCall, testApiConnection } from '../utils/assistant/client';
 import type { SoreToolContext } from '../utils/assistant/tools';
@@ -24,6 +25,8 @@ import type { WorldbookData } from '../utils/assistant/worldbookOps';
 import type { PresetData } from '../utils/assistant/presetOps';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import ProposalCard from '../components/assistant/ProposalCard';
+import SoreMessageText, { CopyButton, SELECTABLE_TEXT } from '../components/assistant/SoreMessageText';
+import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { buildProposalPreview, canPreviewProposal } from '../utils/assistant/preview';
 import { processImage } from '../utils/file';
 import DecorationPreview from '../components/decoration/DecorationPreview';
@@ -54,6 +57,12 @@ const SUGGESTIONS = ['角色怎麼都不回我？', 'API 要怎麼設？', '主�
 
 /** 一次最多附幾張圖 */
 const MAX_IMAGES = 3;
+/** 輸入框最高長到多高（px，約七行） */
+const INPUT_MAX_HEIGHT = 168;
+/** 觸控螢幕上 Enter 是換行（軟鍵盤沒有 Shift+Enter），送出用旁邊那顆鈕 */
+const enterMakesNewline = () => {
+    try { return typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches === true; } catch { return false; }
+};
 
 const newSessionId = () => `as_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 const newMessageId = () => `am_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -94,6 +103,10 @@ const AssistantApp: React.FC = () => {
     const [current, setCurrent] = useState<AssistantSession | null>(null);
     const [input, setInput] = useState('');
     const [running, setRunning] = useState(false);
+    /** 識圖 API 正在替 Sore 看圖（還沒輪到 Sore 想） */
+    const [looking, setLooking] = useState(false);
+    /** 點開看識圖轉述的那則 */
+    const [notesOpen, setNotesOpen] = useState('');
     const [error, setError] = useState('');
     const [panel, setPanel] = useState<'none' | 'sessions' | 'settings'>('none');
     const [prefs, setPrefs] = useState(loadSorePrefs);
@@ -145,6 +158,14 @@ const AssistantApp: React.FC = () => {
             sceneDefaults: { ...(sceneDefaultsRef.current || {}) },
         };
     }, []);
+
+    // 輸入框跟著內容長高
+    useLayoutEffect(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX_HEIGHT)}px`;
+    }, [input]);
 
     const lightLLM = memoryPalaceConfig?.lightLLM;
     const api = useMemo(() => resolveSoreApi(prefs.apiSource, { apiConfig, lightLLM, apiPresets }), [prefs.apiSource, apiConfig, lightLLM, apiPresets]);
@@ -258,6 +279,14 @@ const AssistantApp: React.FC = () => {
         abortRef.current = controller;
         setRunning(true);
         try {
+            // 識圖 API 開著：圖先轉成文字，轉述跟著訊息存，同一張只識別一次（utils/assistant/vision.ts）
+            if (apiConfig.visionApi?.enabled === true) {
+                setLooking(true);
+                try {
+                    const seen = await describeSoreImages(session.messages, apiConfig.visionApi, { limit: SORE_IMAGE_MESSAGES_SENT, signal: controller.signal });
+                    if (seen.changed) { session = { ...session, messages: seen.messages }; await persist(session); }
+                } finally { setLooking(false); }
+            }
             await runSoreTurn({
                 history: session.messages,
                 call: makeSoreCall(api, controller.signal),
@@ -271,9 +300,9 @@ const AssistantApp: React.FC = () => {
             });
         } catch (err: any) {
             if (err?.name !== 'AbortError' && !controller.signal.aborted) {
-                // 附了圖就失敗，多半是這組模型不收圖
-                const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length);
-                setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖，到 Sore 設定換一組能看圖的（多半要多模態模型）。' : ''}`);
+                // 直接送圖就失敗，多半是這組模型不收圖（識圖轉述過的不算，那是純文字）
+                const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length && !hasImageNotes(m));
+                setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖。點右上角齒輪換一組能看圖的，或到「設置 → API 設定 → 識圖 API」接一組識圖模型，圖會先轉成文字給 Sore。' : ''}`);
             }
         } finally {
             if (abortRef.current === controller) abortRef.current = null;
@@ -481,6 +510,17 @@ const AssistantApp: React.FC = () => {
                                     {m.images.map((url, i) => <img key={i} src={url} alt={`附圖 ${i + 1}`} className="h-24 w-24 rounded-xl object-cover border border-slate-200" />)}
                                 </div>
                             )}
+                            {hasImageNotes(m) && (
+                                <div className="flex max-w-full flex-col items-end gap-1" data-sore-image-notes>
+                                    <button type="button" onClick={() => setNotesOpen(prev => (prev === m.id ? '' : m.id))}
+                                        className="text-[11px] text-slate-400 underline decoration-dotted underline-offset-2">{notesOpen === m.id ? '收起識圖轉述' : '識圖已轉成文字給 Sore · 看轉述'}</button>
+                                    {notesOpen === m.id && (
+                                        <div className="max-h-60 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[12px] leading-relaxed text-slate-600 whitespace-pre-wrap break-words" style={SELECTABLE_TEXT}>
+                                            {m.imageNotes!.map((note, i) => `【附圖 ${i + 1}】\n${note}`).join('\n\n')}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             {!!m.files?.length && (
                                 <div className="flex flex-wrap justify-end gap-1" data-sore-user-files>
                                     {m.files.map((f, i) => (
@@ -492,7 +532,7 @@ const AssistantApp: React.FC = () => {
                                     ))}
                                 </div>
                             )}
-                            <div className="rounded-2xl rounded-br-md bg-slate-800 text-white px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
+                            <div className="rounded-2xl rounded-br-md bg-slate-800 text-white px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words" style={SELECTABLE_TEXT}>{m.text}</div>
                         </div>
                     </div>
                 ) : (
@@ -500,7 +540,9 @@ const AssistantApp: React.FC = () => {
                         <SoreAvatar />
                         <div className="max-w-[80%] min-w-0 flex-1 space-y-1">
                             {!!m.text.trim() && (
-                                <div className="w-fit max-w-full rounded-2xl rounded-tl-md bg-white border border-slate-100 shadow-sm px-3.5 py-2 text-[14px] leading-relaxed whitespace-pre-wrap break-words">{m.text}</div>
+                                <div className="w-fit max-w-full min-w-0 rounded-2xl rounded-tl-md bg-white border border-slate-100 shadow-sm px-3.5 py-2 text-[14px] leading-relaxed" data-sore-bubble>
+                                    <SoreMessageText text={m.text} />
+                                </div>
                             )}
                             {(toolLines.get(m.id) || []).map(t => (t.proposal ? (
                                 <ProposalCard key={t.id} proposal={t.proposal} busy={!!proposalBusy}
@@ -515,18 +557,24 @@ const AssistantApp: React.FC = () => {
                                     {t.toolOk ? '🔍' : '⚠️'} {t.toolName === '系統' ? '查太多次，先停下' : `${t.toolName}${t.toolOk ? '' : '（沒成功）'}`}
                                 </div>
                             )))}
-                            <div className="text-[10px] text-slate-300 pl-1">{formatTime(m.at)}</div>
+                            <div className="flex items-center gap-2 pl-1 text-[10px] text-slate-300">
+                                <span>{formatTime(m.at)}</span>
+                                {!!m.text.trim() && (
+                                    <CopyButton text={m.text} label="複製這則回覆" size={12}
+                                        className="flex items-center gap-1 rounded-md px-1 py-0.5 text-[11px] text-slate-400 hover:bg-black/5 active:scale-95 transition">複製</CopyButton>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )))}
                 {running && (
                     <div className="flex items-center gap-2 text-[12px] text-slate-400" data-sore-thinking>
                         <SoreAvatar size={24} />
-                        <span className="animate-pulse">Sore 正在想…</span>
+                        <span className="animate-pulse">{looking ? '識圖模型正在看圖…' : 'Sore 正在想…'}</span>
                     </div>
                 )}
                 {error && (
-                    <div className="rounded-xl bg-rose-50 border border-rose-100 px-3 py-2 text-[12px] text-rose-600 whitespace-pre-wrap break-words" data-sore-error>{error}</div>
+                    <div className="rounded-xl bg-rose-50 border border-rose-100 px-3 py-2 text-[12px] text-rose-600 whitespace-pre-wrap break-words" data-sore-error style={SELECTABLE_TEXT}>{error}</div>
                 )}
             </div>
 
@@ -560,11 +608,12 @@ const AssistantApp: React.FC = () => {
                 <div className="flex items-end gap-2">
                     <button type="button" onClick={() => imageInputRef.current?.click()} disabled={running || (pendingImages.length >= MAX_IMAGES && pendingFiles.length >= SORE_MAX_FILES)} aria-label="附圖或檔案"
                         className="shrink-0 h-9 w-9 rounded-full hover:bg-black/5 flex items-center justify-center disabled:opacity-40"><Paperclip size={20} className="text-slate-500" /></button>
-                    <textarea ref={textareaRef} value={input} rows={1} aria-label="問 Sore"
+                    {/* 跟著內容長高（到約七行），右上角 ⤢ 開全螢幕寫長的；手機上 Enter 是換行、按送出鈕才送，有實體鍵盤的 Enter 送出 */}
+                    <ExpandableTextarea inlineRef={textareaRef} value={input} onChange={setInput} title="問 Sore" rows={1}
+                        wrapperClassName="flex-1 min-w-0"
                         placeholder={api ? '問點什麼…' : '先設好 API 才能問我'}
-                        onChange={e => setInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); void send(input, pendingImages, pendingFiles); } }}
-                        className="flex-1 resize-none max-h-32 rounded-2xl bg-slate-100 px-3.5 py-2 text-[14px] outline-none focus:ring-2 focus:ring-amber-200" />
+                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && !enterMakesNewline()) { e.preventDefault(); void send(input, pendingImages, pendingFiles); } }}
+                        className="block w-full resize-none overflow-y-auto rounded-2xl bg-slate-100 pl-3.5 py-2 text-[14px] leading-relaxed outline-none focus:ring-2 focus:ring-amber-200" />
                     {running ? (
                         <button type="button" onClick={stop} aria-label="停下來" className="shrink-0 h-9 w-9 rounded-full bg-slate-200 flex items-center justify-center"><Stop size={16} weight="fill" className="text-slate-600" /></button>
                     ) : (
@@ -675,6 +724,11 @@ const AssistantApp: React.FC = () => {
                                 </label>
                                 <p className="text-[11px] leading-relaxed text-slate-400">
                                     現在用的是：{api ? `${api.label}（${api.model}）` : '沒有能用的'}。選的那組沒填好會自動往下退。答疑不需要太強的模型，便宜快的就夠。
+                                </p>
+                                <p className="text-[11px] leading-relaxed text-slate-400" data-sore-vision-note>
+                                    {apiConfig.visionApi?.enabled
+                                        ? `看圖：識圖 API 開著（${apiConfig.visionApi.model || '模型沒填'}），你傳的圖會先轉成文字再給 Sore，所以上面這組不用能看圖。`
+                                        : '看圖：圖會直接交給上面這組模型，它要能看圖才行。看不了的話換一組，或到「設置 → API 設定 → 識圖 API」接一組識圖模型。'}
                                 </p>
                                 <p className="text-[11px] leading-relaxed text-slate-400">Sore 看得到設定有沒有填、模型名，看不到 API Key；會改你東西的功能都要你按「套用」才會寫進去。</p>
                             </div>

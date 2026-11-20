@@ -12,7 +12,7 @@ describe('附圖', () => {
         const msgs = toModelMessages(history);
         expect(SORE_IMAGE_MESSAGES_SENT).toBe(2);
         expect(msgs[0].content).toBe('a\n（附了 1 張圖，太舊了沒再送）');
-        expect(msgs[1].content).toEqual([{ type: 'text', text: 'b' }, { type: 'image_url', image_url: { url: 'data:b' } }]);
+        expect(msgs[1].content).toEqual([{ type: 'text', text: 'b\n（這則附了 1 張圖）' }, { type: 'image_url', image_url: { url: 'data:b' } }]);
         expect(msgs[2].content).toBe('c');
         expect(Array.isArray(msgs[3].content) && msgs[3].content.length).toBe(3);
     });

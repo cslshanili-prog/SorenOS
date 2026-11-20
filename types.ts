@@ -6062,6 +6062,8 @@ export interface AssistantMessage {
   proposal?: AssistantProposal;
   /** user：附的圖（壓過的 data URL）；只有最近幾張會真的送給模型 */
   images?: string[];
+  /** user：識圖 API 替 Sore 看圖的轉述，跟 images 一張對一格（utils/assistant/vision.ts）；有的話送轉述、不送原圖 */
+  imageNotes?: string[];
   /** user：附的文字檔（.css／.txt／.json，Key 已換掉），只有最近幾則送全文（utils/assistant/attachments.ts） */
   files?: Array<{ name: string; text: string; truncated?: boolean }>;
 }

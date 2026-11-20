@@ -45,17 +45,34 @@ export const readVisionDescription = (message: Message): string => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
-const cleanDescription = (value: string): string => value
-  .replace(/^\s*\[?[图圖]片\s*[：:]\s*/i, '')
-  .replace(/\]\s*$/i, '')
-  .replace(/\s+/g, ' ')
-  .trim()
-  .slice(0, 4000);
+const cleanDescription = (value: string, keepLines = false): string => {
+  const trimmed = value
+    .replace(/^\s*\[?[图圖]片\s*[：:]\s*/i, '')
+    .replace(/\]\s*$/i, '');
+  // 聊天歷史裡的描述壓成一行；給 Sore 的分段描述（版面、顏色、文字各一段）留著換行
+  const spaced = keepLines
+    ? trimmed.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n')
+    : trimmed.replace(/\s+/g, ' ');
+  return spaced.trim().slice(0, 4000);
+};
+
+/** 換一套問法時用（預設是給聊天角色看的那套） */
+export interface VisionDescribeOptions {
+  /** 給識圖模型的指示 */
+  prompt?: string;
+  maxTokens?: number;
+  /** 描述留著換行（預設壓成一行） */
+  keepLines?: boolean;
+  /** API 記錄上標哪個 App、做什麼 */
+  meta?: { appId?: string; appName: string; purpose: string };
+  signal?: AbortSignal;
+}
 
 /** 調用 OpenAI 兼容視覺端點，把一張圖片變成可交給純文本模型的描述。 */
 export async function describeImageWithVisionApi(
   imageUrl: string,
   config: VisionApiConfig,
+  options: VisionDescribeOptions = {},
 ): Promise<string> {
   if (!isVisionApiReady(config)) {
     throw new Error('識圖 API 已開啟，但 URL、Key 或 Model 尚未填寫完整');
@@ -64,7 +81,10 @@ export async function describeImageWithVisionApi(
     throw new Error('圖片數據不可用，無法調用識圖 API');
   }
 
-  const existing = inFlightDescriptions.get(imageUrl);
+  const prompt = options.prompt || VISION_PROMPT;
+  // 同一張圖換了問法就是另一次識別；帶了中止訊號的不跟別人共用（別人按停不該連帶中止這次）
+  const flightKey = options.signal ? '' : `${prompt === VISION_PROMPT ? '' : `${prompt}\u0000`}${imageUrl}`;
+  const existing = flightKey ? inFlightDescriptions.get(flightKey) : undefined;
   if (existing) return existing;
 
   const request = (async () => {
@@ -80,26 +100,28 @@ export async function describeImageWithVisionApi(
         messages: [{
           role: 'user',
           content: [
-            { type: 'text', text: VISION_PROMPT },
+            { type: 'text', text: prompt },
             { type: 'image_url', image_url: { url: imageUrl } },
           ],
         }],
         temperature: 0,
-        max_tokens: 1200,
+        max_tokens: options.maxTokens || 1200,
         stream: false,
       }),
-    }, 1, 60_000, { appName: '消息', purpose: '識圖' });
+      ...(options.signal ? { signal: options.signal } : {}),
+    }, 1, 60_000, options.meta || { appName: '消息', purpose: '識圖' });
 
-    const description = cleanDescription(extractContent(data));
+    const description = cleanDescription(extractContent(data), options.keepLines);
     if (!description) throw new Error('識圖 API 沒有返回圖片描述');
     return description;
   })();
 
-  inFlightDescriptions.set(imageUrl, request);
+  if (!flightKey) return request;
+  inFlightDescriptions.set(flightKey, request);
   try {
     return await request;
   } finally {
-    inFlightDescriptions.delete(imageUrl);
+    inFlightDescriptions.delete(flightKey);
   }
 }
 
