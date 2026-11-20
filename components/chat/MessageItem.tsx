@@ -6,6 +6,7 @@ import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anni
 
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 const AivenFishSaleReceipt = React.lazy(() => import('../../apps/vrWorld/AivenFishSaleReceipt').then(module => ({ default: module.AivenFishSaleReceipt })));
 import { Message, ChatTheme } from '../../types';
 import { phoneFieldToText } from '../../utils/phoneEvidence';
@@ -771,7 +772,8 @@ const ForwardCard: React.FC<{
             )}
 
             {/* Expanded Full-screen Overlay */}
-            {expanded && (
+            {/* 掛到 body：訊息在聊天畫面裡面，全螢幕頁留在原地會吃到白框 CSS */}
+            {expanded && createPortal(
                 <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col animate-fade-in" style={{ paddingBottom: 'var(--safe-bottom)' }} onClick={(e) => e.stopPropagation()}>
                     {/* Header */}
                     <div className="pt-[calc(var(--safe-top)+0.75rem)] pb-3 px-4 bg-white border-b border-slate-100 shrink-0 flex items-center gap-3">
@@ -803,7 +805,8 @@ const ForwardCard: React.FC<{
                             );
                         })}
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </>
     );
@@ -1163,7 +1166,8 @@ const TransferCard: React.FC<{
                 </div>
             )}
 
-            {open && (
+            {/* 同上：轉帳詳情掛到 body */}
+            {open && createPortal(
                 <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>
                     <div
                         className="w-full max-w-[320px] bg-white rounded-3xl overflow-hidden shadow-2xl"
@@ -1224,7 +1228,8 @@ const TransferCard: React.FC<{
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </>
     );
@@ -1369,7 +1374,8 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                 </div>
             </div>
 
-            {open && (
+            {/* 同上：信的全螢幕展開掛到 body */}
+            {open && createPortal(
                 <div
                     onClick={() => setOpen(false)}
                     style={{
@@ -1447,7 +1453,8 @@ const Like520ChatCard: React.FC<{ data: any }> = ({ data }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </>
     );

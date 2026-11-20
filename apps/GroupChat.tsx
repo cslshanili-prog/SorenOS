@@ -66,11 +66,10 @@ import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import TokenImg from '../components/os/TokenImg';
 import { useBlobRefUrl, isBlobRef, getBlobForRef, migrateDataUrlToRef } from '../utils/blobRef';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
-import ChromeCssEditor from '../components/chat/ChromeCssEditor';
-import WhiteboxSoundEditor from '../components/chat/WhiteboxSoundEditor';
+import { GroupChromeCssPage, GroupSoundPage } from '../components/chat/GroupWhiteboxPages';
 import HtmlCard from '../components/chat/HtmlCard';
 import PhoneChatImport, { type PhoneChatImportHandle } from '../components/chat/PhoneChatImport';
-import { WhiteboxSound, parseWhiteboxSound, upsertWhiteboxSound, stripWhiteboxSoundDirective, resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
+import { resolveActiveSound, playWhiteboxSound, unlockWhiteboxAudio } from '../utils/whiteboxSound';
 import { buildHtmlPrompt } from '../utils/htmlPrompt';
 import { materializeVisionDescriptions } from '../utils/visionApi';
 import {
@@ -3506,6 +3505,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             </div>,
             document.body)}
 
+            {/* 小彈窗也掛到 body，理由同上（共用的 Modal 自己不會掛出去） */}
+            {createPortal(<>
             {/* Message Options Modal */}
             <Modal isOpen={modalType === 'message-options'} title="消息操作" onClose={() => { setModalType('none'); setSelectedMessage(null); }}>
                 <div className="space-y-3">
@@ -3692,6 +3693,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 })()}
             </Modal>
 
+            </>, document.body)}
+
             {/* 群的裝扮：選模板（只套 CSS、聲音、我的氣泡）＋連去裝扮 App；還是能直接改白框（plans/decoration-app.md 第 5、6 節） */}
             {activeGroup && modalType === 'decoration' && (
                 <DecorationQuickPanel
@@ -3705,96 +3708,26 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 />
             )}
 
-            {/* 群「白框自定義」底部 sheet —— 寫到 group.chromeCustomCss，疊加在全局之上（對齊私聊做法） */}
+            {/* 群「白框自定義」與「提示音」：全螢幕頁、掛到 body（components/chat/GroupWhiteboxPages.tsx）。原本是半窗，還留在聊天畫面裡面 */}
             {activeGroup && modalType === 'chrome-css' && (
-                <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/5" onClick={() => setModalType('none')}>
-                    <div
-                        className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                        style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div className="mb-2 flex items-start justify-between">
-                            <div>
-                                <div className="text-sm font-bold text-slate-800">白框自定義 · {activeGroup.name}</div>
-                                <div className="mt-0.5 text-[10px] text-slate-400">↑ 上方群聊界面即實時預覽；僅對本群生效，疊加在全局設置之上。</div>
-                            </div>
-                            <button onClick={() => setModalType('none')} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">{'×'}</button>
-                        </div>
-                        <ChromeCssEditor
-                            value={activeGroup.chromeCustomCss || ''}
-                            onChange={(css) => { updateGroup(activeGroup.id, { chromeCustomCss: css }); setActiveGroup({ ...activeGroup, chromeCustomCss: css }); }}
-                            assist={{ location: 'chat_chrome_group', targetId: activeGroup.id }}
-                        />
-                    </div>
-                    {/* 脫離 CSS 控制的救援鍵：portal 到 body + id 守護，壞 CSS 也點得到（逐字複用私聊方案） */}
-                    {createPortal(
-                        <>
-                            <style>{`#sully-safe-reset{position:fixed!important;top:calc(var(--safe-top) + 6px)!important;left:50%!important;transform:translateX(-50%)!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;display:flex!important;z-index:2147483647!important;}`}</style>
-                            <button
-                                id="sully-safe-reset"
-                                onClick={() => { updateGroup(activeGroup.id, { chromeCustomCss: '' }); setActiveGroup({ ...activeGroup, chromeCustomCss: '' }); addToast('已還原本群白框', 'success'); }}
-                                style={{
-                                    position: 'fixed', top: 'calc(var(--safe-top) + 6px)', left: '50%', transform: 'translateX(-50%)',
-                                    zIndex: 2147483647, display: 'flex', alignItems: 'center', gap: '4px',
-                                    padding: '5px 12px', borderRadius: '999px',
-                                    background: 'rgba(15,23,42,0.62)', color: '#fff', fontSize: '11px', fontWeight: 700,
-                                    border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
-                                }}
-                            >⟲ 還原本群白框</button>
-                        </>,
-                        document.body,
-                    )}
-                </div>
+                <GroupChromeCssPage
+                    group={activeGroup} theme={osTheme} customThemes={customThemes} userAvatar={userProfile.avatar}
+                    previewChar={characters.find(c => activeGroup.members.includes(c.id))}
+                    onChange={css => { updateGroup(activeGroup.id, { chromeCustomCss: css }); setActiveGroup({ ...activeGroup, chromeCustomCss: css }); }}
+                    onReset={() => { updateGroup(activeGroup.id, { chromeCustomCss: '' }); setActiveGroup({ ...activeGroup, chromeCustomCss: '' }); addToast('已還原本群白框', 'success'); }}
+                    onClose={() => setModalType('none')}
+                />
+            )}
+            {activeGroup && modalType === 'chrome-sound' && (
+                <GroupSoundPage
+                    group={activeGroup}
+                    onApply={patch => { updateGroup(activeGroup.id, patch); setActiveGroup({ ...activeGroup, ...patch }); }}
+                    onClose={() => setModalType('none')}
+                />
             )}
 
-            {/* 群「提示音」底部 sheet —— 默認獨立存 group.chatSound；綁定後寫進 chromeCustomCss 的 @sully-sound 指令 */}
-            {activeGroup && modalType === 'chrome-sound' && (() => {
-                const boundSound = parseWhiteboxSound(activeGroup.chromeCustomCss);
-                const isBound = !!activeGroup.chatSoundBound || !!boundSound;
-                const curSound: WhiteboxSound | null = isBound ? boundSound : (activeGroup.chatSound || null);
-                const applyGroup = (patch: Partial<GroupProfile>) => { updateGroup(activeGroup.id, patch); setActiveGroup({ ...activeGroup, ...patch }); };
-                const changeSound = (s: WhiteboxSound | null) => {
-                    if (isBound) {
-                        applyGroup({ chromeCustomCss: upsertWhiteboxSound(activeGroup.chromeCustomCss || '', s), chatSound: undefined });
-                    } else {
-                        applyGroup({ chatSound: s || undefined });
-                    }
-                };
-                const changeBound = (b: boolean) => {
-                    if (b) {
-                        applyGroup({ chromeCustomCss: upsertWhiteboxSound(activeGroup.chromeCustomCss || '', curSound), chatSound: undefined, chatSoundBound: true });
-                    } else {
-                        applyGroup({ chromeCustomCss: stripWhiteboxSoundDirective(activeGroup.chromeCustomCss || ''), chatSound: curSound || undefined, chatSoundBound: false });
-                    }
-                };
-                return (
-                    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/5" onClick={() => setModalType('none')}>
-                        <div
-                            className="w-full max-h-[68vh] overflow-y-auto rounded-t-3xl border-t border-white/60 bg-white/95 p-5 shadow-[0_-12px_40px_rgba(15,23,42,0.18)] backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                            style={{ paddingBottom: 'calc(1.25rem + var(--safe-bottom))' }}
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="mb-3 flex items-start justify-between">
-                                <div>
-                                    <div className="text-sm font-bold text-slate-800">提示音 · {activeGroup.name}</div>
-                                    <div className="mt-0.5 text-[10px] text-slate-400">成員新發的消息成為最新一條時響一次。默認獨立於白框，可選綁定一起分享。</div>
-                                </div>
-                                <button onClick={() => setModalType('none')} className="px-2 text-xl leading-none text-slate-400 hover:text-slate-600">{'×'}</button>
-                            </div>
-                            <WhiteboxSoundEditor
-                                sound={curSound}
-                                bound={isBound}
-                                onChangeSound={changeSound}
-                                onChangeBound={changeBound}
-                                hint={<>🔔 只在 <b>成員新發的消息成為最新一條</b> 時響一次。這裡是<b>本群專屬</b>；不設則用「外觀 → 聊天界面」裡的全局默認提示音。</>}
-                            />
-                        </div>
-                    </div>
-                );
-            })()}
-
-
             {/* HTML 模式自定義提示詞 Modal（瓦片右鍵/長按進入） */}
+            {createPortal(
             <Modal
                 isOpen={modalType === 'html-prompt'} title="HTML 模式 · 自定義提示詞" onClose={() => setModalType('none')}
                 footer={<button onClick={() => { if (activeGroup) { updateGroup(activeGroup.id, { htmlModeCustomPrompt: tempHtmlPrompt }); setActiveGroup({ ...activeGroup, htmlModeCustomPrompt: tempHtmlPrompt }); } setModalType('none'); addToast('已保存', 'success'); }} className="w-full py-3 bg-fuchsia-500 text-white font-bold rounded-2xl shadow-lg shadow-fuchsia-200">保存</button>}
@@ -3808,7 +3741,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         className="w-full h-36 bg-slate-100 rounded-2xl p-4 resize-none focus:ring-1 focus:ring-fuchsia-300 transition-all text-sm leading-relaxed"
                     />
                 </div>
-            </Modal>
+            </Modal>,
+            document.body)}
 
         </div>
     );

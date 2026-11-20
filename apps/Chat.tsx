@@ -4465,9 +4465,11 @@ const Chat: React.FC = () => {
                 if (r.disappointed.length) groups.push({ key: 'disappointed', label: '期盼落空', icon: '🍂', accent: '#94a3b8', items: r.disappointed.map(e => ({ content: e.content })) });
                 if (r.faded.length) groups.push({ key: 'faded', label: '淡忘', icon: '🌫️', accent: '#cbd5e1', items: r.faded.map(e => ({ content: e.content })) });
                 if (groups.length === 0) return null;
-                return (
+                // 掛到 body：留在聊天畫面裡面會吃到白框 CSS（同上面那塊 portal 的理由）
+                return createPortal(
                     <div
-                        className="absolute inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
+                        className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-fade-in"
+                        data-digest-result
                         style={{
                             background: 'radial-gradient(ellipse at top, rgba(16,185,129,0.18), rgba(0,0,0,0.55))',
                             backdropFilter: 'blur(10px)',
@@ -4558,7 +4560,8 @@ const Chat: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
+                    </div>,
+                    document.body,
                 );
             })()}
 
