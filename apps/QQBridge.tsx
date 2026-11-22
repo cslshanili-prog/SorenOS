@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useOS } from '../context/OSContext';
@@ -389,7 +390,7 @@ const QQBridge: React.FC = () => {
                     <TokenImg value={c.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold text-slate-700 truncate">{c.name}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{c.description || '—'}</div>
+                      <div className="text-[10px] text-slate-400 truncate">{charSubtitle(c) || '—'}</div>
                     </div>
                   </button>
                 );

@@ -1,3 +1,4 @@
+import { charNameLine, charOneLiner } from '../charIdentity';
 import type { CharacterProfile, GroupProfile, GroupTopicBox, Message } from '../../types';
 import { isMessageSemanticallyRelevant } from '../messageFormat';
 import { messageLogText } from './format';
@@ -103,7 +104,7 @@ export function buildGroupTopicPrompt(
     // 只給總結機角色語義資料，不傳頭像/立繪/房間圖片等媒體字段，避免 base64 撐爆請求。
     const memberProfiles = group.members.map(id => characters.find(c => c.id === id)).filter(Boolean).map(char => {
         const c = char as CharacterProfile;
-        return `### ${c.name}（${c.id}）\n角色簡介：${c.description || '無'}\n核心設定：${c.systemPrompt || '無'}\n世界觀：${c.worldview || '無'}\n寫作人格：${c.writerPersona || '無'}\n核心記憶：${c.refinedMemories ? JSON.stringify(c.refinedMemories) : '無'}`;
+        return `### ${charNameLine(c)}（${c.id}）\n角色簡介：${charOneLiner(c) || '無'}\n核心設定：${c.systemPrompt || '無'}\n世界觀：${c.worldview || '無'}\n寫作人格：${c.writerPersona || '無'}\n核心記憶：${c.refinedMemories ? JSON.stringify(c.refinedMemories) : '無'}`;
     }).join('\n\n');
     const logs = batch.map(m => {
         const time = new Date(m.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });

@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import type {
     CharacterProfile,
     Message,
@@ -293,7 +294,7 @@ export const resolveStoryTheaterMask = (
             selection,
             name: char.name,
             avatar: char.avatar,
-            description: char.description || '',
+            description: charOneLiner(char),
             coreInstruction: char.systemPrompt || '',
             worldview: char.worldview || '',
             characterId: char.id,

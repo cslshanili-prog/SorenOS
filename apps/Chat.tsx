@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import EmojiExportDialog from '../components/chat/EmojiExportDialog';
 import { canGenerateFor, isImageFeatureOff } from '../utils/imageStyle';
 import { looksLikeSelfieDescription } from '../utils/imageGeneration';
@@ -5190,7 +5191,7 @@ const Chat: React.FC = () => {
                                     <TokenImg value={c.avatar} className="w-10 h-10 rounded-xl object-cover" />
                                     <div className="flex-1 text-left">
                                         <div className="font-bold text-sm text-slate-700">{c.name}</div>
-                                        <div className="text-[10px] text-slate-400 truncate">{c.description}</div>
+                                        <div className="text-[10px] text-slate-400 truncate">{charSubtitle(c)}</div>
                                     </div>
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
                                 </button>

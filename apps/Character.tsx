@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import WorldTimeEditor from '../components/character/WorldTimeEditor';
 import { TIME_AWARENESS_OPTIONS, resolveTimeAwareness, timeAwarenessPatch } from '../utils/timeAwareness';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
@@ -49,6 +50,7 @@ import { readShareText } from '../utils/pngShare';
 import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import BriefPersonaField from '../components/character/BriefPersonaField';
+import IdentityFields from '../components/character/IdentityFields';
 import DialogueExamplesField from '../components/character/DialogueExamplesField';
 import ChatGreetingsField from '../components/character/ChatGreetingsField';
 import AddFriendPage from '../components/chat/AddFriendPage';
@@ -104,7 +106,7 @@ const CharacterCard: React.FC<{
                     {char.benchedAt ? <span className="ml-1.5 align-middle text-[10px] font-bold text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5">下戲中</span> : null}
                 </h3>
                 <p className="text-xs truncate mt-0.5 text-violet-400/80">
-                    {char.description || '暫無描述'}
+                    {charSubtitle(char) || '暫無簡介'}
                 </p>
             </div>
         </div>
@@ -1463,7 +1465,6 @@ ${isInitialGeneration ? `
                                </div>
                                <div className="flex-1 space-y-3">
                                    <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-300 placeholder:text-slate-400" placeholder="名稱" />
-                                   <input value={formData.description} onChange={(e) => handleChange('description', e.target.value)} aria-label="一句話簡介" className="w-full bg-transparent py-1 text-sm text-slate-700 border-b border-slate-300 placeholder:text-slate-500" placeholder="一句話簡介（顯示在名字下面）" />
                                    {/* 頭像 URL 入口: 與左側上傳文件平級. 走 draft -> 失焦/回車 commit,
                                        避免逐字 commit 導致所有引用 char.avatar 的 <img> 在打字時瘋狂
                                        請求不完整 URL. https URL 會作為主動消息的通知圖標傳到 worker;
@@ -1503,6 +1504,15 @@ ${isInitialGeneration ? `
                                    />
                                </div>
                            </div>
+
+                           {/* 別名、身份、簡介（plans/character-identity-fields.md）：以前是名字下面那一格「描述」 */}
+                           <IdentityFields
+                                char={formData}
+                                api={memoryPalaceConfig?.lightLLM?.baseUrl?.trim() && memoryPalaceConfig.lightLLM.model?.trim() ? memoryPalaceConfig.lightLLM : apiConfig}
+                                addToast={addToast}
+                                // 「AI 幫我填」途中切去別的角色：結果不能寫到別人身上
+                                onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
+                           />
 
                            <div>
                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">世界</label>

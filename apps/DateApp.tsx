@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import { resolveCharCalendar } from '../utils/worldCalendar';
 import { normalizeLibraryDescription } from '../utils/library';
 import { resolveCharacterChatApi } from '../utils/characterApi';
@@ -1563,7 +1564,7 @@ const DateApp: React.FC = () => {
                                             </div>
                                             {/* 名字 + 簡介 */}
                                             <span className="mt-3 text-[14px] font-semibold tracking-wide truncate max-w-full" style={{ color: '#4b3b6b', fontFamily: `'Noto Serif SC',serif` }}>{c.name}</span>
-                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: c.description ? 'rgba(120,95,160,0.78)' : 'rgba(150,130,185,0.6)' }}>{c.description || '走過去見 ta'}</span>
+                                            <span className="mt-0.5 text-[10px] truncate max-w-full" style={{ color: charSubtitle(c) ? 'rgba(120,95,160,0.78)' : 'rgba(150,130,185,0.6)' }}>{charSubtitle(c) || '走過去見 ta'}</span>
                                         </div>
                                         );
                                     })}

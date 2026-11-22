@@ -1,3 +1,4 @@
+import { charOneLiner, charSubtitle } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import { canAnalyzeVoiceSource, isVoiceAudioPriming, primeVoiceAudio, voicePlaybackErrorMessage } from '../utils/voicePlayback';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1675,7 +1676,7 @@ const CallApp: React.FC = () => {
   const buildLocalPerformancePersona = (character: CharacterProfile): string => {
     const source = [
       character.personalityStyle,
-      character.description,
+      charOneLiner(character),
       character.systemPrompt,
     ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
     return Array.from(source || '自然、克制地進行視頻通話表演，動作服從台詞情緒，不刻意搶戲。')
@@ -3091,7 +3092,7 @@ ${sentencePlan}`;
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-[15px] truncate" style={selected ? { color: accentColor } : undefined}>{char.name}</div>
-                      <div className="text-xs text-white/45 mt-0.5 truncate">{char.description || '點擊編輯設定...'}</div>
+                      <div className="text-xs text-white/45 mt-0.5 truncate">{charSubtitle(char) || '點擊編輯設定...'}</div>
                     </div>
                     <span className="text-base shrink-0" style={{ color: selected ? accentColor : 'rgba(255,255,255,0.25)' }}>✦</span>
                   </div>

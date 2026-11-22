@@ -31,7 +31,13 @@ describe('提示詞', () => {
 describe('解析（兩層容錯）', () => {
     it('整段陣列', () => {
         const raw = '```json\n[{"name":"林小姐","brief":"聯姻對象","persona":"你是林小姐","appearance":"長髮","relations":[{"target":"阿澈","relation":"家裡安排的聯姻對象"}]}]\n```';
-        expect(parseCastDrafts(raw)).toEqual([{ name: '林小姐', brief: '聯姻對象', persona: '你是林小姐', appearance: '長髮', relations: [{ target: '阿澈', relation: '家裡安排的聯姻對象' }] }]);
+        expect(parseCastDrafts(raw)).toEqual([{ name: '林小姐', brief: '聯姻對象', aliases: [], roleTitle: '', persona: '你是林小姐', appearance: '長髮', relations: [{ target: '阿澈', relation: '家裡安排的聯姻對象' }] }]);
+    });
+    it('別名和身份：照收，跟名字一樣或重複的別名丟掉', () => {
+        const raw = '[{"name":"林小姐","aliases":["Lin","林小姐","lin","林知夏"],"roleTitle":"林氏集團千金","brief":"聯姻對象"}]';
+        const [draft] = parseCastDrafts(raw);
+        expect(draft.aliases).toEqual(['Lin', '林知夏']);
+        expect(draft.roleTitle).toBe('林氏集團千金');
     });
     it('包在 characters 裡也認', () => {
         expect(parseCastDrafts('{"characters":[{"name":"A"}]}').map(d => d.name)).toEqual(['A']);
@@ -47,8 +53,8 @@ describe('解析（兩層容錯）', () => {
 
 describe('草稿轉配角', () => {
     const drafts = [
-        { name: '林小姐', brief: '聯姻對象', persona: '你是林小姐', appearance: '', relations: [{ target: '阿澈', relation: '聯姻對象' }, { target: '阿琪', relation: '閨蜜' }, { target: '小星', relation: '情敵' }, { target: '不存在', relation: 'x' }] },
-        { name: '阿琪', brief: '閨蜜', persona: '你是阿琪', appearance: '', relations: [{ target: '林小姐', relation: '閨蜜' }] },
+        { name: '林小姐', brief: '聯姻對象', aliases: ['Lin'], roleTitle: '林氏千金', persona: '你是林小姐', appearance: '', relations: [{ target: '阿澈', relation: '聯姻對象' }, { target: '阿琪', relation: '閨蜜' }, { target: '小星', relation: '情敵' }, { target: '不存在', relation: 'x' }] },
+        { name: '阿琪', brief: '閨蜜', aliases: [], roleTitle: '', persona: '你是阿琪', appearance: '', relations: [{ target: '林小姐', relation: '閨蜜' }] },
     ];
     const run = (includeUser: boolean) => buildCastCharacters({
         drafts, lead, existing: [lead], userName: '小星', includeUser, defaultAvatar: n => `av:${n}`, now: 1000,
@@ -58,6 +64,12 @@ describe('草稿轉配角', () => {
         const { chars } = run(false);
         expect(chars[0]).toMatchObject({ name: '林小姐', castRole: 'supporting', groupId: 'w1', primaryPersonaKey: 'pA', knownPersonaKeys: ['pA'], avatar: 'av:林小姐', systemPrompt: '你是林小姐', description: '聯姻對象' });
         expect(chars[0].activeMsg2Config).toBeUndefined();
+    });
+    it('別名和身份落在角色上；沒有的那個不寫空欄位', () => {
+        const { chars } = run(false);
+        expect(chars[0]).toMatchObject({ aliases: ['Lin'], roleTitle: '林氏千金' });
+        expect('aliases' in chars[1]).toBe(false);
+        expect('roleTitle' in chars[1]).toBe(false);
     });
     it('關係照名字對上主角、同一批；對不上的丟掉；沒勾就不記跟你的關係', () => {
         const { chars } = run(false);

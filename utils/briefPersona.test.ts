@@ -15,6 +15,18 @@ describe('精簡人設', () => {
         expect(isBriefPersonaStale({ ...base, briefPersonaSource: 'x' })).toBe(false);
     });
 
+    it('別名、身份：沒填的角色指紋不變（已生成的不會被誤判過期），填了才跟著變', () => {
+        const fp = personaFingerprint(base);
+        expect(personaFingerprint({ ...base, aliases: [], roleTitle: '' })).toBe(fp);
+        expect(personaFingerprint({ ...base, aliases: undefined, roleTitle: '   ' })).toBe(fp);
+        expect(personaFingerprint({ ...base, roleTitle: '咖啡店店長' })).not.toBe(fp);
+        expect(personaFingerprint({ ...base, aliases: ['阿貓'] })).not.toBe(fp);
+        const p = buildBriefPersonaPrompt({ ...base, aliases: ['阿貓', 'Sully'], roleTitle: '咖啡店店長' });
+        expect(p).toContain('【身份】\n咖啡店店長');
+        expect(p).toContain('【別名】\n阿貓');
+        expect(buildBriefPersonaPrompt(base)).not.toContain('【身份】');
+    });
+
     it('生成提示詞：帶上人設、要求寫說話方式與話量、不寫私密關係', () => {
         const p = buildBriefPersonaPrompt(base);
         expect(p).toContain('性格冷淡，話少。');

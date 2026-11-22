@@ -12,6 +12,7 @@
  * 演繹引擎跑在 OSContext 全局（WorldScheduler.onTrigger → runWorldEpisode），
  * 本組件只負責觸發與觀察——用戶點完"觀測"就算切去和別人私聊，演繹照樣完成。
  */
+import { charOneLiner } from '../utils/charIdentity';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
@@ -619,7 +620,7 @@ const WorldEditor: React.FC<{
                     messages: [{ role: 'user', content: buildNpcRollPrompt({
                         worldName: w.name || '這個世界',
                         worldview: w.worldview,
-                        members: members.map(m => ({ name: m.name, persona: resolveBriefPersona(m) || (m.description || m.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 200) })),
+                        members: members.map(m => ({ name: m.name, persona: resolveBriefPersona(m) || (charOneLiner(m) || m.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 200) })),
                         count: 3,
                         existingNames: w.npcs.map(n => n.name).filter(Boolean),
                     }) }],

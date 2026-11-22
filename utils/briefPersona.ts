@@ -1,3 +1,4 @@
+import { charRoleTitle, normalizeAliases } from './charIdentity';
 import type { APIConfig, CharacterProfile } from '../types';
 import { safeResponseJson, extractContent } from './safeApi';
 import { stripLeakedReasoning } from './reasoningLeak';
@@ -13,13 +14,17 @@ import { stripLeakedReasoning } from './reasoningLeak';
 
 export const BRIEF_PERSONA_MAX = 300;
 
-type PersonaSource = Pick<CharacterProfile, 'description' | 'systemPrompt' | 'worldview' | 'dialogueExamples'>;
+type PersonaSource = Pick<CharacterProfile, 'description' | 'systemPrompt' | 'worldview' | 'dialogueExamples'> & Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>>;
 
 /** 人設的指紋：生成時記下來，之後人設改過就提示重新生成。 */
 export function personaFingerprint(char: PersonaSource): string {
     // 對話範例只在有填時才算進去：沒填範例的角色，指紋跟加這一欄之前一樣，已生成的精簡人設不會被誤判過期
     const examples = char.dialogueExamples?.trim();
-    const text = [char.systemPrompt || '', char.worldview || '', char.description || '', ...(examples ? [examples] : [])].join('\u0001');
+    // 身份、別名同理：有填才算進去，沒填的角色指紋不變（plans/character-identity-fields.md 3.8）
+    const role = charRoleTitle(char);
+    const aliases = normalizeAliases(char.aliases);
+    const text = [char.systemPrompt || '', char.worldview || '', char.description || '', ...(examples ? [examples] : []),
+        ...(role ? [`role:${role}`] : []), ...(aliases.length ? [`aliases:${aliases.join('|')}`] : [])].join('\u0001');
     let hash = 5381;
     for (let i = 0; i < text.length; i++) hash = ((hash * 33) ^ text.charCodeAt(i)) >>> 0;
     return `${text.length.toString(36)}-${hash.toString(36)}`;
@@ -34,7 +39,11 @@ export const resolveBriefPersona = (char: Pick<CharacterProfile, 'briefPersona'>
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
 
 export function buildBriefPersonaPrompt(char: PersonaSource & Pick<CharacterProfile, 'name'>): string {
+    const role = charRoleTitle(char);
+    const aliases = normalizeAliases(char.aliases, char.name);
     const parts = [
+        role ? `【身份】\n${role}` : '',
+        aliases.length ? `【別名】\n${aliases.join('、')}` : '',
         char.description?.trim() ? `【簡介】\n${clip(char.description.trim(), 1500)}` : '',
         char.systemPrompt?.trim() ? `【完整人設】\n${clip(char.systemPrompt.trim(), 6000)}` : '',
         char.worldview?.trim() ? `【世界觀】\n${clip(char.worldview.trim(), 1500)}` : '',

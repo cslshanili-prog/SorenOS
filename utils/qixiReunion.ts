@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import { APIConfig, CharacterProfile, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { QixiMemoryBundle, QixiSceneId } from './qixiMemoryBundle';
@@ -279,7 +280,7 @@ export function parseQixiPromise(
 
 const characterKnowsTechnicalIdentity = (char: CharacterProfile): boolean => /(?:AI|人工智能|[语語]言模型|[虚虛][拟擬]角色|程序|代[码碼])/i.test([
     char.systemPrompt,
-    char.description,
+    charOneLiner(char),
     char.worldview,
 ].filter(Boolean).join('\n'));
 

@@ -7,6 +7,7 @@
  * - 劇情其他地方要知道「你是誰」一律從這裡拿，別再直接讀 entry.mask。
  */
 
+import { charOneLiner } from './charIdentity';
 import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterMaskSelection, UserProfile } from '../types';
 import { personaExtraSetting } from './personaSetting';
 import { REAL_IDENTITY_PERSONA_ID, globalPersonaKey, profileForPersonaKey } from './userPersona';
@@ -103,7 +104,7 @@ export const resolveStoryPresent = (
             characterId: char.id,
             name: char.name,
             avatar: char.avatar,
-            description: char.description || '',
+            description: charOneLiner(char),
             coreInstruction: char.systemPrompt || '',
             worldview: char.worldview || '',
         } : null;

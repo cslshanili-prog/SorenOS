@@ -6,6 +6,7 @@
  * - 輸出兩層容錯：整段 JSON 陣列 → 逐個物件搶救。
  * - 草稿轉成配角：所在世界、認識的你都跟那位主角；關係寫進自己的關係清單，兩邊查手機的通訊錄各加一筆。
  */
+import { charNameLine, charOneLiner, normalizeAliases, ROLE_TITLE_MAX_LENGTH } from './charIdentity';
 import type { CharacterProfile, PhoneContact } from '../types';
 import { extractJson } from './safeApi';
 import { CONTEXT_RANGE_POLICY_VERSION, DEFAULT_MANUAL_CONTEXT_LIMIT } from './chatContextRange';
@@ -24,6 +25,10 @@ export interface CastDraft {
     name: string;
     /** 一句話（別人眼中的 TA），當簡介 */
     brief: string;
+    /** 其他名字（本名、綽號、英文名…），沒有就空陣列 */
+    aliases: string[];
+    /** 一行的身份或職位 */
+    roleTitle: string;
     /** 完整人設，當核心指令 */
     persona: string;
     /** 外觀，畫頭像用 */
@@ -31,8 +36,8 @@ export interface CastDraft {
     relations: CastDraftRelation[];
 }
 
-type LeadRef = Pick<CharacterProfile, 'id' | 'name' | 'description' | 'systemPrompt' | 'worldview' | 'mountedWorldbooks' | 'groupId' | 'primaryPersonaKey'>;
-type WorldRef = Pick<CharacterProfile, 'id' | 'name' | 'description' | 'castRole'>;
+type LeadRef = Pick<CharacterProfile, 'id' | 'name' | 'description' | 'systemPrompt' | 'worldview' | 'mountedWorldbooks' | 'groupId' | 'primaryPersonaKey'> & Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>>;
+type WorldRef = Pick<CharacterProfile, 'id' | 'name' | 'description' | 'castRole'> & Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>>;
 
 const clip = (s: unknown, max: number): string => (typeof s === 'string' ? s.trim() : '').slice(0, max);
 
@@ -52,12 +57,12 @@ export function buildCastGenPrompt(args: {
     const count = Math.max(CAST_GEN_MIN, Math.min(CAST_GEN_MAX, Math.round(args.count)));
     const books = (lead.mountedWorldbooks || []).filter(b => b.constant && b.content?.trim()).slice(0, 6)
         .map(b => `- ${b.title || '設定'}：${clip(b.content, 600)}`).join('\n');
-    const others = worldChars.slice(0, 30).map(c => `- ${c.name}${c.castRole === 'supporting' ? '（配角）' : ''}：${clip(c.description, 80) || '（沒有簡介）'}`).join('\n');
+    const others = worldChars.slice(0, 30).map(c => `- ${charNameLine(c)}${c.castRole === 'supporting' ? '（配角）' : ''}：${clip(charOneLiner(c), 80) || '（沒有簡介）'}`).join('\n');
     const avoid = [...new Set([lead.name, ...worldChars.map(c => c.name), ...(args.avoidNames || [])].filter(Boolean))];
     return `你是幫角色扮演故事補人物的編劇。請為主角「${lead.name}」生成 ${count} 個配角：戲份比主角少、不會變成主角，但在劇情上用得到、能推動故事的人。
 
 ## 主角「${lead.name}」
-- 簡介：${clip(lead.description, 200) || '（沒有）'}
+- 簡介：${clip(charOneLiner(lead), 200) || '（沒有）'}
 - 人設：
 ${clip(lead.systemPrompt, 3000) || '（沒有）'}
 ${lead.worldview?.trim() ? `- 世界觀：\n${clip(lead.worldview, 1500)}\n` : ''}${books ? `\n## 常駐設定\n${books}\n` : ''}
@@ -75,7 +80,7 @@ ${direction?.trim() || '照主角的人設和世界，挑劇情上最用得到�
 
 ## 輸出
 只輸出一個 JSON 陣列，不要其他文字。每個元素：
-{"name":"名字","brief":"一句話介紹（別人眼中的 TA）","persona":"完整人設","appearance":"外觀（給畫頭像用）：年紀感、髮型、五官、穿著、氛圍，一兩句","relations":[{"target":"對象名字","relation":"這個人跟對象是什麼關係（從這個人的角度寫，例如：家裡安排的聯姻對象）"}]}`;
+{"name":"名字","aliases":["TA 的其他名字：綽號、英文名、本名；沒有就給空陣列"],"roleTitle":"一行的身份或職位，例如「刑警隊長」「花店老闆」","brief":"一句話介紹（別人眼中的 TA）","persona":"完整人設","appearance":"外觀（給畫頭像用）：年紀感、髮型、五官、穿著、氛圍，一兩句","relations":[{"target":"對象名字","relation":"這個人跟對象是什麼關係（從這個人的角度寫，例如：家裡安排的聯姻對象）"}]}`;
 }
 
 function normalizeDraft(raw: any): CastDraft | null {
@@ -89,6 +94,8 @@ function normalizeDraft(raw: any): CastDraft | null {
     return {
         name,
         brief: clip(raw.brief ?? raw.description, 80),
+        aliases: normalizeAliases(Array.isArray(raw.aliases) ? raw.aliases : [], name),
+        roleTitle: clip(raw.roleTitle ?? raw.role, ROLE_TITLE_MAX_LENGTH),
         persona: clip(raw.persona ?? raw.systemPrompt, 3000),
         appearance: clip(raw.appearance, 300),
         relations,
@@ -181,6 +188,8 @@ export function buildCastCharacters(args: {
             avatar: d.avatar || args.defaultAvatar(d.name),
             castRole: 'supporting',
             description: d.brief || '配角',
+            ...(d.aliases?.length ? { aliases: d.aliases } : {}),
+            ...(d.roleTitle ? { roleTitle: d.roleTitle } : {}),
             systemPrompt: d.persona,
             memories: [],
             relationships,

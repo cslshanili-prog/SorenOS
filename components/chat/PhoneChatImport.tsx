@@ -1,3 +1,4 @@
+import { ROLE_TITLE_MAX_LENGTH } from '../../utils/charIdentity';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretLeft, Warning } from '@phosphor-icons/react';
@@ -144,9 +145,11 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
                 let created = false;
                 if (!char) {
                     const { name, role, description } = data.character;
+                    // 檔案裡的身份放「身份／職位」那格（plans/character-identity-fields.md 3.7）；以前沒地方放，塞在簡介和人設開頭
                     char = await nameForNew(name, {
-                        description: role || '',
-                        systemPrompt: [role ? `身份：${role}` : '', description || ''].filter(Boolean).join('\n\n'),
+                        description: '',
+                        ...(role ? { roleTitle: role.slice(0, ROLE_TITLE_MAX_LENGTH) } : {}),
+                        systemPrompt: description || '',
                     });
                     created = true;
                 }

@@ -6,6 +6,7 @@
  *   只有對外的名字、頭像、簡介是小號自己的，再加一段「你現在用的小號」。
  * - 兩邊互通：本人知道小號最近跟你聊了什麼，小號也知道本人最近跟你聊了什麼（formatAltBridge）。
  */
+import { charOneLiner } from './charIdentity';
 import type { CharacterProfile, Message } from '../types';
 
 export const ALT_SELF_LIMIT_DEFAULT = 3;
@@ -38,6 +39,9 @@ export function altPersonaView(alt: CharacterProfile, owner: CharacterProfile): 
         name: alt.name,
         avatar: alt.avatar,
         description: alt.description,
+        // 別名和身份也是小號自己的：不寫這兩行的話會從 ...owner 帶進本人的，名單上一看就知道是誰的小號
+        aliases: alt.aliases,
+        roleTitle: alt.roleTitle,
         altOf: alt.altOf,
         altPurpose: alt.altPurpose,
         memoryPalaceInjection: alt.memoryPalaceInjection,
@@ -52,7 +56,7 @@ export function altPersonaView(alt: CharacterProfile, owner: CharacterProfile): 
 export const isAltResolved = (c: unknown): boolean => !!(c && typeof c === 'object' && (c as any)[ALT_RESOLVED]);
 
 /** 「你的身份」那段換成：你是本人，現在用小號在說話 */
-export function altIdentityBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'>, owner: Pick<CharacterProfile, 'name' | 'systemPrompt'>): string {
+export function altIdentityBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'> & Partial<Pick<CharacterProfile, 'roleTitle'>>, owner: Pick<CharacterProfile, 'name' | 'systemPrompt'>): string {
     return `### 你的身份 (Character)
 - 你是「${owner.name}」。
 - 核心性格/指令:
@@ -62,19 +66,19 @@ ${altMaskBlock(alt, owner)}`;
 }
 
 /** 「你現在用的小號」那一段（朋友圈等只用角色設定的地方也帶） */
-export function altMaskBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'>, owner: Pick<CharacterProfile, 'name'>): string {
+export function altMaskBlock(alt: Pick<CharacterProfile, 'name' | 'description' | 'altPurpose' | 'altRevealed' | 'altDenied'> & Partial<Pick<CharacterProfile, 'roleTitle'>>, owner: Pick<CharacterProfile, 'name'>): string {
     const purpose = alt.altPurpose ? `- 你開這個小號的理由：${alt.altPurpose}\n` : '';
     // 被認出來了（7d）：對方知道是你，帳號照舊在，用不用由你
     if (alt.altRevealed) {
         return `### 你現在用的小號
-- 你現在用小號「${alt.name}」在說話${alt.description ? `（簡介：${alt.description}）` : ''}。
+- 你現在用小號「${alt.name}」在說話${charOneLiner(alt) ? `（簡介：${charOneLiner(alt)}）` : ''}。
 ${purpose}- 對方已經知道「${alt.name}」就是你（${owner.name}）了（${alt.altRevealed.how === 'admitted' ? '對方認出來、你承認了' : '你自己說的'}）。不用再裝；要不要繼續用這個帳號、用它說什麼，由你決定。
 
 `;
     }
     const denied = alt.altDenied?.times ? `- 對方懷疑過 ${alt.altDenied.times} 次「${alt.name}」就是你，你都沒認；之後說話要更小心。\n` : '';
     return `### 你現在用的小號
-- 你現在用小號「${alt.name}」在說話：對方看到的是「${alt.name}」${alt.description ? `（簡介：${alt.description}）` : ''}，不是「${owner.name}」。
+- 你現在用小號「${alt.name}」在說話：對方看到的是「${alt.name}」${charOneLiner(alt) ? `（簡介：${charOneLiner(alt)}）` : ''}，不是「${owner.name}」。
 ${purpose}- 對方不知道「${alt.name}」就是你。要不要說、什麼時候說，由你決定；說話方式可以刻意跟平常不一樣（換個口吻、少用你的口頭禪），但你還是你，知道的事、在意的人都一樣。
 - 你用本名「${owner.name}」跟對方說過的話、你們之間的一切，你都記得；用小號時別不小心說出只有「${owner.name}」才會知道的事——除非你就是想讓對方發現。
 ${denied}

@@ -1,3 +1,4 @@
+import { charSubtitle } from '../../utils/charIdentity';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretLeft, UserPlus } from '@phosphor-icons/react';
@@ -101,7 +102,7 @@ const AddFriendPage: React.FC<{
                                         <TokenImg value={c.avatar} className="w-11 h-11 rounded-full object-cover bg-slate-100 shrink-0" alt="" />
                                         <div className="min-w-0 flex-1">
                                             <div className="text-sm font-bold text-slate-800 truncate">{c.name}</div>
-                                            <p className="text-[11px] text-slate-400 truncate mt-0.5">{tries ? `被拒過 ${tries} 次` : (c.description || '還不認識你')}</p>
+                                            <p className="text-[11px] text-slate-400 truncate mt-0.5">{tries ? `被拒過 ${tries} 次` : (charSubtitle(c) || '還不認識你')}</p>
                                         </div>
                                         <UserPlus size={18} className="text-slate-400 shrink-0" />
                                     </button>
@@ -114,7 +115,7 @@ const AddFriendPage: React.FC<{
                         <div className="flex flex-col items-center text-center mb-5">
                             <TokenImg value={char.avatar} className="w-20 h-20 rounded-full object-cover bg-slate-100 mb-2.5" alt="" />
                             <div className="text-base font-bold text-slate-800">{char.name}</div>
-                            {char.description && <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 max-w-xs">{char.description}</p>}
+                            {charSubtitle(char) && <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 max-w-xs">{charSubtitle(char)}</p>}
                         </div>
 
                         {history.length > 0 && (

@@ -1,3 +1,4 @@
+import { formatAliasInput, normalizeAliases, ROLE_TITLE_MAX_LENGTH } from '../../utils/charIdentity';
 import React, { useMemo, useState } from 'react';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import ImageStylePicker, { EMPTY_PICK, pickOptions, type ImageStylePick } from '../image/ImageStylePicker';
@@ -102,7 +103,7 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                         console.warn(`[生成配角] ${r.name} 的頭像沒畫成`, e);
                     }
                 }
-                withAvatars.push({ name: r.name, brief: r.brief, persona: r.persona, appearance: r.appearance, relations: r.relations, avatar });
+                withAvatars.push({ name: r.name, brief: r.brief, aliases: normalizeAliases(r.aliases, r.name), roleTitle: r.roleTitle, persona: r.persona, appearance: r.appearance, relations: r.relations, avatar });
             }
             setProgress('正在建立…');
             const { chars, contactsForExisting } = buildCastCharacters({
@@ -199,7 +200,10 @@ const CastGeneratorPage: React.FC<{ initialLeadId?: string; onClose: () => void;
                                         <ArrowsClockwise size={16} />
                                     </button>
                                 </div>
-                                <input value={r.brief} onChange={e => patchRow(r.key, { brief: e.target.value.slice(0, 80) })} className={`${field} text-xs`} placeholder="一句話" />
+                                <input value={r.roleTitle} onChange={e => patchRow(r.key, { roleTitle: e.target.value.slice(0, ROLE_TITLE_MAX_LENGTH) })} aria-label={`${r.name} 的身份／職位`} className={`${field} text-xs`} placeholder="身份／職位" />
+                                {/* 別名打字時先存原樣的字（逗號不會被吃掉），存檔時才整理 */}
+                                <input value={formatAliasInput(r.aliases)} onChange={e => patchRow(r.key, { aliases: e.target.value.split('、') })} aria-label={`${r.name} 的別名`} className={`${field} text-xs`} placeholder="別名（用頓號分開，沒有就空著）" />
+                                <input value={r.brief} onChange={e => patchRow(r.key, { brief: e.target.value.slice(0, 80) })} className={`${field} text-xs`} placeholder="一句話簡介" />
                                 <ExpandableTextarea title="人設" value={r.persona} onChange={v => patchRow(r.key, { persona: v.slice(0, 3000) })} rows={5} className={`${field} text-xs resize-none leading-relaxed`} placeholder="人設" />
                                 <input value={r.appearance} onChange={e => patchRow(r.key, { appearance: e.target.value.slice(0, 300) })} className={`${field} text-xs`} placeholder="外觀（畫頭像用）" />
                                 {r.relations.length > 0 && (

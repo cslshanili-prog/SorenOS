@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -1185,7 +1186,7 @@ const GuidebookApp: React.FC = () => {
 
                                             {/* Description line */}
                                             <div className="text-white/50 text-[10px] mt-0.5 leading-tight max-w-[85%] truncate">
-                                                {c.description ? c.description.slice(0, 25) : '這次，輪到 ta 來攻略你。'}
+                                                {charSubtitle(c) ? charSubtitle(c).slice(0, 25) : '這次，輪到 ta 來攻略你。'}
                                             </div>
 
                                             {/* Session badge */}
@@ -1362,7 +1363,7 @@ const GuidebookApp: React.FC = () => {
                                             {setupChar.name}
                                         </div>
                                         <div className="text-white/40 text-[10px] truncate mt-0.5">
-                                            {setupChar.description ? setupChar.description.slice(0, 30) : '準備被攻略…'}
+                                            {charSubtitle(setupChar) ? charSubtitle(setupChar).slice(0, 30) : '準備被攻略…'}
                                         </div>
                                     </div>
                                 </div>

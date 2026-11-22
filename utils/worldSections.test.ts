@@ -41,6 +41,12 @@ describe('世界底下的分組', () => {
         expect(matchesSearch(lin, '霧城', worlds)).toBe(true);
         expect(matchesSearch(lin, '小 曉', worlds)).toBe(true);
         expect(matchesSearch(lin, '刑警', worlds)).toBe(true);
+        // 別名、身份也搜得到
+        const named = c('陸薇寧', { aliases: ['Vivian', '陸姐'], roleTitle: '攝影師' });
+        expect(matchesSearch(named, 'vivian', worlds)).toBe(true);
+        expect(matchesSearch(named, '陸姐', worlds)).toBe(true);
+        expect(matchesSearch(named, '攝影', worlds)).toBe(true);
+        expect(matchesSearch(named, '刑警', worlds)).toBe(false);
         expect(matchesSearch(lin, '晓', worlds)).toBe(true);
         expect(matchesSearch(lin, '白家', worlds)).toBe(false);
         expect(matchesSearch(lin, '', worlds)).toBe(true);

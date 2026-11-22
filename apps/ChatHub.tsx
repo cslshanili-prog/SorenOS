@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
@@ -208,7 +209,7 @@ const ChatHub: React.FC = () => {
         const q = contactQuery.trim().toLowerCase();
         const items: ContactRow[] = [
             // 小號（關係線第 7 批）你通過了它的好友申請才列
-            ...characters.filter(c => !c.altOf || c.altUserFriend).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: c.description || '' })),
+            ...characters.filter(c => !c.altOf || c.altUserFriend).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: charSubtitle(c) })),
             ...npcs.map(n => ({ id: n.id, name: n.name, avatar: n.avatar, kind: 'npc' as const, sub: n.description || '' })),
         ].filter(it => !q || it.name.toLowerCase().includes(q));
         items.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));

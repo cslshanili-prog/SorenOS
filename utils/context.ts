@@ -1,4 +1,5 @@
 
+import { charIdentityLines } from './charIdentity';
 import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
@@ -274,9 +275,9 @@ export const ContextBuilder = {
         // 1. 核心身份 (Identity)
         let identity = `### 你的身份 (Character)\n`;
         identity += `- 名字: ${char.name}\n`;
-        // Change: Explicitly label description as User Note to avoid literal interpretation
-        identity += `- 用戶備註/愛稱 (User Note/Nickname): ${char.description || '無'}\n`;
-        identity += `  (注意: 這個備註是用戶對你的稱呼或印象，可能包含比喻。如果備註內容（如“快樂小狗”）與你的核心設定衝突，請以核心設定為準，不要真的扮演成動物，除非核心設定裡寫了你是動物。)\n`;
+        // 別名、身份、簡介（plans/character-identity-fields.md）：沒填的那行不出。以前這裡把簡介標成「用戶備註／愛稱」，
+        // 跟群聊、配角生成把同一格當「角色簡介」讀對不上；妳對 TA 的叫法另有 chatNickname（utils/chatRelationship.ts）
+        for (const line of charIdentityLines(char)) identity += `${line}\n`;
         identity += `- 核心性格/指令:\n${char.systemPrompt || '你是一個溫柔、擬人化的AI伴侶。'}\n\n`;
         sections.identity = identity;
 

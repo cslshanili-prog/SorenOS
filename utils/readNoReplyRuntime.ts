@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import type { CharacterProfile, Message } from '../types';
 import { lineMsgFields } from './chatLine';
 import { DB } from './db';
@@ -33,7 +34,7 @@ async function generateAutoReply(char: CharacterProfile, api: ApiConfig, decisio
         const slot = getCurrentSlot(schedule, getScheduleWallClock(char));
         const prompt = buildAutoReplyGenPrompt({
             charName: char.name,
-            persona: char.description || '',
+            persona: charOneLiner(char),
             decision,
             location: slot?.location,
             recentLines: recent.slice(-6).map(m => lineOf(m, char.name)).filter((l): l is string => !!l),

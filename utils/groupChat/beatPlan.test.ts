@@ -84,6 +84,9 @@ describe('排班提示詞', () => {
 
     it('人設摘要：簡短說明優先，沒有就截人設', () => {
         expect(memberBrief({ description: '學妹', systemPrompt: '很長的人設' })).toBe('學妹');
+        // 有身份：「身份；簡介」；只有身份也不退回截人設
+        expect(memberBrief({ roleTitle: '大三學生', description: '學妹', systemPrompt: '很長的人設' })).toBe('大三學生；學妹');
+        expect(memberBrief({ roleTitle: '大三學生', systemPrompt: '很長的人設' })).toBe('大三學生');
         expect(memberBrief({ systemPrompt: 'x'.repeat(100) })).toBe(`${'x'.repeat(80)}…`);
     });
 });
