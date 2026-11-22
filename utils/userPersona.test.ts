@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyActivePersona, globalPersonaKey, groupPersonaSource, npcPersonaSource, personaKeyForChar, personaKeyForNpc, personaKeyForScene, vrScenePersonaKey, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
+import { applyActivePersona, profileForPersonaKey, personaAliasesForKey, globalPersonaKey, groupPersonaSource, npcPersonaSource, personaKeyForChar, personaKeyForNpc, personaKeyForScene, vrScenePersonaKey, personaKeyForGroup, personaNameForKey, personaOverrideSource, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar, resolveUserProfileForGroup } from './userPersona';
 import type { UserProfile } from '../types';
 
 const baseProfile: UserProfile = {
@@ -272,5 +272,29 @@ describe('多角色同場的場景身份（2d）', () => {
     it('彼方：只算接入彼方的角色', () => {
         expect(vrScenePersonaKey(profile, chars)).toBe('p1');
         expect(vrScenePersonaKey({ ...profile, scenePersonaIds: { vrworld: REAL_IDENTITY_PERSONA_ID } }, chars)).toBe(REAL_IDENTITY_PERSONA_ID);
+    });
+});
+
+describe('身份卡的別名（plans/character-identity-fields.md 第 3 批）', () => {
+    const profile: UserProfile = {
+        ...baseProfile,
+        aliases: ['柔柔', '小柔', 'Rou'],
+        personas: [
+            { id: 'p1', name: '林特工', avatar: 'avatar-p1.png', bio: '臥底特工人設', aliases: ['Lin', '零號'], createdAt: 0, updatedAt: 0 },
+            { id: 'p2', name: '阿凱', avatar: 'avatar-p2.png', bio: '街頭少年人設', createdAt: 0, updatedAt: 0 },
+        ],
+    };
+    it('套用身份卡：別名跟著卡走；卡沒填就沒有，不借真實身份的', () => {
+        expect(applyActivePersona({ ...profile, activePersonaId: 'p1' }).aliases).toEqual(['Lin', '零號']);
+        expect(applyActivePersona({ ...profile, activePersonaId: 'p2' }).aliases).toBeUndefined();
+        expect(applyActivePersona(profile).aliases).toEqual(['柔柔', '小柔', 'Rou']);
+        expect(profileForPersonaKey(profile, 'p1').aliases).toEqual(['Lin', '零號']);
+        expect(profileForPersonaKey(profile, 'p2').aliases).toBeUndefined();
+    });
+    it('personaAliasesForKey：整理過（跟名字一樣的丟掉）；卡刪了回真實身份的', () => {
+        expect(personaAliasesForKey(profile, 'p1')).toEqual(['Lin', '零號']);
+        expect(personaAliasesForKey(profile, 'p2')).toEqual([]);
+        expect(personaAliasesForKey(profile, REAL_IDENTITY_PERSONA_ID)).toEqual(['柔柔', 'Rou']);
+        expect(personaAliasesForKey(profile, 'gone')).toEqual(['柔柔', 'Rou']);
     });
 });

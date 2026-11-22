@@ -4173,6 +4173,8 @@ export interface UserProfile {
     name: string;
     avatar: string;
     bio: string;
+    /** 真實身份的別名（本名、綽號、英文名…，最多 8 個；plans/character-identity-fields.md 第 3 批）。身份卡各有各的；角色寫別名也認得出是你 */
+    aliases?: string[];
     /** 真實身份的性別，選填，跟身份卡的 UserGender 是同一套枚舉 */
     gender?: UserGender;
     /** 真實身份的補充設定（介面上一格；讀一律走 utils/personaSetting.ts 的 personaExtraSetting） */
@@ -4599,6 +4601,8 @@ export interface UserPersona {
     name: string;
     avatar: string;
     bio: string;
+    /** 這張身份卡的別名（最多 8 個）；跟角色的 aliases 同一套整理規則（utils/charIdentity.ts） */
+    aliases?: string[];
     gender?: UserGender;
     /** 補充設定（介面上一格；讀一律走 utils/personaSetting.ts 的 personaExtraSetting） */
     customSetting?: string;

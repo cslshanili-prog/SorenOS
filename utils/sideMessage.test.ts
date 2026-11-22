@@ -104,3 +104,17 @@ describe('別名（plans/character-identity-fields.md 3.5）', () => {
         expect(resolveDmTarget(fromRain, 'Che')).toBe('阿澈');
     });
 });
+
+describe('身份卡的別名', () => {
+    const named = { ...profileBase, aliases: ['星星'], personas: [{ ...profileBase.personas![0], aliases: ['B 哥', 'Bee'] }] } as unknown as UserProfile;
+    const t = sideTargets(A, { characters: chars, profileBase: named, multiPersona: true });
+    it('名單帶著每張卡自己的別名', () => {
+        expect(t.personas).toEqual([{ key: '__real__', name: '小星', aliases: ['星星'] }, { key: 'pB', name: '身份B', aliases: ['B 哥', 'Bee'] }]);
+        expect(buildSideMessagePrompt({ targets: t, allowPrivate: true, allowDm: false })).toContain('「小星」（又叫 星星）、「身份B」（又叫 B 哥、Bee）');
+    });
+    it('角色寫你的別名也落得到那張卡', () => {
+        expect(resolvePrivateTarget(A, { name: 'bee', targets: t })).toBe('pB');
+        expect(resolvePrivateTarget(A, { name: '星星', targets: t })).toBe('__real__');
+        expect(resolvePrivateTarget(A, { name: '月亮', targets: t })).toBeNull();
+    });
+});

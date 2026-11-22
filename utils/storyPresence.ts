@@ -7,10 +7,10 @@
  * - 劇情其他地方要知道「你是誰」一律從這裡拿，別再直接讀 entry.mask。
  */
 
-import { charOneLiner } from './charIdentity';
+import { charAliases, charOneLiner } from './charIdentity';
 import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterMaskSelection, UserProfile } from '../types';
 import { personaExtraSetting } from './personaSetting';
-import { REAL_IDENTITY_PERSONA_ID, globalPersonaKey, profileForPersonaKey } from './userPersona';
+import { REAL_IDENTITY_PERSONA_ID, globalPersonaKey, personaAliasesForKey, profileForPersonaKey } from './userPersona';
 
 export interface StoryPresent {
     /** 'persona:<身份鍵>'／'char:<角色 id>'／'mask:<面具 id>'：訊息上記的就是這個 */
@@ -22,6 +22,8 @@ export interface StoryPresent {
     /** 你演的角色才有 */
     characterId?: string;
     name: string;
+    /** 別名（身份卡的、你演的角色的；面具沒有）：有才帶 */
+    aliases?: string[];
     avatar?: string;
     /** 簡介（身份卡）／設定（角色、面具） */
     description: string;
@@ -80,6 +82,7 @@ const fromPersona = (profileBase: UserProfile, key: string, selection: StoryThea
         selection,
         personaKey: key,
         name: profile.name || '你',
+        ...(personaAliasesForKey(profileBase, key).length ? { aliases: personaAliasesForKey(profileBase, key) } : {}),
         avatar: profile.avatar,
         description: profile.bio || '',
         ...(extra ? { extra } : {}),
@@ -103,6 +106,7 @@ export const resolveStoryPresent = (
             selection,
             characterId: char.id,
             name: char.name,
+            ...(charAliases(char).length ? { aliases: charAliases(char) } : {}),
             avatar: char.avatar,
             description: charOneLiner(char),
             coreInstruction: char.systemPrompt || '',

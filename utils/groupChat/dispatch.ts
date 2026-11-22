@@ -46,7 +46,7 @@ export interface DispatchContext {
      * 在場的身份卡（關係線第 5 批）：紅包目標按名字對到哪張卡（id 是 'user:身份鍵'）。
      * 不給就照舊整個你一個 'user'。第一張是「用戶」這個泛稱對到的那張。
      */
-    userTargets?: Array<{ id: string; name: string }>;
+    userTargets?: Array<{ id: string; name: string; aliases?: string[] }>;
     /** 群 HTML 模塊模式開啟時解析 [html] 塊為 html_card 消息 */
     htmlMode?: boolean;
     /**
@@ -281,7 +281,8 @@ function resolvePacketTarget(name: string, ctx: DispatchContext): string | undef
     const n = name.trim();
     if (!n) return undefined;
     const targets = ctx.userTargets?.length ? ctx.userTargets : [{ id: 'user', name: ctx.userName }];
-    const exactUser = targets.find(t => t.name === n);
+    // 在場的你：名字或這張卡的別名
+    const exactUser = matchPerson(n, targets);
     if (exactUser) return exactUser.id;
     if (n === ctx.userName || equalsAnyScript(n, '用戶')) return targets[0].id;
     const members = ctx.characters.filter(c => ctx.memberIds.includes(c.id));

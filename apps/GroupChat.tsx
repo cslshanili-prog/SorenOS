@@ -33,7 +33,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, claimantP
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { globalPersonaKey, groupPersonaSource, personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
+import { globalPersonaKey, groupPersonaSource, personaAliasesForKey, personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { distinctGroupPersonaSection, groupMessagePersonaKey, groupPersonaMismatches, makeUserLineLabeler } from '../utils/groupChat/memberPersona';
@@ -1777,7 +1777,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         : makeUserLineLabeler(userProfileBase, groupPersonaKey, groupPersonaKey);
     // 角色發專屬紅包給你時按名字對到哪張在場卡；旁觀時沒有你，只留「用戶」這個泛稱對到第一張
     const packetUserTargets = (presentKeys.length ? presentKeys : [groupPersonaKey])
-        .map(k => ({ id: userClaimantId(k), name: personaNameForKey(userProfileBase, k) }));
+        .map(k => ({ id: userClaimantId(k), name: personaNameForKey(userProfileBase, k), aliases: personaAliasesForKey(userProfileBase, k) }));
     // 成員私訊成員（關係線第 6 批 6d）：群裡兩個以上角色成員才教；落進兩人的角色私聊線，對方馬上回一句，
     // 群裡只留一行你看得到的小字（userOnly，角色看不到）
     // 私下找人（plans/side-messages.md）：旁觀也教；找你任何一張它認識的卡、找同世界／關係清單上的角色
