@@ -108,6 +108,9 @@ import { setGlobalWorldbooks } from '../utils/globalWorldbooks';
 import { resolveChatPresetId } from '../utils/presetBinding';
 import { MEETING_PRESET_UPDATED_EVENT } from '../utils/meetingPreset/store';
 import { markAmsgStateDirty, markAmsgStateDirtyForAll, resumePendingAmsgStateSync, syncAmsgToolConfigAndPrompts, wipeAmsgCloudDataForReset } from '../utils/amsgStateSync';
+
+/** 身份段換寫法後的那一次全體重傳做過了沒（每台裝置一次） */
+const AMSG_IDENTITY_LABELS_RESYNC_LS_KEY = 'amsg2_identity_labels_resync_v1';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
@@ -2006,6 +2009,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
             // 上次沒傳成功的 LLM 憑據行按這份重算補傳；沒有就跳過那一項。
             apiConfig: savedApiRaw ? JSON.parse(savedApiRaw) : undefined,
           });
+          // 角色身份段換了寫法（別名／身份／簡介，plans/character-identity-fields.md 3.4）：雲端烤著的是舊字面，
+          // 每台裝置重傳一次。沒開主動消息的角色在 markAmsgStateDirty 的門裡自己會被篩掉。
+          if (!localStorage.getItem(AMSG_IDENTITY_LABELS_RESYNC_LS_KEY)) {
+            localStorage.setItem(AMSG_IDENTITY_LABELS_RESYNC_LS_KEY, String(Date.now()));
+            markAmsgStateDirtyForAll({
+              characters: finalChars,
+              userProfileBase: dbUser ?? defaultUserProfile,
+              groups: dbGroups,
+              realtimeConfig: savedRealtime ? { ...defaultRealtimeConfig, ...JSON.parse(savedRealtime) } : defaultRealtimeConfig,
+            });
+          }
         } catch (err) {
           console.warn('[AmsgStateSync] 啟動補傳失敗（不影響啟動）', err);
         }

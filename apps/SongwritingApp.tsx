@@ -1,3 +1,4 @@
+import { charSubtitle } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -2253,7 +2254,7 @@ const SongwritingApp: React.FC = () => {
                                     </div>
                                     <div className="text-left flex-1 min-w-0">
                                         <div className="font-bold text-[13px]" style={{ color: MusicC.primary }}>{c.name}</div>
-                                        <div className="text-[10px] truncate leading-snug mt-0.5" style={{ color: MusicC.muted }}>{c.description || '將作為你的音樂共創搭檔'}</div>
+                                        <div className="text-[10px] truncate leading-snug mt-0.5" style={{ color: MusicC.muted }}>{charSubtitle(c) || '將作為你的音樂共創搭檔'}</div>
                                     </div>
                                     {active && (
                                         <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"

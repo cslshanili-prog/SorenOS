@@ -28,6 +28,20 @@ describe('小號的提示詞：人設記憶照本人、對外換小號', () => {
         expect(v.refinedMemories).toEqual({ '2026-10': '跟她吵過一次架' });
         expect(isAltResolved(v)).toBe(true);
     });
+    it('視圖：別名和身份是小號自己的，本人的不會漏過來（不然名單上一看就知道是誰的小號）', () => {
+        const named = { ...owner, aliases: ['阿澈哥', 'Che'], roleTitle: '段家長子' };
+        const bare = altPersonaView(alt, named);
+        expect(bare.aliases).toBeUndefined();
+        expect(bare.roleTitle).toBeUndefined();
+        expect(JSON.stringify([bare.aliases, bare.roleTitle])).not.toContain('Che');
+        const own = altPersonaView({ ...alt, aliases: ['夜貓'], roleTitle: '夜班司機' }, named);
+        expect(own.aliases).toEqual(['夜貓']);
+        expect(own.roleTitle).toBe('夜班司機');
+    });
+    it('小號那段：有身份時簡介寫成「身份；簡介」', () => {
+        expect(altIdentityBlock({ ...alt, roleTitle: '夜班司機' }, owner)).toContain('（簡介：夜班司機；只在半夜出沒）');
+        expect(altIdentityBlock(alt, owner)).toContain('（簡介：只在半夜出沒）');
+    });
     it('身份段：你是本人、現在用小號、對方不知道', () => {
         const t = altIdentityBlock(alt, owner);
         expect(t).toContain('你是「阿澈」');

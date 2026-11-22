@@ -1,4 +1,5 @@
 
+import { charSubtitle } from '../utils/charIdentity';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 import { useOS } from '../context/OSContext';
@@ -265,7 +266,7 @@ const XhsFreeRoamApp: React.FC = () => {
                                 )}
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-slate-800 truncate">{c.name}</p>
-                                    {c.description && <p className="text-[10px] text-slate-400 truncate">{c.description}</p>}
+                                    {charSubtitle(c) && <p className="text-[10px] text-slate-400 truncate">{charSubtitle(c)}</p>}
                                 </div>
                                 {c.id === selectedCharId && (
                                     <div className="w-2 h-2 rounded-full bg-rose-400" />

@@ -1,3 +1,4 @@
+import { charOneLiner } from '../charIdentity';
 import type { APIConfig, CharacterProfile, GroupProfile, Message, RealtimeConfig, UserProfile } from '../../types';
 import { findSARPendingReply, isSARDeletedReply, replaceSARSimulationReply, resolveSARReplyRetry } from './sarSimulationEdits';
 import { DB } from '../db';
@@ -559,7 +560,7 @@ export const buildSARLongTermContext = (
     const roomPlate = char.memoryPalaceEnabled ? char.roomPlatesInjection?.trim() : '';
     return `【SAR 異界角色底稿】
 角色名：${char.name}
-用戶備註：${char.description?.trim() || '無'}
+簡介：${charOneLiner(char).trim() || '無'}
 核心人設：
 ${char.systemPrompt?.trim() || '保持角色原有且穩定的表達、價值判斷與行動邏輯。'}
 

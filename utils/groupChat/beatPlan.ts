@@ -9,6 +9,7 @@
  * 排班失敗（沒回、格式壞、名字對不上）就退回「每人一拍、隨機順序」，不擋生成。
  * 這裡只排班、組提示詞、解析，不碰網絡。
  */
+import { charOneLiner } from '../charIdentity';
 import { ROUND_BUBBLES_MAX, roundBubbleCap } from './prompts';
 import type { APIConfig } from '../../types';
 
@@ -45,8 +46,10 @@ const clip = (s: string | undefined, n: number): string => {
 };
 
 /** 人設摘要：角色的簡短說明優先，沒有就截人設開頭 */
-export const memberBrief = (m: { description?: string; systemPrompt?: string }): string =>
-    clip(m.description?.trim() ? m.description : m.systemPrompt, 80);
+export const memberBrief = (m: { description?: string; roleTitle?: string; systemPrompt?: string }): string => {
+    const line = charOneLiner(m);
+    return clip(line.trim() ? line : m.systemPrompt, 80);
+};
 
 export function buildBeatPlanPrompt(input: {
     members: BeatMember[];

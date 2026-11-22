@@ -1,3 +1,4 @@
+import { charSubtitle } from '../../utils/charIdentity';
 import React, { useMemo, useState } from 'react';
 import { CaretDown, CaretLeft, CaretRight, MagnifyingGlass, X } from '@phosphor-icons/react';
 import type { CharacterGroup, CharacterProfile, NPCProfile, Participant } from '../../types';
@@ -77,7 +78,7 @@ const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, w
     const charRow = (c: CharacterProfile) => row({ kind: 'char', id: c.id }, c.name, c.avatar, <>
         {c.castRole === 'supporting' && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-400">配角</span>}
         {!isScheduleFeatureOn(c) && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 text-[10px] text-amber-500">沒開日程</span>}
-    </>, c.description);
+    </>, charSubtitle(c));
     const npcRow = (n: NPCProfile) => row({ kind: 'npc', id: n.id }, n.name, n.avatar, <span className="shrink-0 rounded-full bg-violet-50 px-1.5 text-[10px] text-violet-500">配角</span>, n.description);
 
     const worldBlock = (worldId: string | undefined, name: string, charSections: Array<{ sectionName?: string; chars: CharacterProfile[] }>, count: number) => {

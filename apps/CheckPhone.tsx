@@ -1,3 +1,4 @@
+import { charOneLiner } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ExpandableTextarea from '../components/common/ExpandableTextarea';
@@ -861,7 +862,7 @@ const CheckPhone: React.FC = () => {
             const myContacts = targetChar.phoneState?.contacts || [];
             // 有精簡人設就整段給（本來就只有 100～200 字），沒有才從簡介／設定開頭截一小段
             const briefOf = (ch: CharacterProfile) => resolveBriefPersona(ch)
-                || (ch.socialProfile?.bio || ch.description || ch.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+                || (ch.socialProfile?.bio || charOneLiner(ch) || ch.systemPrompt || '').replace(/\s+/g, ' ').trim().slice(0, 90);
             const rosterInfo = rosterChars.length
                 ? rosterChars.map(c => {
                     const known = myContacts.find(k => k.linkedCharId === c.id);

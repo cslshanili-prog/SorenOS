@@ -4,6 +4,7 @@
  * 一個角色只屬於一個分組（CharacterProfile.worldSectionId），分組定義在世界上（CharacterGroup.sections）。
  * 換了世界、或分組被刪，就當沒分組，不用回頭改角色卡。
  */
+import { charSearchFields } from './charIdentity';
 import type { CharacterGroup, CharacterProfile, WorldSection } from '../types';
 import { includesAnyScript } from './scriptKey';
 
@@ -35,12 +36,12 @@ const leadFirst = (list: CharacterProfile[]) => [
 
 const norm = (s: string | undefined) => (s || '').toLowerCase().replace(/\s+/g, '');
 
-/** 搜尋：名字、暱稱、簡介、世界名、分組名，大小寫、空白、繁簡都不計較 */
+/** 搜尋：名字、別名、暱稱、身份、簡介、世界名、分組名，大小寫、空白、繁簡都不計較 */
 export const matchesSearch = (char: CharacterProfile, query: string, worlds: CharacterGroup[]): boolean => {
     const q = norm(query);
     if (!q) return true;
     const world = worlds.find(w => w.id === char.groupId);
-    const fields = [char.name, char.chatNickname, char.description, world?.name, sectionOf(char, worlds)?.name];
+    const fields = [char.name, char.chatNickname, ...charSearchFields(char), world?.name, sectionOf(char, worlds)?.name];
     return fields.some(f => {
         const v = norm(f);
         return !!v && includesAnyScript(v, q);

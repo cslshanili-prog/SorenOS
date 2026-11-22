@@ -3,6 +3,7 @@
  * 最近聊過一排、搜尋、篩選，下面照世界 → 分組收起來；選了就切過去。
  * 這頁只管挑人，做成共用的：別處要「選一個角色」也能直接用（onPick 給什麼都行）。
  */
+import { charSubtitle } from '../../utils/charIdentity';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CaretDown, CaretLeft, CaretRight, MagnifyingGlass, X } from '@phosphor-icons/react';
 import type { CharacterGroup, CharacterProfile } from '../../types';
@@ -96,7 +97,7 @@ const ChatSwitcherPage: React.FC<ChatSwitcherPageProps> = ({ characters, worlds,
                         {c.castRole === 'supporting' && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-400">配角</span>}
                         {c.id === activeId && <span className="shrink-0 text-[10px] font-bold text-violet-500">目前</span>}
                     </span>
-                    {c.description && <span className="block truncate text-[11px] text-slate-400">{c.description}</span>}
+                    {charSubtitle(c) && <span className="block truncate text-[11px] text-slate-400">{charSubtitle(c)}</span>}
                 </span>
             </button>
         );

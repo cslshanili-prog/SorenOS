@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import type { APIConfig, CharacterProfile } from '../types';
 import type { AvatarTouchModelAction } from './avatarTouch';
 import {
@@ -33,7 +34,7 @@ export interface CompanionPerformanceDirectorInput {
 const buildLocalPersona = (character: CharacterProfile): string => {
   const source = character.videoCallPerformancePersona || [
     character.personalityStyle,
-    character.description,
+    charOneLiner(character),
     character.systemPrompt,
   ].filter(Boolean).join(' ');
   return Array.from(source.replace(/\s+/g, ' ').trim()).slice(0, 200).join('');

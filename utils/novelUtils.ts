@@ -1,4 +1,5 @@
 
+import { charOneLiner } from './charIdentity';
 import { CharacterProfile, NovelBook, NovelSegment, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 import { safeResponseJson } from './safeApi';
@@ -24,7 +25,7 @@ export const extractWritingTags = (char: CharacterProfile): string[] => {
     if (!char) return ['風格未定'];
 
     const tags = new Set<string>();
-    const desc = ((char.description || '') + (char.worldview || '')).toLowerCase();
+    const desc = (charOneLiner(char) + (char.worldview || '')).toLowerCase();
     
     // 1. 從 impression 提取（如果有）
     if (char.impression) {
@@ -122,7 +123,7 @@ export const analyzeWriterPersonaSimple = (char: CharacterProfile): string => {
     
     const traits = char.impression?.personality_core.observed_traits || [];
     const mbti = char.impression?.mbti_analysis?.type || '';
-    const desc = char.description || '';
+    const desc = charOneLiner(char);
     
     const personaMap: Record<string, any> = {
         '冷漠': { focus: '邏輯漏洞、戰術細節', style: '簡潔、克制，避免情感渲染', rhythm: '快節奏，少廢話', taboo: '煽情、過度心理描寫' },
@@ -238,7 +239,7 @@ export const extractWritingTaboos = (char: CharacterProfile): string => {
     }
     
     // 特殊人格追加
-    if (includesAnyScript(char.description ?? '', '貓') || (traits.includes('貓') || traits.includes('猫'))) {
+    if (includesAnyScript(charOneLiner(char), '貓') || (traits.includes('貓') || traits.includes('猫'))) {
         taboos += `\n### 🐱 貓屬性強制規則：\n`;
         taboos += `- 注意力最多持續3句話就要走神。\n`;
         taboos += `- 必須關注"舒適度"、"食物"、"好玩的東西"。\n`;
@@ -277,7 +278,7 @@ export const generateWriterPersonaDeep = async (
 **姓名**: ${char.name}
 
 **基礎描述**: 
-${char.description || '無'}
+${charOneLiner(char) || '無'}
 
 **背景故事**: 
 ${char.worldview || '無詳細背景'}
@@ -609,11 +610,11 @@ ${userText || '[用戶未輸入，請根據上文自然續寫]'}
    
    如果你（${char.name}）對他們的寫法有意見，可以在吐槽裡說出來！
    - 如果你覺得他們理解錯了角色，可以反駁
-   - 如果你有專業知識（${char.description}），可以用術語糾正
+   - 如果你有專業知識（${charOneLiner(char)}），可以用術語糾正
    - 如果你就是看不慣，直說！
    ` : ''}
    
-   ${includesAnyScript(char.description ?? '', '貓') ? '必須有"喵"！' : ''}
+   ${includesAnyScript(charOneLiner(char), '貓') ? '必須有"喵"！' : ''}
 `;
         jsonStructure.push(`"comment": { "content": "即時反應（與用戶對話）" }`);
     }

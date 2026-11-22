@@ -1,4 +1,5 @@
 
+import { charSubtitle } from '../../utils/charIdentity';
 import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import ExpandableTextarea from '../common/ExpandableTextarea';
@@ -1121,7 +1122,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                                 <TokenImg value={c.avatar} className="w-9 h-9 rounded-xl object-cover" />
                                 <div className="flex-1 min-w-0">
                                     <div className="font-bold text-sm text-slate-700">{c.name}</div>
-                                    <div className="text-[10px] text-slate-400 truncate">{c.description}</div>
+                                    <div className="text-[10px] text-slate-400 truncate">{charSubtitle(c)}</div>
                                 </div>
                             </div>
                         ))}

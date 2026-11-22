@@ -7,6 +7,7 @@
  * - 欄位照 SillyTavern（docs/worldbook-management.md），新條目的預設值跟世界書 App 新增時一樣。
  * - 「讀取角色」只給人設、世界觀、掛了哪些世界書；不給聊天記錄和記憶（Liora 定的）。
  */
+import { charAliases, charRoleTitle } from '../charIdentity';
 import type {
     AssistantWorldbookProposal, CharacterProfile, MountedWorldbook, Worldbook, WorldbookDepthRole, WorldbookPosition,
 } from '../../types';
@@ -86,6 +87,8 @@ export const describeCharacter = (ref: unknown, data: WorldbookData): { ok: bool
         ok: true,
         content: [
             `# ${hit.name}（id=${hit.id}）`,
+            `別名：${charAliases(hit).join('、') || '（沒寫）'}`,
+            `身份／職位：${charRoleTitle(hit) || '（沒寫）'}`,
             `簡介：${cap(hit.description)}`,
             `人設：${cap(hit.systemPrompt)}`,
             `世界觀：${cap(hit.worldview)}`,

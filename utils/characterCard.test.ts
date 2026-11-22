@@ -82,3 +82,11 @@ describe('stripSensitiveCardFields', () => {
     }
   });
 });
+
+describe('角色卡帶著別名、身份、簡介走', () => {
+  it('三格都不在剝離清單裡', () => {
+    const card = { name: '陸薇寧', description: '嘴甜心硬', aliases: ['Vivian', '陸姐'], roleTitle: '攝影師', systemPrompt: '你是陸薇寧' };
+    expect(stripSensitiveCardFields(card)).toEqual(card);
+    for (const field of ['aliases', 'roleTitle', 'description']) expect(CARD_STRIPPED_FIELDS as readonly string[]).not.toContain(field);
+  });
+});

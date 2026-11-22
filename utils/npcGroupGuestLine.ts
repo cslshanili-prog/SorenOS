@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import { NPCProfile, CharacterProfile } from '../types';
 import { safeResponseJson, extractContent } from './safeApi';
 import { buildNpcMemoryBlock } from './npcMemory';
@@ -88,7 +89,7 @@ export function castAsGuestProfile(char: CharacterProfile): NPCProfile {
         id: char.id,
         name: char.name,
         avatar: char.avatar,
-        description: (char.systemPrompt || char.description || '').trim(),
+        description: (char.systemPrompt || charOneLiner(char) || '').trim(),
         ...(char.worldview ? { worldview: char.worldview } : {}),
         relationships: (char.relationships || []).map(r => ({ ...r })),
         ...(latest ? { memory: latest.trim().slice(0, 1200) } : {}),

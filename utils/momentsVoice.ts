@@ -1,3 +1,4 @@
+import { charOneLiner } from './charIdentity';
 import type { CharacterProfile, NPCProfile, PhoneContact } from '../types';
 import { USER_ID } from './momentsPool';
 import { resolveBriefPersona } from './briefPersona';
@@ -37,7 +38,7 @@ export function voiceSnippet(parts: Array<string | undefined>, max: number = VOI
 
 /** 有精簡人設就用它（見 utils/briefPersona.ts），沒填才從完整人設裡挑句子。 */
 export const characterVoice = (char: Pick<CharacterProfile, 'description' | 'systemPrompt' | 'briefPersona'>): string =>
-    resolveBriefPersona(char) || voiceSnippet([char.systemPrompt, char.description]);
+    resolveBriefPersona(char) || voiceSnippet([char.systemPrompt, charOneLiner(char)]);
 
 export const npcVoice = (npc: Pick<NPCProfile, 'description'>): string => voiceSnippet([npc.description]);
 

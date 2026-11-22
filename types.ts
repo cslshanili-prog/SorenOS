@@ -3379,7 +3379,12 @@ export interface CharacterProfile {
    */
   videoCallPerformancePersona?: string;
   videoCallPerformancePersonaGeneratedAt?: number;
+  /** 一句話簡介（介面上叫「簡介」）。讀一律走 utils/charIdentity.ts，見 plans/character-identity-fields.md */
   description: string;
+  /** 別名：TA 客觀上的其他名字（本名、英文名、綽號、圈名），最多 8 個。跟聊天設定的暱稱（chatNickname，妳怎麼叫 TA）是兩回事 */
+  aliases?: string[];
+  /** 身份／職位，一行（「攝影師」「段家長子」）。不叫 identity：那是查手機聯繫人的欄位 */
+  roleTitle?: string;
   systemPrompt: string;
   worldview?: string;
   /** 角色分組：指向 CharacterGroup.id；空或指向已刪分組 = 未分組。僅本地組織用，不隨角色卡導出 */
