@@ -169,8 +169,9 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                         onChange={(e) => setDraftAvatarUrl(e.target.value)}
                         onBlur={commitAvatarUrl}
                         onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                        placeholder="或粘貼圖片 URL（回車確認）"
-                        className="w-full max-w-xs bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2 text-xs text-slate-500 outline-none transition-all placeholder:text-slate-300 text-center"
+                        aria-label="頭像圖片網址"
+                        placeholder="頭像圖片網址（貼上後按 Enter）"
+                        className="w-full max-w-xs bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2 text-xs text-slate-600 outline-none transition-all placeholder:text-slate-500 text-center"
                     />
                 </div>
 

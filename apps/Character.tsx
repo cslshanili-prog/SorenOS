@@ -1462,8 +1462,8 @@ ${isInitialGeneration ? `
                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                                </div>
                                <div className="flex-1 space-y-3">
-                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-200" placeholder="名稱" />
-                                   <input value={formData.description} onChange={(e) => handleChange('description', e.target.value)} className="w-full bg-transparent py-1 text-sm text-slate-500 border-b border-slate-200" placeholder="描述" />
+                                   <input value={formData.name} onChange={(e) => handleChange('name', e.target.value)} className="w-full bg-transparent py-1 text-xl font-medium text-slate-800 border-b border-slate-300 placeholder:text-slate-400" placeholder="名稱" />
+                                   <input value={formData.description} onChange={(e) => handleChange('description', e.target.value)} aria-label="一句話簡介" className="w-full bg-transparent py-1 text-sm text-slate-700 border-b border-slate-300 placeholder:text-slate-500" placeholder="一句話簡介（顯示在名字下面）" />
                                    {/* 頭像 URL 入口: 與左側上傳文件平級. 走 draft -> 失焦/回車 commit,
                                        避免逐字 commit 導致所有引用 char.avatar 的 <img> 在打字時瘋狂
                                        請求不完整 URL. https URL 會作為主動消息的通知圖標傳到 worker;
@@ -1497,8 +1497,9 @@ ${isInitialGeneration ? `
                                            }
                                        }}
                                        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
-                                       placeholder="或粘貼圖片 URL（回車確認）"
-                                       className="w-full bg-transparent py-1 text-xs text-slate-400 border-b border-slate-200 placeholder:text-slate-300"
+                                       aria-label="頭像圖片網址"
+                                       placeholder="頭像圖片網址（貼上後按 Enter）"
+                                       className="w-full bg-transparent py-1 text-xs text-slate-600 border-b border-slate-300 placeholder:text-slate-500"
                                    />
                                </div>
                            </div>
