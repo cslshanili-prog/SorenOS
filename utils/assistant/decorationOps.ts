@@ -3,6 +3,7 @@
  * 寫的路跟裝扮 App 同一套（utils/decorationTemplates.ts 的 patch、templateBindings 寫穿），這裡只多一層：
  * 操作清單 → 草稿 → 卡片上一行一行的改動；套用前留快照，還原寫回去。
  */
+import { peopleByAlias } from '../personMatch';
 import type { AssistantDecorationProposal, CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
 import { PRESET_THEMES } from '../../components/chat/ChatConstants';
 import { LAYOUT_DEFAULTS, pickDecorationLayout } from '../chatDecoration';
@@ -49,8 +50,10 @@ const resolveTarget = (raw: unknown, data: DecorationData): { target: Decoration
     const key = typeof raw === 'string' ? raw.trim() : '';
     if (!key) return { error: '沒說是哪個聊天。' };
     if (/^(全局|全域|global|全局默認)$/i.test(key)) return { target: { kind: 'global' }, label: '全局默認' };
-    const chars = visibleChars(data).filter(c => c.id === key || c.name === key);
+    const named = visibleChars(data).filter(c => c.id === key || c.name === key);
     const groups = data.groups.filter(g => g.id === key || g.name === key);
+    // id、名字都沒有：再照角色的別名找（好幾位撞在一起照樣列出來要對方用 id）
+    const chars = named.length || groups.length ? named : peopleByAlias(key, visibleChars(data));
     if (chars.length + groups.length > 1) return { error: `「${key}」有好幾個同名的，改用 id：${[...chars, ...groups].map(x => `${x.name}=${x.id}`).join('、')}` };
     if (chars[0]) return { target: { kind: 'character', id: chars[0].id }, label: chars[0].name };
     if (groups[0]) return { target: { kind: 'group', id: groups[0].id }, label: `群「${groups[0].name}」` };

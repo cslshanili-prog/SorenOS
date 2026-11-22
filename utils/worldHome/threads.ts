@@ -5,6 +5,7 @@
  * A 先演繹時發出的私聊/群聊**立刻**落線程，同一輪裡後演繹的 B 構建上下文時
  * 就能收到並回應；下一輪 A 又能看到 B 的回覆。NPC 也能在群裡冒泡。
  */
+import { matchPerson } from '../personMatch';
 import type { WorldProfile, WorldThread, WorldChatMessage, WorldCharBeat } from '../../types';
 
 export const GROUP_THREAD_ID = 'group_main';
@@ -65,14 +66,15 @@ export function isDuplicateLine(thread: WorldThread, fromId: string, text: strin
 export function applyBeatToThreads(
     world: WorldProfile,
     beat: WorldCharBeat,
-    members: { id: string; name: string }[],
+    members: { id: string; name: string; aliases?: string[] }[],
     round: number,
     storyTime: string,
     insertBefore: ReadonlyMap<string, string> = new Map(),
 ): void {
     const threads = ensureThreads(world);
     // dm 對象可以是成員，也可以是 NPC（角色給鎮上的人發私信）
-    const idOf = (name: string) => members.find(m => m.name === name)?.id || world.npcs.find(n => n.name === name)?.id;
+    // 成員照名字或別名認（utils/personMatch.ts）；鎮上的 NPC 沒有別名，照名字
+    const idOf = (name: string) => matchPerson(name, members)?.id || world.npcs.find(n => n.name === name)?.id;
     const now = Date.now();
 
     for (const dm of beat.phone?.dms || []) {
@@ -123,7 +125,7 @@ export function applyNpcGroupLines(
 export function applyNpcDms(
     world: WorldProfile,
     dms: { from: string; to: string; lines: string[] }[],
-    members: { id: string; name: string }[],
+    members: { id: string; name: string; aliases?: string[] }[],
     round: number,
     storyTime: string,
 ): void {
@@ -132,7 +134,7 @@ export function applyNpcDms(
     const now = Date.now();
     for (const dm of dms) {
         const npc = world.npcs.find(n => n.name === dm.from);
-        const member = members.find(m => m.name === dm.to);
+        const member = matchPerson(dm.to, members);
         if (!npc || !member || !Array.isArray(dm.lines)) continue;
         const tid = dmThreadId(npc.id, member.id);
         let thread = threads.find(t => t.id === tid);

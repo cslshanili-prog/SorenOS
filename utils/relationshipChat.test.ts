@@ -19,6 +19,16 @@ describe('relationshipChat · 純函數', () => {
         expect(matchRealChar('', roster)).toBeUndefined();
     });
 
+    it('matchRealChar 也認別名；別名不做包含、撞名不猜', () => {
+        const roster = [{ id: 'c1', name: '阿哲', aliases: ['Zed', '哲哥'] }, { id: 'c2', name: 'Bella', aliases: ['貝拉'] }];
+        expect(matchRealChar('zed', roster)).toBe('c1');
+        expect(matchRealChar('哲哥（學長）', roster)).toBe('c1');
+        expect(matchRealChar('貝拉', roster)).toBe('c2');
+        expect(matchRealChar('大哲哥', roster)).toBeUndefined();
+        const clash = [{ id: 'c1', name: '阿哲', aliases: ['老大'] }, { id: 'c2', name: 'Bella', aliases: ['老大'] }];
+        expect(matchRealChar('老大', clash)).toBeUndefined();
+    });
+
     it('clampAffinity 鉗制並取整到 -100..100', () => {
         expect(clampAffinity(150)).toBe(100);
         expect(clampAffinity(-150)).toBe(-100);

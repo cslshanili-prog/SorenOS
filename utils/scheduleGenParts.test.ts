@@ -60,6 +60,10 @@ describe('落庫對回', () => {
         expect(resolveSlotPeople('小林 和 老闆', people, him)).toEqual({ participants: [me], with: '小林、老闆' });
         expect(resolveSlotPeople('宋時聿', people, him)).toEqual({ with: '宋時聿' });
         expect(resolveSlotPeople('', people, him)).toEqual({});
+        // 寫別名也對得回來；沒填別名的人照舊
+        const named = people.map(p => (p.name === '小林' ? { ...p, aliases: ['林仔', 'Lin'] } : p));
+        expect(resolveSlotPeople('lin、阿姨', named, him)).toEqual({ participants: [me, her], with: 'lin、阿姨' });
+        expect(resolveSlotPeople('林仔', named, him)).toEqual({ participants: [me], with: '林仔' });
     });
 
     it('todo 標題模糊對回 todoId；doneTodos 對回要勾的那幾條', () => {

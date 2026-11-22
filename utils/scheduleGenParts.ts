@@ -7,10 +7,11 @@
  * - 一週：先一次請求出 7 天大綱＋這週想做的事，每天的時段分開補
  */
 
+import { matchPerson } from './personMatch';
 import type { CalendarEvent, Participant, ScheduleSlot, Trip } from '../types';
 import { todoTitleMatches } from './todoTagParse';
 
-export interface NamedParticipant { participant: Participant; name: string }
+export interface NamedParticipant { participant: Participant; name: string; /** 別名：模型寫別名也對得回這個人 */ aliases?: string[] }
 
 const same = (a: Participant, b: Participant) => a.kind === b.kind && a.id === b.id;
 
@@ -87,7 +88,8 @@ export const resolveSlotPeople = (withText: string | undefined, people: NamedPar
     const names = raw.split(/[、,，;；/／]|\s+和\s+|\s+跟\s+/).map(s => s.trim()).filter(Boolean);
     const participants: Participant[] = [];
     for (const n of names) {
-        const hit = people.find(p => p.name === n) || people.find(p => p.name.includes(n) || n.includes(p.name));
+        // 名字 → 別名 → 名字互相包含（utils/personMatch.ts）
+        const hit = matchPerson(n, people, { fuzzy: true });
         if (hit && !same(hit.participant, self) && !participants.some(p => same(p, hit.participant))) participants.push(hit.participant);
     }
     return { ...(participants.length ? { participants } : {}), with: names.join('、') };

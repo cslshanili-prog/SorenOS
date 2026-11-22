@@ -1,3 +1,4 @@
+import { charAliases } from '../utils/charIdentity';
 import { buildSpeakingRulesPrompt, resolveChatLanguage, splitBilingual } from '../utils/chatLanguage';
 import { translateGroupReplies, translateMessagesInPlace } from '../utils/chatTranslateRun';
 import DecorationQuickPanel from '../components/decoration/DecorationQuickPanel';
@@ -2228,6 +2229,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const beatMembers: BeatMember[] = turns.map(t => ({
                 id: t.member.id,
                 name: t.member.name,
+                ...(t.kind === 'char' && charAliases(t.member).length ? { aliases: charAliases(t.member) } : {}),
                 brief: t.kind === 'char' ? memberBrief(t.member) : memberBrief({ description: t.member.description }),
                 supporting: t.kind === 'npc' || t.member.castRole === 'supporting',
             }));

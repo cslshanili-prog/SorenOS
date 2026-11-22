@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, CharacterProfile } from '../../types';
 import { ALIAS_MAX_COUNT, ROLE_TITLE_MAX_LENGTH, formatAliasInput, parseAliasInput } from '../../utils/charIdentity';
 import { applyIdentityFill, generateIdentityFill, hasIdentityFillSource } from '../../utils/charIdentityFill';
+import { findAliasClashes, type MatchablePerson } from '../../utils/personMatch';
 
 type IdentityPatch = Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle' | 'description'>>;
 
@@ -11,6 +12,8 @@ interface Props {
     /** 「AI 幫我填」用哪組：副 API 有設就用，不然全域 */
     api: Pick<APIConfig, 'baseUrl' | 'apiKey' | 'model'>;
     onChange: (patch: IdentityPatch) => void;
+    /** 同一個世界的其他角色：別名跟他們撞到時提醒（照樣可以存） */
+    others?: ReadonlyArray<MatchablePerson>;
     addToast: (msg: string, type: 'info' | 'success' | 'error') => void;
 }
 
@@ -22,7 +25,7 @@ const HINT = 'mt-1 text-[11px] leading-relaxed text-slate-400';
  * 神經鏈接 · 角色頁名字下面的三格：別名、身份／職位、簡介（plans/character-identity-fields.md）。
  * 以前只有一格「描述」。「AI 幫我填」讀人設出建議：空的格子直接填，有字的格子不蓋、把建議列在底下讓人自己換。
  */
-const IdentityFields: React.FC<Props> = ({ char, api, onChange, addToast }) => {
+const IdentityFields: React.FC<Props> = ({ char, api, onChange, others, addToast }) => {
     // 別名打字時不能每個字都整理（會把剛打的逗號吃掉），失焦才收成陣列
     const [aliasDraft, setAliasDraft] = useState(formatAliasInput(char.aliases));
     const [busy, setBusy] = useState(false);
@@ -30,6 +33,8 @@ const IdentityFields: React.FC<Props> = ({ char, api, onChange, addToast }) => {
     const aliasKey = (char.aliases || []).join('\u0001');
     useEffect(() => { setAliasDraft(formatAliasInput(char.aliases)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [char.id, aliasKey]);
     useEffect(() => { setSuggestions({}); }, [char.id]);
+
+    const clashes = useMemo(() => findAliasClashes(char.aliases, char.name, others || []), [char.aliases, char.name, others]);
 
     const commitAliases = () => {
         const next = parseAliasInput(aliasDraft, char.name);
@@ -78,6 +83,14 @@ const IdentityFields: React.FC<Props> = ({ char, api, onChange, addToast }) => {
                 <input value={aliasDraft} onChange={e => setAliasDraft(e.target.value)} onBlur={commitAliases}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                     aria-label="別名" placeholder="Vivian、陸姐（用逗號或頓號分開）" className={INPUT} />
+                {clashes.length > 0 && (
+                    <span className="mt-1.5 block rounded-xl bg-amber-50 px-3 py-1.5 text-[11px] leading-relaxed text-amber-800" data-alias-clash>
+                        {clashes.map(c => (c.kind === 'name'
+                            ? `「${c.alias}」是同一個世界裡另一個角色的名字，寫「${c.alias}」會認到對方。`
+                            : `「${c.alias}」跟「${c.withName}」的別名一樣，寫「${c.alias}」兩個都認不出來。`)).join(' ')}
+                        {' '}照樣可以存，只是提醒。
+                    </span>
+                )}
                 <span className={`${HINT} block`}>TA 本來就有的其他名字：本名、英文名、綽號、圈名，最多 {ALIAS_MAX_COUNT} 個。妳自己對 TA 的叫法不是填這裡，在聊天設定的「暱稱」。</span>
             </label>
 

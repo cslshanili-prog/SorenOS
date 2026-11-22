@@ -75,6 +75,13 @@ describe('你身邊的人', () => {
         expect(castRelationLines({ char: { id: 'n1', relationships: [{ id: 'r', targetId: 'c1', description: '聯姻對象' }, { id: 'u', targetId: 'user', description: '只見過一面' }] }, others, nameOf, userName: '小星' }))
             .toEqual(['跟「阿澈」：聯姻對象', '跟「小星」：只見過一面']);
     });
+    it('有別名就寫在名字後面；沒別名的字面不變', () => {
+        const others = [{ id: 'n1', name: '林小姐', relationships: [{ targetId: 'c1', description: '聯姻對象' }] }];
+        const aliasesOf = (id: string) => (id === 'n1' ? ['Lin', '林知夏'] : []);
+        expect(castRelationLines({ char: { id: 'c1' }, others, nameOf, aliasesOf, userName: '小星' })).toEqual(['「林小姐」（又叫 Lin、林知夏）跟你：聯姻對象']);
+        expect(castRelationLines({ char: { id: 'n1', relationships: [{ id: 'r', targetId: 'c1', description: '聯姻對象' }] }, others: [], nameOf, aliasesOf, userName: '小星' })).toEqual(['跟「阿澈」：聯姻對象']);
+        expect(castRelationLines({ char: { id: 'c1', relationships: [{ id: 'r', targetId: 'n1', description: '未婚妻' }] }, others: [], nameOf, aliasesOf, userName: '小星' })).toEqual(['跟「林小姐」（又叫 Lin、林知夏）：未婚妻']);
+    });
     it('兩邊都記了：對方那邊的加括號', () => {
         const others = [{ id: 'n1', name: '林小姐', relationships: [{ targetId: 'c1', description: '聯姻對象' }] }];
         expect(castRelationLines({ char: { id: 'c1', relationships: [{ id: 'r', targetId: 'n1', description: '不想娶的人' }] }, others, nameOf, userName: '小星' }))

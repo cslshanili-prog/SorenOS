@@ -1,4 +1,5 @@
 
+import { charAliases } from './charIdentity';
 import { CharacterProfile, UserProfile, DailySchedule, ScheduleSlot, Message, Emoji, CalendarEvent, Participant, Trip } from '../types';
 import { ContextBuilder } from './context';
 import { DB } from './db';
@@ -122,7 +123,7 @@ export async function loadNamedParticipants(profileBase?: UserProfile | null): P
         out.push({ participant: { kind: 'persona', id: REAL_IDENTITY_PERSONA_ID }, name: personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID) });
         for (const p of profile.personas || []) out.push({ participant: { kind: 'persona', id: p.id }, name: p.name });
     }
-    for (const c of chars) if (!isAltChar(c)) out.push({ participant: { kind: 'char', id: c.id }, name: c.name });
+    for (const c of chars) if (!isAltChar(c)) { const aliases = charAliases(c); out.push({ participant: { kind: 'char', id: c.id }, name: c.name, ...(aliases.length ? { aliases } : {}) }); }
     for (const n of npcs) out.push({ participant: { kind: 'npc', id: n.id }, name: n.name });
     return out;
 }

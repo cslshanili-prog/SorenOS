@@ -1510,6 +1510,8 @@ ${isInitialGeneration ? `
                                 char={formData}
                                 api={memoryPalaceConfig?.lightLLM?.baseUrl?.trim() && memoryPalaceConfig.lightLLM.model?.trim() ? memoryPalaceConfig.lightLLM : apiConfig}
                                 addToast={addToast}
+                                // 撞名提醒只看同一個世界的人（認人的名單多半也是同世界）
+                                others={characters.filter(c => c.id !== formData.id && (c.groupId || '') === (formData.groupId || ''))}
                                 // 「AI 幫我填」途中切去別的角色：結果不能寫到別人身上
                                 onChange={(patch) => setFormData(prev => prev && prev.id === formData.id ? { ...prev, ...patch } : prev)}
                            />

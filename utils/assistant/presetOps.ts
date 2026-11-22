@@ -7,6 +7,7 @@
  * - 劇情專用預設（story_theater_presets）：引擎靠條目 id 跑，只能改既有條目的內容和開關、生成參數、預填。
  * - 「內建」不是存著的一份：要改得用「新建預設」從內建複製。內建劇情預設同理。
  */
+import { findPersonByRef } from '../personMatch';
 import type {
     AssistantPresetBinding, AssistantPresetProposal, CharacterProfile, GroupProfile,
     StoryTheaterEntry, StoryTheaterPreset, StoryTheaterPresetDocument,
@@ -503,7 +504,7 @@ export const parseBindings = (use: unknown, kind: 'general' | 'story', data: Pre
         if (!field) return { error: `角色的 for「${String(c.for)}」要是 chat、call、date` };
         const ref = String(c.name ?? c.id ?? '').trim();
         const pool = data.characters.filter(x => !x.altOf);
-        const hit = pool.find(x => x.id === ref) || (pool.filter(x => x.name === ref).length === 1 ? pool.find(x => x.name === ref) : undefined);
+        const hit = findPersonByRef(ref, pool);
         if (!hit) return { error: `找不到角色「${ref}」（同名的話用 id）` };
         out.push({ kind: 'char', charId: hit.id, field, label: `${hit.name}的${PRESET_SCENE_LABEL[field]}` });
     }

@@ -7,6 +7,7 @@
  * - 欄位照 SillyTavern（docs/worldbook-management.md），新條目的預設值跟世界書 App 新增時一樣。
  * - 「讀取角色」只給人設、世界觀、掛了哪些世界書；不給聊天記錄和記憶（Liora 定的）。
  */
+import { findPersonByRef } from '../personMatch';
 import { charAliases, charRoleTitle } from '../charIdentity';
 import type {
     AssistantWorldbookProposal, CharacterProfile, MountedWorldbook, Worldbook, WorldbookDepthRole, WorldbookPosition,
@@ -76,7 +77,7 @@ export const describeWorldbook = (group: unknown, entry: unknown, data: Worldboo
 export const describeCharacter = (ref: unknown, data: WorldbookData): { ok: boolean; content: string } => {
     const raw = typeof ref === 'string' ? ref.trim() : '';
     const pool = visibleChars(data);
-    const hit = pool.find(c => c.id === raw) || (pool.filter(c => c.name === raw).length === 1 ? pool.find(c => c.name === raw) : undefined);
+    const hit = findPersonByRef(raw, pool);
     if (!hit) return { ok: false, content: `找不到角色「${raw}」（同名的話用 id）。角色：${pool.map(c => c.name).join('、') || '沒有'}` };
     const cap = (text?: string) => {
         const t = (text || '').trim();
@@ -161,7 +162,7 @@ const resolveChars = (refs: unknown, data: WorldbookData): { ids: string[] } | {
     const ids: string[] = [];
     for (const r of list) {
         const raw = String(r).trim();
-        const hit = pool.find(c => c.id === raw) || (pool.filter(c => c.name === raw).length === 1 ? pool.find(c => c.name === raw) : undefined);
+        const hit = findPersonByRef(raw, pool);
         if (!hit) return { error: `找不到角色「${raw}」（同名的話用 id）` };
         ids.push(hit.id);
     }

@@ -6,6 +6,8 @@
  * - 認識才找得到；一輪 PRIVATE、DM 各最多 1 條；拉黑中不落；被私訊後回的那句不再觸發（深度 1）。
  * 群聊、角色私聊、你的私聊共用這一份：名單、提示詞、解析、上限。
  */
+import { matchPerson } from './personMatch';
+import { charAliases, normalizeAliases } from './charIdentity';
 import type { CharacterProfile, UserProfile } from '../types';
 import { isOnStage } from './castRole';
 import { isChatBlocked } from './chatBlock';
@@ -38,14 +40,19 @@ export const SIDE_DM_PER_ROUND = 1;
 const LIST_MAX = 8;
 
 export interface SideTargets {
-    personas: Array<{ key: string; name: string }>;
-    chars: Array<{ id: string; name: string }>;
+    /** aliases：別名也認得出來（plans/character-identity-fields.md 3.5）；身份卡的別名第 3 批才有 */
+    personas: Array<{ key: string; name: string; aliases?: string[] }>;
+    chars: Array<{ id: string; name: string; aliases?: string[] }>;
 }
+
+/** 名單上的一個人：「陸薇寧」（又叫 Vivian、陸姐）。模型寫名字或別名都收 */
+const nameTag = (p: { name: string; aliases?: string[] }): string => {
+    const aliases = normalizeAliases(p.aliases, p.name);
+    return aliases.length ? `「${p.name}」（又叫 ${aliases.join('、')}）` : `「${p.name}」`;
+};
 
 const knownKeysOf = (c: Pick<CharacterProfile, 'knownPersonaKeys' | 'primaryPersonaKey'>): string[] =>
     c.knownPersonaKeys?.length ? c.knownPersonaKeys : (c.primaryPersonaKey ? [c.primaryPersonaKey] : []);
-
-const norm = (v: string) => v.normalize('NFKC').replace(/\s+/g, '').replace(/^[「『"“]|[」』"”]$/g, '').toLowerCase();
 
 /**
  * 它可以私下找誰。personas：它認識的卡；chars：同一個世界的、關係清單上的（不含自己、小號、下戲中的、拉黑中的那條不擋——
@@ -67,7 +74,8 @@ export function sideTargets(speaker: CharacterProfile, args: {
         .filter(c => c.id !== speaker.id && c.id !== ownerId && !c.altOf && isOnStage(c))
         .filter(c => related.has(c.id) || (!!speaker.groupId && c.groupId === speaker.groupId) || (!speaker.groupId && !c.groupId))
         .sort((a, b) => Number(related.has(b.id)) - Number(related.has(a.id)))
-        .map(c => ({ id: c.id, name: c.name }));
+        // 名單上是小號那張卡就帶小號自己的別名；本人的別名不會出現在這裡
+        .map(c => { const aliases = charAliases(c); return { id: c.id, name: c.name, ...(aliases.length ? { aliases } : {}) }; });
     return { personas, chars };
 }
 
@@ -86,8 +94,8 @@ export function buildSideMessagePrompt(args: {
     if (!personas.length && !chars.length) return '';
     const lines = ['', '### 私下找人（罕見，真的有事才用）'];
     lines.push('聊到某件事，你覺得該私下問某個人、跟某個人確認、或只想對某個人說，可以在回覆裡單獨寫一行：');
-    if (personas.length) lines.push(`- 私聊真人：\`[[PRIVATE|名字: 內容]]\`，只能給你認識的：${personas.map(p => `「${p.name}」`).join('、')}。這句只進你們的私聊。`);
-    if (chars.length) lines.push(`- 私訊別的角色：\`[[DM|名字: 內容]]\`，可以找：${chars.map(c => `「${c.name}」`).join('、')}。對方會回你。`);
+    if (personas.length) lines.push(`- 私聊真人：\`[[PRIVATE|名字: 內容]]\`，只能給你認識的：${personas.map(nameTag).join('、')}。這句只進你們的私聊。`);
+    if (chars.length) lines.push(`- 私訊別的角色：\`[[DM|名字: 內容]]\`，可以找：${chars.map(nameTag).join('、')}。對方會回你。`);
     lines.push(`一次最多各一條；不要每次都用，也不要拿來吐槽別人。沒有要找誰就不寫。`);
     return `${lines.join('\n')}\n`;
 }
@@ -99,8 +107,8 @@ export function buildGroupSideMessageNote(args: {
     allowDm: boolean;
 }): string {
     const rows = args.members.map(m => {
-        const p = args.allowPrivate ? m.targets.personas.slice(0, LIST_MAX).map(x => `「${x.name}」`) : [];
-        const c = args.allowDm ? m.targets.chars.slice(0, LIST_MAX).map(x => `「${x.name}」`) : [];
+        const p = args.allowPrivate ? m.targets.personas.slice(0, LIST_MAX).map(nameTag) : [];
+        const c = args.allowDm ? m.targets.chars.slice(0, LIST_MAX).map(nameTag) : [];
         if (!p.length && !c.length) return '';
         return `  · ${m.name}：${p.length ? `私聊 ${p.join('、')}` : ''}${p.length && c.length ? '；' : ''}${c.length ? `私訊 ${c.join('、')}` : ''}`;
     }).filter(Boolean);
@@ -160,7 +168,7 @@ export function resolvePrivateTarget(speaker: CharacterProfile, args: {
 }): string | null {
     const { targets } = args;
     let key: string | undefined;
-    if (args.name) key = targets.personas.find(p => norm(p.name) === norm(args.name!))?.key;
+    if (args.name) key = matchPerson(args.name, targets.personas)?.key;
     else key = (args.fallbackKey && targets.personas.some(p => p.key === args.fallbackKey)) ? args.fallbackKey
         : targets.personas.length === 1 ? targets.personas[0].key : undefined;
     if (!key) return null;
@@ -170,5 +178,5 @@ export function resolvePrivateTarget(speaker: CharacterProfile, args: {
 
 /** DM 給誰：名單上名字對得上的那位 */
 export function resolveDmTarget(targets: SideTargets, name: string): string | null {
-    return targets.chars.find(c => norm(c.name) === norm(name))?.id || null;
+    return matchPerson(name, targets.chars)?.id || null;
 }
