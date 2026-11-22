@@ -134,6 +134,16 @@ describe('提示詞', () => {
             expect(buildTheaterPersonas(one(selection))).toBe(buildTheaterPersona(resolveStoryTheaterMask(selection, applied, characters, masks)));
         }
     });
+    it('別名：填了才多一行（身份卡的、你演的角色的），面具沒有', () => {
+        const named = { ...base, personas: base.personas!.map(p => (p.id === 'sis' ? { ...p, aliases: ['小妹', '妹妹', 'Mei'] } : p)) } as UserProfile;
+        const text = buildTheaterPersonas(resolveStoryPresence({ presence: [{ type: 'persona', key: 'sis' }] }, named, characters, masks));
+        expect(text).toContain('- 名字：妹妹\n- 別名：小妹、Mei\n- 身份/外在設定：大學生');
+        const acted = [{ ...characters[0], aliases: ['澈哥'] }, characters[1]] as unknown as CharacterProfile[];
+        expect(buildTheaterPersonas(resolveStoryPresence({ presence: [{ type: 'character', id: 'c1' }] }, base, acted, masks))).toContain('- 名字：阿澈\n- 別名：澈哥\n');
+        const many = buildTheaterPersonas(resolveStoryPresence({ presence: [{ type: 'persona', key: 'sis' }, { type: 'custom', id: 'm1' }] }, named, characters, masks));
+        expect(many).toContain('#### 「妹妹」\n- 別名：小妹、Mei\n- 身份/外在設定：大學生');
+        expect(many).toContain('#### 「旅人」\n- 身份/外在設定：路過的人');
+    });
     it('填了補充設定才多一行', () => {
         const text = buildTheaterPersonas(one({ type: 'persona', key: 'sis' }));
         expect(text).toContain('- 身份/外在設定：大學生\n- 補充設定：\n怕冷\n住台北\n');

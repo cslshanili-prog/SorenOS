@@ -1,3 +1,4 @@
+import { normalizeAliases } from './charIdentity';
 import type { CharacterProfile, UserProfile } from '../types';
 import { isPersonaLinesEnabled } from './devDebug';
 import { getActiveTrip } from './charNameRegistry';
@@ -44,6 +45,8 @@ export function applyActivePersona(profile: UserProfile): UserProfile {
         name: persona.name,
         avatar: persona.avatar,
         bio: persona.bio,
+        // 別名也跟著卡走：卡沒填就沒有，不借真實身份的（同一個世界裡不同身份卡是不同的人）
+        aliases: persona.aliases,
         gender: persona.gender,
         customSetting: persona.customSetting,
         otherDetails: persona.otherDetails,
@@ -81,6 +84,7 @@ function applyPersonaOverride(
                 name: persona.name,
                 avatar: persona.avatar,
                 bio: persona.bio,
+                aliases: persona.aliases,
                 gender: persona.gender,
                 customSetting: persona.customSetting,
                 otherDetails: persona.otherDetails,
@@ -285,6 +289,15 @@ export function personaNameForKey(profileBase: UserProfile, key: string): string
         if (persona) return persona.name;
     }
     return realFaceOf(profileBase).name;
+}
+
+/** 身份鍵對應的別名（整理過；找不到身份卡就是真實身份的）。認人、名單都拿這個 */
+export function personaAliasesForKey(profileBase: UserProfile, key: string): string[] {
+    if (key !== REAL_IDENTITY_PERSONA_ID) {
+        const persona = profileBase.personas?.find(p => p.id === key);
+        if (persona) return normalizeAliases(persona.aliases, persona.name);
+    }
+    return normalizeAliases(profileBase.aliases, realFaceOf(profileBase).name);
 }
 
 /**

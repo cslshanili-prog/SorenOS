@@ -1,3 +1,4 @@
+import { ALIAS_MAX_COUNT, formatAliasInput, parseAliasInput } from '../../utils/charIdentity';
 import React, { useEffect, useRef, useState } from 'react';
 import ExpandableTextarea from '../common/ExpandableTextarea';
 import { createPortal } from 'react-dom';
@@ -35,6 +36,8 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
 
     const [draftName, setDraftName] = useState('');
     const [draftBio, setDraftBio] = useState('');
+    // 別名（plans/character-identity-fields.md 第 3 批）：那一格的原樣字，存檔時才整理成陣列
+    const [draftAliases, setDraftAliases] = useState('');
     const [draftAvatar, setDraftAvatar] = useState('');
     const [draftAvatarUrl, setDraftAvatarUrl] = useState('');
     const [draftGender, setDraftGender] = useState<UserGender | ''>('');
@@ -48,12 +51,13 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
     const [draftTimezone, setDraftTimezone] = useState('');
     const uploadRef = useRef<HTMLInputElement>(null);
 
-    const loadDraft = (source: { name: string; avatar: string; bio: string; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig']; voiceProfile?: CharacterProfile['voiceProfile']; timezone?: string }) => {
+    const loadDraft = (source: { name: string; avatar: string; bio: string; aliases?: string[]; gender?: UserGender; customSetting?: string; otherDetails?: string; imageGenConfig?: CharacterProfile['imageGenCharConfig']; voiceProfile?: CharacterProfile['voiceProfile']; timezone?: string }) => {
         setDraftImageGen(source.imageGenConfig);
         setDraftVoice(source.voiceProfile);
         setDraftTimezone(source.timezone || '');
         setDraftName(source.name);
         setDraftBio(source.bio);
+        setDraftAliases(formatAliasInput(source.aliases));
         setDraftAvatar(source.avatar);
         setDraftAvatarUrl(/^https?:\/\//i.test(source.avatar) ? source.avatar : '');
         setDraftGender(source.gender || '');
@@ -108,6 +112,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
             name: draftName.trim(),
             avatar: draftAvatar,
             bio: draftBio.trim(),
+            aliases: parseAliasInput(draftAliases, draftName.trim()).length ? parseAliasInput(draftAliases, draftName.trim()) : undefined,
             gender: draftGender || undefined,
             customSetting: draftExtra.trim() || undefined,
             // 舊的那格併進來了，存檔時清掉，免得讀的時候又接一次
@@ -184,6 +189,19 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                             placeholder={editingId === 'real' ? '你的名字' : '這張身份卡的名字'}
                             className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-300"
                         />
+                    </div>
+
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">別名</label>
+                        <input
+                            value={draftAliases}
+                            onChange={(e) => setDraftAliases(e.target.value)}
+                            onBlur={() => setDraftAliases(formatAliasInput(parseAliasInput(draftAliases, draftName.trim())))}
+                            aria-label="別名"
+                            placeholder="本名、綽號、英文名（用逗號或頓號分開，可留空）"
+                            className="w-full bg-slate-50 focus:bg-white border border-slate-100 focus:border-primary/30 rounded-xl px-4 py-2.5 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{editingId === 'real' ? '你' : '這個身份'}本來就有的其他名字，最多 {ALIAS_MAX_COUNT} 個。角色會知道，寫這些名字時系統也認得出是你。某個角色專門怎麼叫你，是在那個聊天的設定裡填。</p>
                     </div>
 
                     <div>

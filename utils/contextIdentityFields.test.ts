@@ -34,3 +34,17 @@ describe('私聊身份段：別名、身份、簡介', () => {
         expect(ContextBuilder.buildCoreContext(char({ roleTitle: '攝影師' }), user, true)).toContain('- 身份: 攝影師\n- 核心性格/指令:\n你是陸薇寧。');
     });
 });
+
+describe('用戶資料段：身份卡的別名', () => {
+    const blockOf = (u: any) => {
+        const core = ContextBuilder.buildCoreContext(char(), u, true);
+        const start = core.indexOf('### 互動對象 (User)');
+        return core.slice(start, core.indexOf('\n\n', start));
+    };
+    it('填了才出別名那行，緊跟在名字後面', () => {
+        expect(blockOf({ name: '小柔', bio: '大學生', aliases: ['柔柔', '小柔', 'Rou'] })).toContain('- 名字: 小柔\n- 別名: 柔柔、Rou\n- 設定/備註: 大學生');
+    });
+    it('沒填：跟以前一樣', () => {
+        expect(blockOf({ name: '小柔', bio: '大學生' })).toBe('### 互動對象 (User)\n- 名字: 小柔\n- 設定/備註: 大學生');
+    });
+});

@@ -20,7 +20,7 @@ import {
     buildAgreementsBlock, buildOutlineBlock, buildSchedulePromptBlock, buildTodosBlock, buildTripBlock, buildWeekOutlinePrompt, openTodosOf,
     parseWeekOutline, resolveDoneTodos, toScheduleSlot, weekdayOf, type NamedParticipant,
 } from './scheduleGenParts';
-import { REAL_IDENTITY_PERSONA_ID, personaNameForKey } from './userPersona';
+import { REAL_IDENTITY_PERSONA_ID, personaAliasesForKey, personaNameForKey } from './userPersona';
 import { personaExtraSetting } from './personaSetting';
 import { buildCharSchedulePrompt, buildPersonaSchedulePrompt, SCHEDULE_LLM_MAX_TOKENS, SCHEDULE_LLM_TEMPERATURE } from './schedulePromptCore';
 
@@ -120,8 +120,9 @@ export async function loadNamedParticipants(profileBase?: UserProfile | null): P
     ]);
     const out: NamedParticipant[] = [];
     if (profile) {
-        out.push({ participant: { kind: 'persona', id: REAL_IDENTITY_PERSONA_ID }, name: personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID) });
-        for (const p of profile.personas || []) out.push({ participant: { kind: 'persona', id: p.id }, name: p.name });
+        const withAliases = (id: string) => { const aliases = personaAliasesForKey(profile, id); return aliases.length ? { aliases } : {}; };
+        out.push({ participant: { kind: 'persona', id: REAL_IDENTITY_PERSONA_ID }, name: personaNameForKey(profile, REAL_IDENTITY_PERSONA_ID), ...withAliases(REAL_IDENTITY_PERSONA_ID) });
+        for (const p of profile.personas || []) out.push({ participant: { kind: 'persona', id: p.id }, name: p.name, ...withAliases(p.id) });
     }
     for (const c of chars) if (!isAltChar(c)) { const aliases = charAliases(c); out.push({ participant: { kind: 'char', id: c.id }, name: c.name, ...(aliases.length ? { aliases } : {}) }); }
     for (const n of npcs) out.push({ participant: { kind: 'npc', id: n.id }, name: n.name });

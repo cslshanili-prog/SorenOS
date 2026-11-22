@@ -1383,7 +1383,11 @@ export const buildTheaterPersona = (mask: ResolvedStoryTheaterMask): string => [
     '- 這是用戶側本輪親自執筆的故事身份，不是生成回覆的一方。除非預設明確允許代寫，續寫不得把該身份當作普通角色擅自決定重大選擇。',
 ].join('\n');
 
+/** 別名那行：有填才出（沒填的身份，這段跟以前一字不差） */
+const personaAliasLine = (present: StoryPresent): string[] => (present.aliases?.length ? [`- 別名：${present.aliases.join('、')}`] : []);
+
 const personaBody = (present: StoryPresent): string[] => [
+    ...personaAliasLine(present),
     `- 身份/外在設定：${present.description || '無'}`,
     present.extra?.trim() ? `- 補充設定：\n${present.extra.trim()}` : '',
     present.coreInstruction?.trim() ? `- 核心性格與行動邊界：\n${present.coreInstruction.trim()}` : '',
@@ -1408,6 +1412,7 @@ export const buildTheaterPersonas = (present: StoryPresent[]): string => {
         return [
             '### 當前用戶側執筆身份',
             `- 名字：${only.name || '你'}`,
+            ...personaAliasLine(only),
             `- 身份/外在設定：${only.description || '無'}`,
             ...(only.extra?.trim() ? [`- 補充設定：\n${only.extra.trim()}`] : []),
             only.coreInstruction?.trim() ? `- 核心性格與行動邊界：\n${only.coreInstruction.trim()}` : '',

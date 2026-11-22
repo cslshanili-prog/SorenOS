@@ -1,5 +1,5 @@
 
-import { charAliases, charIdentityLines } from './charIdentity';
+import { charAliases, charIdentityLines, normalizeAliases } from './charIdentity';
 import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
@@ -56,6 +56,9 @@ function formatUserProfileBlock(user: UserProfile, holidayLine = ''): string {
     // 節假日感知（utils/userHolidays.ts）：用戶那邊今天放假／補班才有這一行，緊跟標題，雲端插的位置也是這裡
     if (holidayLine) block += `- ${holidayLine}\n`;
     block += `- 名字: ${user.name}\n`;
+    // 別名（plans/character-identity-fields.md 第 3 批）：這張身份卡的其他名字，填了才出這行
+    const aliases = normalizeAliases(user.aliases, user.name);
+    if (aliases.length) block += `- 別名: ${aliases.join('、')}\n`;
     if (user.gender) block += `- 性別: ${user.gender}\n`;
     block += `- 設定/備註: ${user.bio || '無'}\n`;
     const extra = personaExtraSetting(user);

@@ -99,3 +99,67 @@ export function applyIdentityFill(char: Pick<CharacterProfile, 'name' | 'descrip
     }
     return { patch, suggestions, filled };
 }
+
+// ─── 批次補填（plans/character-identity-fields.md 3.6）───
+
+/** 一次同時讀幾個角色 */
+export const IDENTITY_BATCH_CONCURRENCY = 3;
+
+type BatchSource = FillSource & Pick<CharacterProfile, 'id'> & Partial<Pick<CharacterProfile, 'altOf'>>;
+
+/** 別名和身份都還沒填 */
+export const needsIdentityFill = (char: Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>> & Pick<CharacterProfile, 'name'>): boolean =>
+    !normalizeAliases(char.aliases, char.name).length && !(char.roleTitle || '').trim();
+
+/** 批次頁列得出來的角色：小號不列（小號卡上的人設是空的，組提示詞時才換成本人的；拿本人的去讀會把本人的別名寫到小號上） */
+export const batchFillCandidates = <T extends BatchSource>(chars: ReadonlyArray<T>): T[] => chars.filter(c => !c.altOf);
+
+/** 預設勾誰：兩格都空、而且有人設可以讀 */
+export const defaultBatchPicks = (chars: ReadonlyArray<BatchSource>): string[] =>
+    batchFillCandidates(chars).filter(c => needsIdentityFill(c) && hasIdentityFillSource(c)).map(c => c.id);
+
+/** 批次結果的一列：三格是可以再改的草稿，suggest* 是「原本有字、AI 另有建議」 */
+export interface IdentityBatchDraft {
+    aliasText: string;
+    roleTitle: string;
+    description: string;
+    suggestRole?: string;
+    suggestBrief?: string;
+}
+
+/** AI 的結果套到角色上，變成那一列的草稿（規則跟角色頁那顆「AI 幫我填」一樣） */
+export function draftFromFill(char: Pick<CharacterProfile, 'name' | 'description'> & Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>>, fill: IdentityFill): IdentityBatchDraft {
+    const { patch, suggestions } = applyIdentityFill(char, fill);
+    return {
+        aliasText: (patch.aliases ?? normalizeAliases(char.aliases, char.name)).join('、'),
+        roleTitle: patch.roleTitle ?? (char.roleTitle || ''),
+        description: patch.description ?? (char.description || ''),
+        ...(suggestions.roleTitle ? { suggestRole: suggestions.roleTitle } : {}),
+        ...(suggestions.brief ? { suggestBrief: suggestions.brief } : {}),
+    };
+}
+
+/** 草稿跟角色現在的差別：要寫進去的 patch；一樣就回 null（不用寫） */
+export function patchFromDraft(char: Pick<CharacterProfile, 'name' | 'description'> & Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle'>>, draft: IdentityBatchDraft): Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle' | 'description'>> | null {
+    const patch: Partial<Pick<CharacterProfile, 'aliases' | 'roleTitle' | 'description'>> = {};
+    const before = normalizeAliases(char.aliases, char.name);
+    const after = normalizeAliases(draft.aliasText.split(/[,，、;；\n]+/), char.name);
+    if (before.join('\u0001') !== after.join('\u0001')) patch.aliases = after.length ? after : undefined;
+    const role = draft.roleTitle.replace(/\s+/g, ' ').trim().slice(0, ROLE_TITLE_MAX_LENGTH);
+    if (role !== (char.roleTitle || '').trim()) patch.roleTitle = role || undefined;
+    const brief = draft.description.trim();
+    if (brief !== (char.description || '').trim()) patch.description = brief;
+    return Object.keys(patch).length ? patch : null;
+}
+
+/** 限制同時幾個地跑完一串；按了停就不再開新的（已經在跑的讓它跑完或自己中止） */
+export async function runLimited<T>(items: ReadonlyArray<T>, limit: number, worker: (item: T) => Promise<void>, signal?: AbortSignal): Promise<void> {
+    let next = 0;
+    const lane = async () => {
+        while (next < items.length && !signal?.aborted) {
+            const item = items[next++];
+            await worker(item);
+        }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, lane));
+}

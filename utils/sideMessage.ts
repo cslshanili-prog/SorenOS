@@ -12,7 +12,7 @@ import type { CharacterProfile, UserProfile } from '../types';
 import { isOnStage } from './castRole';
 import { isChatBlocked } from './chatBlock';
 import { lineFor, lineView } from './chatLine';
-import { personaNameForKey } from './userPersona';
+import { personaAliasesForKey, personaNameForKey } from './userPersona';
 
 /** 落你私聊之後發的事件（utils/sideMessageRun.ts 發，OSContext 加未讀、提示） */
 export const SIDE_MESSAGE_EVENT = 'soren-side-message';
@@ -40,7 +40,7 @@ export const SIDE_DM_PER_ROUND = 1;
 const LIST_MAX = 8;
 
 export interface SideTargets {
-    /** aliases：別名也認得出來（plans/character-identity-fields.md 3.5）；身份卡的別名第 3 批才有 */
+    /** aliases：別名也認得出來（plans/character-identity-fields.md 3.5）；身份卡的別名也帶 */
     personas: Array<{ key: string; name: string; aliases?: string[] }>;
     chars: Array<{ id: string; name: string; aliases?: string[] }>;
 }
@@ -67,7 +67,7 @@ export function sideTargets(speaker: CharacterProfile, args: {
     // 小號還沒加你好友：它不認識你
     const all = speaker.altOf && !speaker.altUserFriend ? [] : knownKeysOf(speaker);
     const keys = args.multiPersona ? all : all.slice(0, 1).map(() => speaker.primaryPersonaKey || all[0]);
-    const personas = keys.map(key => ({ key, name: personaNameForKey(args.profileBase, key) })).filter(p => p.name);
+    const personas = keys.map(key => { const aliases = personaAliasesForKey(args.profileBase, key); return { key, name: personaNameForKey(args.profileBase, key), ...(aliases.length ? { aliases } : {}) }; }).filter(p => p.name);
     const related = new Set((speaker.relationships || []).map(r => r.targetId));
     const ownerId = speaker.altOf || speaker.id;
     const chars = !args.multiPersona ? [] : args.characters

@@ -51,6 +51,7 @@ import { confirmExportSafety } from '../utils/exportGuard';
 import { trackEvent } from '../utils/analytics';
 import BriefPersonaField from '../components/character/BriefPersonaField';
 import IdentityFields from '../components/character/IdentityFields';
+import IdentityBatchFillPage from '../components/character/IdentityBatchFillPage';
 import DialogueExamplesField from '../components/character/DialogueExamplesField';
 import ChatGreetingsField from '../components/character/ChatGreetingsField';
 import AddFriendPage from '../components/chat/AddFriendPage';
@@ -129,6 +130,8 @@ const Character: React.FC = () => {
   const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
   // 關係線預覽開著：主角／配角分開列（配角是同一張表的角色，plans/persona-line-batch6.md）；關著照舊全列
   const [showCastGenerator, setShowCastGenerator] = useState(false);
+  // 批次補別名與身份（plans/character-identity-fields.md 3.6）
+  const [showIdentityBatch, setShowIdentityBatch] = useState(false);
   // 小號不單獨列，在本人編輯頁的「小號」那一區（關係線第 7 批）
   const listChars = personaLinesEnabled
       ? sortByCast(characters.filter(c => !c.altOf && (topTab === 'supporting') === isSupporting(c)))
@@ -1290,7 +1293,23 @@ ${isInitialGeneration ? `
                    >
                        NPC{npcs.length > 0 ? ` (${npcs.length})` : ''}
                    </button>}
+                   <span className="flex-1" />
+                   <button
+                       onClick={() => setShowIdentityBatch(true)}
+                       className="px-3 py-1.5 rounded-full text-xs font-bold bg-white/60 text-violet-500 border border-violet-200"
+                   >
+                       補別名與身份
+                   </button>
                </div>
+               {showIdentityBatch && (
+                   <IdentityBatchFillPage
+                       characters={characters}
+                       api={memoryPalaceConfig?.lightLLM?.baseUrl?.trim() && memoryPalaceConfig.lightLLM.model?.trim() ? memoryPalaceConfig.lightLLM : apiConfig}
+                       onSave={(id, patch) => updateCharacter(id, patch)}
+                       onClose={() => setShowIdentityBatch(false)}
+                       addToast={addToast}
+                   />
+               )}
                {personaLinesEnabled && topTab === 'supporting' && (
                    <div className="px-5 pb-3 shrink-0">
                        <button onClick={() => setShowCastGenerator(true)}
