@@ -18,6 +18,7 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_22 = 'changelog-soren-2026-11-22';
 export const CHANGELOG_SOREN_2026_11_19 = 'changelog-soren-2026-11-19';
 export const CHANGELOG_SOREN_2026_11_18_API = 'changelog-soren-2026-11-18-api';
 export const CHANGELOG_SOREN_2026_11_18 = 'changelog-soren-2026-11-18';
@@ -32,6 +33,14 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_22,
+        title: '2026 年 11 月 22 日 · S4.3 角色的別名、身份、簡介',
+        subtitle: '角色頁「描述」拆成別名、身份、簡介三格，有「AI 幫我填」· 清單小字改成「身份 · 簡介」· 角色寫別名也認得出是誰（私下找人、群聊紅包、日程、查手機、家園、Sore）· 批次補別名與身份 · 身份卡也有別名 · Sore 看得到圖、識圖沒成功不卡住、回覆能複製、輸入框會長高 · 見面中那條換顏色 · 聊天頁彈窗不再被白框 CSS 弄歪',
+        date: '2026-11-22',
+        src: 'changelogs/2026-11-22.html',
+        accent: 'from-orange-50 to-amber-50 border-orange-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_19,
         title: '2026 年 11 月 19 日 · S4.2 劇情裡好幾個你同場',
