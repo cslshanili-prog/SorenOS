@@ -1,5 +1,5 @@
 
-import { charIdentityLines } from './charIdentity';
+import { charAliases, charIdentityLines } from './charIdentity';
 import { buildEmotionInjection } from './emotionDecay';
 import { CharacterProfile, UserProfile, DailySchedule, MountedWorldbook } from '../types';
 import { normalizeUserImpression } from './impression';
@@ -351,6 +351,7 @@ export const ContextBuilder = {
         const viewKey = lineViewPersonaKey(char);
         sections.relations = formatCastRelationsBlock({
             char, others: getCharRelations(), nameOf: getCharNameById, userName: user.name,
+            aliasesOf: id => charAliases(getRegisteredCharacter<CharacterProfile>(id)),
             // 跟「你」的關係寫的是主線那張卡：別條線上的你是另一個人，不帶
             includeUser: !viewKey || viewKey === char.primaryPersonaKey,
         });

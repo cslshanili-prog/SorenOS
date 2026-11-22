@@ -3,6 +3,7 @@
  * 只讀，照聊天畫面真的怎麼合併來算（utils/chatDecoration.ts 的 resolveDecorationTheme、chatFineTuneCss 的 mergeChatFineTune），
  * 標出哪些是這個角色自己蓋過全局的。
  */
+import { peopleByAlias } from '../personMatch';
 import type { CharacterProfile, ChatTheme, GroupProfile, OSTheme } from '../../types';
 import { PRESET_THEMES } from '../../components/chat/ChatConstants';
 import { LAYOUT_DEFAULTS, resolveDecorationTheme } from '../chatDecoration';
@@ -111,8 +112,9 @@ export const describeChatDecoration = (target: unknown, data: CssData): { ok: bo
             ].join('\n'),
         };
     }
-    const chars = data.characters.filter(c => c.id === raw || c.name === raw);
+    const named = data.characters.filter(c => c.id === raw || c.name === raw);
     const groups = data.groups.filter(g => g.id === raw || g.name === raw);
+    const chars = named.length || groups.length ? named : peopleByAlias(raw, visibleChars);
     if (chars.length + groups.length > 1) return { ok: false, content: `「${raw}」有好幾個同名的，改用 id：${[...chars, ...groups].map(x => `${x.name}=${x.id}`).join('、')}` };
     if (chars[0]) return { ok: true, content: describeCharacterDecoration(chars[0], data) };
     if (groups[0]) return { ok: true, content: describeGroupDecoration(groups[0], data) };

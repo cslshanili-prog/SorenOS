@@ -1,3 +1,4 @@
+import { matchPerson } from '../../utils/personMatch';
 import { ROLE_TITLE_MAX_LENGTH } from '../../utils/charIdentity';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -86,13 +87,14 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
             if (fits && p?.kind === 'private') {
                 setCharTarget(p.charId); setPersonaTarget(p.personaKey);
             } else {
-                const same = pickable.find(c => c.name === parsed.character.name);
+                // 名字或別名對得上的先選好（utils/personMatch.ts）；只是預選，下面還能改
+                const same = matchPerson(parsed.character.name, pickable);
                 setCharTarget(same ? same.id : NEW); setPersonaTarget(undefined);
             }
         } else {
             setGroupTarget(fits && p?.kind === 'group' ? p.groupId : (groups.find(g => g.name === parsed.group.name)?.id ?? NEW));
             const map: Record<string, string> = {};
-            for (const sp of parsed.speakers) map[sp.name] = pickable.find(c => c.name === sp.name)?.id ?? NEW;
+            for (const sp of parsed.speakers) map[sp.name] = matchPerson(sp.name, pickable)?.id ?? NEW;
             setSpeakerMap(map);
         }
         setMemoryOn(Object.fromEntries(parsed.memories.map(m => [m.key, true])));
@@ -244,8 +246,8 @@ const PhoneChatImport = forwardRef<PhoneChatImportHandle, { onDone?: (r: ChatImp
                             ) : (
                                 <select aria-label="選角色" className={sel} value={charTarget} onChange={e => { setCharTarget(e.target.value); setPersonaTarget(undefined); }}>
                                     <option value={NEW}>新建一個「{d.character.name}」</option>
-                                    {[...pickable].sort((a, b) => Number(b.name === d.character.name) - Number(a.name === d.character.name)).map(c => (
-                                        <option key={c.id} value={c.id}>{c.name}{c.name === d.character.name ? '（同名）' : ''}</option>
+                                    {[...pickable].sort((a, b) => Number(b.id === matchPerson(d.character.name, pickable)?.id) - Number(a.id === matchPerson(d.character.name, pickable)?.id)).map(c => (
+                                        <option key={c.id} value={c.id}>{c.name}{c.name === d.character.name ? '（同名）' : c.id === matchPerson(d.character.name, pickable)?.id ? '（別名對得上）' : ''}</option>
                                     ))}
                                 </select>
                             )}

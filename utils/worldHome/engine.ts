@@ -1,3 +1,4 @@
+import { matchPerson } from '../personMatch';
 import { loadCharacterContextMessages } from '../chatContextRange';
 /**
  * 「家園」演繹引擎 —— 一輪"觀測"的完整閉環。
@@ -84,8 +85,8 @@ const dispatch = (name: string, detail: any) => {
  * 關係 delta 回填。關係有向：A 的演繹裡"和 B 關係 +2"只代表 **A 對 B** 的好感變了，
  * B 對 A 怎麼想由 B 自己的演繹輪決定——兩邊完全可以不對等。不存在的邊按 50 起步。
  */
-export function applyRelationshipDeltas(world: WorldProfile, beats: WorldCharBeat[], members: { id: string; name: string }[]): void {
-    const idOf = (name: string) => members.find(m => m.name === name)?.id;
+export function applyRelationshipDeltas(world: WorldProfile, beats: WorldCharBeat[], members: { id: string; name: string; aliases?: string[] }[]): void {
+    const idOf = (name: string) => matchPerson(name, members)?.id;
     for (const beat of beats) {
         for (const rd of beat.relationshipDeltas || []) {
             const otherId = idOf(rd.withName);
@@ -235,7 +236,7 @@ export function buildOwnWorldHistory(world: WorldProfile, episodes: WorldEpisode
 }
 
 /** 撤銷本角色這一拍，再生成替代副作用；其他角色的消息、關係和伏筆保持原樣。 */
-export function rollbackWorldBeat(world: WorldProfile, episode: WorldEpisode, charId: string, members: { id: string; name: string }[]): void {
+export function rollbackWorldBeat(world: WorldProfile, episode: WorldEpisode, charId: string, members: { id: string; name: string; aliases?: string[] }[]): void {
     const old = episode.beats.find(b => b.charId === charId);
     if (!old) return;
     for (const thread of world.threads || []) {
@@ -250,7 +251,7 @@ export function rollbackWorldBeat(world: WorldProfile, episode: WorldEpisode, ch
     } else {
         // 舊存檔沒有精確快照：只能撤銷已知 delta；舊標籤無法反推，清除失效標籤。
         for (const delta of [...(old.relationshipDeltas || [])].reverse()) {
-            const target = members.find(m => m.name === delta.withName)?.id;
+            const target = matchPerson(delta.withName, members)?.id;
             const rel = world.relationships.find(r => r.fromId === charId && r.toId === target);
             if (!rel) continue;
             rel.value = Math.max(-100, Math.min(100, rel.value - delta.delta));

@@ -1,4 +1,4 @@
-import { charOneLiner } from '../utils/charIdentity';
+import { charAliases, charNameLine, charOneLiner } from '../utils/charIdentity';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ExpandableTextarea from '../components/common/ExpandableTextarea';
@@ -714,7 +714,7 @@ const CheckPhone: React.FC = () => {
         if (!targetChar) return;
         const pureName = (record.title || '').replace(/[（(].*?[）)]/g, '').trim() || record.title || '';
         if (!pureName || isUserName(pureName)) { addToast('無法綁定該記錄', 'error'); return; }
-        const roster = characters.filter(c => c.id !== targetChar.id).map(c => ({ id: c.id, name: c.name }));
+        const roster = characters.filter(c => c.id !== targetChar.id).map(c => ({ id: c.id, name: c.name, aliases: charAliases(c) }));
         const linkedId = matchRealChar(pureName, roster);
         const linkedChar = linkedId ? characters.find(c => c.id === linkedId) : undefined;
         const kind: PhoneContact['kind'] = linkedId ? 'real' : 'npc';
@@ -857,7 +857,7 @@ const CheckPhone: React.FC = () => {
 
             // 真假甄別用：神經鏈接裡真實存在的其他角色名單
             const rosterChars = characters.filter(c => c.id !== targetChar.id);
-            const roster = rosterChars.map(c => ({ id: c.id, name: c.name }));
+            const roster = rosterChars.map(c => ({ id: c.id, name: c.name, aliases: charAliases(c) }));
             // 給每個真實角色附一段「掃一眼設定」+ 機主與 TA 的已知關係，讓關係判定有據可依、別瞎編
             const myContacts = targetChar.phoneState?.contacts || [];
             // 有精簡人設就整段給（本來就只有 100～200 字），沒有才從簡介／設定開頭截一小段
@@ -869,7 +869,7 @@ const CheckPhone: React.FC = () => {
                     const rel = known
                         ? `；和機主的已知關係：${known.identity || '未標註'}${known.note ? `（備註：${known.note}）` : ''}`
                         : '；機主通訊錄裡暫無 TA（未必認識）';
-                    return `- ${c.name}：${briefOf(c) || '（無公開設定）'}${rel}`;
+                    return `- ${charNameLine(c)}：${briefOf(c) || '（無公開設定）'}${rel}`;
                 }).join('\n')
                 : '（無其他真實角色）';
             // 約束：是否允許虛構 NPC。關掉則只能和神經鏈接裡的真實角色來往

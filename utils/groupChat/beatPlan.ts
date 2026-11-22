@@ -9,13 +9,16 @@
  * 排班失敗（沒回、格式壞、名字對不上）就退回「每人一拍、隨機順序」，不擋生成。
  * 這裡只排班、組提示詞、解析，不碰網絡。
  */
-import { charOneLiner } from '../charIdentity';
+import { matchPerson } from '../personMatch';
+import { charNameLine, charOneLiner } from '../charIdentity';
 import { ROUND_BUBBLES_MAX, roundBubbleCap } from './prompts';
 import type { APIConfig } from '../../types';
 
 export interface BeatMember {
     id: string;
     name: string;
+    /** 別名：排班的模型寫別名也認得出是誰 */
+    aliases?: string[];
     /** 一句話的人設摘要，給排班的人知道誰是誰；可以空 */
     brief?: string;
     /** 配角／NPC：可以帶話題，但不搶戲 */
@@ -65,7 +68,8 @@ export function buildBeatPlanPrompt(input: {
 }): string {
     const roster = input.members.map(m => {
         const tag = m.supporting ? '（配角）' : '';
-        return `- ${m.name}${tag}${m.brief ? `：${m.brief}` : ''}`;
+        // 有別名就寫出來：排班的模型寫哪個叫法都認得回來
+        return `- ${charNameLine(m)}${tag}${m.brief ? `：${m.brief}` : ''}`;
     }).join('\n');
     const users = input.presentUsers?.length ? input.presentUsers.map(n => `「${n}」`).join('') : '用戶';
     const scene = input.userLurking
@@ -106,6 +110,9 @@ function matchMember(name: string, members: BeatMember[]): BeatMember | undefine
     const n = normName(raw);
     const norm = members.find(m => normName(m.name) === n);
     if (norm) return norm;
+    // 名字（繁簡不計）或別名對得上
+    const known = matchPerson(raw, members);
+    if (known) return known;
     const fuzzy = members.filter(m => {
         const mn = normName(m.name);
         return mn && n && (mn.includes(n) || n.includes(mn));

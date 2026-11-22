@@ -1,3 +1,4 @@
+import { matchPerson } from './personMatch';
 import { stripLeakedReasoning } from './reasoningLeak';
 import { extractSideMessages, type SideMessages } from './sideMessage';
 import { loadCharacterContextMessages } from './chatContextRange';
@@ -40,17 +41,12 @@ export function normName(s: string): string {
  */
 export function matchRealChar(
     name: string,
-    roster: { id: string; name: string }[],
+    roster: { id: string; name: string; aliases?: string[] }[],
 ): string | undefined {
-    const n = normName(name);
-    if (!n) return undefined;
-    const exact = roster.find(r => normName(r.name) === n);
-    if (exact) return exact.id;
-    const contains = roster.find(r => {
-        const rn = normName(r.name);
-        return rn.length >= 2 && (n.includes(rn) || rn.includes(n));
-    });
-    return contains?.id;
+    if (!normName(name)) return undefined;
+    // 「名字(身份)」先去掉括號那段，再照共用的規則認：名字 → 別名 → 名字互相包含（至少兩個字）
+    const strip = (s: string) => (s || '').replace(/[（(].*?[）)]/g, '');
+    return matchPerson(strip(name), roster.map(r => ({ id: r.id, name: strip(r.name), aliases: r.aliases })), { fuzzy: true, fuzzyMinLength: 2 })?.id;
 }
 
 /**

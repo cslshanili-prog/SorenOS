@@ -1,6 +1,6 @@
 # 角色的別名、身份、簡介（把「描述」那一格拆開）
 
-> 狀態：**第 1 批做完**（2026-11-22，實況在第 7 節），第 2、3 批還沒做。Liora 點頭的方向：別名／身份／簡介分開，精簡人設不另開；第 6 節三件事都照建議定了。
+> 狀態：**第 1、2 批做完**（2026-11-22，實況在第 7、8 節），第 3 批（批次補填、身份卡加別名）還沒做。Liora 點頭的方向：別名／身份／簡介分開，精簡人設不另開；第 6 節三件事都照建議定了。
 
 ## 1. 為什麼
 
@@ -231,4 +231,38 @@
 - **桌面上「角色上一句話」的預設字**（`apps/Launcher.tsx`、`components/os/MobileGameHome.tsx`）照舊只用簡介，不加身份：那裡要的是一句話，不是名片。
 - **劇情演員、私下找人、群成員名單的名字還沒帶別名。** 留到第 2 批跟認人一起做，免得名單寫了別名、系統卻還認不出來。
 - 沒加埋點。
+
+## 8. 實況：第 2 批（別名接進認人）
+
+認人的規則只在 `utils/personMatch.ts`：
+
+- `matchPerson(name, people, { fuzzy, fuzzyMinLength })`：名字（全半形、空白、引號、大小寫、繁簡不計）→ 別名剛好一位 → 開了 `fuzzy` 才做名字互相包含。別名撞到兩位以上回 null，開了 `fuzzy` 也不猜。
+- `findPersonByRef`／`peopleByAlias`：Sore 的工具用，「角色名或 id」→ id、名字剛好一位、別名剛好一位。
+- `findAliasClashes`：角色頁的撞名提醒。
+
+接上的地方：
+
+| 哪裡 | 檔案 |
+|---|---|
+| 私下找人 `[[PRIVATE]]`／`[[DM]]` | `utils/sideMessage.ts`（原本自己的 `norm` 拿掉） |
+| 群聊紅包對象 | `utils/groupChat/dispatch.ts` `resolvePacketTarget` |
+| 群聊出場表（排班的模型寫的名字） | `utils/groupChat/beatPlan.ts` `matchMember` |
+| 日程「跟誰」 | `utils/scheduleGenParts.ts` `resolveSlotPeople`（`loadNamedParticipants` 帶別名） |
+| 查手機聯繫人對回真角色 | `utils/relationshipChat.ts` `matchRealChar` |
+| 家園：私信對象、關係變化 | `utils/worldHome/threads.ts`、`engine.ts` |
+| 匯入聊天時預選角色 | `components/chat/PhoneChatImport.tsx`（選單標「別名對得上」） |
+| Sore 找角色 | `utils/assistant/worldbookOps.ts`（2 處）、`presetOps.ts`、`decorationOps.ts`、`decorationRead.ts` |
+
+給 AI 的名單帶別名（沒別名的人字面不變）：私下找人名單、群聊出場表名單、查手機真角色名單、私聊「你身邊的人」（`utils/castRelations.ts` 多一個 `aliasesOf`）。群聊成員檔案和劇情演員檔案走的是 `buildCoreContext`，第 1 批的身份段已經帶別名，不用另外做。
+
+角色頁：別名跟同一個世界的人撞到時，那格底下出提醒（撞到別人的名字、撞到別人的別名兩種寫法），照樣可以存。
+
+跟設計稿不一樣的地方：
+
+- **購物那條不是認人。** 第 2 節表裡寫的 `utils/mallCharOrder.ts` 比的是商品名，不是角色，沒有東西要接。
+- **設計稿漏列兩處，這次補上**：群聊出場表（`beatPlan.ts`）和私聊的「你身邊的人」。後者很要緊：妳提到「Vivian」時，角色要先知道那是自己關係清單上的誰。
+- **日程的提示詞本來就不列「能約的人」**，所以只接了「對回」那一步，沒有名單可以帶別名。
+- **彼方那處**（`utils/vrWorld/runSession.ts`）只是在組名單，不是認人，沒動。
+- **家園鎮上的 NPC** 沒有別名欄位，照舊只比名字；成員（角色）才認別名。
+- 身份卡的別名是第 3 批：`SideTargets.personas` 已經留了 `aliases`，到時把身份卡的別名帶進來就會認。
 

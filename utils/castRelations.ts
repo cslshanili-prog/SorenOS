@@ -14,11 +14,17 @@ export function castRelationLines(args: {
     /** 所有有關係清單的角色（含自己也沒關係） */
     others: ReadonlyArray<RelationSource>;
     nameOf: (id: string) => string | null | undefined;
+    /** 這個人的別名（plans/character-identity-fields.md 3.5）：有就寫在名字後面，聊到「Vivian」時角色才知道是清單上的誰 */
+    aliasesOf?: (id: string) => ReadonlyArray<string> | null | undefined;
     userName: string;
     /** 跟「你」的那條只在主線上算（寫的是主線那張卡；別條線上的你是另一個人）。不給＝算 */
     includeUser?: boolean;
 }): string[] {
-    const { char, others, nameOf, userName, includeUser = true } = args;
+    const { char, others, nameOf, aliasesOf, userName, includeUser = true } = args;
+    const tag = (id: string, name: string) => {
+        const aliases = (aliasesOf?.(id) || []).filter(a => a && a !== name);
+        return aliases.length ? `「${name}」（又叫 ${aliases.join('、')}）` : `「${name}」`;
+    };
     const lines: string[] = [];
     const seen = new Set<string>();
     for (const r of char.relationships || []) {
@@ -28,14 +34,14 @@ export function castRelationLines(args: {
         const name = nameOf(r.targetId);
         if (!name) continue;
         seen.add(r.targetId);
-        lines.push(`跟「${name}」：${desc}`);
+        lines.push(`跟${tag(r.targetId, name)}：${desc}`);
     }
     for (const o of others) {
         if (o.id === char.id) continue;
         for (const r of o.relationships) {
             const desc = r.description?.trim();
             if (r.targetId !== char.id || !desc) continue;
-            lines.push(seen.has(o.id) ? `（「${o.name}」那邊記的是：${desc}）` : `「${o.name}」跟你：${desc}`);
+            lines.push(seen.has(o.id) ? `（「${o.name}」那邊記的是：${desc}）` : `${tag(o.id, o.name)}跟你：${desc}`);
         }
     }
     return lines.slice(0, CAST_RELATION_LIMIT);

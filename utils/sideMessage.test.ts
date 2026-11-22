@@ -72,3 +72,35 @@ describe('解析與提示詞', () => {
         expect(buildGroupSideMessageNote({ members: [{ name: '阿澈', targets: t }], allowPrivate: false, allowDm: false })).toBe('');
     });
 });
+
+describe('別名（plans/character-identity-fields.md 3.5）', () => {
+    const named = [A, ch('陸薇寧', { groupId: 'w1', aliases: ['Vivian', '陸姐'] }), ch('小雨', { groupId: 'w1' }), ch('夜航', { groupId: 'w1', altOf: '阿澈' })];
+    const t = sideTargets(A, { characters: named, profileBase, multiPersona: true });
+    it('名單帶著別名；沒別名的人不多欄位', () => {
+        expect(t.chars).toEqual([{ id: '陸薇寧', name: '陸薇寧', aliases: ['Vivian', '陸姐'] }, { id: '小雨', name: '小雨' }]);
+    });
+    it('寫別名也認得出來（大小寫、繁簡不計）；沒這個人照樣丟', () => {
+        expect(resolveDmTarget(t, 'vivian')).toBe('陸薇寧');
+        expect(resolveDmTarget(t, '陆姐')).toBe('陸薇寧');
+        expect(resolveDmTarget(t, '陸薇寧')).toBe('陸薇寧');
+        expect(resolveDmTarget(t, 'Vivi')).toBeNull();
+    });
+    it('兩個人別名撞在一起：不猜', () => {
+        const clash = { personas: [], chars: [{ id: 'a', name: '陸薇寧', aliases: ['小陸'] }, { id: 'b', name: '陸遠', aliases: ['小陸'] }] };
+        expect(resolveDmTarget(clash, '小陸')).toBeNull();
+        expect(resolveDmTarget(clash, '陸遠')).toBe('b');
+    });
+    it('提示詞名單寫出別名；沒別名的人字面跟以前一樣', () => {
+        const p = buildSideMessagePrompt({ targets: t, allowPrivate: true, allowDm: true });
+        expect(p).toContain('「陸薇寧」（又叫 Vivian、陸姐）、「小雨」');
+        const g = buildGroupSideMessageNote({ members: [{ name: '阿澈', targets: t }], allowPrivate: false, allowDm: true });
+        expect(g).toContain('私訊 「陸薇寧」（又叫 Vivian、陸姐）、「小雨」');
+    });
+    it('小號：名單上沒有小號，本人的別名也不會把它帶出來', () => {
+        const withAlias = [ch('阿澈', { ...A, aliases: ['Che'] } as Partial<CharacterProfile>), ch('小雨', { groupId: 'w1' }), ch('夜航', { groupId: 'w1', altOf: '阿澈', aliases: ['夜貓'] })];
+        const fromRain = sideTargets(withAlias[1], { characters: withAlias, profileBase, multiPersona: true });
+        expect(fromRain.chars.map(c => c.id)).toEqual(['阿澈']);
+        expect(resolveDmTarget(fromRain, '夜貓')).toBeNull();
+        expect(resolveDmTarget(fromRain, 'Che')).toBe('阿澈');
+    });
+});

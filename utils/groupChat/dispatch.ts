@@ -1,5 +1,6 @@
 // 群聊動作派發 —— 從 GroupChat.tsx triggerDirector 抽出的執行層（PRIVATE 側信道、
 // 表情包、氣泡分段、打字延遲），導演模式與輪詢模式共用。
+import { matchPerson } from '../personMatch';
 import { DB } from '../db';
 import { EmojiCategory, Message, Toast } from '../../types';
 import { DirectorAction } from './parse';
@@ -284,9 +285,10 @@ function resolvePacketTarget(name: string, ctx: DispatchContext): string | undef
     if (exactUser) return exactUser.id;
     if (n === ctx.userName || equalsAnyScript(n, '用戶')) return targets[0].id;
     const members = ctx.characters.filter(c => ctx.memberIds.includes(c.id));
-    const exact = members.find(c => c.name === n);
+    // 名字 → 別名 → 名字互相包含（utils/personMatch.ts；別名撞名就當沒認出來）
+    const exact = matchPerson(n, members);
     if (exact) return exact.id;
-    const fuzzy = members.find(c => c.name.includes(n) || n.includes(c.name));
+    const fuzzy = matchPerson(n, members, { fuzzy: true });
     if (fuzzy) return fuzzy.id;
     const fuzzyUser = targets.find(t => t.name && (t.name.includes(n) || n.includes(t.name)));
     if (fuzzyUser) return fuzzyUser.id;

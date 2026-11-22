@@ -28,6 +28,14 @@ describe('出場表拍數', () => {
 });
 
 describe('解析出場表', () => {
+    it('排班的模型寫別名也認得出是誰；名單上寫出別名', () => {
+        const named: BeatMember[] = [{ id: 'c1', name: '小夏', aliases: ['夏夏', 'Summer'] }, { id: 'c2', name: '阿方' }];
+        const raw = '[{"speaker":"summer","intent":"起頭"},{"speaker":"阿方","intent":"接話"},{"speaker":"夏夏","intent":"收尾"}]';
+        expect(parseBeatPlan(raw, named, 6)!.map(b => b.speakerId)).toEqual(['c1', 'c2', 'c1']);
+        const prompt = buildBeatPlanPrompt({ members: named, historyText: '', maxBeats: 4 });
+        expect(prompt).toContain('- 小夏（又叫 夏夏、Summer）');
+        expect(prompt).toContain('- 阿方');
+    });
     it('名字對到成員、intent 留著；程式碼框和前後雜字都容得下', () => {
         const raw = '好的\n```json\n[{"speaker":"阿方","intent":"回答U的問題"},{"speaker":"「小夏」","intent":"吐槽阿方"},{"speaker":"阿方","intent":"回嘴"}]\n```';
         expect(parseBeatPlan(raw, members, 7)).toEqual([
