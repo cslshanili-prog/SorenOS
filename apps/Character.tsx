@@ -125,6 +125,7 @@ const CharacterCard: React.FC<{
 const Character: React.FC = () => {
   const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, updateCharacterGroup, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
+  const launchedBackToCaller = useRef(!!launchIntent?.backToCaller);
   // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
   // 不共用下面這套角色專用的 view/formData 狀態機。
   const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
@@ -325,6 +326,8 @@ const Character: React.FC = () => {
   }, [formData]);
 
   const handleBack = () => {
+      // 從角色名片直接進來編輯的：返回就回聊天，不先繞到角色清單（utils/appLaunch.ts）
+      if (view === 'detail' && launchedBackToCaller.current) { launchedBackToCaller.current = false; closeApp(); return; }
       if (view === 'detail') {
           setView('list');
           setEditingId(null);
@@ -1449,7 +1452,7 @@ ${isInitialGeneration ? `
                <div className="bg-gradient-to-b from-white/90 to-transparent backdrop-blur-sm shrink-0 z-40 sticky top-0" style={{ paddingTop: 'max(2.75rem, var(--safe-top))' }}>
                  <div className="flex flex-col px-5 pt-2 pb-2">
                    <div className="flex justify-between items-center mb-3">
-                       <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">列表</span></button>
+                       <button onClick={handleBack} className="p-2 -ml-2 rounded-full hover:bg-white/60 flex items-center gap-1 text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg><span className="text-sm font-medium">{launchedBackToCaller.current ? "返回" : "列表"}</span></button>
                        <button data-guide={formData.id === 'preset-sully-v2' ? 'sully-message' : undefined} onClick={() => openChatWith(formData.id)} className="text-xs px-3 py-1.5 bg-primary text-white rounded-full font-bold shadow-sm shadow-primary/30 flex items-center gap-1 active:scale-95 transition-transform"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926H16.5a.75.75 0 0 1 0 1.5H3.693l-1.414 4.926a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.293-7.155.75.75 0 0 0 0-1.114A28.897 28.897 0 0 0 3.105 2.288Z" /></svg>發消息</button>
                        {addFriendFor && (
                            <AddFriendPage

@@ -20,6 +20,8 @@ export const announceEmotionFailed = (charData: CharacterProfile, reason: string
 // innerState 是瞬時產物，這裡在情緒評估落地的共用點順手緩存一份，供別處（如查手機首頁）讀取，
 // 不額外動 CharacterProfile / DB schema。
 export const lastInnerStateKey = (charId: string) => `sully_last_innerstate_${charId}`;
+/** 心聲存好了：detail = { charId, innerState } */
+export const INNER_STATE_CACHED_EVENT = 'soren-innerstate-cached';
 export function getLastInnerState(charId: string): string {
     try {
         return (typeof localStorage !== 'undefined' && localStorage.getItem(lastInnerStateKey(charId))) || '';
@@ -409,6 +411,8 @@ export async function applyEmotionEvalRaw(
 
         if (innerStateOut) {
             try { localStorage.setItem(lastInnerStateKey(charData.id), innerStateOut); } catch { /* ignore */ }
+            // 角色名片開著時跟著換（components/chat/CharacterCard.tsx）；跟雲端回程的 emotion-innerstate-updated 分開，免得影響聊天那頭
+            try { window.dispatchEvent(new CustomEvent(INNER_STATE_CACHED_EVENT, { detail: { charId: charData.id, innerState: innerStateOut } })); } catch { /* 沒有 window（測試）就算了 */ }
         }
 
         // 小屋生活動態（可選順風車產出，見 utils/roomAmbient.ts）：落 room_card 進私聊。

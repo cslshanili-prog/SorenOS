@@ -163,6 +163,7 @@ import {
 import { upsertMountedWorldbooks } from '../utils/worldbook';
 import { equalsAnyScript } from '../utils/scriptKey';
 import { followTemplateBubblePatch, ownBubblePatch, type DecorationTemplate } from '../utils/decorationTemplates';
+import CharacterCard from '../components/chat/CharacterCard';
 import ChatSwitcherPage from '../components/chat/ChatSwitcherPage';
 import ChatBubblePickerPage from '../components/chat/ChatBubblePickerPage';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../utils/decorationTemplateStore';
@@ -212,6 +213,9 @@ const Chat: React.FC = () => {
     const [showPanel, setShowPanel] = useState<'none' | 'actions' | 'emojis' | 'chars'>('none');
     // 頂端點名字：全螢幕切換聊天＋這個聊天的氣泡（plans/chat-switcher.md，不用半窗）
     const [switcherOpen, setSwitcherOpen] = useState(false);
+    // 點角色頭像開角色名片（plans/character-card.md）
+    const [characterCardOpen, setCharacterCardOpen] = useState(false);
+    const openCharacterCard = useCallback(() => setCharacterCardOpen(true), []);
     const [bubblePickerOpen, setBubblePickerOpen] = useState(false);
     const [collaborationOpen, setCollaborationOpen] = useState(false);
     const [collaborationPreviewAssetId, setCollaborationPreviewAssetId] = useState<string | null>(null);
@@ -4247,6 +4251,15 @@ const Chat: React.FC = () => {
                 />
             )}
             {/* 切換聊天、氣泡挑選也是全螢幕頁，同樣要在這個 portal 裡（之前漏在外面，白框 CSS 把返回鍵和篩選鈕套上了底色與陰影） */}
+            {characterCardOpen && char && (
+                <CharacterCard
+                    char={char}
+                    from="private"
+                    onClose={() => setCharacterCardOpen(false)}
+                    onChatSettings={() => setModalType('chat-settings')}
+                    returnHere={() => { setActiveCharacterId(char.id); openApp(AppID.Chat); }}
+                />
+            )}
             {switcherOpen && char && (
                 <ChatSwitcherPage
                     characters={characters}
@@ -4653,6 +4666,7 @@ const Chat: React.FC = () => {
                             isLatestMessage={!nextMessage}
                             onMediaLoad={handleMessageMediaLoad}
                             onImageClick={handleImageClick}
+                            onOpenCharacterCard={openCharacterCard}
                             moduleAlign={mergedFineTune.chatModuleAlign || 'center'}
                             onLongPress={handleMessageLongPress}
                             onReply={handleQuickReply}

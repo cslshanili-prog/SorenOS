@@ -3,6 +3,8 @@ export interface CharacterLaunchIntent {
     openChibiStudio?: boolean;
     /** Chat 主頁「聯繫人」tab 點 NPC 行時用：直接停在 NPC 分頁，不必挑角色。 */
     tab?: 'characters' | 'npcs';
+    /** 從角色名片進來的：編輯頁按返回直接回聊天（closeApp 會照 utils/appLaunch.ts 的 appReturn 走） */
+    backToCaller?: boolean;
 }
 
 let pending: CharacterLaunchIntent | null = null;
