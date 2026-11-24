@@ -2599,10 +2599,10 @@ const Settings: React.FC = () => {
             </div>
         </SettingsSection>
 
-        {/* API 中心（plans/api-center-failover.md）：三個副槽集中在這裡填，角色級留著當覆蓋 */}
+        {/* API 中心（plans/api-center-failover.md）：四個副槽集中在這裡填，角色級留著當覆蓋（朋友圈槽反過來蓋過角色） */}
         <SettingsSection
             title="副 API 中心"
-            badge={<span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500">記憶 · 情緒／日程 · 主動消息</span>}
+            badge={<span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500">記憶 · 情緒／日程 · 主動消息 · 朋友圈</span>}
             icon={
                 <div className="p-2 bg-slate-100 rounded-xl text-slate-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">

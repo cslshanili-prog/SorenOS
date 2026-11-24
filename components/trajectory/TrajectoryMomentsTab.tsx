@@ -11,6 +11,7 @@ import {
 } from '../../utils/momentsPool';
 import { deleteMomentComment, deleteMomentPost, editMomentComment, MOMENTS_CHANGED_EVENT, toggleMomentLike, updateMomentPostFields } from '../../utils/momentsStore';
 import { generateCharacterMoment } from '../../utils/momentsGenerate';
+import { globalMomentsApi } from '../../utils/apiCenter';
 import { commentAsCharacter } from '../../utils/momentsReply';
 import { trackEvent } from '../../utils/analytics';
 import { generateImage, buildCharacterImagePrompt, looksLikeSelfieDescription, resolveCharacterReferenceImage } from '../../utils/imageGeneration';
@@ -104,7 +105,9 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     };
 
     const handleGenerate = async () => {
-        if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
+        // 朋友圈槽設了就用它（generateCharacterMoment 裡挑），沒設才看查手機這組
+        const usable = globalMomentsApi(osApiConfig) || apiConfig;
+        if (!usable?.baseUrl || !usable?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
         if (!canGenerateFor(imageGenConfig, 'moments')) {
             addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;

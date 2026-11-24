@@ -4,6 +4,7 @@ import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { normalizeMomentsSettings, canAutoPost } from './momentsSettings';
 import { isOnStage } from './castRole';
 import { ALT_RECOGNITION_RULE } from './charAlt';
+import { resolveMomentsApi } from './apiCenter';
 
 /** 同一個人的本人和小號（互相不去對方的貼文底下互動） */
 const sameOwner = (c: CharacterProfile, otherId: string | undefined, all: CharacterProfile[]): boolean => {
@@ -131,7 +132,9 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
 
     if (job.type === 'commentBatch') {
         const actorIds = job.actorIds.filter(id => canAct(id) && !post.comments.some(c => c.actor.id === id));
-        if (actorIds.length === 0 || !ctx.apiConfig.baseUrl || !ctx.apiConfig.apiKey) return;
+        // 一批人一起留言只打一次：朋友圈槽設了用它，沒設用主 API
+        const api = resolveMomentsApi(ctx.apiConfig, ctx.apiConfig);
+        if (actorIds.length === 0 || !api.baseUrl || !api.apiKey) return;
         const nameOf = (id: string) => actorFor(id, ctx.characters, ctx.npcs, userName)?.name || '';
         const commenters = actorIds.map(id => {
             const char = ctx.characters.find(c => c.id === id);
@@ -154,11 +157,10 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         const promptUserName = post.author.kind === 'user' ? authorName : userName;
         const altInvolved = [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!ctx.characters.find(c => c.id === id)?.altOf);
         const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName, strangerRule: altInvolved ? ALT_RECOGNITION_RULE : undefined });
-        // 一批人一起留言只打一次：用全局 API（通常比角色專屬的主對話模型便宜）
-        const response = await fetch(`${ctx.apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ctx.apiConfig.apiKey}` },
-            body: JSON.stringify({ model: ctx.apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
+            body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
         });
         if (!response.ok) throw new Error(`API 返回 ${response.status}`);
         const comments = parseBatchComments(extractJson(extractContent(await safeResponseJson(response))), actorIds);

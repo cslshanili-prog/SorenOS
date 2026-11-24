@@ -8,9 +8,9 @@
  * 換過家之後，雲端那幾行憑據要跟著指到活著的那家：amsgLlmCredentials 的建行函數經 applyFailoverOverride 問一聲。
  */
 
-export type FailoverSlot = 'chat' | 'memory' | 'meter' | 'amsg';
-export const FAILOVER_SLOTS: FailoverSlot[] = ['chat', 'memory', 'meter', 'amsg'];
-export const FAILOVER_SLOT_LABEL: Record<FailoverSlot, string> = { chat: '主 API', memory: '記憶副 API', meter: '情緒／日程 API', amsg: '主動消息單獨 API' };
+export type FailoverSlot = 'chat' | 'memory' | 'meter' | 'amsg' | 'moments';
+export const FAILOVER_SLOTS: FailoverSlot[] = ['chat', 'memory', 'meter', 'amsg', 'moments'];
+export const FAILOVER_SLOT_LABEL: Record<FailoverSlot, string> = { chat: '主 API', memory: '記憶副 API', meter: '情緒／日程 API', amsg: '主動消息單獨 API', moments: '朋友圈 API' };
 
 export interface SlotApi { baseUrl: string; apiKey: string; model: string }
 export interface ChainEntry extends SlotApi { presetId: string; name: string }

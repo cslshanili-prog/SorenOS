@@ -10,6 +10,7 @@ import {
     DEFAULT_MOMENTS_SETTINGS, MOMENTS_SETTING_RANGES, normalizeMomentsSettings, setMomentsNumber,
     type MomentsNumericKey,
 } from '../../utils/momentsSettings';
+import { globalMomentsApi } from '../../utils/apiCenter';
 
 const PRIMARY = 'hsl(var(--primary-hue),var(--primary-sat),60%)';
 
@@ -73,7 +74,9 @@ const Switch: React.FC<{ on: boolean; onToggle: () => void; label: string }> = (
  * 拖一下寫一次太浪費。
  */
 const MomentsInteractionSettingsPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-    const { userProfileBase, updateUserProfile, characters, npcs, addToast } = useOS();
+    const { userProfileBase, updateUserProfile, characters, npcs, addToast, apiConfig, apiPresets } = useOS();
+    const momentsApi = globalMomentsApi(apiConfig);
+    const momentsApiName = momentsApi && apiPresets.find(p => p.config.baseUrl === momentsApi.baseUrl && p.config.apiKey === momentsApi.apiKey && p.config.model === momentsApi.model)?.name;
     const [draft, setDraft] = useState<MomentsInteractionSettings>(() => normalizeMomentsSettings(userProfileBase.momentsSettings));
     const [view, setView] = useState<'main' | 'posters'>('main');
 
@@ -129,6 +132,11 @@ const MomentsInteractionSettingsPanel: React.FC<{ onBack: () => void }> = ({ onB
                     <div className="flex gap-2 rounded-2xl bg-sky-50 border border-sky-100 px-3.5 py-3 text-[11px] leading-relaxed text-sky-700">
                         <Info size={16} className="shrink-0 mt-px" />
                         <span>這是朋友圈（Dock 的朋友圈、Chat「動態」）的規則，App 開著的時候才會跑。「自動發帖」總開關只管角色和 NPC 會不會自己發文，預設是關的；有人發了新動態，看得到的角色和 NPC 會照下面的機率按讚、留言。按讚不花 API，留言會花（同一篇的一批留言只打一次），不想花就把角色和 NPC 的留言機率都調成 0%。</span>
+                    </div>
+                    <div className="rounded-2xl bg-white border border-slate-100 px-3.5 py-3 text-[11px] leading-relaxed text-slate-500" data-moments-api>
+                        {momentsApi
+                            ? <>朋友圈的發文、留言、回覆都用 <b className="text-slate-700">{momentsApiName || momentsApi.model}</b>（系統設置 → 副 API 中心 → 朋友圈 API）。</>
+                            : <>朋友圈沒設專用的 API：發文和回覆用角色自己的對話模型（沒設用主 API），一批留言用主 API。想分開就去系統設置 → 副 API 中心 → 朋友圈 API。</>}
                     </div>
 
                     <Card>
