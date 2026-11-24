@@ -77,7 +77,7 @@ interface ApiCenterConfig {
 - 純判斷在 `utils/apiFailover.ts`：什麼算掛（網路錯、408、429、5xx；4xx 其他不算）、從 URL＋Authorization 認請求、認槽（主用的先認、鏈裡的也認）、冷卻（記憶體 Map，5 分鐘）、挑下一個、改寫請求（URL 前綴、Authorization、`body.model`）、換家記號（`setFailoverOverride`／`applyFailoverOverride`）、同槽同天只 toast 一次。
 - 接線在 OSContext 的全局 fetch 攔截器：`originalFetch` 丟網路錯、或回來的狀態值得換家，就 `tryFailover`：認槽 → 把掛的那家記冷卻 → 照鏈順序換家重發，拿到不是「值得換家」的回應就用它（成功或 4xx 都算定案）。換了家：toast、系統日誌一條、調用記錄的用途後面標「（備援 主 API：甲 → 乙）」、`syncAmsgLlmCredentials` 把雲端憑據行重傳。沒排鏈的槽跟以前一樣不重發。串流只有狀態就錯才換（還沒吐字）。
 - 憑據行：`buildCharChatCredRow`／`buildCharEmotionCredRow`／`buildCharMemoryCredRow` 挑好來源後都問一聲 `applyFailoverOverride`，冷卻期內指到換到的那家。
-- 介面：副 API 中心每格底下「備援鏈 ▸」（主 API 也有一格只排鏈），開全螢幕 `components/settings/FailoverChainPage.tsx`：勾預設、▲▼ 排順序、每個標活著／冷卻中 n 分／目前頂著用；底下寫明雲端不會自己換。
+- 介面：副 API 中心每格底下「備援鏈 ▸」（主 API 也有一格只排鏈），開全螢幕 `components/settings/FailoverChainPage.tsx`：勾預設、▲▼ 排順序、每個只在出事時標（「剛掛過，n 分內先跳過」「正在代班」，2026-11-24 改：原本沒事也標「活著」，看起來像測過連線，拿掉），這格選的那組標「這格現在用的」（原本叫「主用」），頁首有一段圖例；底下寫明雲端不會自己換。
 - 用戶自己按停不算掛（2026-11-19 補）：`isUserAbort` 認 `AbortError`，攔截器遇到就原樣丟回去，不記冷卻、不換家、不重發；換家途中按停也一樣。逾時是帶理由的中止，照樣換家，重發時用 `failoverInit` 拿掉那個已經中止的 signal（不然下一家會立刻又失敗、整條鏈被記成掛了）。
 - 沒做：雲端到點自己換家（要改上游）。
 
@@ -93,3 +93,8 @@ interface ApiCenterConfig {
 - 不算朋友圈的：查手機裡「社交動態」那一類記錄（那是角色手機裡的假資料，照查手機的 API）。
 - 介面：副 API 中心第四格「朋友圈 API」；朋友圈互動設定頁頂端一行寫現在用哪組。
 - 雲端不跑朋友圈，不用上憑據行。
+
+### 補：副 API 中心收起來（2026-11-24，Liora）
+
+- 每格的「從我的預設選」平常收成一行，只寫選了哪個（預設名 · 模型／手填的／還沒選）和預設總數，點開才列出全部；選一個就收回去。
+- URL／Key／Model 三格：選的是某個預設時收起來（「手動填 URL／Key／Model ▾」點開）；沒有任何預設、或填的不是任何一個預設時一定攤開。
