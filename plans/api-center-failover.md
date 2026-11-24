@@ -80,3 +80,16 @@ interface ApiCenterConfig {
 - 介面：副 API 中心每格底下「備援鏈 ▸」（主 API 也有一格只排鏈），開全螢幕 `components/settings/FailoverChainPage.tsx`：勾預設、▲▼ 排順序、每個標活著／冷卻中 n 分／目前頂著用；底下寫明雲端不會自己換。
 - 用戶自己按停不算掛（2026-11-19 補）：`isUserAbort` 認 `AbortError`，攔截器遇到就原樣丟回去，不記冷卻、不換家、不重發；換家途中按停也一樣。逾時是帶理由的中止，照樣換家，重發時用 `failoverInit` 拿掉那個已經中止的 signal（不然下一家會立刻又失敗、整條鏈被記成掛了）。
 - 沒做：雲端到點自己換家（要改上游）。
+
+### 補：朋友圈 API（2026-11-24，Liora 定）
+
+- 第四個全局副槽 `APIConfig.momentsApi`（形狀 `SecondaryApi`），備援鏈也多一條 `failoverChains.moments`，攔截器認得它。
+- **跟另外三槽相反**：這一槽設了就蓋過角色自己的對話模型（Liora：「跟朋友圈相關的就用朋友圈這一槽」，設它就是要朋友圈跟私聊分開）。沒設照舊。
+- 解析只有 `utils/apiCenter.ts` 的 `resolveMomentsApi(apiConfig, 原本挑好的那組)`，接到：
+  - 角色發文 `generateCharacterMoment`（自動、↻ 重整、查手機軌跡的生成；軌跡傳進來的查手機那組也被蓋過）
+  - 配角／舊 NPC 發文 `generateNpcMoment`
+  - 一批留言（`utils/momentsAutoRuntime.ts`，原本寫死主 API）
+  - 作者回留言 `replyAsAuthor`、角色去留言 `commentAsCharacter`
+- 不算朋友圈的：查手機裡「社交動態」那一類記錄（那是角色手機裡的假資料，照查手機的 API）。
+- 介面：副 API 中心第四格「朋友圈 API」；朋友圈互動設定頁頂端一行寫現在用哪組。
+- 雲端不跑朋友圈，不用上憑據行。

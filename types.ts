@@ -429,11 +429,13 @@ export interface APIConfig {
   meterApi?: SecondaryApi;
   /** 主動消息單獨 API：角色沒開「使用副 API」就用它；沒設＝角色的對話模型 → 主 API */
   amsgApi?: SecondaryApi;
+  /** 朋友圈 API：朋友圈的發文、留言、回覆一律先用它（蓋過角色自己的對話模型）；沒設＝照舊（角色的對話模型 → 主 API） */
+  momentsApi?: SecondaryApi;
   /**
    * 備援鏈（plans/api-center-failover.md 第 2 批）：每個槽一條，預設 id 照順序；掛了在全局 fetch 攔截器裡換下一個再發一次。
-   * chat＝主 API；memory／meter／amsg＝三個副槽。空＝沒有備援。
+   * chat＝主 API；memory／meter／amsg／moments＝四個副槽。空＝沒有備援。
    */
-  failoverChains?: Partial<Record<'chat' | 'memory' | 'meter' | 'amsg', string[]>>;
+  failoverChains?: Partial<Record<'chat' | 'memory' | 'meter' | 'amsg' | 'moments', string[]>>;
   // 可選識圖中轉：給不支持 image_url 的主模型補視覺能力。
   visionApi?: VisionApiConfig;
   /** 翻譯 API（聊天語言用）；沒設就用主 API 的聊天模型翻。 */

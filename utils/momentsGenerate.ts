@@ -12,6 +12,7 @@ import { resolveUserProfileForChar } from './userPersona';
 import { resolveNpcApi } from './npcMemory';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
+import { resolveMomentsApi } from './apiCenter';
 import { safeResponseJson, extractContent, extractJson } from './safeApi';
 import { buildTrajectoryMomentsPrompt, parseTrajectoryMomentDraft } from './trajectory';
 import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImage } from './imageGeneration';
@@ -20,7 +21,7 @@ import { createMomentPost } from './momentsStore';
 
 /**
  * 讓一個角色發一篇朋友圈（寫進單一貼文池）：軌跡 Moments 的「✦ 生成一條」和朋友圈頁的「↻ 重整」共用。
- * 文案用角色自己的模型（resolveCharacterChatApi）；生圖設定開著才配圖，沒開就發純文字。
+ * 文案先用 API 中心的朋友圈槽，沒設才用角色自己的模型（resolveCharacterChatApi）；生圖設定開著才配圖，沒開就發純文字。
  */
 
 /** 朋友圈配圖：總開關、API 配好、各處畫風那格沒關 */
@@ -79,7 +80,7 @@ async function loadMomentContext(char: CharacterProfile, userProfileBase?: UserP
 export async function generateCharacterMoment(params: {
     char: CharacterProfile;
     apiConfig: APIConfig;
-    /** 指定用哪組 API（查手機用它自己的共用設定）；不給就用角色自己的模型，沒配再退回全局 */
+    /** 指定用哪組 API（查手機用它自己的共用設定）；不給就用角色自己的模型，沒配再退回全局。朋友圈槽設了一律用朋友圈槽 */
     api?: { baseUrl: string; apiKey: string; model: string } | null;
     /** 不給就用 apiConfig.imageGenConfig */
     imageGenConfig?: ImageGenApiConfig;
@@ -92,7 +93,7 @@ export async function generateCharacterMoment(params: {
     userProfileBase?: UserProfile;
 }): Promise<MomentPost> {
     const { char, apiConfig, recent, requireImage, source = 'manual' } = params;
-    const api = params.api?.baseUrl ? params.api : resolveCharacterChatApi(char, apiConfig);
+    const api = resolveMomentsApi(apiConfig, params.api?.baseUrl ? params.api : resolveCharacterChatApi(char, apiConfig));
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
     const imageGenConfig = params.imageGenConfig ?? apiConfig.imageGenConfig;
     const withImage = canGenerateMomentImage(imageGenConfig);
@@ -169,7 +170,7 @@ export function buildNpcMomentPrompt(npc: Pick<NPCProfile, 'name' | 'description
     return lines.filter(Boolean).join('\n\n');
 }
 
-/** 讓一個 NPC 發一篇純文字朋友圈。API 用 NPC 自己配的，沒配用全局。 */
+/** 讓一個 NPC 發一篇純文字朋友圈。API 先用朋友圈槽，沒設用 NPC 自己配的，再沒配用全局。 */
 export async function generateNpcMoment(params: {
     npc: NPCProfile;
     apiConfig: APIConfig;
@@ -177,7 +178,7 @@ export async function generateNpcMoment(params: {
     source?: MomentPost['source'];
 }): Promise<MomentPost> {
     const { npc, apiConfig, recent, source = 'auto' } = params;
-    const api = resolveNpcApi(npc, apiConfig);
+    const api = resolveMomentsApi(apiConfig, resolveNpcApi(npc, apiConfig));
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',

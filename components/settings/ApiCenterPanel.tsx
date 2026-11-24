@@ -7,17 +7,18 @@ import FailoverChainPage from './FailoverChainPage';
 import { apiCooldownMinutes, type FailoverSlot } from '../../utils/apiFailover';
 
 /**
- * 系統設置 → API 中心（plans/api-center-failover.md 第 1 批）：三個全局副槽各自從「我的預設」選或手填。
- * 記憶那格就是 memoryPalaceConfig.lightLLM（搬 UI 不搬資料）；情緒／日程、主動消息兩格存 apiConfig.meterApi／amsgApi。
- * 角色身上原本的設定留著當覆蓋：角色自己的 > 這裡 > 主 API。
+ * 系統設置 → API 中心（plans/api-center-failover.md）：四個全局副槽各自從「我的預設」選或手填。
+ * 記憶那格就是 memoryPalaceConfig.lightLLM（搬 UI 不搬資料）；情緒／日程、主動消息、朋友圈存 apiConfig.meterApi／amsgApi／momentsApi。
+ * 情緒／日程、主動消息：角色自己的 > 這裡 > 主 API。朋友圈反過來：這裡設了就蓋過角色自己的對話模型。
  */
 
-type SlotKey = 'memory' | 'meter' | 'amsg';
+type SlotKey = 'memory' | 'meter' | 'amsg' | 'moments';
 
 const SLOTS: Array<{ key: SlotKey; title: string; who: string; fallback: string; accent: string }> = [
     { key: 'memory', title: '記憶副 API', who: '記憶整理、月度總結、門牌整理、Sore 預設用它、回覆草稿。便宜一點的模型就夠。', fallback: '沒設就不跑這些背景活兒（不會拿主 API 去跑）。', accent: 'emerald' },
     { key: 'meter', title: '情緒／日程 API', who: '情緒評估、意識流、日程生成（含行事曆的一週、批量、自動）、已讀不回判定。想細膩點就填好一點的模型。', fallback: '角色自己設了的照角色的；都沒設就用主 API。', accent: 'pink' },
     { key: 'amsg', title: '主動消息單獨 API', who: '主動消息到點生成（1.0 和 2.0 都是）。', fallback: '角色自己開了「使用副 API」的照角色的；都沒設就用角色的對話模型，再沒有用主 API。', accent: 'violet' },
+    { key: 'moments', title: '朋友圈 API', who: '朋友圈的一切：自動發文、↻ 重整發文、查手機軌跡裡生成的貼文、大家來留言、角色回你的留言。', fallback: '設了就全部用它，連角色自己設了對話模型的也一樣；沒設就照舊用角色的對話模型（配角用自己的 API），再沒有用主 API。', accent: 'sky' },
 ];
 
 const empty: SecondaryApi = { baseUrl: '', apiKey: '', model: '' };
@@ -46,6 +47,7 @@ const SlotEditor: React.FC<{
     const label = 'text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block pl-1';
     const tone = slot.accent === 'emerald' ? { chip: 'bg-emerald-100 border-emerald-200 text-emerald-700', text: 'text-emerald-600', bg: 'bg-emerald-50/60 border-emerald-100' }
         : slot.accent === 'pink' ? { chip: 'bg-pink-100 border-pink-200 text-pink-700', text: 'text-pink-600', bg: 'bg-pink-50/60 border-pink-100' }
+        : slot.accent === 'sky' ? { chip: 'bg-sky-100 border-sky-200 text-sky-700', text: 'text-sky-600', bg: 'bg-sky-50/60 border-sky-100' }
         : { chip: 'bg-violet-100 border-violet-200 text-violet-700', text: 'text-violet-600', bg: 'bg-violet-50/60 border-violet-100' };
     return (
         <div className={`rounded-2xl border p-3.5 space-y-3 ${tone.bg}`} data-api-slot={slot.key}>
@@ -92,6 +94,7 @@ const ApiCenterPanel: React.FC = () => {
         memory: memory?.baseUrl ? { baseUrl: memory.baseUrl, apiKey: memory.apiKey || '', model: memory.model || '' } : undefined,
         meter: apiConfig.meterApi,
         amsg: apiConfig.amsgApi,
+        moments: apiConfig.momentsApi,
     };
     const [chainOf, setChainOf] = useState<FailoverSlot | null>(null);
     const chains = apiConfig.failoverChains || {};
@@ -100,11 +103,12 @@ const ApiCenterPanel: React.FC = () => {
     const save = (key: SlotKey, next: SecondaryApi | undefined) => {
         if (key === 'memory') updateMemoryPalaceConfig({ lightLLM: { baseUrl: next?.baseUrl || '', apiKey: next?.apiKey || '', model: next?.model || '' } });
         else if (key === 'meter') updateApiConfig({ meterApi: next });
-        else updateApiConfig({ amsgApi: next });
+        else if (key === 'amsg') updateApiConfig({ amsgApi: next });
+        else updateApiConfig({ momentsApi: next });
     };
     return (
         <div className="space-y-3">
-            <p className="text-[10px] text-slate-400 leading-relaxed px-1">三組「副 API」都在這裡填一次就好。每格可以從上面「API 配置」存的預設裡選，也能手填。角色頁裡自己設的照角色的。每格底下的「備援鏈」：主用的掛了就換下一家再發一次。</p>
+            <p className="text-[10px] text-slate-400 leading-relaxed px-1">四組「副 API」都在這裡填一次就好。每格可以從上面「API 配置」存的預設裡選，也能手填。角色頁裡自己設的照角色的。每格底下的「備援鏈」：主用的掛了就換下一家再發一次。</p>
             <div className="rounded-2xl border border-slate-200 bg-white/70 p-3.5 space-y-2" data-api-slot="chat">
                 <div className="text-xs font-bold text-slate-700">主 API</div>
                 <p className="text-[10px] text-slate-500 leading-relaxed">就是上面「API 配置」那組；這裡只排它的備援鏈。</p>

@@ -2,6 +2,7 @@ import { ALT_RECOGNITION_RULE } from './charAlt';
 import type { APIConfig, CharacterProfile, MomentComment, MomentPost, NPCProfile } from '../types';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
+import { resolveMomentsApi } from './apiCenter';
 import { safeResponseJson, extractContent } from './safeApi';
 import { actorDisplayName, USER_ID, type FriendGraph } from './momentsPool';
 import { distinctPersonaNote } from './personaSpeaker';
@@ -78,7 +79,8 @@ export async function replyAsAuthor(params: {
     graph?: FriendGraph;
 }): Promise<void> {
     const { char, post, userComment, userName, apiConfig, characters, npcs, delayMs = 0, graph } = params;
-    const api = resolveCharacterChatApi(char, apiConfig);
+    // 朋友圈槽設了就用它，沒設照角色自己的對話模型 → 主 API
+    const api = resolveMomentsApi(apiConfig, resolveCharacterChatApi(char, apiConfig));
     if (!api.baseUrl || !api.apiKey) return;
     const { nameOf, personaNote, relationOf } = personaNaming(char.id, userName, characters, npcs, graph);
     const thread = post.comments
@@ -180,7 +182,8 @@ export async function commentAsCharacter(params: {
     graph?: FriendGraph;
 }): Promise<boolean> {
     const { char, post, userName, apiConfig, characters, npcs, graph } = params;
-    const api = resolveCharacterChatApi(char, apiConfig);
+    // 朋友圈槽設了就用它，沒設照角色自己的對話模型 → 主 API
+    const api = resolveMomentsApi(apiConfig, resolveCharacterChatApi(char, apiConfig));
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
     const { nameOf, personaNote } = personaNaming(char.id, userName, characters, npcs, graph);
     const thread = post.comments.map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`).join('\n');

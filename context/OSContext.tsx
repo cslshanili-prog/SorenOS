@@ -1287,6 +1287,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               memory: mem?.baseUrl ? { baseUrl: mem.baseUrl, apiKey: mem.apiKey || '', model: mem.model || '' } : null,
               meter: cfg.meterApi || null,
               amsg: cfg.amsgApi || null,
+              moments: cfg.momentsApi || null,
           };
           const chains: Partial<Record<FailoverSlot, ChainEntry[]>> = {};
           for (const slot of FAILOVER_SLOTS) {
