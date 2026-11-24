@@ -4,7 +4,7 @@ import type { ApiPreset } from '../../types';
 import { FAILOVER_SLOT_LABEL, apiCooldownMinutes, getFailoverOverride, sameApi, type FailoverSlot } from '../../utils/apiFailover';
 
 /**
- * 備援鏈的全螢幕頁（plans/api-center-failover.md 第 2 批；不要半窗）：勾預設、排順序，旁邊標活著／冷卻中。
+ * 備援鏈的全螢幕頁（plans/api-center-failover.md 第 2 批；不要半窗）：勾預設、排順序，旁邊只在出事時標（剛掛過／正在代班）。
  */
 const FailoverChainPage: React.FC<{
     slot: FailoverSlot;
@@ -22,9 +22,10 @@ const FailoverChainPage: React.FC<{
     const override = getFailoverOverride(slot);
     const status = (p: ApiPreset) => {
         const m = apiCooldownMinutes(p.config);
-        if (m > 0) return <span className="text-[10px] font-bold text-rose-500">冷卻中 {m} 分</span>;
-        if (override && sameApi(override.to, p.config)) return <span className="text-[10px] font-bold text-emerald-600">目前頂著用</span>;
-        return <span className="text-[10px] text-emerald-500">活著</span>;
+        // 沒事就不標：以前寫「活著」，看起來像測過連線，其實只是「這次開 App 以來沒記到它掛掉」（Liora 2026-11-24）
+        if (m > 0) return <span className="text-[10px] font-bold text-rose-500">剛掛過，{m} 分內先跳過</span>;
+        if (override && sameApi(override.to, p.config)) return <span className="text-[10px] font-bold text-emerald-600">正在代班</span>;
+        return null;
     };
     const row = (p: ApiPreset, i: number, inChain: boolean) => (
         <div key={p.id} className={`flex items-center gap-2 rounded-2xl border px-3 py-2.5 ${inChain ? 'bg-white border-slate-200' : 'bg-white/60 border-dashed border-slate-200'}`}>
@@ -34,7 +35,7 @@ const FailoverChainPage: React.FC<{
                 <div className="flex items-center gap-1.5">
                     {inChain && <span className="text-[10px] font-bold text-slate-400 tabular-nums">{i + 1}.</span>}
                     <span className="truncate text-[13px] font-bold text-slate-700">{p.name}</span>
-                    {current && sameApi(current, p.config) && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[9px] font-bold text-slate-500">主用</span>}
+                    {current && sameApi(current, p.config) && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[9px] font-bold text-slate-500">這格現在用的</span>}
                 </div>
                 <div className="flex items-center gap-2 text-[10px] text-slate-400"><span className="truncate">{p.config.model || '沒填模型'}</span>{status(p)}</div>
             </div>
@@ -56,7 +57,13 @@ const FailoverChainPage: React.FC<{
                 </div>
             </div>
             <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 space-y-4" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 24px)' }}>
-                <p className="text-[11px] text-slate-500 leading-relaxed">主用的那組掛了（網路錯、逾時、429、5xx）就照這個順序換下一家再發一次，掛掉的冷卻 5 分鐘。Key 錯（401／403）不算掛，不換。換了家會在 API 調用記錄的用途後面標出來。</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">這格現在用的那組掛了（網路錯、逾時、429、5xx）就照這個順序換下一家再發一次。Key 錯（401／403）不算掛，不換。換了家會在 API 調用記錄的用途後面標出來。</p>
+                <div className="rounded-2xl bg-white border border-slate-100 px-3 py-2.5 text-[11px] text-slate-500 leading-relaxed space-y-1">
+                    <div><span className="rounded-full bg-slate-100 px-1.5 text-[9px] font-bold text-slate-500">這格現在用的</span>：副 API 中心那格選的就是它，平常都先用它，不用再排進鏈裡。</div>
+                    <div><span className="font-bold text-rose-500">剛掛過，n 分內先跳過</span>：它剛剛失敗，5 分鐘內不再試它，直接換下一家。</div>
+                    <div><span className="font-bold text-emerald-600">正在代班</span>：現在用的那組掛了，這段時間暫時改用它。</div>
+                    <div className="text-slate-400">什麼都沒標＝這次開 App 以來沒失敗過（重開 App 會歸零，不代表測過連線）。</div>
+                </div>
                 <section className="space-y-2">
                     <h2 className="px-1 text-[12px] font-bold text-slate-500">備援順序 <span className="font-normal text-slate-400">{picked.length ? `${picked.length} 個` : '還沒排'}</span></h2>
                     {picked.length === 0 && <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-4 text-center text-[12px] text-slate-400">從下面勾幾個預設進來。</div>}
@@ -67,7 +74,7 @@ const FailoverChainPage: React.FC<{
                     {rest.length === 0 && presets.length === 0 && <div className="text-[12px] text-slate-400 px-1">還沒有預設；先在系統設置 → API 配置存幾個。</div>}
                     {rest.map((p, i) => row(p, i, false))}
                 </section>
-                <p className="rounded-2xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">雲端（主動消息 2.0 到點、即時對話、後台任務）用的是本機目前活著的這家，到點掛了不會自己換下一家；本機一換家，雲端那行憑據會跟著更新。</p>
+                <p className="rounded-2xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">雲端（主動消息 2.0 到點、即時對話、後台任務）用的是本機現在用的那家，到點掛了不會自己換下一家；本機一換家，雲端那行憑據會跟著更新。</p>
             </div>
         </div>
     );
