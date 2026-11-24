@@ -65,6 +65,8 @@ import { loadChatInputPreferences, saveChatInputPreferences } from '../utils/cha
 import ChatInputSettings from '../components/chat/ChatInputSettings';
 import { useChatAutoReply } from '../hooks/useChatAutoReply';
 import TokenImg from '../components/os/TokenImg';
+import CharacterCard from '../components/chat/CharacterCard';
+import { appReturn } from '../utils/appLaunch';
 import { useBlobRefUrl, isBlobRef, getBlobForRef, migrateDataUrlToRef } from '../utils/blobRef';
 import { buildReplySnapshotContent } from '../utils/applyAssistantPostProcessing';
 import { GroupChromeCssPage, GroupSoundPage } from '../components/chat/GroupWhiteboxPages';
@@ -182,6 +184,7 @@ const GroupMessageItem = React.memo(({
     messageSpacing = 'default',
     showTimestamp = 'always',
     onRetryTranslation,
+    onOpenCharacterCard,
 }: {
     msg: Message,
     isUser: boolean,
@@ -209,6 +212,8 @@ const GroupMessageItem = React.memo(({
     showTimestamp?: 'always' | 'hover' | 'never',
     /** 聊天語言：先寫再翻沒翻成時「點一下再翻」 */
     onRetryTranslation?: (msg: Message) => void,
+    /** 點成員頭像開角色名片（plans/character-card.md）；只有真角色（不是舊 NPC）才給 */
+    onOpenCharacterCard?: (charId: string) => void,
 }) => {
     // 聊天語言（plans/chat-language.md 第 4 批）：雙語訊息預設顯示原文，點「翻譯」切換；成員開了展開就上下都顯示
     const [showTranslated, setShowTranslated] = React.useState(false);
@@ -349,9 +354,16 @@ const GroupMessageItem = React.memo(({
         }
     };
 
-    const renderAvatar = (forceVisible = false) => (
-        <div className={`relative ${avatarSizeClass} z-0 sully-chat-message-avatar`}>
-            {(forceVisible || shouldShowAvatar) && (
+    const renderAvatar = (forceVisible = false) => {
+        const visible = forceVisible || shouldShowAvatar;
+        const opensCard = visible && !isUser && !selectionMode && !!onOpenCharacterCard && !!char;
+        const Wrap = opensCard ? 'button' : 'div';
+        return (
+        <Wrap type={opensCard ? 'button' : undefined}
+            aria-label={opensCard ? `查看${char?.name || ''}的角色名片` : undefined}
+            onClick={opensCard ? (e: React.MouseEvent) => { e.stopPropagation(); onOpenCharacterCard?.(char!.id); } : undefined}
+            className={`relative ${avatarSizeClass} z-0 sully-chat-message-avatar ${opensCard ? 'sully-chat-avatar-opens-card cursor-pointer active:scale-95 transition-transform' : ''}`}>
+            {visible && (
                 <>
                     <TokenImg
                         value={avatar}
@@ -371,8 +383,9 @@ const GroupMessageItem = React.memo(({
                     )}
                 </>
             )}
-        </div>
-    );
+        </Wrap>
+        );
+    };
 
     // Special Content Renderers
     const renderContent = () => {
@@ -553,13 +566,16 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, memoryPalaceConfig, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
+    const { closeApp, openApp, setActiveCharacterId, memoryPalaceConfig, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
     // 只有通過 pendingGroupChatId 深鏈進來的那次會話才設置，用一次就清空。
     const [groupChatBackTarget, setGroupChatBackTarget] = useState<AppID | null>(null);
     const [activeGroup, setActiveGroup] = useState<GroupProfile | null>(null);
+    // 點成員頭像開角色名片（plans/character-card.md）
+    const [cardCharId, setCardCharId] = useState<string | null>(null);
+    const openMemberCard = useCallback((charId: string) => setCardCharId(charId), []);
     // 群聊身份指定：這個群裡「你」該是哪張身份卡——群單獨指定 > 成員多數私下認識的 > 全域默認
     // （utils/userPersona.ts 的 personaKeyForGroup）。群聊沒有 perCharAvatars 那層（群聊頭像一直用整體默認）。
     // 在場的身份（關係線第 5 批，plans/persona-line-batch5.md）：一張、好幾張，或一張都沒有（旁觀）。
@@ -2530,8 +2546,24 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
     const finalGroupRootStyle = acnh
         ? { backgroundColor: '#F6F0D8', backgroundImage: 'none' }
         : groupChatRootStyle;
+    const cardChar = cardCharId ? characters.find(c => c.id === cardCharId) : undefined;
     return (
         <div className={`sully-chat-root ${finalGroupRootClass}`} style={finalGroupRootStyle}>
+            {cardChar && activeGroup && (
+                <CharacterCard
+                    char={cardChar}
+                    from="group"
+                    onClose={() => setCardCharId(null)}
+                    onPrivateChat={() => {
+                        // 跟他的私聊，按返回回到這個群（utils/appLaunch.ts）
+                        const gid = activeGroup.id;
+                        setActiveCharacterId(cardChar.id);
+                        appReturn.set(AppID.Chat, () => openGroupChat(gid));
+                        openApp(AppID.Chat);
+                    }}
+                    returnHere={() => openGroupChat(activeGroup.id)}
+                />
+            )}
             {/* 外觀 App 的全局聊天細節與私聊共用同一份生成 CSS。 */}
             {groupFineTuneCss && <style>{groupFineTuneCss}</style>}
             {/* 白框自定義 CSS：全局默認在前、群專屬在後（後者疊加覆蓋）。作用於 .sully-chat-* 各零件。 */}
@@ -2703,6 +2735,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             messageSpacing={osTheme.chatMessageSpacing}
                             showTimestamp={osTheme.chatShowTimestamp}
                             onRetryTranslation={handleRetryGroupTranslation}
+                            onOpenCharacterCard={char && characters.some(c => c.id === char.id) ? openMemberCard : undefined}
                         />
                         </React.Fragment>
                     );

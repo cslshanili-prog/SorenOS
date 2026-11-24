@@ -1618,6 +1618,8 @@ interface MessageItemProps {
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
     onOpenCollaborationFile?: (m: Message) => void | Promise<void>;
     /** 思考鏈卡片視覺與交互 */
+    /** 點角色頭像開角色名片（components/chat/CharacterCard.tsx）；沒給就跟以前一樣點了沒反應 */
+    onOpenCharacterCard?: () => void;
     thinkingChainOptions?: {
         styleId?: ThinkingChainStyleId;
         customColors?: { bg?: string; accent?: string; text?: string };
@@ -1636,6 +1638,7 @@ const MessageItem = React.memo(({
     isLatestMessage = false,
     onMediaLoad,
     onImageClick,
+    onOpenCharacterCard,
     onLongPress,
     onReply,
     selectionMode,
@@ -1819,11 +1822,17 @@ const MessageItem = React.memo(({
     // Removed mb-5 from here, handled via absolute positioning in parent
     const renderAvatar = (
         src: string,
-        options?: { visible?: boolean; className?: string },
+        options?: { visible?: boolean; className?: string; opensCard?: boolean },
     ) => {
         const visible = options?.visible ?? shouldShowAvatar;
+        // 角色頭像點了開角色名片（多選時不開，點了是勾選）
+        const opensCard = visible && !!options?.opensCard && !selectionMode && !!onOpenCharacterCard;
+        const Wrap = opensCard ? 'button' : 'div';
         return (
-            <div className={`relative ${avatarSizeClass} z-0 ${options?.className || ''}`}>
+            <Wrap type={opensCard ? 'button' : undefined}
+                aria-label={opensCard ? `查看${charName}的角色名片` : undefined}
+                onClick={opensCard ? (event: React.MouseEvent) => { event.stopPropagation(); onOpenCharacterCard?.(); } : undefined}
+                className={`relative ${avatarSizeClass} z-0 ${opensCard ? 'sully-chat-avatar-opens-card cursor-pointer active:scale-95 transition-transform' : ''} ${options?.className || ''}`}>
                 {visible && (
                     <>
                         <TokenImg
@@ -1843,7 +1852,7 @@ const MessageItem = React.memo(({
                         )}
                     </>
                 )}
-            </div>
+            </Wrap>
         );
     };
 
@@ -2169,6 +2178,7 @@ const MessageItem = React.memo(({
                         {renderAvatar(isUser ? userAvatar : charAvatar, {
                             visible: true,
                             className: 'sully-chat-turn-avatar',
+                            opensCard: !isUser,
                         })}
                     </div>
                 )}
@@ -2176,7 +2186,7 @@ const MessageItem = React.memo(({
                 {/* HTML / 音樂卡片是獨立模塊，不繼承普通消息外殼的角色頭像。卡片內部自己的頭像不受影響。 */}
                 {!isUser && !isModuleCard && (
                     <div className={`sully-chat-message-avatar-slot absolute bottom-0 z-0 ${selectionMode ? 'left-14' : 'left-3'} transition-[left] duration-300`}>
-                        {renderAvatar(charAvatar, { className: 'sully-chat-message-avatar' })}
+                        {renderAvatar(charAvatar, { className: 'sully-chat-message-avatar', opensCard: true })}
                     </div>
                 )}
 
@@ -4177,6 +4187,7 @@ const MessageItem = React.memo(({
     );
 }, (prev, next) => {
     return prev.msg.id === next.msg.id &&
+           prev.onOpenCharacterCard === next.onOpenCharacterCard &&
            prev.msg.content === next.msg.content &&
            // 可交互卡片的狀態活在 metadata 裡（生活記錄卡確認/否決、轉帳卡收退款）。
            // 這裡不深比整個 metadata（可能含大對象），只盯這幾個會改變渲染的狀態位——

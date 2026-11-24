@@ -1,3 +1,4 @@
+import { memoryPalaceLaunch } from '../utils/appLaunch';
 import ChatHistoryCleanupModal from '../components/chat/ChatHistoryCleanupModal';
 import { MemoryTimeText } from '../components/MemoryTimeText';
 import { relativeTimeEdit } from '../utils/memoryPalace/relativeTime';
@@ -678,7 +679,10 @@ export default function MemoryPalaceApp() {
     );
     const [selectGroupId, setSelectGroupId] = useState(GROUP_FILTER_ALL); // 選角色頁的分組篩選
 
-    const [view, setView] = useState<'picker' | 'palace' | 'room' | 'memory' | 'settings' | 'globalSettings' | 'all' | 'boxes'>(() => guideStep === 1 ? 'globalSettings' : 'picker');
+    // 從角色名片「記憶宮殿」進來：直接進這個角色的宮殿（utils/appLaunch.ts），返回就回聊天
+    const launchedFor = React.useRef(memoryPalaceLaunch.peek()?.charId === activeCharacterId && !!activeCharacterId);
+    const [view, setView] = useState<'picker' | 'palace' | 'room' | 'memory' | 'settings' | 'globalSettings' | 'all' | 'boxes'>(() => guideStep === 1 ? 'globalSettings' : launchedFor.current ? 'palace' : 'picker');
+    useEffect(() => { memoryPalaceLaunch.consume(); }, []);
     useEffect(() => {
         const reveal = () => {
             if (guideStep === 1) setView('globalSettings');
@@ -4946,7 +4950,7 @@ create table if not exists memory_vectors (
                 <div style={{ textAlign: 'center', marginBottom: 20, position: 'relative' }}>
                     {/* 返回（到選角界面）按鈕 */}
                     <div
-                        onClick={() => setView('picker')}
+                        onClick={() => { if (launchedFor.current) { launchedFor.current = false; closeApp(); } else setView('picker'); }}
                         style={{
                             position: 'absolute', left: 0, top: 0,
                             fontSize: 13, color: '#6b7280', cursor: 'pointer',

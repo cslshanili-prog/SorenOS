@@ -1,3 +1,4 @@
+import { calendarLaunch } from '../utils/appLaunch';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarBlank, CaretLeft, CaretRight, CheckCircle, Circle, DotsThree, Plus, Sparkle, Trash, User as UserIcon, UsersThree } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
@@ -74,7 +75,9 @@ const KIND_EMOJI: Record<CalendarEvent['kind'], string> = { event: '📌', todo:
 
 const CalendarApp: React.FC = () => {
     const { closeApp, characters, npcs, activeCharacterId, userProfileBase, apiConfig, groups, realtimeConfig, addToast, updateCharacter, updateUserProfile, updateUserPersona } = useOS();
-    const [tab, setTab] = useState<Tab>('month');
+    // 從角色名片「行事曆」進來：直接看這個角色（utils/appLaunch.ts；看的人照 activeCharacterId）
+    const [tab, setTab] = useState<Tab>(() => calendarLaunch.peek()?.tab || 'month');
+    useEffect(() => { calendarLaunch.consume(); }, []);
     const personas = useMemo(() => personaOptions(userProfileBase), [userProfileBase]);
     const [personaKey, setPersonaKey] = useState<string>(() => personas.find(p => p.isMain)?.key || personas[0].key);
     const persona: PersonaOption = personas.find(p => p.key === personaKey) || personas[0];

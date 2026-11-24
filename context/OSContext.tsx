@@ -122,6 +122,7 @@ import {
 } from '../utils/apiFailover';
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
+import { appReturn } from '../utils/appLaunch';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { refreshMomentsGraph, setMomentsGraphInputs } from '../utils/momentsContext';
 import { setStoryScenes } from '../utils/storySceneRegistry';
@@ -6507,8 +6508,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       return { status: 'failed' };
     }
   };
-  const openApp = (appId: AppID) => setActiveApp(appId);
-  const closeApp = () => setActiveApp(AppID.Launcher);
+  const openApp = (appId: AppID) => { appReturn.forget(appId); setActiveApp(appId); };
+  // 從角色名片跳過去的 App（utils/appLaunch.ts）：按返回回到原本的聊天，不是桌面
+  const closeApp = () => {
+    const back = appReturn.take(activeAppRef.current);
+    if (back) back(); else setActiveApp(AppID.Launcher);
+  };
   // 從聊天直接進入某角色的見面：切換當前角色 + 標記自動進入 + 打開見面 App
   const openDateWithChar = (charId: string, meetup?: DateMeetup) => {
     setActiveCharacterId(charId);

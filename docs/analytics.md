@@ -976,6 +976,10 @@ push endpoint）留在 toast 和 console 里，一个字都不进上报。
 - 临时会话发送 —— blockedBy（char / user）
 - 临时会话里角色解除拉黑
 
+**角色名片**
+
+- 打开角色名片 —— from（private / group）
+
 **朋友圈（单一贴文池）**
 
 - 朋友圈发文 —— visibility（friends / public / custom）、hasImage（yes / no）
