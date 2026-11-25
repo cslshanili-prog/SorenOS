@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createMemorySink, type ZipSink } from './zipStream/writer';
 import {
     describeGithubUploadTransportFailure,
     downloadBackup,
@@ -385,5 +386,56 @@ describe('GitHub 事務式上傳', () => {
         expect(uploadedNames.some(name => name.endsWith('.sully-backup.json'))).toBe(true);
         expect(fetchMock.mock.calls.some(([url, init]) =>
             String(url).endsWith('/releases/88') && init?.method === 'PATCH')).toBe(true);
+    });
+});
+
+// 第 3d 批（plans/backup-streaming.md）：雲端還原的下載一片一片寫進暫存區，不在記憶體裡攢整包。
+describe('GitHub 備份下載：一片一片寫進暫存區', () => {
+    const config = {
+        enabled: true, webdavUrl: '', username: '', password: '', remotePath: '/',
+        githubToken: 'github_pat_test', githubOwner: 'owner', githubRepo: 'sully-backup', githubUseProxy: false,
+    };
+    const partA = new Uint8Array(5000).map((_, i) => (i * 3) & 0xFF);
+    const partB = new Uint8Array(3000).map((_, i) => (i * 5 + 1) & 0xFF);
+    const file = { name: 'Sully_Backup_full_1.zip', href: '123:11,22', size: 8000, partSizes: [5000, 3000], lastModified: 1 };
+
+    const spyStore = () => {
+        const sink = createMemorySink();
+        const log = { writes: [] as number[], finished: 0, aborted: 0 };
+        const store: ZipSink = {
+            write: (chunk, owned) => { log.writes.push(chunk.byteLength); sink.write(chunk, owned); },
+            drain: async () => {},
+            finish: async () => { log.finished++; return sink.finish(); },
+            abort: async () => { log.aborted++; await sink.abort(); },
+        };
+        return { store, log };
+    };
+
+    it('多片的備份：照順序各寫一次，接起來跟原檔一樣', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (url: any) => new Response(String(url).endsWith('/11') ? partA.slice() : partB.slice(), { status: 200 })));
+        const { store, log } = spyStore();
+        const blob = await downloadBackup(config, file as any, undefined, () => store);
+        expect(log.writes).toEqual([5000, 3000]);
+        expect(log.finished).toBe(1);
+        expect(log.aborted).toBe(0);
+        const bytes = new Uint8Array(await blob!.arrayBuffer());
+        expect(Buffer.from(bytes.subarray(0, 5000)).equals(Buffer.from(partA))).toBe(true);
+        expect(Buffer.from(bytes.subarray(5000)).equals(Buffer.from(partB))).toBe(true);
+    });
+
+    it('沒給暫存區照舊，結果一樣大', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (url: any) => new Response(String(url).endsWith('/11') ? partA.slice() : partB.slice(), { status: 200 })));
+        expect((await downloadBackup(config, file as any))?.size).toBe(8000);
+    });
+
+    it('某一片抓不到：報原本的錯，寫到一半的暫存區收掉', async () => {
+        vi.stubGlobal('fetch', vi.fn(async (url: any) => (String(url).endsWith('/11')
+            ? new Response(partA.slice(), { status: 200 })
+            : new Response('{"message":"Forbidden"}', { status: 403 }))));
+        const { store, log } = spyStore();
+        await expect(downloadBackup(config, file as any, undefined, () => store)).rejects.toThrow('HTTP 403');
+        expect(log.writes).toEqual([5000]);
+        expect(log.aborted).toBe(1);
+        expect(log.finished).toBe(0);
     });
 });

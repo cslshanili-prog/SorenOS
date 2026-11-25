@@ -15,6 +15,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 import { CloudBackupConfig, CloudBackupFile } from '../types';
 import { getProxyWorkerUrl } from './proxyWorker';
+import type { CreateByteStore, ZipSink } from './zipStream/writer';
 
 // 經 CF Worker 代理上傳（web 路徑）的請求體上限。Cloudflare Worker 免費版單次請求體約 100MB，
 // 超了會被 Worker/平台直接拒（返回 413 之類），且大請求體上行還可能撞 ~42s 上行超時。所以在發起
@@ -302,26 +303,41 @@ export const downloadBackup = async (
     config: CloudBackupConfig,
     file: CloudBackupFile,
     onProgress?: (percent: number) => void,
+    /**
+     * 給了就一段一段寫進這個暫存區（磁碟上的暫存檔），不在記憶體裡攢整包；
+     * 沒給就照舊攢在記憶體（plans/backup-streaming.md 第 3d 批）。
+     */
+    createStore?: CreateByteStore,
 ): Promise<Blob | null> => {
     try {
         onProgress?.(2);
 
         if (file.size > CHUNK_SIZE) {
+            let store: ZipSink | null = null;
             try {
                 const total = file.size;
                 const parts: ArrayBuffer[] = [];
+                if (createStore) store = await createStore();
                 let received = 0;
                 for (let start = 0; start < total; start += CHUNK_SIZE) {
                     const end = Math.min(start + CHUNK_SIZE - 1, total - 1);
                     const buf = await fetchChunk(config, file.href, `bytes=${start}-${end}`);
-                    parts.push(buf);
                     received += buf.byteLength;
+                    if (store) {
+                        // 這一段寫出去就放掉，下一段再讀
+                        store.write(new Uint8Array(buf), true);
+                        await store.drain?.();
+                    } else {
+                        parts.push(buf);
+                    }
                     onProgress?.(Math.min(99, Math.floor((received / total) * 100)));
                 }
-                const blob = new Blob(parts, { type: 'application/zip' });
+                const blob = store ? await store.finish() : new Blob(parts, { type: 'application/zip' });
                 onProgress?.(100);
                 return blob;
             } catch (e) {
+                // 寫到一半的暫存檔不能接著用：收掉，下面整個重抓
+                if (store) await store.abort().catch(() => undefined);
                 // Most likely: the deployed Worker hasn't been redeployed with the
                 // X-WebDAV-Range header allowed by CORS preflight. Fall through to
                 // a single GET so small/medium backups still restore. (Won't help

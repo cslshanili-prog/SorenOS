@@ -343,6 +343,22 @@ const createImportSpill = async (): Promise<ZipSink> => {
   return createMemorySink('application/json');
 };
 
+/**
+ * 從雲端抓回來的備份檔放哪（plans/backup-streaming.md 第 3d 批）：能寫磁碟就一段一段寫進 OPFS 的暫存檔，
+ * 不在記憶體裡攢整包；不行就放記憶體（跟以前一樣）。
+ */
+const createRestoreDownloadStore = async (): Promise<ZipSink> => {
+  if (isOpfsSinkSupported()) {
+    try {
+      // 不驗 zip 結尾：下載回來的檔對不對，交給後面開備份包那一步判斷（訊息比較清楚）
+      return await createOpfsSink({ fileName: `restore-download-${Date.now()}.zip`, verifyZipTail: false });
+    } catch (error) {
+      console.warn('[Backup] 開不了下載用的暫存檔，改放記憶體', error);
+    }
+  }
+  return createMemorySink();
+};
+
 /** 早期備份小於這個大小就照舊整根讀：小檔沒有記憶體問題，走驗證最久的那條路 */
 const V1_STREAM_MIN_BYTES = 8 * 1024 * 1024;
 
@@ -3942,9 +3958,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const { downloadBackup } = await loadBackupProvider();
       try {
           setSysOperation({ status: 'processing', message: '正在從雲端下載...', progress: 0 });
+          // 下載回來的檔在磁碟上的暫存區，還原做完之前不能被清掉（utils/backupRunState.ts）
+          beginRestoreRun();
+          await clearBackupTempFiles();
           const blob = await downloadBackup(cloudBackupConfig, file, (pct) => {
               setSysOperation(prev => ({ ...prev, message: `下載中 ${pct}%...`, progress: pct * 0.5 }));
-          });
+          }, createRestoreDownloadStore);
 
           if (!blob) throw new Error('下載失敗');
 
@@ -3952,6 +3971,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const zipFile = new File([blob], file.name, { type: 'application/zip' });
           await importSystem(zipFile);
       } catch (e: any) {
+          endRestoreRun();
+          void clearBackupTempFiles();
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           addToast(`雲端恢復失敗: ${e.message}`, 'error');
           throw e;
