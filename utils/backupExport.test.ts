@@ -235,3 +235,36 @@ describe('sliceRanges / EXPORT_CHUNK_SIZE', () => {
         expect(chunksB64[0]).toContain('=');
     });
 });
+
+describe('內嵌圖片去重的鍵', () => {
+    it('同一張圖同一個鍵，鍵很短（不留整串）', async () => {
+        const { imageDedupKey } = await import('./backupExport');
+        const img = 'data:image/png;base64,' + 'iVBORw0KGgo'.repeat(50_000);
+        expect(imageDedupKey(img)).toBe(imageDedupKey(img.slice()));
+        expect(imageDedupKey(img).length).toBeLessThan(120);
+    });
+
+    it('長度一樣、頭尾一樣、只有中間差一個字的兩張圖，鍵不一樣', async () => {
+        const { imageDedupKey } = await import('./backupExport');
+        const head = 'data:image/png;base64,' + 'A'.repeat(100);
+        const tail = 'B'.repeat(100) + '==';
+        const one = head + 'x'.repeat(5000) + tail;
+        const two = head + 'x'.repeat(2500) + 'y' + 'x'.repeat(2499) + tail;
+        expect(one.length).toBe(two.length);
+        expect(imageDedupKey(one)).not.toBe(imageDedupKey(two));
+    });
+
+    it('一萬張隨機圖沒有撞鍵', async () => {
+        const { imageDedupKey } = await import('./backupExport');
+        const keys = new Set<string>();
+        for (let i = 0; i < 10_000; i++) keys.add(imageDedupKey(`data:image/png;base64,${(i * 2654435761 >>> 0).toString(36).repeat(8)}`));
+        expect(keys.size).toBe(10_000);
+    });
+
+    it('圖多的表一批 20 筆，其他 200 筆', async () => {
+        const { backupBatchSize } = await import('./backupExport');
+        expect(backupBatchSize('gallery')).toBe(20);
+        expect(backupBatchSize('messages')).toBe(20);
+        expect(backupBatchSize('memory_nodes')).toBe(200);
+    });
+});
