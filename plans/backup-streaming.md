@@ -1,6 +1,6 @@
 # 備份改成邊壓邊寫（iPhone 備份到 9x% 分頁被關掉）
 
-> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**第 1、2 批做完**（實況在第 10、11 節），第 3、4 批還沒做。備份檔格式不變，舊備份照樣能還原。
+> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**第 1、2 批和第 3a 批做完**（實況在第 10、11、12 節）；實機（iPhone）測過導出沒問題（Liora 2026-11-25）。第 3b～3d、第 4 批還沒做。備份檔格式不變，舊備份照樣能還原。
 
 ## 1. 現象
 
@@ -295,3 +295,38 @@ OPFS 要防的事：
 - **在 Chromium 上，磁碟輸出和記憶體輸出量起來差不多**。Chromium 的 Blob 本來就不放在分頁自己的記憶體裡，所以第 1 批在這裡就已經是平的。磁碟輸出要幫的是 Safari（Blob 的資料留在它自己的行程裡），**這一點只能靠實機確認**。
 
 沒測到的：真的 iPhone（OPFS 的同步把手在 Safari 上的行為、寫完讀回來對不對、記憶體到底降多少）；雲端上傳吃磁碟上的檔案（WebDAV／GitHub 都是對 Blob 做 `slice`／整個送出，照理不用改，但沒有實際傳過）；原生殼（Capacitor）。
+
+## 12. 第 3 批：還原不整包讀（細節與實況）
+
+開工前重新讀了一遍還原流程，實際狀況比第 2 節寫的好一點：
+
+- `DB.importFullData` 本來就是**一張表一張表寫**，每 50 筆一塊，圖片還原（`assets/*` → base64）跟著那一塊做，寫完就把那張表從 `data` 上拿掉。
+- 所以真正握著整包的只有兩處：`JSZip.loadAsync(file)`（整個 zip 讀進記憶體）和 `assembleV2Backup`（寫庫之前先把所有表組成一個大物件，裡面是文字和圖片的路徑，不含圖片本身）。
+
+照這個拆成四小批：
+
+| 小批 | 做什麼 | 狀態 |
+|---|---|---|
+| **3a** | 隨機讀取的 zip 讀取器，取代 `JSZip.loadAsync` | **做完** |
+| **3b** | 大的表不先組：`assembleV2Backup` 對「單純清空再寫」的陣列欄位只回一個「要用時才一片一片讀」的來源，`importFullData` 的 `clearAndAdd` 認得它（讀一片 → 還原圖片 → 寫庫 → 放掉）。需要跟現有資料合併的（媒體模式的補丁、角色）照舊整張組。圖多的表每塊從 50 筆降到 10 筆。協同文件現在是先全部讀成 Blob 再寫，改成逐個 | 還沒做 |
+| **3c** | v1（單根 `data.json`）：邊解壓邊解析，頂層一個欄位一個欄位、陣列一筆一筆吐出來，接到 3b 的同一個來源 | 還沒做 |
+| **3d** | 雲端還原：WebDAV／GitHub 的下載一段一段寫進 OPFS 的暫存檔，不在記憶體裡攢整包 | 還沒做 |
+
+### 3a 實況
+
+- `utils/zipStream/reader.ts` 的 `openZipReader(blob, { inflate })`：讀檔尾找結尾記錄（含註解、zip64）→ 讀中央目錄 → 之後要哪個條目才 `blob.slice` 那一段、解壓、回傳。`file()`／`files`／`_data` 的長相跟 JSZip 一樣，所以 `assembleV2Backup`、`readBlobsIndex`、`restoreBlobsFromZip`、`restoreVoiceMessageBlobs`、`restoreAssetsInPlace` 一行都沒改。
+- 讀得了的：JSZip 打的包（舊備份、上游 Sully 的）、JSZip 邊壓邊寫的包（檔頭大小是 0、帶 data descriptor，舊版整合導出就是這種，大小一律看中央目錄）、串流寫入器打的包、結尾有註解的、檔案前面多了位元組的、超過 65535 個檔的。
+- 讀不懂的（加密、分卷、不認得的壓縮法）在開檔時就丟錯，`openBackupZip`（`context/OSContext.tsx`）退回 `JSZip.loadAsync`。排查開關：`localStorage['backup_zip_reader'] = 'jszip'` 強制走舊的。
+- 不驗 CRC，跟 JSZip 預設一樣：一張圖壞掉不該讓整份備份還原不了；文字壞掉本來就會在 `JSON.parse` 被抓到。
+- 解壓用 `fflate` 的 `inflateSync`（已經有的依賴）。
+
+實測（無頭 Chromium、開發模式，全新的設定檔還原一份 381 MB 的整合備份：360 張 1.2 MB 內嵌圖＋6000 則訊息）：
+
+| 讀法 | 分頁多用的記憶體 | 時間 | JS 堆上限 300 MB 時 |
+|---|---|---|---|
+| JSZip 整包讀（改之前） | +835 MB | 17.8 秒 | +554 MB |
+| 隨機讀取（3a） | +451 MB | 8.1 秒 | +217 MB |
+
+還原出來的資料庫三邊一致（來源、新讀法、舊讀法）：`gallery` 360 筆、`messages` 6000 筆、`characters` 逐筆雜湊相同。
+
+沒測到的：真的 iPhone；v1 單根 `data.json` 的包在瀏覽器裡還原（讀取器的單元測試有 JSZip 打的各種包，v1 走的是同一個 `file().async('string')`）；從雲端還原（下載那段沒動）。
