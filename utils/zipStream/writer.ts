@@ -54,6 +54,12 @@ export interface ZipSink {
     abort(): Promise<void>;
 }
 
+/**
+ * 開一個「往後接著寫」的位元組暫存區（OPFS 暫存檔或記憶體）。雲端還原下載時用：
+ * 一段一段寫進去，收尾拿到整個檔，不在記憶體裡攢整包（plans/backup-streaming.md 第 3d 批）。
+ */
+export type CreateByteStore = () => Promise<ZipSink> | ZipSink;
+
 /** 原始 DEFLATE（不帶 zlib／gzip 外殼）。正式環境傳 fflate 的 deflateSync */
 export type DeflateRaw = (data: Uint8Array, options: { level: number }) => Uint8Array;
 

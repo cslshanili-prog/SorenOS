@@ -20,6 +20,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 import { CloudBackupConfig, CloudBackupFile } from '../types';
 import { getProxyWorkerUrl } from './proxyWorker';
+import type { CreateByteStore, ZipSink } from './zipStream/writer';
 
 const API_HOST = 'https://api.github.com';
 const UPLOAD_HOST = 'https://uploads.github.com';
@@ -992,6 +993,11 @@ export const downloadBackup = async (
     config: CloudBackupConfig,
     file: CloudBackupFile,
     onProgress?: (percent: number) => void,
+    /**
+     * 給了就一片一片寫進這個暫存區（磁碟上的暫存檔），不在記憶體裡攢整包；
+     * 沒給就照舊攢在記憶體（plans/backup-streaming.md 第 3d 批）。
+     */
+    createStore?: CreateByteStore,
 ): Promise<Blob | null> => {
     const token = config.githubToken;
     const owner = config.githubOwner;
@@ -1009,9 +1015,11 @@ export const downloadBackup = async (
         throw new Error('這個備份缺少有效的 GitHub 附件標識，請刷新備份列表後重試。');
     }
 
+    let store: ZipSink | null = null;
     try {
         onProgress?.(2);
         const buffers: ArrayBuffer[] = [];
+        if (createStore) store = await createStore();
         let downloadedBytes = 0;
         const totalBytes = Math.max(0, Number(file.size) || 0);
         const span = 96 / assetIds.length;
@@ -1023,15 +1031,23 @@ export const downloadBackup = async (
                     onProgress?.(Math.min(98, Math.max(2, Math.floor(2 + byteFraction * 96))));
                 }
             });
-            buffers.push(buf);
             downloadedBytes += buf.byteLength;
+            if (store) {
+                // 這一片寫出去就放掉，下一片再抓
+                store.write(new Uint8Array(buf), true);
+                await store.drain?.();
+            } else {
+                buffers.push(buf);
+            }
             onProgress?.(totalBytes > 0
                 ? Math.min(99, Math.floor(2 + Math.min(1, downloadedBytes / totalBytes) * 96))
                 : Math.min(99, Math.floor(2 + (i + 1) * span)));
         }
+        const blob = store ? await store.finish() : new Blob(buffers, { type: 'application/zip' });
         onProgress?.(100);
-        return new Blob(buffers, { type: 'application/zip' });
+        return blob;
     } catch (error: any) {
+        if (store) await store.abort().catch(() => undefined);
         if (
             !shouldUseGithubProxy(config)
             && !isNative()
