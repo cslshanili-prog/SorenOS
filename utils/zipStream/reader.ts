@@ -22,6 +22,11 @@ const TAIL_BYTES = 22 + 0xFFFF + 20;
 /** 原始 DEFLATE 解壓。正式環境傳 fflate 的 inflateSync（size 是解開後的大小，可以先配好緩衝） */
 export type InflateRaw = (data: Uint8Array, size: number) => Uint8Array;
 
+/** 邊餵邊吐的解壓器：餵一段壓縮資料，回這一段解出來的（可能好幾塊，也可能沒有） */
+export interface InflateStream {
+    push(data: Uint8Array, final: boolean): Uint8Array[];
+}
+
 export interface ZipReaderFile {
     name: string;
     dir: boolean;
@@ -29,6 +34,11 @@ export interface ZipReaderFile {
     _data: { compressedSize: number; uncompressedSize: number };
     async(type: 'string' | 'base64'): Promise<string>;
     async(type: 'uint8array'): Promise<Uint8Array>;
+    /**
+     * 一段一段吐出解壓後的內容，整個條目不會同時在記憶體裡（第 3c 批：早期備份那一整根 data.json 用這個讀）。
+     * JSZip 的檔案物件沒有這個方法，呼叫端要先確認有再用。
+     */
+    chunks(): AsyncGenerator<Uint8Array, void, void>;
 }
 
 /** 還原流程用到的最小介面。JSZip 載入後的物件和這裡的讀取器都符合 */
@@ -78,7 +88,13 @@ export const encodeBase64 = (bytes: Uint8Array): string => {
     return parts.join('');
 };
 
-export const openZipReader = async (blob: Blob, options: { inflate: InflateRaw }): Promise<BackupZipReader & { entryCount: number }> => {
+/** 分段讀壓縮資料時一次讀多少。文字大約壓成五到十分之一，所以解出來每塊一兩 MB */
+const STREAM_WINDOW_BYTES = 256 * 1024;
+
+export const openZipReader = async (
+    blob: Blob,
+    options: { inflate: InflateRaw; createInflateStream?: () => InflateStream },
+): Promise<BackupZipReader & { entryCount: number }> => {
     const total = blob.size;
     if (total < 22) throw new Error('不是 zip 檔（太小）');
 
@@ -182,6 +198,37 @@ export const openZipReader = async (blob: Blob, options: { inflate: InflateRaw }
         return inflated;
     };
 
+    /** 內容從檔案的哪個位置開始（要讀檔頭才知道） */
+    const dataStartOf = async (entry: CentralEntry): Promise<number> => {
+        const header = await readBytes(blob, entry.offset, entry.offset + 30);
+        if (header.length < 30) throw new Error(`損壞的備份包：${entry.name} 的檔頭不完整`);
+        const headerView = new DataView(header.buffer, header.byteOffset, header.byteLength);
+        if (headerView.getUint32(0, true) !== SIG_LOCAL) throw new Error(`損壞的備份包：${entry.name} 的檔頭不對`);
+        return entry.offset + 30 + headerView.getUint16(26, true) + headerView.getUint16(28, true);
+    };
+
+    async function* streamEntry(entry: CentralEntry): AsyncGenerator<Uint8Array, void, void> {
+        // 沒給邊餵邊吐的解壓器：退回整個讀（結果一樣，只是不省記憶體）
+        if (entry.method === 8 && !options.createInflateStream) {
+            yield await readEntry(entry);
+            return;
+        }
+        const dataStart = await dataStartOf(entry);
+        const inflater = entry.method === 8 ? options.createInflateStream!() : null;
+        let produced = 0;
+        if (entry.compressedSize === 0 && inflater) {
+            for (const out of inflater.push(new Uint8Array(0), true)) { produced += out.length; yield out; }
+        }
+        for (let at = 0; at < entry.compressedSize; at += STREAM_WINDOW_BYTES) {
+            const end = Math.min(entry.compressedSize, at + STREAM_WINDOW_BYTES);
+            const raw = await readBytes(blob, dataStart + at, dataStart + end);
+            if (raw.length !== end - at) throw new Error(`損壞的備份包：${entry.name} 讀到一半就沒了（檔案被截斷）`);
+            if (!inflater) { produced += raw.length; yield raw; continue; }
+            for (const out of inflater.push(raw, end === entry.compressedSize)) { produced += out.length; yield out; }
+        }
+        if (produced !== entry.size) throw new Error(`損壞的備份包：${entry.name} 解開後大小不對`);
+    }
+
     const file = (name: string): ZipReaderFile | null => {
         const entry = entries.get(name);
         if (!entry) return null;
@@ -191,7 +238,7 @@ export const openZipReader = async (blob: Blob, options: { inflate: InflateRaw }
             if (type === 'base64') return encodeBase64(bytes);
             return utf8.decode(bytes);
         }) as ZipReaderFile['async'];
-        return { name: entry.name, dir: false, _data: { compressedSize: entry.compressedSize, uncompressedSize: entry.size }, async };
+        return { name: entry.name, dir: false, _data: { compressedSize: entry.compressedSize, uncompressedSize: entry.size }, async, chunks: () => streamEntry(entry) };
     };
 
     return { files, file, entryCount: entries.size };

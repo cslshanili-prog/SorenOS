@@ -18,10 +18,11 @@ import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
 import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, imageDedupKey, backupBatchSize, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
-import { createJSZipWriter, createZipStreamWriter, type DeflateRaw, type ZipStreamWriter } from '../utils/zipStream/writer';
+import { createJSZipWriter, createMemorySink, createZipStreamWriter, type DeflateRaw, type ZipSink, type ZipStreamWriter } from '../utils/zipStream/writer';
 import { clearBackupTempFiles, createOpfsSink, isOpfsSinkSupported, type OpfsSink } from '../utils/zipStream/opfsSink';
-import { openZipReader, type BackupZipReader, type InflateRaw } from '../utils/zipStream/reader';
-import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun, type BackupRunSink } from '../utils/backupRunState';
+import { openZipReader, type BackupZipReader, type InflateRaw, type InflateStream } from '../utils/zipStream/reader';
+import { assembleV1Stream, blobChunks } from '../utils/backupV1Stream';
+import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, isRestoreRunning, beginRestoreRun, endRestoreRun, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun, type BackupRunSink } from '../utils/backupRunState';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { resolveBlobRefsInRequestBody } from '../utils/apiBlobRefs';
 import { collectBlobRefs, writeBlobsToZip, readBlobsIndex, restoreBlobsFromZip } from '../utils/backupBlobs';
@@ -306,19 +307,44 @@ const loadDeflateRaw = (): Promise<DeflateRaw> => {
   return deflateRawPromise;
 };
 
-/** 原始 DEFLATE 解壓（還原備份的隨機讀取器用，utils/zipStream/reader.ts） */
-let inflateRawPromise: Promise<InflateRaw> | null = null;
-const loadInflateRaw = (): Promise<InflateRaw> => {
-  if (!inflateRawPromise) {
-    inflateRawPromise = import('fflate')
-      .then((mod): InflateRaw => (data, size) => mod.inflateSync(data, { out: new Uint8Array(size) }))
+/** 原始 DEFLATE 解壓（還原備份的隨機讀取器用，utils/zipStream/reader.ts）：整塊解的和邊餵邊吐的各一個 */
+let inflatersPromise: Promise<{ inflate: InflateRaw; createInflateStream: () => InflateStream }> | null = null;
+const loadInflaters = () => {
+  if (!inflatersPromise) {
+    inflatersPromise = import('fflate')
+      .then((mod) => ({
+        inflate: ((data, size) => mod.inflateSync(data, { out: new Uint8Array(size) })) as InflateRaw,
+        createInflateStream: (): InflateStream => {
+          let out: Uint8Array[] = [];
+          const inflater = new mod.Inflate((chunk) => { out.push(chunk); });
+          return { push(data, final) { out = []; inflater.push(data, final); return out; } };
+        },
+      }))
       .catch((error) => {
-        inflateRawPromise = null;
+        inflatersPromise = null;
         throw new Error(`解壓元件載入失敗：${error instanceof Error ? error.message : 'unknown error'}`);
       });
   }
-  return inflateRawPromise;
+  return inflatersPromise;
 };
+
+/**
+ * 還原早期備份（一整根 data.json）時，大表的原文暫存到哪（utils/backupV1Stream.ts）。
+ * 能寫磁碟就寫 OPFS 的暫存檔；不行就放記憶體（還是比整張表的物件省）。
+ */
+const createImportSpill = async (): Promise<ZipSink> => {
+  if (isOpfsSinkSupported()) {
+    try {
+      return await createOpfsSink({ fileName: `import-spill-${Date.now()}.json`, type: 'application/json', verifyZipTail: false });
+    } catch (error) {
+      console.warn('[Backup] 開不了還原用的暫存檔，改放記憶體', error);
+    }
+  }
+  return createMemorySink('application/json');
+};
+
+/** 早期備份小於這個大小就照舊整根讀：小檔沒有記憶體問題，走驗證最久的那條路 */
+const V1_STREAM_MIN_BYTES = 8 * 1024 * 1024;
 
 /**
  * 打開要還原的備份包。預設用隨機讀取器：只讀檔尾的目錄，要哪個條目才去讀那一段，
@@ -330,7 +356,7 @@ const openBackupZip = async (file: File): Promise<BackupZipReader> => {
   try { forceLegacy = localStorage.getItem('backup_zip_reader') === 'jszip'; } catch { /* ignore */ }
   if (!forceLegacy) {
     try {
-      return await openZipReader(file, { inflate: await loadInflateRaw() });
+      return await openZipReader(file, await loadInflaters());
     } catch (error) {
       console.warn('[Backup] 隨機讀取開不了這個備份包，退回整包讀', error);
     }
@@ -2560,7 +2586,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const interruptedBackupNoticeRef = useRef<string | null>(null);
   useEffect(() => {
     // 上次備份留在磁碟上的暫存檔（下載完沒清、或被關掉時寫到一半的）：開機清掉，不然一直佔著儲存空間
-    const cleanup = window.setTimeout(() => { if (!isBackupRunning()) void clearBackupTempFiles(); }, 5000);
+    const cleanup = window.setTimeout(() => { if (!isBackupRunning() && !isRestoreRunning()) void clearBackupTempFiles(); }, 5000);
     return () => window.clearTimeout(cleanup);
   }, []);
   useEffect(() => {
@@ -6079,7 +6105,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           return Math.max(0, Math.floor(base64.length * 3 / 4) - padding);
       };
 
+      /**
+       * 早期備份（一整根 data.json）邊讀邊組：大表不進記憶體（plans/backup-streaming.md 第 3c 批）。
+       * 小檔、排查開關（localStorage backup_v1_reader = 'legacy'）、或邊讀邊組沒成功時回 null，呼叫端照舊整根讀。
+       */
+      const tryStreamV1 = async (makeChunks: () => AsyncIterable<Uint8Array>, totalBytes: number): Promise<FullBackupData | null> => {
+          let forceLegacy = false;
+          try { forceLegacy = localStorage.getItem('backup_v1_reader') === 'legacy'; } catch { /* ignore */ }
+          if (forceLegacy || !(totalBytes >= V1_STREAM_MIN_BYTES)) return null;
+          try {
+              return await assembleV1Stream(makeChunks(), {
+                  lazyFields: LAZY_IMPORT_FIELDS,
+                  createSpill: createImportSpill,
+                  onProgress: bytes => showImportProgress('parsing', '正在解析備份文件...',
+                      2 + Math.floor(Math.min(1, bytes / Math.max(1, totalBytes)) * 28), { current: '解析備份文件' }),
+                  onYield: () => new Promise<void>(r => setTimeout(r, 0)),
+              }) as FullBackupData;
+          } catch (error) {
+              // 檔案真的壞掉的話，下面整根讀也會報錯，錯誤訊息照舊；只是拆解器自己的問題的話，這裡就救回來了
+              console.warn('[Backup] 邊讀邊組沒成功，改用整根讀', error);
+              return null;
+          }
+      };
+
       showImportProgress('parsing', '正在解析備份文件...', 1, { current: '解析備份文件', sourceSize });
+      // 還原期間磁碟上可能有暫存檔，不能被清掉（utils/backupRunState.ts）
+      beginRestoreRun();
       try {
           let data: FullBackupData;
           let zip: BackupZipReader | null = null;
@@ -6089,8 +6140,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           } else {
               if (!fileOrJson.name.endsWith('.zip')) {
                   try {
-                      const text = await fileOrJson.text();
-                      data = JSON.parse(text);
+                      const jsonFile = fileOrJson;
+                      const streamed = await tryStreamV1(() => blobChunks(jsonFile), jsonFile.size);
+                      if (streamed) {
+                          data = streamed;
+                      } else {
+                          const text = await fileOrJson.text();
+                          data = JSON.parse(text);
+                      }
                   } catch (e) {
                       throw new Error("無效的文件格式，請上傳 .zip 或 .json");
                   }
@@ -6126,9 +6183,17 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       // v1（老備份）：單根 data.json，原樣保留，老備份永遠打得開。
                       const dataFile = loadedZip.file("data.json");
                       if (!dataFile) throw new Error("損壞的備份包: 缺少 data.json");
-                      let jsonStr = await dataFile.async("string");
-                      data = JSON.parse(jsonStr);
-                      jsonStr = '';
+                      // 隨機讀取器開的檔才有 chunks()；退回 JSZip 時沒有，照舊整根讀
+                      const streamed = typeof (dataFile as { chunks?: unknown }).chunks === 'function'
+                          ? await tryStreamV1(() => dataFile.chunks(), dataFile._data?.uncompressedSize || 0)
+                          : null;
+                      if (streamed) {
+                          data = streamed;
+                      } else {
+                          let jsonStr = await dataFile.async("string");
+                          data = JSON.parse(jsonStr);
+                          jsonStr = '';
+                      }
                   }
               }
           }
@@ -6608,6 +6673,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       } catch (e: any) {
           console.error("Import Error:", e);
+          endRestoreRun();
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           const msg = e instanceof SyntaxError ? 'JSON 格式錯誤' : (e.message || '未知錯誤');
           markImportInProgress('error', sourceName, {

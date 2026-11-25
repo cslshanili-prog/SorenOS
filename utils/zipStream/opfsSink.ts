@@ -63,7 +63,8 @@ const browserDeps = (): OpfsSinkDeps => ({
  * 開一個暫存檔準備寫。開不了（不支援、私密瀏覽、Worker 起不來、逾時）就丟錯，呼叫端改用記憶體。
  */
 export const createOpfsSink = async (
-    options: { fileName: string; type?: string },
+    /** verifyZipTail：寫完檢查結尾是不是 zip 的記號（備份包要；還原時暫存別的東西就關掉，只驗大小） */
+    options: { fileName: string; type?: string; verifyZipTail?: boolean },
     deps: OpfsSinkDeps = browserDeps(),
 ): Promise<OpfsSink> => {
     const type = options.type || 'application/zip';
@@ -163,9 +164,11 @@ export const createOpfsSink = async (
                 const file = await deps.readFile(BACKUP_TMP_DIR, options.fileName);
                 // 寫完要驗：有人回報過 Safari 用這個寫法寫出來的檔讀回來是空的，不能假設一定對
                 if (file.size !== posted) throw new Error(`暫存檔讀回來大小不對（寫了 ${posted}，讀到 ${file.size}）`);
-                if (posted < 22) throw new Error('暫存檔太小，不是完整的備份包');
-                const tail = new DataView(await file.slice(posted - 22, posted - 18).arrayBuffer());
-                if (tail.getUint32(0, true) !== EOCD_SIGNATURE) throw new Error('暫存檔結尾不對，不是完整的備份包');
+                if (options.verifyZipTail !== false) {
+                    if (posted < 22) throw new Error('暫存檔太小，不是完整的備份包');
+                    const tail = new DataView(await file.slice(posted - 22, posted - 18).arrayBuffer());
+                    if (tail.getUint32(0, true) !== EOCD_SIGNATURE) throw new Error('暫存檔結尾不對，不是完整的備份包');
+                }
                 // 換上正確的類型；slice 不複製內容，背後還是磁碟上那個檔
                 return file.slice(0, file.size, type);
             } catch (error) {

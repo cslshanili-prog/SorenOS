@@ -49,6 +49,12 @@ const SINKS: readonly BackupRunSink[] = ['memory', 'opfs', 'jszip'];
 let running = false;
 let current: BackupRunNote | null = null;
 
+let restoring = false;
+/** 還原進行中（只在記憶體）：還原會把大表的原文暫存在磁碟上，這段期間不能清暫存檔 */
+export const isRestoreRunning = (): boolean => restoring;
+export const beginRestoreRun = (): void => { restoring = true; };
+export const endRestoreRun = (): void => { restoring = false; };
+
 /** 本機排程（日程自動生成、記憶整理、主動消息的本機檢查）看這個決定要不要跳過這一輪 */
 export const isBackupRunning = (): boolean => running;
 
