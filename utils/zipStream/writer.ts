@@ -42,7 +42,14 @@ export interface ZipStreamWriter {
 
 /** 輸出去哪。write 是同步的：寫入器保證一個條目的檔頭和內容連著寫 */
 export interface ZipSink {
-    write(chunk: Uint8Array): void;
+    /**
+     * owned＝這塊位元組是寫入器自己產生的（檔頭、壓過的內容、從字串或 Blob 轉出來的），
+     * 輸出端可以直接拿走（交給 Worker 時用 transfer，不複製）。呼叫端傳進來的原樣位元組
+     * 不能拿走：呼叫端之後可能還要讀它的長度。
+     */
+    write(chunk: Uint8Array, owned?: boolean): void;
+    /** 輸出是排隊寫的（寫磁碟）時：等積壓降下來。寫入器的 drain() 會連它一起等 */
+    drain?(): Promise<void>;
     finish(): Promise<Blob>;
     abort(): Promise<void>;
 }
@@ -69,6 +76,7 @@ export const createMemorySink = (type = 'application/zip'): ZipSink => {
     };
     return {
         write(chunk) {
+            // 記憶體輸出不需要拿走位元組（owned 不管）：攢夠就包成 Blob，Blob 會自己複製一份
             pending.push(chunk);
             pendingBytes += chunk.byteLength;
             if (pendingBytes >= MEMORY_SINK_PART_BYTES) flush();
@@ -86,6 +94,8 @@ export const createMemorySink = (type = 'application/zip'): ZipSink => {
         },
     };
 };
+
+const CENTRAL_FLUSH_BYTES = 1024 * 1024;
 
 const BASE64_SLICE = 1024 * 1024; // 4 的倍數：每段各自解，段與段之間不用補位
 
@@ -128,18 +138,21 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
     /** Blob 要先讀：一個接一個，不同時讀好幾張 */
     let blobChain: Promise<void> = Promise.resolve();
 
-    const emit = (chunk: Uint8Array) => {
-        sink.write(chunk);
-        offset += chunk.byteLength;
+    const emit = (chunk: Uint8Array, owned: boolean) => {
+        // 長度要先記：owned 的那塊交出去之後（transfer）長度會變 0
+        const size = chunk.byteLength;
+        sink.write(chunk, owned);
+        offset += size;
     };
 
     /** 算 CRC、壓縮、組檔頭。這一步出錯還沒寫出任何東西，整包沒壞 */
-    const prepareEntry = (name: string, bytes: Uint8Array, fileOptions: ZipFileOptions) => {
+    const prepareEntry = (name: string, bytes: Uint8Array, fileOptions: ZipFileOptions, bytesOwned: boolean) => {
         if (bytes.byteLength >= MAX_UINT32) throw new Error(`備份裡有單個檔案超過 4 GB（${name}），無法寫入。`);
         const nameBytes = encoder.encode(name);
         if (nameBytes.length > 0xFFFF) throw new Error(`備份裡的檔名太長：${name.slice(0, 80)}…`);
         let method = METHOD_STORE;
         let payload = bytes;
+        let payloadOwned = bytesOwned;
         if (fileOptions.compression !== 'STORE' && bytes.byteLength > 0) {
             const level = fileOptions.compressionOptions?.level ?? defaultLevel;
             const deflated = level > 0 ? options.deflate(bytes, { level }) : bytes;
@@ -147,21 +160,22 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
             if (deflated.byteLength < bytes.byteLength) {
                 method = METHOD_DEFLATE;
                 payload = deflated;
+                payloadOwned = true;
             }
         }
         const entry: ZipEntryRecord = {
             nameBytes, method, crc: crc32(bytes), compressedSize: payload.byteLength, size: bytes.byteLength,
             offset: 0, dosTime, dosDate,
         };
-        return { entry, payload };
+        return { entry, payload, payloadOwned };
     };
 
     /** 檔頭和內容連著寫出去。這一步出錯代表輸出斷在半個條目上，整包作廢（failure 記住，之後都報錯） */
-    const emitEntry = ({ entry, payload }: ReturnType<typeof prepareEntry>) => {
+    const emitEntry = ({ entry, payload, payloadOwned }: ReturnType<typeof prepareEntry>) => {
         try {
             entry.offset = offset;
-            emit(buildLocalHeader(entry));
-            if (payload.byteLength) emit(payload);
+            emit(buildLocalHeader(entry), true);
+            if (payload.byteLength) emit(payload, payloadOwned);
             entries.push(entry);
         } catch (error) {
             failure = error instanceof Error ? error : new Error(String(error));
@@ -187,7 +201,7 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
             blobChain = blobChain.then(async () => {
                 if (failure || state !== 'open') return;
                 try {
-                    emitEntry(prepareEntry(name, new Uint8Array(await data.arrayBuffer()), fileOptions));
+                    emitEntry(prepareEntry(name, new Uint8Array(await data.arrayBuffer()), fileOptions, true));
                 } catch (error) {
                     // Blob 是排隊寫的，呼叫端當下接不到錯：讀不到也算整包失敗，由 drain／finish 報出來
                     failure = failure || (error instanceof Error ? error : new Error(String(error)));
@@ -197,10 +211,11 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
         }
         let prepared: ReturnType<typeof prepareEntry>;
         try {
-            const bytes = typeof data === 'string'
-                ? (fileOptions.base64 ? decodeBase64(data) : encoder.encode(data))
+            const fromString = typeof data === 'string';
+            const bytes = fromString
+                ? (fileOptions.base64 ? decodeBase64(data as string) : encoder.encode(data as string))
                 : data as Uint8Array;
-            prepared = prepareEntry(name, bytes, fileOptions);
+            prepared = prepareEntry(name, bytes, fileOptions, fromString);
         } catch (error) {
             // 還沒寫出任何東西：這個檔案當作沒登記過，丟給呼叫端決定（例如把圖片留在 JSON 裡）
             names.delete(name);
@@ -212,15 +227,47 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
     const drain = async () => {
         await blobChain;
         if (failure) throw failure;
+        if (sink.drain) {
+            try {
+                await sink.drain();
+            } catch (error) {
+                // 輸出端寫不進去（磁碟滿了、Worker 掛了）：整包作廢
+                failure = failure || (error instanceof Error ? error : new Error(String(error)));
+                throw failure;
+            }
+        }
     };
 
     const finish = async (): Promise<Blob> => {
         await drain();
         assertOpen();
         const centralOffset = offset;
-        for (const entry of entries) emit(buildCentralRecord(entry));
-        const centralSize = offset - centralOffset;
-        emit(buildEndRecords(entries.length, centralSize, centralOffset));
+        // 目錄一筆才幾十個位元組：湊成大塊再寫，不要幾萬筆各送一次
+        let pending: Uint8Array[] = [];
+        let pendingBytes = 0;
+        const flushCentral = () => {
+            if (!pending.length) return;
+            const merged = new Uint8Array(pendingBytes);
+            let at = 0;
+            for (const part of pending) { merged.set(part, at); at += part.byteLength; }
+            pending = [];
+            pendingBytes = 0;
+            emit(merged, true);
+        };
+        try {
+            for (const entry of entries) {
+                const record = buildCentralRecord(entry);
+                pending.push(record);
+                pendingBytes += record.byteLength;
+                if (pendingBytes >= CENTRAL_FLUSH_BYTES) flushCentral();
+            }
+            flushCentral();
+            const centralSize = offset - centralOffset;
+            emit(buildEndRecords(entries.length, centralSize, centralOffset), true);
+        } catch (error) {
+            failure = failure || (error instanceof Error ? error : new Error(String(error)));
+            throw failure;
+        }
         state = 'finished';
         return sink.finish();
     };

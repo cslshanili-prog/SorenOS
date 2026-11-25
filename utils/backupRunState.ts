@@ -13,15 +13,17 @@
 export const BACKUP_RUN_LS_KEY = 'backup_run_v1';
 
 /**
- * 排查用的開關：localStorage 這個鍵設成 'jszip' 就退回舊容器（全部登記、最後一次生成）。
- * 沒有介面，只給開發時對照或出事時臨時救急；不省記憶體。
+ * 排查用的開關（localStorage，沒有介面，只給開發時對照或出事時臨時救急）：
+ * - 'memory'：輸出不寫磁碟，留在記憶體（第 1 批的做法）
+ * - 'jszip'：退回舊容器（全部登記、最後一次生成），不省記憶體
+ * 沒設＝輸出寫進 OPFS；環境不支援或寫不成會自己退回記憶體。
  */
 export const BACKUP_ZIP_WRITER_LS_KEY = 'backup_zip_writer';
 
 export type BackupRunMode = 'text_only' | 'media_only' | 'full';
 /** tables 資料表、media 圖片與附件、finalize 寫目錄收尾、upload 上傳到雲端 */
 export type BackupRunPhase = 'tables' | 'media' | 'finalize' | 'upload';
-/** 輸出去哪：memory 記憶體、opfs 磁碟（第 2 批）、jszip 舊容器 */
+/** 輸出去哪：opfs 磁碟上的暫存檔、memory 記憶體、jszip 舊容器 */
 export type BackupRunSink = 'memory' | 'opfs' | 'jszip';
 
 export interface BackupRunNote {
@@ -144,7 +146,12 @@ export const interruptedBackupEventProps = (note: BackupRunNote): Record<string,
     进度: note.percent < 25 ? '0-25' : note.percent < 50 ? '25-50' : note.percent < 75 ? '50-75' : '75-100',
 });
 
-/** 這次要用哪個容器 */
+/** 這次想把輸出放哪（'opfs' 只是想要，環境不支援時呼叫端會退回 'memory'） */
 export const preferredBackupSink = (storage: Pick<Storage, 'getItem'> | undefined = safeStorage()): BackupRunSink => {
-    try { return storage?.getItem(BACKUP_ZIP_WRITER_LS_KEY) === 'jszip' ? 'jszip' : 'memory'; } catch { return 'memory'; }
+    try {
+        const value = storage?.getItem(BACKUP_ZIP_WRITER_LS_KEY);
+        return value === 'jszip' ? 'jszip' : value === 'memory' ? 'memory' : 'opfs';
+    } catch {
+        return 'opfs';
+    }
 };

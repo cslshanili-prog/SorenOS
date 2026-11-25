@@ -79,11 +79,13 @@ describe('備份跑到哪了', () => {
             .toEqual({ 模式: '纯文字', 阶段: '上传', 输出: '旧容器', 进度: '0-25' });
     });
 
-    it('排查開關：設成 jszip 才用舊容器', () => {
+    it('排查開關：沒設寫磁碟；memory 留在記憶體；jszip 用舊容器；亂寫當沒設', () => {
+        expect(preferredBackupSink(storage)).toBe('opfs');
+        storage.setItem(BACKUP_ZIP_WRITER_LS_KEY, 'memory');
         expect(preferredBackupSink(storage)).toBe('memory');
         storage.setItem(BACKUP_ZIP_WRITER_LS_KEY, 'jszip');
         expect(preferredBackupSink(storage)).toBe('jszip');
         storage.setItem(BACKUP_ZIP_WRITER_LS_KEY, '亂寫');
-        expect(preferredBackupSink(storage)).toBe('memory');
+        expect(preferredBackupSink(storage)).toBe('opfs');
     });
 });
