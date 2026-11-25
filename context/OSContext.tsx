@@ -19,7 +19,8 @@ import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
 import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, imageDedupKey, backupBatchSize, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
 import { createJSZipWriter, createZipStreamWriter, type DeflateRaw, type ZipStreamWriter } from '../utils/zipStream/writer';
-import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun } from '../utils/backupRunState';
+import { clearBackupTempFiles, createOpfsSink, isOpfsSinkSupported, type OpfsSink } from '../utils/zipStream/opfsSink';
+import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun, type BackupRunSink } from '../utils/backupRunState';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { resolveBlobRefsInRequestBody } from '../utils/apiBlobRefs';
 import { collectBlobRefs, writeBlobsToZip, readBlobsIndex, restoreBlobsFromZip } from '../utils/backupBlobs';
@@ -2524,6 +2525,11 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。
   const interruptedBackupNoticeRef = useRef<string | null>(null);
   useEffect(() => {
+    // 上次備份留在磁碟上的暫存檔（下載完沒清、或被關掉時寫到一半的）：開機清掉，不然一直佔著儲存空間
+    const cleanup = window.setTimeout(() => { if (!isBackupRunning()) void clearBackupTempFiles(); }, 5000);
+    return () => window.clearTimeout(cleanup);
+  }, []);
+  useEffect(() => {
     const note = takeInterruptedBackupRun();
     if (!note) return;
     const { message, detail } = describeInterruptedBackup(note);
@@ -3837,6 +3843,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               updateBackupRun({ phase: 'upload', percent: 50 + pct * 0.45 });
           });
           endBackupRun();
+          // 上傳完，磁碟上那份暫存檔用不到了
+          void clearBackupTempFiles();
 
           if (!result.ok) {
               throw new Error(result.message);
@@ -3858,6 +3866,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
       } catch (e: any) {
           endBackupRun();
+          void clearBackupTempFiles();
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           addToast(`雲端備份失敗: ${e.message}`, 'error');
           trackEvent('上传备份到云端', {
@@ -5013,18 +5022,34 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   };
 
   // --- MODIFIED EXPORT SYSTEM WITH SEPARATED ASSETS ZIP ---
-  const exportSystem = async (mode: 'text_only' | 'media_only' | 'full'): Promise<Blob> => {
+  const exportSystem = (mode: 'text_only' | 'media_only' | 'full'): Promise<Blob> => exportSystemImpl(mode);
+
+  /** forcedSink：暫存檔寫不成時，用記憶體重跑一次 */
+  const exportSystemImpl = async (mode: 'text_only' | 'media_only' | 'full', forcedSink?: BackupRunSink): Promise<Blob> => {
       let activeZip: ZipStreamWriter | null = null;
+      let opfsSink: OpfsSink | null = null;
       try {
           setSysOperation({ status: 'processing', message: '正在初始化打包引擎...', progress: 0 });
 
           // 容器：邊壓邊寫的串流寫入器，一個檔案進來就壓好寫出去、寫完不留（plans/backup-streaming.md）。
           // 以前用 JSZip 全部登記、最後一次生成，尾段握著好幾份完整資料，iPhone 上分頁會被系統關掉。
-          // 排查開關（localStorage backup_zip_writer = 'jszip'）才退回舊容器。
-          const sinkKind = preferredBackupSink();
+          // 輸出：預設寫進瀏覽器的私有檔案區（OPFS），整包不在記憶體裡；環境不支援或開不了就留在記憶體。
+          // 排查開關（localStorage backup_zip_writer = 'memory'／'jszip'）見 utils/backupRunState.ts。
+          let sinkKind: BackupRunSink = forcedSink || preferredBackupSink();
+          // 上一次備份留下的暫存檔（跟備份檔一樣大）先清掉
+          await clearBackupTempFiles();
+          if (sinkKind === 'opfs') {
+              try {
+                  if (!isOpfsSinkSupported()) throw new Error('這個環境沒有 OPFS 或 Worker');
+                  opfsSink = await createOpfsSink({ fileName: `backup-${Date.now()}.zip` });
+              } catch (error) {
+                  console.warn('[Backup] 開不了暫存檔，輸出留在記憶體', error);
+                  sinkKind = 'memory';
+              }
+          }
           const zip: ZipStreamWriter = sinkKind === 'jszip'
               ? createJSZipWriter(new (await loadJSZip())() as any, { level: mode === 'text_only' ? 6 : 9 })
-              : createZipStreamWriter({ deflate: await loadDeflateRaw() });
+              : createZipStreamWriter({ deflate: await loadDeflateRaw(), sink: opfsSink || undefined });
           activeZip = zip;
           beginBackupRun({ mode, sink: sinkKind });
           // 進度：資料表佔前面一段，圖片與附件佔中間，收尾留最後 3%。純文字沒有圖片那一段。
@@ -5422,6 +5447,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       size: asset.blob.size,
                       createdAt: asset.createdAt,
                   });
+                  await zip.drain();
                   if (index % 10 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0));
               }
           }
@@ -5659,6 +5685,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       writer.appendSync([processedItem]);
                   });
                   prewrittenStores[textOnlyField] = await writer.finish();
+                  await zip.drain();
                   continue;
               }
 
@@ -5876,7 +5903,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   prewrittenStores,
                   // 剩下還在 backupData 裡的陣列（協同工作的訊息等）也用小分片，一片壓完就寫出去
                   limits: textOnlyShardLimits,
-                  onYield: yieldToUi,
+                  onYield: async () => { await zip.drain(); await yieldToUi(); },
                   onSerialized: collectSerialized,
               },
           );
@@ -5941,6 +5968,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           console.error("Export Failed", e);
           try { await activeZip?.abort(); } catch { /* 已經在報錯了，收不乾淨也不蓋掉原因 */ }
           endBackupRun();
+          // 暫存檔寫不成（空間不夠、寫完驗不過、背景執行緒掛了）：資料本身沒問題，改用記憶體重跑一次
+          if (opfsSink?.failed && !forcedSink) {
+              addToast(opfsSink.quotaExceeded
+                  ? '剩餘空間不夠放備份的暫存檔，改用記憶體重新打包（比較吃記憶體）'
+                  : '暫存檔寫入失敗，改用記憶體重新打包', 'info');
+              return exportSystemImpl(mode, 'memory');
+          }
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           throw new Error("導出失敗: " + e.message);
       }
