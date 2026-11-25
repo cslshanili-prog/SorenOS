@@ -31,7 +31,7 @@ import { migrateSharkpanAssets } from '../utils/sharkpanAssetMigration';
 import { stripCompanionChatStyleResidue } from '../utils/companionThemeIsolation';
 import { SULLY_DEFAULT_AVATAR_URL, shouldMigrateSullyAvatar } from '../utils/sullyAvatar';
 import { exportStoryTheaterAppearanceSetting, restoreStoryTheaterAppearanceSetting } from '../utils/storyTheaterBackup';
-import { createV2ArrayFieldWriter, writeV2Backup, assembleV2Backup, type BackupManifest, type ZipFileWriter, type ZipFileReader } from '../utils/backupFormat';
+import { createV2ArrayFieldWriter, writeV2Backup, assembleV2Backup, LAZY_IMPORT_FIELDS, type BackupManifest, type ZipFileWriter, type ZipFileReader } from '../utils/backupFormat';
 import { externalizeVoiceMessageBlobs, restoreVoiceMessageBlobs, shouldIncludeVoiceRelatedAssetInBackup } from '../utils/voiceMessageBackup';
 import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '../utils/companionVoiceAssets';
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
@@ -6112,6 +6112,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                           loadedZip as unknown as ZipFileReader,
                           manifest,
                           {
+                              // 大表不先組成陣列：寫庫時才一片一片讀（plans/backup-streaming.md 第 3b 批）
+                              lazyFields: LAZY_IMPORT_FIELDS,
                               onYield: () => new Promise<void>(r => setTimeout(r, 0)),
                               onShardProgress: (field, idx, total) => {
                                   showImportProgress('parsing', '正在解析備份分片...',

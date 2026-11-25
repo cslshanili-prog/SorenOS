@@ -27,6 +27,7 @@ import { exportAmsg2GlobalConfig, importAmsg2GlobalConfig } from './activeMsgSto
 import { exportWorldHomeLocal, importWorldHomeLocal } from './worldHome/localBackup';
 import { exportDesktopSkinLocal, importDesktopSkinLocal } from './desktopSkinBackup';
 import { editLibrary, VR_LIBRARY_RECORD, type LibraryEdit } from './vrWorld/library';
+import { isLazyShardArray, type LazyShardArray } from './backupFormat';
 
 const DB_NAME = 'AetherOS_Data';
 // v67：兩條並行線各自用掉了 v65/v66（A線: blob_assets + 生活記錄；B線: room_plates 門牌 + digest_reports 消化日誌），
@@ -88,6 +89,12 @@ const STORE_HOTNEWS = 'hotnews_snapshots';        // 分時段熱點快照（全
 const STORE_VR_NOVELS = 'vr_novels';              // 虛擬世界「彼方」全局小說庫（所有角色共享原文）
 const STORE_VR_ANNOTATIONS = 'vr_annotations';    // 虛擬世界小說批註（per-segment per-char，可互相吐槽）
 const STORE_CC_PARTS = 'cc_custom_parts';         // 捏臉系統自定義部件（開發模式追加，注入捏人器）
+
+/** 還原備份時一塊少寫一點的表：一筆可能帶好幾 MB 的圖（utils/db.ts 的 importFullData） */
+const IMAGE_HEAVY_IMPORT_STORES = new Set([
+    STORE_GALLERY, STORE_EMOJIS, STORE_JOURNAL_STICKERS, STORE_XHS_STOCK, STORE_SOCIAL_POSTS,
+    STORE_MOMENT_POSTS, STORE_ASSETS, STORE_CC_PARTS, STORE_CHARACTERS, 'pixel_home_assets',
+]);
 const STORE_VR_MUSIC = 'vr_music';                // 聽歌房共享狀態（單例 nowPlaying + 循環隊列）
 const STORE_VR_GUESTBOOK = 'vr_guestbook';        // 留言簿共享版聊牆（單例 messages）
 const STORE_VR_SCRIPTS = 'vr_scripts';            // 劇院·投稿劇本庫（每份劇本一條）
@@ -4343,21 +4350,24 @@ export const DB = {
           });
       };
 
-      const putItems = async (
-          storeName: string,
-          items: any[] | undefined | null,
-          label: string,
-          restoreAssets = true
-      ) => {
-          if (!hasStore(storeName) || !items || items.length === 0) return;
+      /** 一塊寫幾筆。圖多的表一筆可能帶好幾 MB 的圖（還原時變回 base64），一塊少寫一點 */
+      const chunkSizeFor = (storeName: string): number => (IMAGE_HEAVY_IMPORT_STORES.has(storeName) ? 10 : 50);
 
-          const CHUNK_SIZE = 50;
-          const total = items.length;
-          for (let i = 0; i < total; i += CHUNK_SIZE) {
-              const end = Math.min(i + CHUNK_SIZE, total);
-              const chunk = items.slice(i, end).filter(Boolean);
+      /** 把一批記錄切成小塊：還原圖片 → 寫庫 → 放掉。done／total 只給進度用 */
+      const writeRows = async (
+          storeName: string,
+          rows: any[],
+          label: string,
+          restoreAssets: boolean,
+          doneBefore: number,
+          total: number,
+      ) => {
+          const CHUNK_SIZE = chunkSizeFor(storeName);
+          for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+              const end = Math.min(i + CHUNK_SIZE, rows.length);
+              const chunk = rows.slice(i, end).filter(Boolean);
               if (chunk.length === 0) {
-                  report(label, 'items', end, total);
+                  report(label, 'items', doneBefore + end, total);
                   continue;
               }
               await beforeWrite(chunk, label, restoreAssets);
@@ -4365,15 +4375,37 @@ export const DB = {
                   chunk.forEach(item => store.put(item));
               });
               for (let j = i; j < end; j++) {
-                  (items as any[])[j] = undefined;
+                  rows[j] = undefined;
               }
-              report(label, 'items', end, total);
+              report(label, 'items', doneBefore + end, total);
           }
+      };
+
+      const putItems = async (
+          storeName: string,
+          items: any[] | LazyShardArray | undefined | null,
+          label: string,
+          restoreAssets = true
+      ) => {
+          if (!hasStore(storeName) || !items || items.length === 0) return;
+
+          // 大表（plans/backup-streaming.md 第 3b 批）：不是整張在記憶體裡，一片一片從備份包讀、寫完就放
+          if (isLazyShardArray(items)) {
+              let done = 0;
+              for (let part = 0; part < items.parts; part++) {
+                  const rows = await items.loadPart(part);
+                  await writeRows(storeName, rows, label, restoreAssets, done, items.length);
+                  done += rows.length;
+              }
+              return;
+          }
+
+          await writeRows(storeName, items, label, restoreAssets, 0, items.length);
       };
 
       const clearAndAdd = async (
           storeName: string,
-          items: any[] | undefined | null,
+          items: any[] | LazyShardArray | undefined | null,
           label: string,
           restoreAssets = true
       ) => {
@@ -4384,7 +4416,7 @@ export const DB = {
 
       const mergeStore = async (
           storeName: string,
-          items: any[] | undefined | null,
+          items: any[] | LazyShardArray | undefined | null,
           label: string,
           restoreAssets = true
       ) => {

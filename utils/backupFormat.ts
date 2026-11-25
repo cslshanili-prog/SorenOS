@@ -266,7 +266,45 @@ export async function writeV2Backup(
     return manifest;
 }
 
+/**
+ * 還沒讀進來的大表（plans/backup-streaming.md 第 3b 批）。
+ *
+ * 以前還原是先把所有表組成一個大物件再寫庫，文字多的人光這個物件就幾百 MB。大的陣列欄位改成只放這個
+ * 「要用時才一片一片讀」的來源：寫庫的那頭（DB.importFullData 的 putItems）讀一片、寫一片、放一片。
+ *
+ * 長得像陣列的地方只有 `length`（還原流程拿它判斷有沒有、顯示進度）。它不是陣列，
+ * 不能 map／filter／展開；只有「直接交給 putItems」的欄位才能用它（見 LAZY_IMPORT_FIELDS）。
+ */
+export const LAZY_SHARDS = Symbol.for('soren.backup.lazyShards');
+
+export interface LazyShardArray<T = any> {
+    readonly [LAZY_SHARDS]: true;
+    /** 總筆數（manifest 記的，組裝時已經逐片核對過） */
+    readonly length: number;
+    readonly parts: number;
+    /** 讀第 index 片。每次都重新從備份包讀，讀完由呼叫端放掉 */
+    loadPart(index: number): Promise<T[]>;
+}
+
+export const isLazyShardArray = (value: unknown): value is LazyShardArray =>
+    !!value && typeof value === 'object' && (value as any)[LAZY_SHARDS] === true;
+
+/**
+ * 還原時可以不先組的欄位。條件：DB.importFullData 裡這個欄位是原封不動交給 putItems／clearAndAdd／mergeStore，
+ * 中間沒有任何陣列操作，別處（OSContext 的還原流程）也只看它在不在。
+ * 要跟現有資料合併的（characters、mediaAssets）和後面還要整張處理的（assets 要先還原語音）不能放進來。
+ */
+export const LAZY_IMPORT_FIELDS: readonly string[] = [
+    'messages', 'galleryImages', 'savedEmojis', 'momentPosts', 'socialPosts',
+    'diaries', 'xhsStockImages', 'memoryNodes', 'handbooks',
+];
+
 export interface AssembleV2Options {
+    /**
+     * 這些欄位不組成陣列，改放 LazyShardArray。每一片還是會先讀一遍驗證（是陣列、筆數對得上），
+     * 驗完就放——「校驗不過直接中止、資料庫一個字沒動」的保證不變，只是不把內容留在記憶體。
+     */
+    lazyFields?: readonly string[];
     /** React 端傳讓出主線程的函數；測試端可不傳 */
     onYield?: () => Promise<void>;
     /** 進度回調：當前字段、已處理字段序號、字段總數 */
@@ -322,24 +360,55 @@ export async function assembleV2Backup(
         }
     }
 
+    const readShard = async (name: string): Promise<any[]> => {
+        let str = await zip.file(name)!.async('string');
+        let chunk: any;
+        try {
+            chunk = JSON.parse(str);
+        } catch {
+            throw new Error(`損壞的備份包：${name} 解析失敗，已中止導入（數據未改動）。`);
+        }
+        str = ''; // 釋放該片字符串
+        if (!Array.isArray(chunk)) {
+            throw new Error(`損壞的備份包：${name} 不是數組，已中止導入（數據未改動）。`);
+        }
+        return chunk;
+    };
+    const lazyFields = new Set(options.lazyFields || []);
+
     // 逐字段逐片拼回完整數組；parse 完一片即釋放該片字符串；組裝後條數必須等於 manifest count
     for (let fi = 0; fi < fields.length; fi++) {
         const field = fields[fi];
         const { parts, count } = stores[field];
+
+        if (lazyFields.has(field) && parts > 0) {
+            // 大表不留在記憶體：每片讀一遍只為了驗證（能解析、是陣列、總筆數對得上），驗完就放。
+            // 這一遍還沒寫庫，任何一片壞掉都在這裡中止。
+            let seen = 0;
+            for (let p = 0; p < parts; p++) {
+                seen += (await readShard(shardFileName(field, p))).length;
+                if (options.onYield) await options.onYield();
+            }
+            if (seen !== count) {
+                throw new Error(
+                    `損壞的備份包：${field} 實際拼出 ${seen} 條、manifest 聲明 ${count} 條，對不上，` +
+                    `已中止導入（數據未改動）。`,
+                );
+            }
+            const lazy: LazyShardArray = {
+                [LAZY_SHARDS]: true,
+                length: count,
+                parts,
+                loadPart: (index: number) => readShard(shardFileName(field, index)),
+            };
+            data[field] = lazy;
+            options.onShardProgress?.(field, fi, fields.length);
+            continue;
+        }
+
         const arr: any[] = [];
         for (let p = 0; p < parts; p++) {
-            const name = shardFileName(field, p);
-            let str = await zip.file(name)!.async('string');
-            let chunk: any;
-            try {
-                chunk = JSON.parse(str);
-            } catch {
-                throw new Error(`損壞的備份包：${name} 解析失敗，已中止導入（數據未改動）。`);
-            }
-            str = ''; // 釋放該片字符串
-            if (!Array.isArray(chunk)) {
-                throw new Error(`損壞的備份包：${name} 不是數組，已中止導入（數據未改動）。`);
-            }
+            const chunk = await readShard(shardFileName(field, p));
             for (const item of chunk) arr.push(item);
             if (options.onYield) await options.onYield();
         }

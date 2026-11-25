@@ -5,7 +5,7 @@ import { DB, openDB } from './db';
 import { putImageBlob, dataUrlToBlob, getBlobForRef } from './blobRef';
 import { collectBlobRefs, writeBlobsToZip, readBlobsIndex, restoreBlobsFromZip, BLOBS_INDEX_FILE } from './backupBlobs';
 import { encodeVectorsForBackup, encodeVectorsForBackupChunked, MemoryVectorDB } from './memoryPalace/db';
-import { writeV2Backup, assembleV2Backup, shardFileName, type ShardLimits } from './backupFormat';
+import { writeV2Backup, assembleV2Backup, shardFileName, isLazyShardArray, LAZY_IMPORT_FIELDS, type ShardLimits } from './backupFormat';
 import { ActiveMsgStore } from './activeMsgStore';
 
 // fake-indexeddb 已通過 test-setup.ts 注入。
@@ -599,5 +599,118 @@ describe('v3 blob 旁路：令牌原樣進包、二進制隨包、按原 id 還�
         zip.file(BLOBS_INDEX_FILE, JSON.stringify([{ id: 'b_y_0_aaaaaa', type: 'image/png', size: 3 }]));
         const entries = await readBlobsIndex(zip);
         await expect(restoreBlobsFromZip(zip, entries, async () => {})).rejects.toThrow(/截[断斷]/);
+    });
+});
+
+// 第 3b 批（plans/backup-streaming.md）：大表不先組成一個大陣列，寫庫時才一片一片從備份包讀。
+// 這組釘住三件事：落庫結果跟整張組起來一模一樣；壞掉的分片在寫庫之前就擋下來；
+// 記憶體裡同時只有一片。
+describe('大表一片一片讀寫（lazyFields）', () => {
+    const messagesOf = (n: number) => Array.from({ length: n }, (_, i) => ({ id: i + 1, charId: 'c1', role: i % 2 ? 'assistant' : 'user', content: `第 ${i} 則` }));
+    const pack = async (data: Record<string, any>, maxItems: number) => {
+        const zip = new FakeZip();
+        const manifest = await writeV2Backup(zip, data, { limits: SMALL_SHARDS(maxItems) });
+        return { zip, manifest };
+    };
+
+    it('落庫結果跟整張組起來逐筆一樣（清空再寫的表、聊天記錄、合併的表）', async () => {
+        const source = () => ({
+            characters: [{ id: 'c1', name: '甲' }],
+            messages: messagesOf(23),
+            galleryImages: Array.from({ length: 7 }, (_, i) => ({ id: `g${i}`, url: `u${i}` })),
+            memoryNodes: Array.from({ length: 11 }, (_, i) => ({ id: `m${i}`, charId: 'c1', text: `記憶 ${i}` })),
+        });
+        const readBack = async () => ({
+            messages: await DB.getRawStoreData('messages'),
+            gallery: await DB.getRawStoreData('gallery'),
+            memoryNodes: await DB.getRawStoreData('memory_nodes'),
+        });
+
+        const eager = await pack(source(), 4);
+        await DB.importFullData(await assembleV2Backup(eager.zip, eager.manifest) as any);
+        const expected = await readBack();
+        expect(expected.messages).toHaveLength(23);
+
+        for (const store of ['messages', 'gallery', 'memory_nodes']) await seedStore(store, [{ id: store === 'messages' ? 999 : 'old', stale: true }]);
+        const lazy = await pack(source(), 4);
+        const data: any = await assembleV2Backup(lazy.zip, lazy.manifest, { lazyFields: LAZY_IMPORT_FIELDS });
+        expect(isLazyShardArray(data.messages)).toBe(true);
+        expect(data.messages.length).toBe(23);
+        expect(data.messages.parts).toBe(6);
+        expect(isLazyShardArray(data.galleryImages)).toBe(true);
+        // 要跟現有資料合併的表照舊是真的陣列
+        expect(Array.isArray(data.characters)).toBe(true);
+        await DB.importFullData(data);
+        expect(await readBack()).toEqual(expected);
+    });
+
+    it('沒帶角色的包（補丁模式）：聊天記錄只加不清，一片一片寫也一樣', async () => {
+        await seedStore('messages', [{ id: 5000, charId: 'c9', content: '原本就在的' }]);
+        const { zip, manifest } = await pack({ messages: messagesOf(9) }, 4);
+        const data: any = await assembleV2Backup(zip, manifest, { lazyFields: LAZY_IMPORT_FIELDS });
+        expect(isLazyShardArray(data.messages)).toBe(true);
+        await DB.importFullData(data);
+        const ids = (await DB.getRawStoreData('messages')).map((m: any) => m.id).sort((a: number, b: number) => a - b);
+        expect(ids).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 5000]);
+    });
+
+    it('空的表和沒列進清單的表照舊：空陣列、真的陣列', async () => {
+        const { zip, manifest } = await pack({ messages: [], tasks: [{ id: 't1' }] }, 4);
+        const data: any = await assembleV2Backup(zip, manifest, { lazyFields: LAZY_IMPORT_FIELDS });
+        expect(data.messages).toEqual([]);
+        expect(data.tasks).toEqual([{ id: 't1' }]);
+    });
+
+    it('壞掉的分片在寫庫之前就擋下來，資料庫一個字沒動', async () => {
+        await seedStore('gallery', [{ id: 'keep', url: 'keep' }]);
+        await seedStore('messages', [{ id: 77, content: '原本的' }]);
+        const broken = await pack({ galleryImages: [{ id: 'g0' }], messages: messagesOf(10) }, 4);
+        broken.zip.files.set(shardFileName('messages', 2), '[{"id":9,"content":"斷掉');
+        await expect(assembleV2Backup(broken.zip, broken.manifest, { lazyFields: LAZY_IMPORT_FIELDS })).rejects.toThrow(/messages\.002\.json 解析失敗/);
+
+        const short = await pack({ messages: messagesOf(10) }, 4);
+        short.zip.files.set(shardFileName('messages', 1), '[]');
+        await expect(assembleV2Backup(short.zip, short.manifest, { lazyFields: LAZY_IMPORT_FIELDS })).rejects.toThrow(/messages 實際拼出 6 條、manifest 聲明 10 條/);
+
+        const notArray = await pack({ messages: messagesOf(10) }, 4);
+        notArray.zip.files.set(shardFileName('messages', 0), '{"oops":true}');
+        await expect(assembleV2Backup(notArray.zip, notArray.manifest, { lazyFields: LAZY_IMPORT_FIELDS })).rejects.toThrow(/不是數組/);
+
+        expect((await DB.getRawStoreData('gallery')).map((g: any) => g.id)).toEqual(['keep']);
+        expect((await DB.getRawStoreData('messages')).map((m: any) => m.id)).toEqual([77]);
+    });
+
+    it('一次只讀一片：組裝完記憶體裡沒有那張表，寫庫時每片各讀一次', async () => {
+        const { zip, manifest } = await pack({ messages: messagesOf(20) }, 5);
+        const reads: string[] = [];
+        const spy = { file: (name: string) => { const f = zip.file(name); if (f && name.startsWith('stores/messages')) reads.push(name); return f; } };
+        const data: any = await assembleV2Backup(spy as any, manifest, { lazyFields: LAZY_IMPORT_FIELDS });
+        // 驗證那一遍：每片各讀一次（前面還有一輪只確認檔案在不在）
+        const verifyReads = reads.length;
+        expect(Object.keys(data.messages)).toEqual(['length', 'parts', 'loadPart']);
+        reads.length = 0;
+        const progress: number[] = [];
+        await DB.importFullData(data, { onProgress: p => { if (p.label === '聊天記錄' && p.stage === 'items') progress.push(p.itemDone || 0); } });
+        expect(reads).toEqual([0, 1, 2, 3].map(i => shardFileName('messages', i)));
+        expect(verifyReads).toBeGreaterThanOrEqual(4);
+        // 進度照總筆數往上走，不會每片從頭算
+        expect(progress[progress.length - 1]).toBe(20);
+        expect([...progress].sort((a, b) => a - b)).toEqual(progress);
+        expect(await DB.getRawStoreData('messages')).toHaveLength(20);
+    });
+
+    it('圖片還原（beforeWrite）跟著每一塊走：每塊都被叫到、總筆數對', async () => {
+        const { zip, manifest } = await pack({ galleryImages: Array.from({ length: 25 }, (_, i) => ({ id: `g${i}`, src: `assets/a${i}.png` })) }, 8);
+        const data: any = await assembleV2Backup(zip, manifest, { lazyFields: LAZY_IMPORT_FIELDS });
+        const chunks: number[] = [];
+        await DB.importFullData(data, {
+            beforeWrite: async (rows: any[]) => { chunks.push(rows.length); for (const row of rows) row.src = `data:image/png;base64,${row.id}`; },
+        });
+        // 圖多的表一塊最多 10 筆；每片（8 筆）各自成塊
+        expect(Math.max(...chunks)).toBeLessThanOrEqual(10);
+        expect(chunks.reduce((sum, n) => sum + n, 0)).toBe(25);
+        const rows = await DB.getRawStoreData('gallery');
+        expect(rows).toHaveLength(25);
+        expect(rows.every((row: any) => row.src === `data:image/png;base64,${row.id}`)).toBe(true);
     });
 });
