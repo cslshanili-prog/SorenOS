@@ -172,3 +172,41 @@ export function sliceRanges(total: number, chunkSize: number): Array<[number, nu
     }
     return ranges;
 }
+
+/**
+ * 內嵌圖片去重用的鍵（plans/backup-streaming.md 第 4.4 節）。
+ *
+ * 以前直接拿整串 data URL 當 Map 的鍵，等於把所有舊圖的字串留到打包結束。改成短短一串指紋，
+ * 圖片字串寫進包裡之後就能回收。
+ *
+ * 指紋＝長度＋兩個互相獨立的 53 位雜湊＋頭尾各 32 個字。雜湊撞到的機率已經小到可以不管，
+ * 但撞到的後果是「這張圖被換成另一張」，所以再帶上長度和頭尾，四樣都一樣才算同一張。
+ */
+export function imageDedupKey(value: string): string {
+    let a1 = 0xdeadbeef, a2 = 0x41c6ce57;
+    let b1 = 0x9e3779b9, b2 = 0x85ebca6b;
+    for (let i = 0; i < value.length; i++) {
+        const ch = value.charCodeAt(i);
+        a1 = Math.imul(a1 ^ ch, 2654435761);
+        a2 = Math.imul(a2 ^ ch, 1597334677);
+        b1 = Math.imul(b1 ^ ch, 0x27d4eb2f);
+        b2 = Math.imul(b2 ^ ch, 0x165667b1);
+    }
+    const mix = (h1: number, h2: number): string => {
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+    };
+    return `${value.length}:${mix(a1, a2)}:${mix(b1, b2)}:${value.slice(0, 32)}:${value.slice(-32)}`;
+}
+
+/** 圖多的表：一筆可能就帶好幾 MB 的圖，一批少讀一點 */
+const MEDIA_HEAVY_STORES = new Set([
+    'characters', 'npcs', 'moment_posts', 'messages', 'themes', 'emojis', 'assets', 'gallery', 'user_profile',
+    'journal_stickers', 'social_posts', 'xhs_stock', 'handbook', 'pixel_home_assets', 'cc_custom_parts', 'songs',
+]);
+
+/** 整合／媒體導出分批讀資料表時，一批幾筆 */
+export function backupBatchSize(storeName: string): number {
+    return MEDIA_HEAVY_STORES.has(storeName) ? 20 : 200;
+}

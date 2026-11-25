@@ -90,6 +90,8 @@ const safeVoiceFilename = (id: string, index: number): string => {
 export async function externalizeVoiceMessageBlobs(
     assets: unknown,
     writeFile: WriteBinaryFile,
+    /** 分批處理時傳「前面幾批已經有幾筆」：檔名帶的序號要整張表不重複 */
+    indexOffset = 0,
 ): Promise<number> {
     if (!Array.isArray(assets)) return 0;
 
@@ -100,7 +102,7 @@ export async function externalizeVoiceMessageBlobs(
 
         const blob = asset.data.blob;
         const backupDir = isCompanionVoiceAssetId(asset.id) ? COMPANION_VOICE_BACKUP_DIR : VOICE_BACKUP_DIR;
-        const path = `${backupDir}/${safeVoiceFilename(asset.id, index)}`;
+        const path = `${backupDir}/${safeVoiceFilename(asset.id, indexOffset + index)}`;
         await writeFile(path, new Uint8Array(await blob.arrayBuffer()));
         asset.data.blob = {
             [VOICE_BACKUP_MARKER]: true,

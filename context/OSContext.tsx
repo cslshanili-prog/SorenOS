@@ -17,7 +17,9 @@ import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
-import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
+import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, imageDedupKey, backupBatchSize, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
+import { createJSZipWriter, createZipStreamWriter, type DeflateRaw, type ZipStreamWriter } from '../utils/zipStream/writer';
+import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun } from '../utils/backupRunState';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { resolveBlobRefsInRequestBody } from '../utils/apiBlobRefs';
 import { collectBlobRefs, writeBlobsToZip, readBlobsIndex, restoreBlobsFromZip } from '../utils/backupBlobs';
@@ -31,7 +33,7 @@ import { createV2ArrayFieldWriter, writeV2Backup, assembleV2Backup, type BackupM
 import { externalizeVoiceMessageBlobs, restoreVoiceMessageBlobs, shouldIncludeVoiceRelatedAssetInBackup } from '../utils/voiceMessageBackup';
 import { ensureCompanionVoiceAssetsForBackup, isCompanionVoiceAssetId } from '../utils/companionVoiceAssets';
 import { collectCharacterCompanionVoiceAssetIds } from '../utils/companionPresets';
-import { encodeVectorsForBackup, encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
+import { encodeVectorsForBackupChunked } from '../utils/memoryPalace/db';
 import { ProactiveChat } from '../utils/proactiveChat';
 import { resolveCharacterChatApi, resolveCharacterMeterApi } from '../utils/characterApi';
 import { tickCustomMeterTurnsForChar } from '../utils/customMeterGenerator';
@@ -286,6 +288,20 @@ const loadJSZip = async (): Promise<JSZipCtorLike> => {
       });
   }
   return jszipCtorPromise;
+};
+
+/** 原始 DEFLATE（備份的串流寫入器用，utils/zipStream/writer.ts）。跟 JSZip 一樣用到才載 */
+let deflateRawPromise: Promise<DeflateRaw> | null = null;
+const loadDeflateRaw = (): Promise<DeflateRaw> => {
+  if (!deflateRawPromise) {
+    deflateRawPromise = import('fflate')
+      .then((mod): DeflateRaw => (data, options) => mod.deflateSync(data, { level: options.level as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }))
+      .catch((error) => {
+        deflateRawPromise = null;
+        throw new Error(`壓縮元件載入失敗：${error instanceof Error ? error.message : 'unknown error'}`);
+      });
+  }
+  return deflateRawPromise;
 };
 
 // 默認實時配置
@@ -2099,6 +2115,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (!isDataLoaded || characters.length === 0) return;
       let cancelled = false;
       const checkAllSchedules = async () => {
+          // 備份進行中先不送：到點的排程訊息下一輪（5 秒後）再送，備份期間資料表不動
+          if (isBackupRunning()) return;
           if (cancelled) return;
           let hasNewMessage = false;
           const unreadUpdates: Record<string, number> = {};
@@ -2501,10 +2519,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [characterGroups]);
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
+  // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
+  // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；
+  // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。
+  const interruptedBackupNoticeRef = useRef<string | null>(null);
+  useEffect(() => {
+    const note = takeInterruptedBackupRun();
+    if (!note) return;
+    const { message, detail } = describeInterruptedBackup(note);
+    setSystemLogs(prev => appendSystemLog(prev, {
+      id: `log-${Date.now()}-backup`, timestamp: Date.now(), type: 'system', source: '備份', message, detail,
+    }));
+    interruptedBackupNoticeRef.current = message;
+    trackEvent('备份途中分页被关', interruptedBackupEventProps(note));
+  }, []);
+  useEffect(() => {
+    if (isLocked || !interruptedBackupNoticeRef.current) return;
+    const message = interruptedBackupNoticeRef.current;
+    interruptedBackupNoticeRef.current = null;
+    addToast(`${message}。分頁被系統關掉了，可以試的做法寫在設置的錯誤記錄裡`, 'error');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked]);
   // 日程自動生成的本機那條路（plans/calendar.md 第 5 批）：頁面開著每 5 分鐘看一次、切回前台也看
   useEffect(() => {
     const scope = () => ({ characters, userProfileBase, apiConfig, groups, realtimeConfig });
-    const tick = () => { void runScheduleAutoTick(scope()).catch(() => {}); };
+    // 備份進行中先不跑：資料表正在分批讀，途中別改（utils/backupRunState.ts）
+    const tick = () => { if (isBackupRunning()) return; void runScheduleAutoTick(scope()).catch(() => {}); };
     const first = window.setTimeout(tick, 30_000);
     const timer = window.setInterval(tick, 5 * 60_000);
     const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
@@ -3215,6 +3255,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
       const runDueDelayedReplies = () => {
+          if (isBackupRunning()) return;
           const visible = document.visibilityState === 'visible';
           takeDueDelayedRepliesForLocal(visible).forEach(replyLocally);
           if (visible) {
@@ -3225,7 +3266,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       };
       // 角色發的照片生成途中斷掉的（佔位卡還在，utils/pendingPhoto.ts）：啟動、切回前台、每分鐘各補一次
       const runPendingPhotos = () => {
-          if (document.visibilityState !== 'visible') return;
+          if (document.visibilityState !== 'visible' || isBackupRunning()) return;
           void retryPendingPhotos(apiConfigRef.current?.imageGenConfig).catch(e => console.warn('[PendingPhoto] 補生成失敗', e));
       };
       const pendingPhotoTimer = window.setInterval(runPendingPhotos, 60_000);
@@ -3298,7 +3339,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           }
       };
       const runMoments = () => {
-          if (document.visibilityState !== 'visible') return;
+          if (document.visibilityState !== 'visible' || isBackupRunning()) return;
           void runMomentsAutomation(momentsCtx()).catch(e => console.warn('[Moments] 自動化失敗', e));
           void runBlockReconsider().catch(e => console.warn('[拉黑] 冷靜期判斷失敗', e));
           void runTempChatAttempt().catch(e => console.warn('[臨時會話] 失敗', e));
@@ -3788,10 +3829,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const blob = await exportSystem(mode);
 
           setSysOperation({ status: 'processing', message: '正在上傳到雲端...', progress: 50 });
+          // 上傳途中分頁也可能被關掉：字條接著留（utils/backupRunState.ts）
+          beginBackupRun({ mode, sink: preferredBackupSink(), phase: 'upload', percent: 50 });
           const filename = `Sully_Backup_${mode}_${Date.now()}.zip`;
           const result = await uploadBackup(cloudBackupConfig, blob, filename, (pct) => {
               setSysOperation(prev => ({ ...prev, message: `上傳中 ${pct}%...`, progress: 50 + pct * 0.45 }));
+              updateBackupRun({ phase: 'upload', percent: 50 + pct * 0.45 });
           });
+          endBackupRun();
 
           if (!result.ok) {
               throw new Error(result.message);
@@ -3812,6 +3857,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               result: '成功',
           });
       } catch (e: any) {
+          endBackupRun();
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           addToast(`雲端備份失敗: ${e.message}`, 'error');
           trackEvent('上传备份到云端', {
@@ -4968,21 +5014,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   // --- MODIFIED EXPORT SYSTEM WITH SEPARATED ASSETS ZIP ---
   const exportSystem = async (mode: 'text_only' | 'media_only' | 'full'): Promise<Blob> => {
+      let activeZip: ZipStreamWriter | null = null;
       try {
           setSysOperation({ status: 'processing', message: '正在初始化打包引擎...', progress: 0 });
-          
-          const JSZip = await loadJSZip();
-          const zip = new JSZip();
-          const assetsFolder = zip.folder("assets");
+
+          // 容器：邊壓邊寫的串流寫入器，一個檔案進來就壓好寫出去、寫完不留（plans/backup-streaming.md）。
+          // 以前用 JSZip 全部登記、最後一次生成，尾段握著好幾份完整資料，iPhone 上分頁會被系統關掉。
+          // 排查開關（localStorage backup_zip_writer = 'jszip'）才退回舊容器。
+          const sinkKind = preferredBackupSink();
+          const zip: ZipStreamWriter = sinkKind === 'jszip'
+              ? createJSZipWriter(new (await loadJSZip())() as any, { level: mode === 'text_only' ? 6 : 9 })
+              : createZipStreamWriter({ deflate: await loadDeflateRaw() });
+          activeZip = zip;
+          beginBackupRun({ mode, sink: sinkKind });
+          // 進度：資料表佔前面一段，圖片與附件佔中間，收尾留最後 3%。純文字沒有圖片那一段。
+          const TABLES_SHARE = mode === 'text_only' ? 95 : 55;
+          const MEDIA_END = 97;
+          const yieldToUi = () => new Promise<void>(resolve => setTimeout(resolve, 0));
           let assetCount = 0;
           let malformedImageCount = 0;
           const malformedImageDiagnostics: MalformedBackupImageDiagnostic[] = [];
           const maxMalformedImageDiagnostics = 100;
 
           // Dedup table — same base64 payload reused across stores (角色頭像在
-          // 多個 chat / handbook / room 裡被嵌入) gets stored exactly once. Key
-          // is the base64 string itself, value is the assets/* path. For a
+          // 多個 chat / handbook / room 裡被嵌入) gets stored exactly once. For a
           // heavy user with 50 chats sharing a 200KB avatar this trims ~10MB.
+          // 鍵是短指紋（imageDedupKey），不是整串 base64：拿整串當鍵會把所有舊圖的字串留到打包結束。
           const assetDedupMap = new Map<string, string>();
 
           // v3 blob 旁路：blobref 令牌原樣進 JSON，這裡從每段真正落包的 JSON 文本里收集
@@ -5021,7 +5078,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 不一定損壞的 data url 原樣保留；確認損壞的正文只在導出副本里置空。
           const resolveImage = (value: string, location: string): string => {
               try {
-                  const cached = assetDedupMap.get(value);
+                  const dedupKey = imageDedupKey(value);
+                  const cached = assetDedupMap.get(dedupKey);
                   if (cached) return cached;
                   const parsed = parseImageDataUrlForBackup(value);
                   if (!parsed.ok) {
@@ -5043,9 +5101,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   }
                   const filename = `asset_${Date.now()}_${assetCount++}.${parsed.extension}`;
                   // JPEG/PNG/WebP/GIF 本身已壓縮，再跑 DEFLATE 只會浪費手機 CPU；直接存儲。
-                  assetsFolder?.file(filename, parsed.base64, { base64: true, compression: 'STORE' });
                   const path = `assets/${filename}`;
-                  assetDedupMap.set(value, path);
+                  // 當場解成位元組寫出去，字串不留
+                  zip.file(path, parsed.base64, { base64: true, compression: 'STORE' });
+                  assetDedupMap.set(dedupKey, path);
                   return path;
               } catch (e) {
                   console.warn("Failed to process asset", e);
@@ -5516,31 +5575,63 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               life_record_settings: 'lifeRecordSettings',
           };
           const prewrittenStores: BackupManifest['stores'] = {};
+          // 整合／媒體分批寫的表：純文字那張對照表再加 assets（純文字不帶 assets，所以那邊沒列）
+          const streamFieldByStore: Record<string, string> = { ...textOnlyFieldByStore, assets: 'assets' };
+          // 媒體模式的角色只帶視覺素材（mediaAssets），不帶整張角色卡，免得還原時蓋掉文字資料
+          const extractCharacterMedia = (c: CharacterProfile) => ({
+              charId: c.id,
+              avatar: c.avatar,
+              companionAvatar: c.companionAvatar,
+              companionTouchSettings: c.companionTouchSettings,
+              sprites: c.sprites,
+              // Date app sprite data: skin sets carry alternate sprite maps,
+              // and customDateSprites/activeSkinSetId are required to wire them up.
+              dateSkinSets: c.dateSkinSets,
+              activeSkinSetId: c.activeSkinSetId,
+              customDateSprites: c.customDateSprites,
+              spriteConfig: c.spriteConfig,
+              roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
+                  // data:（舊值，processObject 抽成 assets/*）和 blobref
+                  // 令牌（v3 原樣進包，二進制走 blobs/*）都算媒體，都帶走。
+                  if (item.image && (item.image.startsWith('data:') || isBlobRef(item.image))) {
+                      acc[item.id] = item.image;
+                  }
+                  return acc;
+              }, {}),
+              backgrounds: {
+                  chat: c.chatBackground,
+                  date: c.dateBackground,
+                  roomWall: c.roomConfig?.wallImage,
+                  roomFloor: c.roomConfig?.floorImage
+              }
+          });
           const textOnlyShardLimits = {
               maxLen: 4 * 1024 * 1024,
               maxItems: 500,
               hardMaxLen: 256 * 1024 * 1024,
           };
 
-          // 向量二進制旁路（#2）：memory_vectors 歸一化拼成 bin + 索引（邏輯在 encodeVectorsForBackup，
+          // 向量二進制旁路（#2）：memory_vectors 歸一化拼成 bin + 索引（邏輯在 encodeVectorsForBackupChunked，
           // 那邊有 ensureFloat32 統一 Uint8Array / Float32Array / 遺留 number[] 三態），導出收尾交給
           // writeV2Backup 落進 zip——不進 backupData、不當普通數組分片，避開 number[] 進 JSON 的膨脹。
-          let vectorPayload: ReturnType<typeof encodeVectorsForBackup> | undefined;
+          let vectorPayload: Awaited<ReturnType<typeof encodeVectorsForBackupChunked>> | undefined;
           // Only voice Blobs reachable from the exported Live2D settings are portable.
           // Orphaned/cancelled companion generations must not silently bloat a backup.
           const companionVoiceAssetIdsForBackup = new Set<string>();
 
           for (const storeName of storesToProcess) {
               currentStep++;
+              const tablesPercent = (currentStep / totalSteps) * TABLES_SHARE;
               setSysOperation({
                   status: 'processing',
                   message: `正在打包: ${storeName} ...`,
-                  progress: (currentStep / totalSteps) * 100
+                  progress: tablesPercent
               });
+              updateBackupRun({ phase: 'tables', percent: tablesPercent });
 
               // 4500+ 條記憶若仍是早期 number[] 存儲，getAll 會先在 JS 堆裡膨脹成數百 MB。
               // 兩遍游標逐條掃描只常駐最終 Float32 緊湊 bin；格式仍是原來的單 bin + index。
-              if (storeName === 'memory_vectors' && mode === 'text_only') {
+              if (storeName === 'memory_vectors') {
                   vectorPayload = await encodeVectorsForBackupChunked(async (onBatch) => {
                       await DB.streamRawStoreData(storeName, item => onBatch([item]));
                   });
@@ -5571,59 +5662,97 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   continue;
               }
 
-              let rawData = await DB.getRawStoreData(storeName);
-              let processedData: any;
+              // 整合／媒體：陣列表分批讀、處理完就寫分片、寫完就放（plans/backup-streaming.md 第 4.3 節）。
+              // 以前是 getAll 整張讀進 backupData、留到最後才寫；圖多的表會把所有圖一路握到打包結束。
+              const mediaOnlyCharacters = storeName === 'characters' && mode === 'media_only';
+              const streamField = mode === 'text_only'
+                  ? undefined
+                  : mediaOnlyCharacters ? 'mediaAssets' : streamFieldByStore[storeName];
+              if (streamField) {
+                  const fieldWriter = createV2ArrayFieldWriter(
+                      zip as unknown as ZipFileWriter,
+                      streamField,
+                      { limits: textOnlyShardLimits, onYield: yieldToUi, onSerialized: collectSerialized },
+                  );
+                  // 這張表裡第幾筆（篩掉的不算）：只用在損壞圖片的位置說明和語音檔名
+                  let rowIndex = 0;
+                  await DB.getStoreDataChunked(storeName, async (batch: any[]) => {
+                      let rows = batch;
 
-              // Built-in room-template files belong to the app, not to the source deployment.
-              // Older builds stored their fully resolved origin in roomConfig; strip that origin
-              // from the export clone so restoring on another host/base path keeps every item.
-              if (storeName === 'characters' && Array.isArray(rawData)) {
-                  for (const character of rawData) normalizeCharacterRoomAssetsInPlace(character);
-              }
+                      if (storeName === 'characters') {
+                          // Built-in room-template files belong to the app, not to the source deployment.
+                          // Older builds stored their fully resolved origin in roomConfig; strip that origin
+                          // from the export clone so restoring on another host/base path keeps every item.
+                          for (const character of rows) normalizeCharacterRoomAssetsInPlace(character);
+                          // v1 陪伴語音存在 blob_assets（普通備份不讀取該 store）。先遷移到
+                          // assets 的二進制語音通道，稍後 assets store 才能把完整 Blob 寫進 ZIP。
+                          await ensureCompanionVoiceAssetsForBackup(rows as CharacterProfile[]);
+                          collectCharacterCompanionVoiceAssetIds(rows as CharacterProfile[])
+                              .forEach(assetId => companionVoiceAssetIdsForBackup.add(assetId));
+                      }
 
-              // 向量旁路：歸一化拼 bin + 索引，不進 backupData（writeV2Backup 收尾落 zip）。直接跳過
-              // 下面的圖片處理 / switch（向量無圖、無 image base64）。
-              if (storeName === 'memory_vectors') {
-                  vectorPayload = encodeVectorsForBackup(Array.isArray(rawData) ? rawData : []);
-                  await new Promise(resolve => setTimeout(resolve, 10));
+                      if (storeName === 'assets') {
+                          rows = rows.filter((asset: { id?: string; data?: { favorite?: boolean } } | null | undefined) => {
+                              if (!asset || typeof asset.id !== 'string') return true;
+                              if (isRedundantManagedAssetId(asset.id)) return false;
+                              if (isCompanionVoiceAssetId(asset.id) && !companionVoiceAssetIdsForBackup.has(asset.id)) return false;
+                              // Shared TTS rows and un-favorited message voice are implementation
+                              // cache. Only explicit favorites and saved Live2D-preset dependencies
+                              // join full/media backups; neither joins text-only backups.
+                              return shouldIncludeVoiceRelatedAssetInBackup(asset, true);
+                          });
+                          // Blob is not JSON-serializable (`JSON.stringify(new Blob()) === '{}'`).
+                          // Put allowed audio bytes in their own ZIP entries and leave a JSON-safe
+                          // marker in the assets row. `tts_*` and ordinary un-favorited speech stay
+                          // disposable cache and are not duplicated in backups.
+                          await externalizeVoiceMessageBlobs(rows, (path, bytes) => {
+                              zip.file(path, bytes, { compression: 'STORE' });
+                          }, rowIndex);
+                      }
+
+                      if (storeName === 'messages' && mode === 'media_only') {
+                          // Keep normal media messages plus lightweight call turns that own
+                          // a retained frame / [圖片] marker. Import remains patch-mode.
+                          rows = rows.filter((m: Message) => (
+                              m.type === 'image'
+                              || m.type === 'emoji'
+                              || !!m.metadata?.cameraSnapshotRef
+                              || m.metadata?.cameraSnapshotExpired === true
+                          ));
+                      }
+
+                      // blobref 令牌不在這裡處理：v3 令牌原樣進 JSON，onSerialized 統一收集、
+                      // 二進制隨 blobs/* 旁路走。data: 的舊圖由 processObject 抽成 assets/*。
+                      const processed = rows.map((item: any, offset: number) => {
+                          const index = rowIndex + offset;
+                          if (mediaOnlyCharacters) {
+                              // Character Logic: Export ONLY visual assets to mediaAssets array
+                              // Do not export the full character array to avoid overwriting text data on import
+                              return processObject(extractCharacterMedia(item as CharacterProfile), `characters[${index}](id=${String(item.id).slice(0, 80)})`);
+                          }
+                          if (noImageStores.has(storeName)) return item;
+                          const id = item && typeof item === 'object'
+                              ? String(item.id ?? item.uuid ?? item.key ?? '').replace(/[\r\n]/g, ' ').slice(0, 80)
+                              : '';
+                          return processObject(item, `${storeName}[${index}]${id ? `(id=${id})` : ''}`);
+                      });
+                      rowIndex += rows.length;
+
+                      await fieldWriter.append(processed);
+                      await zip.drain();
+                      await yieldToUi();
+                  }, backupBatchSize(storeName));
+                  prewrittenStores[streamField] = await fieldWriter.finish();
+                  // mediaAssets 開頭放了一個空陣列；已經分批寫進包裡，不能再讓 writeV2Backup 寫一次
+                  if (mediaOnlyCharacters) delete (backupData as Record<string, unknown>).mediaAssets;
                   continue;
               }
 
-              // blobref 令牌（characters 的小屋圖 / sprites.chibi、cc_custom_parts 的
-              // src/shadowSrc、messages 的 cameraSnapshotRef、songs 的 coverImage……）
-              // 不在這裡做任何處理：v3 令牌原樣進 JSON，onSerialized 統一收集、
-              // 二進制隨 blobs/* 旁路走，任何 store 的令牌都覆蓋，沒有名單可漏。
-              if (storeName === 'characters' && mode !== 'text_only' && Array.isArray(rawData)) {
-                  // v1 陪伴語音存在 blob_assets（普通備份不讀取該 store）。先遷移到
-                  // assets 的二進制語音通道，稍後 assets store 才能把完整 Blob 寫進 ZIP。
-                  await ensureCompanionVoiceAssetsForBackup(rawData as CharacterProfile[]);
-                  collectCharacterCompanionVoiceAssetIds(rawData as CharacterProfile[])
-                      .forEach(assetId => companionVoiceAssetIdsForBackup.add(assetId));
-              }
-
-              // --- MODE SPECIFIC FILTERING ---
-
-              if (storeName === 'assets' && Array.isArray(rawData)) {
-                  rawData = rawData.filter((asset: { id?: string; data?: { favorite?: boolean } } | null | undefined) => {
-                      if (!asset || typeof asset.id !== 'string') return true;
-                      if (isRedundantManagedAssetId(asset.id)) return false;
-                      if (isCompanionVoiceAssetId(asset.id) && !companionVoiceAssetIdsForBackup.has(asset.id)) return false;
-                      // Shared TTS rows and un-favorited message voice are implementation
-                      // cache. Only explicit favorites and saved Live2D-preset dependencies
-                      // join full/media backups; neither joins text-only backups.
-                      return shouldIncludeVoiceRelatedAssetInBackup(asset, mode !== 'text_only');
-                  });
-                  // Blob is not JSON-serializable (`JSON.stringify(new Blob()) === '{}'`).
-                  // Put allowed audio bytes in their own ZIP entries and leave a JSON-safe
-                  // marker in the assets row. `tts_*` and ordinary un-favorited speech stay
-                  // disposable cache and are not duplicated in backups.
-                  await externalizeVoiceMessageBlobs(rawData, (path, bytes) => {
-                      zip.file(path, bytes, { compression: 'STORE' });
-                  });
-              }
+              // 走到這裡的只剩單例表（user_profile、bank_data、life_sim、vr_music、vr_guestbook）：很小，整張讀
+              const rawData = await DB.getRawStoreData(storeName);
+              let processedData: any;
 
               // Fast path: stores with no image data skip expensive recursive traversal
-              // （memory_vectors 已在上面走二進制旁路 continue 掉，這裡只剩其它無圖 store）
               if (noImageStores.has(storeName)) {
                   processedData = rawData;
               } else if (mode === 'text_only') {
@@ -5632,55 +5761,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       : stripTextOnlyMedia(rawData);
               } else {
                   // Media & Theme Mode: Extract Images
-                  
-                  if (storeName === 'messages' && mode === 'media_only') {
-                      // Keep normal media messages plus lightweight call turns that own
-                      // a retained frame / [圖片] marker. Import remains patch-mode.
-                      rawData = rawData.filter((m: Message) => (
-                          m.type === 'image'
-                          || m.type === 'emoji'
-                          || !!m.metadata?.cameraSnapshotRef
-                          || m.metadata?.cameraSnapshotExpired === true
-                      ));
-                  }
-
-                  if (storeName === 'characters' && mode === 'media_only') {
-                      // Character Logic: Export ONLY visual assets to mediaAssets array
-                      // Do not export the full character array to avoid overwriting text data on import
-                      const mediaList = rawData.map((c: CharacterProfile, index: number) => {
-                          const extracted = {
-                              charId: c.id,
-                              avatar: c.avatar,
-                              companionAvatar: c.companionAvatar,
-                              companionTouchSettings: c.companionTouchSettings,
-                              sprites: c.sprites,
-                              // Date app sprite data: skin sets carry alternate sprite maps,
-                              // and customDateSprites/activeSkinSetId are required to wire them up.
-                              dateSkinSets: c.dateSkinSets,
-                              activeSkinSetId: c.activeSkinSetId,
-                              customDateSprites: c.customDateSprites,
-                              spriteConfig: c.spriteConfig,
-                              roomItems: c.roomConfig?.items?.reduce((acc: any, item: any) => {
-                                  // data:（舊值，下面 processObject 抽成 assets/*）和 blobref
-                                  // 令牌（v3 原樣進包，二進制走 blobs/*）都算媒體，都帶走。
-                                  if (item.image && (item.image.startsWith('data:') || isBlobRef(item.image))) {
-                                      acc[item.id] = item.image;
-                                  }
-                                  return acc;
-                              }, {}),
-                              backgrounds: {
-                                  chat: c.chatBackground,
-                                  date: c.dateBackground,
-                                  roomWall: c.roomConfig?.wallImage,
-                                  roomFloor: c.roomConfig?.floorImage
-                              }
-                          };
-                          return processObject(extracted, `characters[${index}](id=${String(c.id).slice(0, 80)})`);
-                      });
-                      backupData.mediaAssets = mediaList;
-                      continue; // Skip standard assignment
-                  }
-
                   processedData = Array.isArray(rawData) && rawData.length > 200
                       ? await processArrayChunked(rawData, (item, index) => {
                           const id = item && typeof item === 'object'
@@ -5776,9 +5856,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               await new Promise(resolve => setTimeout(resolve, 10));
           }
 
-          // 進度條停在 70% 讓用戶看到接下來的"壓縮中 X%"實際推進，而不是卡在 95% 乾等。
-          // text_only 用 level 6；媒體/全量仍用 level 9，具體見 generateAsync 配置。
-          setSysOperation({ status: 'processing', message: '正在生成壓縮包...', progress: 70 });
+          setSysOperation({ status: 'processing', message: '正在寫入設定與索引...', progress: TABLES_SHARE });
+          updateBackupRun({ phase: 'tables', percent: TABLES_SHARE });
 
           // --- v2 分片序列化（替代老的單根 data.json）---
           // 不再把所有數據拼成一根 data.json：單根字符串逼近 ~512M 會確定性 RangeError。
@@ -5795,7 +5874,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   assetCount,
                   vectors: vectorPayload,
                   prewrittenStores,
-                  onYield: () => new Promise<void>(r => setTimeout(r, 0)),
+                  // 剩下還在 backupData 裡的陣列（協同工作的訊息等）也用小分片，一片壓完就寫出去
+                  limits: textOnlyShardLimits,
+                  onYield: yieldToUi,
                   onSerialized: collectSerialized,
               },
           );
@@ -5804,12 +5885,24 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // base64），附 blobs/index.json。圖已丟的令牌跳過——死令牌留在 JSON 裡，
           // 恢復端渲染為空，與 v2 置空串的用戶可見結果等價。
           if (collectSerialized && referencedBlobTokens.size > 0) {
-              setSysOperation({ status: 'processing', message: '正在打包圖片二進制...', progress: 70 });
+              setSysOperation({ status: 'processing', message: '正在寫入圖片...', progress: TABLES_SHARE });
+              updateBackupRun({ phase: 'media', percent: TABLES_SHARE });
+              let lastBlobPercent = -1;
               const { missing } = await writeBlobsToZip(
                   zip as unknown as ZipFileWriter,
                   referencedBlobTokens,
                   getBlobForRef,
-                  { onYield: () => new Promise<void>(r => setTimeout(r, 0)) },
+                  {
+                      // 一張讀進來、寫出去、放掉，再讀下一張
+                      onYield: async () => { await zip.drain(); await yieldToUi(); },
+                      onProgress: (done, total) => {
+                          const percent = TABLES_SHARE + (done / Math.max(1, total)) * (MEDIA_END - TABLES_SHARE);
+                          if (Math.floor(percent) === lastBlobPercent && done < total) return;
+                          lastBlobPercent = Math.floor(percent);
+                          setSysOperation({ status: 'processing', message: `正在寫入圖片 ${done}/${total}`, progress: percent });
+                          updateBackupRun({ phase: 'media', percent });
+                      },
+                  },
               );
               if (missing.length > 0) {
                   console.warn(`備份時 ${missing.length} 個圖片令牌已無對應數據，已跳過:`, missing);
@@ -5828,29 +5921,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               );
           }
 
-          // 進度提示：每 ~5% 更新一次（避免高頻 React 重渲染），同時讓進度
-          // 條從 70% 平滑爬到 99%，用戶能確切看到"在動"。
-          let lastReportedPercent = -10;
-          const content = await zip.generateAsync(
-              {
-                  type: "blob",
-                  streamFiles: true,
-                  compression: "DEFLATE",
-                  // 純文字備份優先手機穩定性；6 級體積差很小，但比 9 級明顯省時省內存。
-                  compressionOptions: { level: mode === 'text_only' ? 6 : 9 },
-              },
-              (metadata) => {
-                  const p = metadata.percent;
-                  if (p - lastReportedPercent >= 5 || p >= 99) {
-                      lastReportedPercent = p;
-                      setSysOperation({
-                          status: 'processing',
-                          message: `正在壓縮備份數據 ${p.toFixed(0)}%...`,
-                          progress: Math.min(99, 70 + Math.floor(p * 0.29)),
-                      });
-                  }
-              }
-          );
+          // 收尾：寫目錄。前面每個檔案都已經壓好寫出去了，這一步很快，不會再卡在最後幾 %。
+          setSysOperation({ status: 'processing', message: '正在收尾...', progress: MEDIA_END });
+          updateBackupRun({ phase: 'finalize', percent: MEDIA_END });
+          const content = await zip.finish();
+          activeZip = null;
+          endBackupRun();
 
           setSysOperation({ status: 'idle', message: '', progress: 100 });
           // 備份成功 → 推進「該備份啦」提醒的計時（本地導出 / 雲備份都走這裡，一處覆蓋兩條路徑）
@@ -5863,6 +5939,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
       } catch (e: any) {
           console.error("Export Failed", e);
+          try { await activeZip?.abort(); } catch { /* 已經在報錯了，收不乾淨也不蓋掉原因 */ }
+          endBackupRun();
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           throw new Error("導出失敗: " + e.message);
       }

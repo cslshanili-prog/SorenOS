@@ -495,6 +495,7 @@ Performance 标签页看：
 - 复制 cookie 教程文本
 - 导入备份失败
 - 导出备份失败
+- 备份途中分页被关（开机时发现上次备份的字条还在；属性只有 模式／阶段／输出／进度 四个固定枚举，见 `utils/backupRunState.ts` 的 `interruptedBackupEventProps`）
 - 导出本地备份
 - 展开 GitHub 高级选项
 - 展开获取 cookie 教程
