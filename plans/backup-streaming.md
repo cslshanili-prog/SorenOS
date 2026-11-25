@@ -1,6 +1,6 @@
 # 備份改成邊壓邊寫（iPhone 備份到 9x% 分頁被關掉）
 
-> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**第 1、2 批和第 3a 批做完**（實況在第 10、11、12 節）；實機（iPhone）測過導出沒問題（Liora 2026-11-25）。第 3b～3d、第 4 批還沒做。備份檔格式不變，舊備份照樣能還原。
+> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**第 1、2 批和第 3a、3b 批做完**（實況在第 10、11、12 節）；實機（iPhone）測過導出沒問題（Liora 2026-11-25）。第 3c、3d、第 4 批還沒做。備份檔格式不變，舊備份照樣能還原。
 
 ## 1. 現象
 
@@ -308,7 +308,7 @@ OPFS 要防的事：
 | 小批 | 做什麼 | 狀態 |
 |---|---|---|
 | **3a** | 隨機讀取的 zip 讀取器，取代 `JSZip.loadAsync` | **做完** |
-| **3b** | 大的表不先組：`assembleV2Backup` 對「單純清空再寫」的陣列欄位只回一個「要用時才一片一片讀」的來源，`importFullData` 的 `clearAndAdd` 認得它（讀一片 → 還原圖片 → 寫庫 → 放掉）。需要跟現有資料合併的（媒體模式的補丁、角色）照舊整張組。圖多的表每塊從 50 筆降到 10 筆。協同文件現在是先全部讀成 Blob 再寫，改成逐個 | 還沒做 |
+| **3b** | 大的表不先組：`assembleV2Backup` 對「單純清空再寫」的陣列欄位只回一個「要用時才一片一片讀」的來源，`importFullData` 的 `clearAndAdd` 認得它（讀一片 → 還原圖片 → 寫庫 → 放掉）。需要跟現有資料合併的（媒體模式的補丁、角色）照舊整張組。圖多的表每塊從 50 筆降到 10 筆 | **做完** |
 | **3c** | v1（單根 `data.json`）：邊解壓邊解析，頂層一個欄位一個欄位、陣列一筆一筆吐出來，接到 3b 的同一個來源 | 還沒做 |
 | **3d** | 雲端還原：WebDAV／GitHub 的下載一段一段寫進 OPFS 的暫存檔，不在記憶體裡攢整包 | 還沒做 |
 
@@ -330,3 +330,24 @@ OPFS 要防的事：
 還原出來的資料庫三邊一致（來源、新讀法、舊讀法）：`gallery` 360 筆、`messages` 6000 筆、`characters` 逐筆雜湊相同。
 
 沒測到的：真的 iPhone；v1 單根 `data.json` 的包在瀏覽器裡還原（讀取器的單元測試有 JSZip 打的各種包，v1 走的是同一個 `file().async('string')`）；從雲端還原（下載那段沒動）。
+
+### 3b 實況
+
+- `utils/backupFormat.ts`：`assembleV2Backup` 多一個 `lazyFields`。列在裡面的欄位不組成陣列，改放 `LazyShardArray`（只有 `length`、`parts`、`loadPart(i)`）。清單是 `LAZY_IMPORT_FIELDS`：`messages`、`galleryImages`、`savedEmojis`、`momentPosts`、`socialPosts`、`diaries`、`xhsStockImages`、`memoryNodes`、`handbooks`。挑的條件是 `importFullData` 裡原封不動交給 `putItems`／`clearAndAdd`／`mergeStore`、中間沒有任何陣列操作。
+- **驗證還是在寫庫之前做完**：每一片先讀一遍（能解析、是陣列、總筆數對得上 `manifest`），驗完就放。所以「分片壞掉直接中止、資料庫一個字沒動」的保證不變，代價是這幾張表的分片會讀兩次。
+- `utils/db.ts`：`putItems` 認得 `LazyShardArray`，一片讀進來 → 切小塊 → 還原圖片 → 寫庫 → 放掉，再讀下一片；進度照總筆數往上走。`clearAndAdd`、`mergeStore`、聊天記錄的補丁模式都經過它，行為不變。
+- 圖多的表（`gallery`、`emojis`、`journal_stickers`、`xhs_stock`、`social_posts`、`moment_posts`、`assets`、`cc_custom_parts`、`characters`、`pixel_home_assets`）一塊從 50 筆降到 10 筆；其他照舊 50。
+
+實測（無頭 Chromium、開發模式，全新設定檔還原一份 136 MB 的整合備份：20 萬則訊息＋120 張 1.2 MB 內嵌圖）：
+
+| | 分頁多用的記憶體 | 時間 |
+|---|---|---|
+| 3a（大表先整張組起來） | +851 MB | 30.4 秒 |
+| 3b | +443 MB | 31.7 秒 |
+
+還原出來的資料庫跟來源逐筆一致（`messages` 20 萬筆、`gallery` 120 筆雜湊相同）。
+
+跟計畫不一樣的地方：
+
+- **協同工作的文件沒改**，還是先全部讀成 Blob 再寫。`CollaborationStore.importBackup` 是把對話、分類、設定、文件放在**同一個交易**裡一次寫完（文件索引壞掉時整包不寫），拆開就沒有這個保證。這類文件是用戶自己上傳的文件，量級跟照片不同，先不動。
+- **`characters` 和 `mediaAssets` 照舊整張組**：還原時要互相對照、合併，不是單純的寫入。`assets` 也照舊（寫庫前要先整張還原語音）。
