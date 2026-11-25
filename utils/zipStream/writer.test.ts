@@ -228,3 +228,91 @@ describe('fflate 的原始 DEFLATE', () => {
         expect(Buffer.from(inflateSync(deflateSync(data, { level: 6 }))).equals(Buffer.from(data))).toBe(true);
     });
 });
+
+describe('原樣存的大 Blob：分段讀寫', () => {
+    const big = () => { const bytes = new Uint8Array(1_000_003); crypto.getRandomValues(bytes.subarray(0, 60_000)); for (let i = 60_000; i < bytes.length; i++) bytes[i] = (i * 31) & 0xFF; return bytes; };
+    /** 記下每次讀了多少的 Blob */
+    const spy = (bytes: Uint8Array) => {
+        const real = new Blob([bytes as BlobPart]);
+        const reads: number[] = [];
+        const wrap = (blob: Blob, root: boolean): Blob => new Proxy(blob, {
+            get(target, key) {
+                if (key === 'slice') return (...args: any[]) => wrap(target.slice(...args), false);
+                if (key === 'arrayBuffer') return async () => { reads.push(root ? -1 : target.size); return target.arrayBuffer(); };
+                const value = (target as any)[key];
+                return typeof value === 'function' ? value.bind(target) : value;
+            },
+        });
+        return { blob: wrap(real, true), reads };
+    };
+    const date = new Date(2026, 10, 25, 12, 0, 0);
+
+    it('寫出來的包跟整個讀的逐位元組一樣，而且從頭到尾沒有一次讀超過一段', async () => {
+        const bytes = big();
+        const whole = createZipStreamWriter({ deflate, date });
+        whole.file('a.json', '{"a":1}');
+        whole.file('models/001.vrm', bytes, { compression: 'STORE' });
+        whole.file('z.json', '{"z":1}');
+        const expected = new Uint8Array(await (await whole.finish()).arrayBuffer());
+
+        const { blob, reads } = spy(bytes);
+        const chunked = createZipStreamWriter({ deflate, date, streamBlobMinBytes: 100_000, blobChunkBytes: 64_000 });
+        chunked.file('a.json', '{"a":1}');
+        chunked.file('models/001.vrm', blob, { compression: 'STORE' });
+        await chunked.drain();
+        chunked.file('z.json', '{"z":1}');
+        const actual = new Uint8Array(await (await chunked.finish()).arrayBuffer());
+
+        expect(actual.length).toBe(expected.length);
+        expect(actual).toEqual(expected);
+        expect(reads.includes(-1)).toBe(false);
+        expect(Math.max(...reads)).toBe(64_000);
+        // 兩趟：一趟算 CRC、一趟寫
+        expect(reads.reduce((sum, n) => sum + n, 0)).toBe(bytes.length * 2);
+        const zip = await JSZip.loadAsync(actual);
+        expect(await zip.file('models/001.vrm')!.async('uint8array')).toEqual(bytes);
+    });
+
+    it('每寫一段就等輸出端消化（drain），不會整個檔堆在佇列裡', async () => {
+        const order: string[] = [];
+        const memory = createMemorySink();
+        const sink = {
+            write(chunk: Uint8Array, owned?: boolean) { order.push(`write:${chunk.byteLength}`); memory.write(chunk, owned); },
+            async drain() { order.push('drain'); },
+            finish: () => memory.finish(),
+            abort: () => memory.abort(),
+        };
+        const writer = createZipStreamWriter({ deflate, sink, streamBlobMinBytes: 1000, blobChunkBytes: 400 });
+        writer.file('m.bin', new Blob([new Uint8Array(1000)]), { compression: 'STORE' });
+        await writer.drain();
+        const body = order.slice(1, 7);
+        expect(body).toEqual(['write:400', 'drain', 'write:400', 'drain', 'write:200', 'drain']);
+    });
+
+    it('小的、或要壓縮的 Blob 照舊整個讀', async () => {
+        const small = spy(new Uint8Array(500).fill(7));
+        const compress = spy(new Uint8Array(5000).fill(9));
+        const writer = createZipStreamWriter({ deflate, streamBlobMinBytes: 1000, blobChunkBytes: 400 });
+        writer.file('small.bin', small.blob, { compression: 'STORE' });
+        writer.file('compress.bin', compress.blob);
+        const zip = await JSZip.loadAsync(await (await writer.finish()).arrayBuffer());
+        expect(small.reads).toEqual([-1]);
+        expect(compress.reads).toEqual([-1]);
+        expect((await zip.file('compress.bin')!.async('uint8array')).length).toBe(5000);
+    });
+
+    it('輸出端寫到一半失敗：整包作廢，drain 和 finish 都報錯', async () => {
+        let writes = 0;
+        const sink = {
+            write() { writes++; },
+            async drain() { if (writes >= 3) throw new Error('磁碟滿了'); },
+            finish: async () => new Blob([]),
+            abort: async () => undefined,
+        };
+        const writer = createZipStreamWriter({ deflate, sink, streamBlobMinBytes: 1000, blobChunkBytes: 400 });
+        writer.file('m.bin', new Blob([new Uint8Array(2000)]), { compression: 'STORE' });
+        await expect(writer.drain()).rejects.toThrow('磁碟滿了');
+        await expect(writer.finish()).rejects.toThrow('磁碟滿了');
+    });
+});
+

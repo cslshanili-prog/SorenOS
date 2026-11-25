@@ -1,91 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import JSZip from 'jszip';
 import { deflateSync } from 'fflate';
-import { createOpfsWriterCore, type OpfsFileSystem, type OpfsReply, type OpfsRequest, type SyncFileHandle } from './opfsWriterCore';
-import { BACKUP_TMP_DIR, createOpfsSink, type OpfsSinkDeps, type WorkerLike } from './opfsSink';
+import { createOpfsWriterCore, type OpfsReply } from './opfsWriterCore';
+import { BACKUP_TMP_DIR, clearBackupTempFiles, createOpfsSink } from './opfsSink';
 import { createZipStreamWriter } from './writer';
 
 const deflate = (data: Uint8Array, options: { level: number }) => deflateSync(data, { level: options.level as any });
 
-/** 假的磁碟：一個檔一個可以長大的位元組陣列 */
-const makeDisk = (options: { quotaBytes?: number; shortWrites?: boolean; corruptOnRead?: 'empty' | 'tail' } = {}) => {
-    const files = new Map<string, Uint8Array>();
-    const sizes = new Map<string, number>();
-    const fs: OpfsFileSystem = {
-        async open(dir, name) {
-            const key = `${dir}/${name}`;
-            files.set(key, new Uint8Array(1024));
-            sizes.set(key, 0);
-            const handle: SyncFileHandle = {
-                write(buffer, opts) {
-                    const at = opts?.at ?? sizes.get(key)!;
-                    let length = buffer.byteLength;
-                    if (options.shortWrites) length = Math.max(1, Math.ceil(length / 3));
-                    if (options.quotaBytes !== undefined && at + length > options.quotaBytes) {
-                        throw Object.assign(new Error('The quota has been exceeded.'), { name: 'QuotaExceededError' });
-                    }
-                    let data = files.get(key)!;
-                    if (at + length > data.byteLength) {
-                        const grown = new Uint8Array(Math.max(data.byteLength * 2, at + length));
-                        grown.set(data);
-                        data = grown;
-                        files.set(key, data);
-                    }
-                    data.set(buffer.subarray(0, length), at);
-                    sizes.set(key, Math.max(sizes.get(key)!, at + length));
-                    return length;
-                },
-                flush() {},
-                close() {},
-            };
-            return handle;
-        },
-        async remove(dir, name) { files.delete(`${dir}/${name}`); sizes.delete(`${dir}/${name}`); },
-    };
-    const read = async (dir: string, name: string): Promise<Blob> => {
-        const key = `${dir}/${name}`;
-        if (!files.has(key)) throw new Error('NotFoundError');
-        if (options.corruptOnRead === 'empty') return new Blob([]);
-        const bytes = files.get(key)!.slice(0, sizes.get(key)!);
-        if (options.corruptOnRead === 'tail') bytes[bytes.length - 22] ^= 0xFF;
-        return new Blob([bytes]);
-    };
-    return { fs, read, files, sizes };
-};
-
-/** 假的 Worker：訊息丟給真正的寫檔核心，回覆用微任務送回來（跟真的一樣是非同步的） */
-const makeWorker = (disk: ReturnType<typeof makeDisk>, options: { neverOpen?: boolean; stallWrites?: boolean } = {}) => {
-    const log: OpfsRequest['type'][] = [];
-    const transferred: number[] = [];
-    let terminated = false;
-    let held: Array<() => void> = [];
-    const worker: WorkerLike & { release: () => void; terminated: () => boolean } = {
-        onmessage: null,
-        onerror: null,
-        postMessage(message, transfer) {
-            log.push(message.type);
-            if (message.type === 'write') {
-                transferred.push(transfer?.length || 0);
-                // 模擬 transfer：交出去的那塊在送的人手上就空了；沒交的要複製一份
-                const copy = message.chunk.slice();
-                if (transfer?.length) (message.chunk as any).__detached = true;
-                message = { type: 'write', chunk: copy };
-            }
-            if (options.neverOpen && message.type === 'open') return;
-            const run = () => { void core.post(message); };
-            if (options.stallWrites && message.type === 'write') held.push(run); else run();
-        },
-        terminate() { terminated = true; },
-        release() { const runs = held; held = []; runs.forEach(r => r()); },
-        terminated: () => terminated,
-    };
-    const core = createOpfsWriterCore(disk.fs, (reply: OpfsReply) => { queueMicrotask(() => { if (!terminated) worker.onmessage?.({ data: reply }); }); });
-    return { worker, log, transferred };
-};
-
-const depsFor = (disk: ReturnType<typeof makeDisk>, w: ReturnType<typeof makeWorker>, extra: Partial<OpfsSinkDeps> = {}): OpfsSinkDeps => ({
-    createWorker: () => w.worker, readFile: disk.read, ...extra,
-});
+import { depsFor, makeDisk, makeWorker } from './opfsFake.testkit';
 
 describe('OPFS 輸出：寫進磁碟上的暫存檔', () => {
     it('整包寫完讀回來是完整的 zip，內容逐檔正確；Worker 收尾後關掉', async () => {
@@ -264,5 +186,42 @@ describe('寫檔核心：訊息照順序處理', () => {
         await core.post({ type: 'finish' });
         expect(replies.map(r => r.type)).toEqual(['opened', 'error']);
         expect(replies[1]).toMatchObject({ quota: true });
+    });
+});
+
+describe('清暫存檔：可以只清某幾種', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    /** 假的 OPFS 目錄：檔名 → 最後修改時間 */
+    const stubTmpDir = (files: Record<string, number>) => {
+        const entries = new Map(Object.entries(files));
+        const directory = {
+            keys: async function* () { yield* [...entries.keys()]; },
+            getFileHandle: async (name: string) => ({ getFile: async () => ({ lastModified: entries.get(name)! }) }),
+            removeEntry: async (name: string) => { entries.delete(name); },
+        };
+        vi.stubGlobal('navigator', { storage: { getDirectory: async () => ({ getDirectoryHandle: async () => directory }) } });
+        return entries;
+    };
+    const now = Date.now();
+    const fresh = now - 60_000;
+    const old = now - 60 * 60_000;
+
+    it('不帶參數：全清（開機時用）', async () => {
+        const left = stubTmpDir({ 'backup-1.zip': fresh, 'models-1.zip': fresh, 'emoji-1.zip': old });
+        expect(await clearBackupTempFiles()).toBe(3);
+        expect([...left.keys()]).toEqual([]);
+    });
+
+    it('只給種類：別種的不動，就算放很久了', async () => {
+        const left = stubTmpDir({ 'backup-1.zip': fresh, 'models-1.zip': fresh, 'emoji-1.zip': old });
+        expect(await clearBackupTempFiles({ prefixes: ['backup-'] })).toBe(1);
+        expect([...left.keys()]).toEqual(['models-1.zip', 'emoji-1.zip']);
+    });
+
+    it('種類＋時間：自己這種全清，別種的放久了才清（剛導出還在下載的不能動）', async () => {
+        const left = stubTmpDir({ 'models-1.zip': fresh, 'models-0.zip': old, 'backup-1.zip': fresh, 'emoji-1.zip': old });
+        expect(await clearBackupTempFiles({ prefixes: ['models-'], olderThanMs: 10 * 60_000 })).toBe(3);
+        expect([...left.keys()]).toEqual(['backup-1.zip']);
     });
 });

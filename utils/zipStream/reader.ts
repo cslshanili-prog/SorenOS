@@ -39,6 +39,12 @@ export interface ZipReaderFile {
      * JSZip 的檔案物件沒有這個方法，呼叫端要先確認有再用。
      */
     chunks(): AsyncGenerator<Uint8Array, void, void>;
+    /**
+     * 整個條目當一個 Blob 拿。沒壓縮的條目（模型、圖片）直接是來源檔的一段，內容完全不進記憶體，
+     * 可以直接存進 IndexedDB；壓縮過的才讀進來解開（第 4 批：模型備份還原用這個）。
+     * JSZip 的檔案物件沒有這個方法，呼叫端要先確認有再用。
+     */
+    blob(type?: string): Promise<Blob>;
 }
 
 /** 還原流程用到的最小介面。JSZip 載入後的物件和這裡的讀取器都符合 */
@@ -238,7 +244,14 @@ export const openZipReader = async (
             if (type === 'base64') return encodeBase64(bytes);
             return utf8.decode(bytes);
         }) as ZipReaderFile['async'];
-        return { name: entry.name, dir: false, _data: { compressedSize: entry.compressedSize, uncompressedSize: entry.size }, async, chunks: () => streamEntry(entry) };
+        const asBlob = async (type = ''): Promise<Blob> => {
+            if (entry.method !== 0) return new Blob([await readEntry(entry) as BlobPart], { type });
+            const dataStart = await dataStartOf(entry);
+            const slice = blob.slice(dataStart, dataStart + entry.compressedSize, type);
+            if (slice.size !== entry.size) throw new Error(`損壞的備份包：${entry.name} 讀到一半就沒了（檔案被截斷）`);
+            return slice;
+        };
+        return { name: entry.name, dir: false, _data: { compressedSize: entry.compressedSize, uncompressedSize: entry.size }, async, chunks: () => streamEntry(entry), blob: asBlob };
     };
 
     return { files, file, entryCount: entries.size };

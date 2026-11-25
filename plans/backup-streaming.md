@@ -1,6 +1,6 @@
 # 備份改成邊壓邊寫（iPhone 備份到 9x% 分頁被關掉）
 
-> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**第 1、2、3 批做完**（實況在第 10、11、12 節）；實機（iPhone）測過導出沒問題（Liora 2026-11-25）。第 4 批還沒做。備份檔格式不變，舊備份照樣能還原。
+> 狀態：**Liora 2026-11-25 點頭**（確認 Sully ⇌ Soren 互轉不受影響就改）。**四批都做完**（實況在第 10、11、12、13 節）；實機（iPhone）測過導出沒問題（Liora 2026-11-25）。第 4 批還沒做。備份檔格式不變，舊備份照樣能還原。
 
 ## 1. 現象
 
@@ -399,3 +399,43 @@ OPFS 要防的事：
 | 3b | 沒有開關（把欄位從 `LAZY_IMPORT_FIELDS` 拿掉就是舊做法） |
 | 3c | `localStorage['backup_v1_reader'] = 'legacy'`；小於 8 MB 或邊讀邊組失敗自動退回 |
 | 3d | 開不了暫存檔自動放記憶體 |
+
+## 13. 實況：第 4 批（模型備份、表情包導出）
+
+整合備份以外，還有兩個地方會把大檔打成一包：模型備份（設置 → 備份與恢復 → 模型備份，VRM 和 Live2D 的原檔）和表情包導出。它們原本的寫法跟改之前的整合備份一樣：全部讀進記憶體、交給 JSZip、最後一次打包；模型備份的還原則是把整個備份檔讀進來再一個一個取。幾個上百 MB 的模型就會超過 iPhone 分頁的上限。
+
+### 做了什麼
+
+- **共用入口 `utils/zipStream/factory.ts`**。前三批的寫入器、讀取器、OPFS 輸出原本是在 `OSContext` 裡接起來的，這批包成兩個函式給別的地方用：
+  - `buildZip({ tmpPrefix }, build)`：`build` 只管把檔案丟進寫入器。輸出能寫磁碟就寫 OPFS 的暫存檔（`backup-tmp/<tmpPrefix>-<時間>.zip`），寫不成用記憶體。暫存檔那頭出事（空間不夠、寫完驗不過、Worker 掛了）就用記憶體把 `build` **重跑一次**，所以 `build` 要能重跑；來源自己出的錯（模型檔不見了）不重跑，原樣丟出去。
+  - `openZipWithFallback(blob)`：用隨機讀取器開（只讀目錄），讀不懂才退回 JSZip。`OSContext` 的 `openBackupZip` 現在也走它；壓縮／解壓元件的載入（`loadDeflateRaw`／`loadInflaters`）搬到這裡，只留一份。
+- **模型備份導出**（`createAvatarModelBackup`）：模型一個一個從資料庫拿、丟進寫入器、等寫完再拿下一個；清單最後寫。格式沒變（`manifest.json`＋`models/NNN.vrm`／`.live2d.zip`，全部原樣存不壓縮）。
+- **模型備份還原**（`restoreAvatarModelBackup`）：不再 `file.arrayBuffer()` 整包讀。讀取器的條目多了 `blob(type)`：原樣存的條目直接回「備份檔裡的那一段」（`file.slice`），不經過記憶體，寫進資料庫時才由瀏覽器從磁碟搬；壓縮過的條目才解開再包成 Blob。大小照舊先跟清單比對，不對就停、不寫。退回 JSZip 時沒有 `blob()`，照舊讀成位元組。
+- **表情包導出**（`prepareEmojiExport`）：多張時一張寫出去就放、再讀下一張。單張照舊直接回原檔。
+- **原樣存的大 Blob 分段讀寫**（`utils/zipStream/writer.ts` 的 `emitStoredBlob`）。實測時發現寫入器收到 Blob 是整個讀進來才寫，一個模型 120 MB 就握 120 MB。現在原樣存、8 MB 以上的 Blob 改成 4 MB 一段：檔頭要先寫 CRC，所以讀兩趟（第一趟只算 CRC，第二趟寫），每寫一段等輸出端消化（`sink.drain`）。**寫出來的位元組跟整個讀的一模一樣**（測試鎖著）。要壓縮的、小的 Blob 照舊整個讀。整合備份不受影響：它的圖（`blobs/*`）是一張一張讀成位元組才交給寫入器的，走的不是這條。
+- **暫存檔分種類清**。`clearBackupTempFiles` 以前一律全清，現在可以帶 `{ prefixes, olderThanMs }`：檔名符合、或放超過指定時間的才清。原因是暫存檔現在不只一種（`backup-`、`models-`、`emoji-`、`restore-download-`、`import-spill-`），剛導出、用戶還在按「儲存」的模型備份，不能被接著開始的整合備份清掉。各處的規則：
+  - 開始打新的一包：自己這種全清，別種的放超過 10 分鐘才清。
+  - 雲端上傳完、失敗：只清 `backup-`。雲端還原開頭和失敗：只清 `restore-download-`、`import-spill-`。
+  - 開機 5 秒後：照舊全清（上一輪留下的都沒用了）。
+
+### 沒動的
+
+- **Live2D**（`utils/live2dModelStore.ts`）：本來就用 `@zip.js/zip.js` 的 `BlobReader`／`ZipWriter` 分段讀寫，開檔只讀目錄，不是 JSZip 那種整包讀。第 5 節原本把它列進這批，查過之後不用改。
+- **小包**：外觀預設（一個 JSON）、協同工作的文件、像素小窩素材庫、內建部件包、紀念日禮物。都是幾 MB 的東西，照舊用 JSZip。
+
+### 實測（無頭 Chromium，真的 OPFS 和 IndexedDB）
+
+6 個各 120 MB 的模型（備份檔 720 MB），量分頁多用的記憶體：
+
+| | 導出 | 導出＋還原 |
+|---|---|---|
+| 改之前 | +2218 MB | +2234 MB |
+| 改之後 | +214 MB | +200 MB |
+
+還原後 6 個模型的大小、內容指紋、類型都跟原本一致；導出的包留在 `backup-tmp/models-<時間>.zip`。換成 2 個各 360 MB 的模型，導出＋還原是 +298 MB（沒有跟著單個模型的大小成倍長）。
+
+沒測到的：真的 iPhone 上跑模型備份；表情包導出只有單元測試（走的是同一個 `buildZip`）。
+
+### 四批做完之後
+
+這份計畫列的都做了。之後新增會打大包或讀大包的地方，直接用 `buildZip`／`openZipWithFallback`，不要再 `new JSZip()` 把東西全部登記進去、或 `JSZip.loadAsync` 整包讀。

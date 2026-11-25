@@ -194,9 +194,16 @@ export const createOpfsSink = async (
 /**
  * 清掉備份的暫存檔。暫存檔跟備份檔一樣大、佔 App 的儲存額度，不清會一直佔著。
  * 清的時機：下一次備份開始前、App 開機時、雲端上傳結束後。正在寫的檔（別的分頁在備份）刪不掉，跳過。
+ *
+ * 不帶參數＝全部清（開機時）。帶參數時只清符合其中一項的：
+ * - `prefixes`：檔名是這些開頭的（自己那一種包上次留下的）
+ * - `olderThanMs`：放超過這麼久的（別種包的暫存檔可能還在下載中，放久了才清）
  */
-export const clearBackupTempFiles = async (): Promise<number> => {
+export const clearBackupTempFiles = async (
+    options: { prefixes?: readonly string[]; olderThanMs?: number } = {},
+): Promise<number> => {
     if (typeof navigator === 'undefined' || typeof navigator.storage?.getDirectory !== 'function') return 0;
+    const selective = !!options.prefixes?.length || options.olderThanMs !== undefined;
     let removed = 0;
     try {
         const root = await navigator.storage.getDirectory();
@@ -205,7 +212,19 @@ export const clearBackupTempFiles = async (): Promise<number> => {
         const names: string[] = [];
         for await (const name of (directory as any).keys() as AsyncIterable<string>) names.push(name);
         for (const name of names) {
-            try { await directory.removeEntry(name); removed++; } catch { /* 正在用，下次再清 */ }
+            try {
+                if (selective) {
+                    const byPrefix = !!options.prefixes?.some(prefix => name.startsWith(prefix));
+                    let byAge = false;
+                    if (!byPrefix && options.olderThanMs !== undefined) {
+                        const file = await (await directory.getFileHandle(name)).getFile();
+                        byAge = file.lastModified < Date.now() - options.olderThanMs;
+                    }
+                    if (!byPrefix && !byAge) continue;
+                }
+                await directory.removeEntry(name);
+                removed++;
+            } catch { /* 正在用，下次再清 */ }
         }
     } catch { /* 清不掉不影響備份 */ }
     return removed;

@@ -1,4 +1,4 @@
-import JSZip from 'jszip';
+import { buildZip } from './zipStream/factory';
 import type { Emoji } from '../types';
 import { getBlobForRef, isBlobRef } from './blobRef';
 import { fetchBlobForShare } from './shareExport';
@@ -20,19 +20,34 @@ export async function emojiExtension(blob: Blob): Promise<string> {
 /** Keep original bytes, including animation; never re-encode through canvas. */
 export async function prepareEmojiExport(emojis: Pick<Emoji, 'name' | 'url'>[], title = '表情包') {
     if (!emojis.length) throw new Error('沒有可下載的表情');
-    const zip = new JSZip();
-    const used = new Set<string>();
-    let single: { blob: Blob; fileName: string } | undefined;
-    for (const emoji of emojis) {
-        const blob = isBlobRef(emoji.url) ? await getBlobForRef(emoji.url) : await fetchBlobForShare(emoji.url);
-        if (!blob?.size) throw new Error(`表情「${emoji.name}」的原文件已丟失`);
-        const ext = await emojiExtension(blob);
-        const base = safeName(emoji.name).replace(/\.(png|gif|jpe?g|webp|avif|svg|bmp|ico)$/i, '');
-        let fileName = `${base}.${ext}`, suffix = 2;
-        while (used.has(fileName.toLowerCase())) fileName = `${base}_${suffix++}.${ext}`;
-        used.add(fileName.toLowerCase());
-        single = { blob, fileName };
-        if (emojis.length > 1) zip.file(fileName, await blob.arrayBuffer());
+
+    /** 一張一張取出來：原檔、不重複的檔名 */
+    const each = async (onEmoji: (blob: Blob, fileName: string) => Promise<void> | void) => {
+        const used = new Set<string>();
+        for (const emoji of emojis) {
+            const blob = isBlobRef(emoji.url) ? await getBlobForRef(emoji.url) : await fetchBlobForShare(emoji.url);
+            if (!blob?.size) throw new Error(`表情「${emoji.name}」的原文件已丟失`);
+            const ext = await emojiExtension(blob);
+            const base = safeName(emoji.name).replace(/\.(png|gif|jpe?g|webp|avif|svg|bmp|ico)$/i, '');
+            let fileName = `${base}.${ext}`, suffix = 2;
+            while (used.has(fileName.toLowerCase())) fileName = `${base}_${suffix++}.${ext}`;
+            used.add(fileName.toLowerCase());
+            await onEmoji(blob, fileName);
+        }
+    };
+
+    if (emojis.length === 1) {
+        let single: { blob: Blob; fileName: string } | undefined;
+        await each((blob, fileName) => { single = { blob, fileName }; });
+        return single!;
     }
-    return emojis.length === 1 ? single! : { blob: await zip.generateAsync({ type: 'blob', compression: 'STORE' }), fileName: `${safeName(title)}.zip` };
+
+    // 一張寫出去就放、再讀下一張（plans/backup-streaming.md 第 4 批）；以前是全部讀進記憶體、最後一次打包
+    const blob = await buildZip({ tmpPrefix: 'emoji' }, async (zip) => {
+        await each(async (emojiBlob, fileName) => {
+            zip.file(fileName, emojiBlob, { compression: 'STORE' });
+            await zip.drain();
+        });
+    });
+    return { blob, fileName: `${safeName(title)}.zip` };
 }
