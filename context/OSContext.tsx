@@ -20,6 +20,7 @@ import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams
 import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, imageDedupKey, backupBatchSize, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
 import { createJSZipWriter, createZipStreamWriter, type DeflateRaw, type ZipStreamWriter } from '../utils/zipStream/writer';
 import { clearBackupTempFiles, createOpfsSink, isOpfsSinkSupported, type OpfsSink } from '../utils/zipStream/opfsSink';
+import { openZipReader, type BackupZipReader, type InflateRaw } from '../utils/zipStream/reader';
 import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun, type BackupRunSink } from '../utils/backupRunState';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
 import { resolveBlobRefsInRequestBody } from '../utils/apiBlobRefs';
@@ -303,6 +304,39 @@ const loadDeflateRaw = (): Promise<DeflateRaw> => {
       });
   }
   return deflateRawPromise;
+};
+
+/** 原始 DEFLATE 解壓（還原備份的隨機讀取器用，utils/zipStream/reader.ts） */
+let inflateRawPromise: Promise<InflateRaw> | null = null;
+const loadInflateRaw = (): Promise<InflateRaw> => {
+  if (!inflateRawPromise) {
+    inflateRawPromise = import('fflate')
+      .then((mod): InflateRaw => (data, size) => mod.inflateSync(data, { out: new Uint8Array(size) }))
+      .catch((error) => {
+        inflateRawPromise = null;
+        throw new Error(`解壓元件載入失敗：${error instanceof Error ? error.message : 'unknown error'}`);
+      });
+  }
+  return inflateRawPromise;
+};
+
+/**
+ * 打開要還原的備份包。預設用隨機讀取器：只讀檔尾的目錄，要哪個條目才去讀那一段，
+ * 整個檔不進記憶體（plans/backup-streaming.md 第 3 批）。它讀不懂的 zip（加密、分卷、不認得的壓縮法）
+ * 才退回 JSZip 整包讀；排查開關 localStorage backup_zip_reader = 'jszip' 也走舊的。
+ */
+const openBackupZip = async (file: File): Promise<BackupZipReader> => {
+  let forceLegacy = false;
+  try { forceLegacy = localStorage.getItem('backup_zip_reader') === 'jszip'; } catch { /* ignore */ }
+  if (!forceLegacy) {
+    try {
+      return await openZipReader(file, { inflate: await loadInflateRaw() });
+    } catch (error) {
+      console.warn('[Backup] 隨機讀取開不了這個備份包，退回整包讀', error);
+    }
+  }
+  const JSZip = await loadJSZip();
+  return (await JSZip.loadAsync(file)) as unknown as BackupZipReader;
 };
 
 // 默認實時配置
@@ -6035,7 +6069,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
       };
 
-      const countZipAssetFiles = (zip: JSZipLike) => {
+      const countZipAssetFiles = (zip: BackupZipReader) => {
           const files = Object.values((zip as any).files || {}) as any[];
           return files.filter(file => file && !file.dir && typeof file.name === 'string' && file.name.startsWith('assets/')).length;
       };
@@ -6048,7 +6082,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       showImportProgress('parsing', '正在解析備份文件...', 1, { current: '解析備份文件', sourceSize });
       try {
           let data: FullBackupData;
-          let zip: JSZipLike | null = null;
+          let zip: BackupZipReader | null = null;
 
           if (typeof fileOrJson === 'string') {
               data = JSON.parse(fileOrJson);
@@ -6061,8 +6095,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                       throw new Error("無效的文件格式，請上傳 .zip 或 .json");
                   }
               } else {
-                  const JSZip = await loadJSZip();
-                  const loadedZip = await JSZip.loadAsync(fileOrJson);
+                  const loadedZip = await openBackupZip(fileOrJson);
                   zip = loadedZip;
                   totalAssetFiles = countZipAssetFiles(loadedZip);
                   const manifestFile = loadedZip.file("manifest.json");
