@@ -2,6 +2,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import type { ShareCardOptions } from './pngShare';
+import { armViewportReset, settleViewportReset } from './viewportReset';
 
 export interface ShareOrDownloadOptions {
     /** 有可導入內容的分享入口：打開 PNG 分享卡編輯器，並保留原格式導出。 */
@@ -76,6 +77,13 @@ export async function fetchBlobForShare(sourceUrl: string, fallbackMimeType = 'a
  * 桌面瀏覽器才使用 a.download。WebView 普遍不可靠的裸 download 點擊只作為末級兜底。
  */
 export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
+    // 跳去系統分享／存檔再回來，iOS 可能留下放大偏移的畫面（utils/viewportReset.ts）
+    if (options.card) return shareOrDownloadBlobImpl(options);
+    armViewportReset();
+    try { return await shareOrDownloadBlobImpl(options); } finally { settleViewportReset(); }
+}
+
+async function shareOrDownloadBlobImpl(options: ShareOrDownloadBlobOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
     const { blob, fileName, shareTitle = fileName, nativeChunked = false, preferDownloadOnWeb = false } = options;
     if (!(blob instanceof Blob) || blob.size === 0) throw new Error('文件為空，無法保存');
     if (options.card) {
@@ -165,6 +173,12 @@ export async function shareOrDownloadBlob(options: ShareOrDownloadBlobOptions): 
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions & { card?: undefined }): Promise<'shared' | 'downloaded'>;
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'>;
 export async function shareOrDownloadFile(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
+    if (options.card) return shareOrDownloadFileImpl(options);
+    armViewportReset();
+    try { return await shareOrDownloadFileImpl(options); } finally { settleViewportReset(); }
+}
+
+async function shareOrDownloadFileImpl(options: ShareOrDownloadOptions): Promise<'shared' | 'downloaded' | 'cancelled'> {
     const { content, fileName, mimeType = 'application/json', shareTitle = fileName } = options;
     if (options.card) return shareOrDownloadBlob({ blob: new Blob([content], { type: mimeType }), fileName, shareTitle, card: options.card });
 

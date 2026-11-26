@@ -9,6 +9,7 @@ import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import UserHolidaySettings from '../components/settings/UserHolidaySettings';
 import type { UserHolidayConfig } from '../utils/userHolidays';
 import { shareOrDownloadBlob } from '../utils/shareExport';
+import { armViewportReset } from '../utils/viewportReset';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
 import TranslationApiSettings from '../components/settings/TranslationApiSettings';
@@ -4208,7 +4209,7 @@ const Settings: React.FC = () => {
               </div>
               <p className="text-sm font-bold text-slate-700">備份文件已生成！</p>
               <p className="text-xs text-slate-500">如果瀏覽器沒有自動下載，請點擊下方鏈接。</p>
-              {downloadUrl && <a href={downloadUrl} download={downloadFileName} className="text-primary text-sm underline block py-2">點擊手動下載 .zip</a>}
+              {downloadUrl && <a href={downloadUrl} download={downloadFileName} onClick={armViewportReset} className="text-primary text-sm underline block py-2">點擊手動下載 .zip</a>}
           </div>
       </Modal>
 

@@ -129,6 +129,7 @@ import {
 import { runScheduleAutoTick } from '../utils/scheduleAutoRun';
 import { migrateTrajectoryMomentsToPool, MOMENT_CREATED_EVENT } from '../utils/momentsStore';
 import { appReturn } from '../utils/appLaunch';
+import { noteAppSwitchForTailwind } from '../utils/tailwindRepair';
 import { runMomentsAutomation, scheduleReactionsForPost } from '../utils/momentsAutoRuntime';
 import { refreshMomentsGraph, setMomentsGraphInputs } from '../utils/momentsContext';
 import { setStoryScenes } from '../utils/storySceneRegistry';
@@ -2136,6 +2137,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   const setActivePersonaIdRef = useRef<(id: string | undefined) => Promise<void>>(async () => {});
   activeAppRef.current = activeApp;
   activeCharIdScheduleRef.current = activeCharacterId;
+  // 切 App 之後那幾秒，畫面安靜下來叫 Tailwind 整份重做一次（utils/tailwindRepair.ts）
+  useEffect(() => { noteAppSwitchForTailwind(); }, [activeApp]);
 
   // 當前聊天視圖快照 → 模塊級 slot（utils/chatGenEvents）。根級 ChatBroadcast 掛在
   // OSProvider 之外拿不到這兩個 state，靠快照判斷"用戶正看著的會話不彈全局橫幅"。
