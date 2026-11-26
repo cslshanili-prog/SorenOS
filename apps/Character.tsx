@@ -27,8 +27,7 @@ import CharacterImageGenPanel from '../components/character/CharacterImageGenPan
 import RoomPlatePanel from '../components/character/RoomPlatePanel';
 import MemoryArchivist from '../components/character/MemoryArchivist';
 import { resolveLinkedArchives, useLinkedArchives } from '../utils/memoryPalace/linkedArchive';
-import { updateStoredMemoryNode } from '../utils/memoryPalace/vectorStore';
-import { MemoryNodeDB } from '../utils/memoryPalace/db';
+import { editMemorySummary } from '../utils/memoryArchiveEdit';
 import { applyLinkedArchiveDeletion, LINKED_ARCHIVE_DELETED, type LinkedArchiveDeletionDetail } from '../utils/memoryPalace/linkedArchiveDeletion';
 import ChibiStudio, { ChibiShelfPanel } from '../components/character/ChibiStudio';
 import CharacterSpriteManager, { CharacterSpritePanel } from '../components/character/CharacterSpriteManager';
@@ -155,7 +154,7 @@ const Character: React.FC = () => {
           return next;
       });
   };
-  const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : 'identity');
+  const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : launchIntent?.detailTab || 'identity');
   // QQ捏人工坊（手辦櫃）全屏覆蓋層
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
   const [showSpriteManager, setShowSpriteManager] = useState(false);
@@ -603,14 +602,11 @@ const Character: React.FC = () => {
       if (!formData) return;
       const targetId = formData.id;
       const memory = formData.memories?.find(item => item.id === id);
-      if (linkedMemoryEnabled && memory?.palaceMemoryId) {
-          const source = await MemoryNodeDB.getById(memory.palaceMemoryId);
-          if (!source || source.charId !== targetId) throw new Error('關聯的宮殿記憶已不存在，檔案文本仍保留；關閉宮殿後可按傳統檔案編輯');
-          await updateStoredMemoryNode(memory.palaceMemoryId, { content: newSummary }, memoryPalaceConfig.embedding, remoteVectorConfig);
-      }
-      // In traditional mode an edit becomes an independent archive; re-enabling must not undo it.
-      const update = (memories: MemoryFragment[]) => memories.map(item => item.id === id
-          ? { ...item, summary: newSummary, palaceMemoryId: linkedMemoryEnabled ? item.palaceMemoryId : undefined } : item);
+      // 跟羈絆的拾光共用同一條路（utils/memoryArchiveEdit.ts）：宮殿關著時改過的變成獨立傳統記錄，重開宮殿不會被蓋回去
+      const update = await editMemorySummary({
+          charId: targetId, memory, summary: newSummary, linkedEnabled: linkedMemoryEnabled,
+          embedding: memoryPalaceConfig.embedding, remote: remoteVectorConfig,
+      });
       if (editingIdRef.current === targetId) setFormData(previous => previous?.id === targetId ? { ...previous, memories: update(previous.memories || []) } : previous);
       else {
           const latest = (await DB.getAllCharacters()).find(character => character.id === targetId);

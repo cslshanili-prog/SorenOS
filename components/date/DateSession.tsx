@@ -67,6 +67,8 @@ interface DateSessionProps {
     onEditMessage: (msg: Message) => void;
     onDeleteMessage: (msg: Message) => void;
     onDeleteMessages: (ids: number[]) => Promise<void>;
+    /** 收存到羈絆（plans/bond-batch2.md 3.1）；沒傳就不顯示 */
+    onCollectToBond?: (ids: number[]) => void;
     onSettings: () => void;
     /** 閱讀視圖「加載更早」鋪滿已加載部分後，回庫裡取下一批（limit 遞增式重取）。 */
     onLoadMoreHistory?: (nextLimit: number) => Promise<void>;
@@ -160,6 +162,7 @@ const DateSession: React.FC<DateSessionProps> = ({
     onEditMessage,
     onDeleteMessage,
     onDeleteMessages,
+    onCollectToBond,
     presetRegex,
     onFinishStory,
     emotion,
@@ -805,6 +808,13 @@ const DateSession: React.FC<DateSessionProps> = ({
                                         onClick={(e) => { e.stopPropagation(); exitBatchMode(); }}
                                         className="px-3 py-1 rounded-full bg-stone-200 text-stone-600"
                                     >完成</button>
+                                    {onCollectToBond && (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); const ids = Array.from(selectedMsgIds); exitBatchMode(); onCollectToBond(ids); }}
+                                            disabled={selectedMsgIds.size === 0}
+                                            className="px-3 py-1 rounded-full bg-[#f6f1e9] text-[#8c4a52] border border-[#e3d9cc] disabled:opacity-40"
+                                        >收存</button>
+                                    )}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleBatchDelete(); }}
                                         disabled={selectedMsgIds.size === 0}
@@ -1122,6 +1132,9 @@ const DateSession: React.FC<DateSessionProps> = ({
                         }
                         setModalType('none');
                     }} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl">複製文本</button>
+                    {onCollectToBond && selectedMessage && (
+                        <button onClick={() => { const id = selectedMessage.id; setModalType('none'); onCollectToBond([id]); }} className="w-full py-3 bg-[#f6f1e9] text-[#8c4a52] font-medium rounded-2xl">收存到羈絆</button>
+                    )}
                     <button onClick={() => { onEditMessage(selectedMessage!); setModalType('none'); }} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl">編輯內容</button>
                     <button onClick={() => { onDeleteMessage(selectedMessage!); setModalType('none'); }} className="w-full py-3 bg-red-50 text-red-500 font-medium rounded-2xl">刪除記錄</button>
                 </div>

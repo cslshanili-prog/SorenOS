@@ -7,6 +7,7 @@ import { ContextBuilder } from '../context';
 import { resolveCharacterChatApi } from '../characterApi';
 import { extractContent, safeFetchJson } from '../safeApi';
 import { bondFinalLock, bondPromptBlock } from './prompt';
+import { bondEntriesOf } from './entryRegistry';
 import type { BondRecord } from '../../types';
 
 /** 最近幾天的日總結（照線篩），給模型看「最近發生了什麼」 */
@@ -46,7 +47,7 @@ export async function generateOurNow(input: {
     const otherName = pair ? pair.other.name : user.name;
     const selfIsCharId = bond.charId === char.id;
     const system = pair
-        ? `${ContextBuilder.buildRoleSettingsContext(char)}\n${bondPromptBlock({ bond, selfName: char.name, otherName, selfIsCharId })}`
+        ? `${ContextBuilder.buildRoleSettingsContext(char)}\n${bondPromptBlock({ bond, selfName: char.name, otherName, selfIsCharId, entries: bondEntriesOf(bond.id), selfId: char.id, includeUserNotes: false })}`
         : ContextBuilder.buildCoreContext(char, user, true);
     const lock = bondFinalLock(bond, otherName);
     const prompt = buildOurNowPrompt({

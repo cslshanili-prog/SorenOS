@@ -85,3 +85,21 @@ export const SectionLabel: React.FC<{ children: React.ReactNode; right?: React.R
         {right}
     </div>
 );
+
+/** 羈絆空間的分頁（我們／拾光；之後的分頁做了才出現）。像書的章節標，細線底、選中的字變深 */
+export type BondTab = 'us' | 'moments';
+export const BOND_TABS: Array<{ id: BondTab; label: string }> = [
+    { id: 'us', label: '我們' },
+    { id: 'moments', label: '拾光' },
+];
+export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void }> = ({ value, onChange }) => (
+    <div className="shrink-0 flex gap-6 px-6 border-b bond-hair" role="tablist">
+        {BOND_TABS.map(t => (
+            <button key={t.id} type="button" role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
+                className={`bond-serif relative py-2.5 text-[14px] tracking-[0.2em] ${value === t.id ? 'text-[var(--bond-ink)]' : 'text-[var(--bond-muted)]'}`}>
+                {t.label}
+                {value === t.id && <span className="absolute left-0 right-0 -bottom-px h-[1.5px] bg-[var(--bond-accent)]" />}
+            </button>
+        ))}
+    </div>
+);

@@ -1,4 +1,5 @@
 import { isUserVoiceMessage } from '../../utils/userVoice';
+import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, bondRefOf } from '../../utils/bond/bondRef';
 import { effectiveCallStatus } from '../../utils/charCall';
 import { MONEY_SYMBOL } from '../../utils/realBalance';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
@@ -3970,6 +3971,21 @@ const MessageItem = React.memo(({
                     <span className="truncate italic">"{replyPreview.length > 10 ? replyPreview.slice(0, 10) + '...' : replyPreview}"</span>
                 </div>
             )}
+
+            {/* 帶去聊聊（plans/bond-batch2.md 6.2）：從羈絆帶來的那張卡，點了回到羈絆 */}
+            {bondRefOf(m) && (() => {
+                const ref = bondRefOf(m)!;
+                return (
+                    <button type="button"
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent(BOND_REF_OPEN_EVENT, { detail: ref })); }}
+                        className="relative z-10 mb-1.5 block w-full max-w-[240px] text-left rounded-lg bg-black/5 px-2.5 py-1.5 border-l-2 border-current/40">
+                        <span className="block text-[9.5px] tracking-wider opacity-60">從羈絆帶來 · {BOND_REF_KIND_LABEL[ref.kind]}</span>
+                        <span className="block truncate text-[12px] font-medium opacity-90">{ref.title || ref.excerpt}</span>
+                        {ref.title && <span className="block truncate text-[10.5px] opacity-60">{ref.excerpt}</span>}
+                    </button>
+                );
+            })()}
 
             {/* Layer 4: Text Content — shown when there's visible text after stripping voice tags */}
             {/* 外語語音消息把雙語文字交給下方語音條渲染，頂部不再重複正文 */}

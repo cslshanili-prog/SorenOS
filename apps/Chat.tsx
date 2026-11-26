@@ -170,7 +170,9 @@ import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../
 
 import { withApiCallMeta } from '../utils/apiCallLog';
 import { resolveBondInvite } from '../utils/bond/inviteActions';
-import { appReturn, bondLaunch } from '../utils/appLaunch';
+import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch } from '../utils/appLaunch';
+import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, type BondRefMeta } from '../utils/bond/bondRef';
+import { bondIdForChar } from '../utils/bond/model';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -270,6 +272,11 @@ const Chat: React.FC = () => {
 
     // Reply Logic
     const [replyTarget, setReplyTarget] = useState<Message | null>(null);
+    // 帶去聊聊（plans/bond-batch2.md 6.2）：從羈絆帶過來、還沒送出的那張卡；打開聊天時讀字條，換角色就作廢
+    const [bondRefDraft, setBondRefDraft] = useState<{ charId: string; ref: BondRefMeta } | null>(() => {
+        const pending = chatBondRefLaunch.peek();
+        return pending ? { charId: pending.charId, ref: pending.ref } : null;
+    });
 
     const [modalType, setModalType] = useState<'none' | 'transfer' | 'emoji-import' | 'chat-settings' | 'message-options' | 'edit-message' | 'delete-emoji' | 'delete-category' | 'add-category' | 'history-manager' | 'archive-settings' | 'prompt-editor' | 'category-options' | 'category-visibility' | 'emoji-options' | 'rename-emoji' | 'rename-category' | 'schedule' | 'chrome-css' | 'chrome-sound' | 'memory-vectorize-confirm' | 'memory-vectorize-result' | 'image-zoom'>('none');
     // 「聊天裝扮」懸浮態：不走全屏 modal——圓氣泡掛在聊天上，點開小面板邊看真聊天邊調。
@@ -1625,6 +1632,13 @@ const Chat: React.FC = () => {
             })
             : null;
 
+        // 帶去聊聊：這一句一起帶著那張卡送出（只有打字的那句，表情、圖片那些不帶）
+        const bondRef = type === 'text' && bondRefDraft?.charId === char.id ? bondRefDraft.ref : null;
+        if (bondRef) {
+            metadata = { ...(metadata || {}), bondRef };
+            setBondRefDraft(null);
+            trackEvent('带去聊聊', { 类型: bondRef.kind === 'moment' ? '片刻' : bondRef.kind === 'memory' ? '记忆' : '随笔' });
+        }
         const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
         
         if (replyTarget) {
@@ -3219,6 +3233,42 @@ const Chat: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCharacterId]);
 
+    // 從羈絆的拾光跳回當時那則訊息（plans/bond-batch2.md 6.1）：線已經由羈絆那頭切好（身份），這裡只負責載入附近、捲過去閃一下
+    useEffect(() => {
+        const jump = chatJumpLaunch.peek();
+        if (!jump) return;
+        chatJumpLaunch.consume();
+        if (activeCharIdRef.current === jump.charId) {
+            const timer = window.setTimeout(() => void handleJumpToMessageInChat(jump.messageId), 250);
+            return () => window.clearTimeout(timer);
+        }
+        pendingFavoriteJumpRef.current = { charId: jump.charId, messageId: jump.messageId };
+        setActiveCharacterId(jump.charId);
+    // 只在打開聊天那一刻讀一次字條
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        const pending = chatBondRefLaunch.consume();
+        if (pending && activeCharIdRef.current !== pending.charId) setActiveCharacterId(pending.charId);
+    // 只在打開聊天那一刻讀一次字條
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    // 點氣泡上那張羈絆小卡：回到羈絆的那件事，按返回回到這裡
+    useEffect(() => {
+        const onOpen = (e: Event) => {
+            const ref = (e as CustomEvent<BondRefMeta>).detail;
+            if (!ref?.bondId) return;
+            const backTo = activeCharIdRef.current;
+            bondLaunch.request({ bondId: ref.bondId, ...(ref.essayId ? { essayId: ref.essayId } : ref.itemKey ? { itemKey: ref.itemKey } : { page: 'moments' as const }) });
+            appReturn.set(AppID.Bond, () => { if (backTo) setActiveCharacterId(backTo); openApp(AppID.Chat); });
+            openApp(AppID.Bond);
+        };
+        window.addEventListener(BOND_REF_OPEN_EVENT, onOpen);
+        return () => window.removeEventListener(BOND_REF_OPEN_EVENT, onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const handleBackToCurrent = async () => {
         setWindowedFocusMsgId(null);
         setHistoryWindowRange(null);
@@ -3462,6 +3512,23 @@ const Chat: React.FC = () => {
             console.error('Failed to rename emoji:', err);
             addToast(err?.message || '修改名稱失敗', 'error');
         }
+    };
+
+    // --- 收存到羈絆（plans/bond-batch2.md 3.1）：帶著選到的訊息去羈絆的收存頁，存好或返回都回到這裡 ---
+    const handleCollectToBond = (messageIds: number[]) => {
+        if (!char || !messageIds.length) return;
+        const bondId = bondIdForChar(char);
+        bondLaunch.request({
+            bondId, page: 'collect',
+            collect: { kind: 'chat', bondId, lineId: lineKey(lineOf(char)), charId: char.id, messageIds: [...messageIds].sort((x, y) => x - y) },
+        });
+        const backTo = char.id;
+        appReturn.set(AppID.Bond, () => { setActiveCharacterId(backTo); openApp(AppID.Chat); });
+        setModalType('none');
+        setSelectedMessage(null);
+        setSelectionMode(false);
+        setSelectedMsgIds(new Set());
+        openApp(AppID.Bond);
     };
 
     // --- Batch Selection ---
@@ -3943,9 +4010,9 @@ const Chat: React.FC = () => {
     }), [aiVisibleEmojis, activeCategory]);
 
     // Memoize ChatInputArea callbacks
-    const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences]);
+    const handleSendCallback = useCallback(() => handleSendText(), [char, input, replyTarget, inputPreferences, bondRefDraft]);
     // 你發語音條（plans/user-voice.md）：跟打字同一條送出路，只多帶 metadata.userVoice
-    const handleSendVoiceCallback = useCallback((via: UserVoiceVia) => handleSendText(undefined, undefined, userVoiceMeta(via)), [char, input, replyTarget, inputPreferences]);
+    const handleSendVoiceCallback = useCallback((via: UserVoiceVia) => handleSendText(undefined, undefined, userVoiceMeta(via)), [char, input, replyTarget, inputPreferences, bondRefDraft]);
     const handleCharSelectCallback = useCallback((id: string) => { setActiveCharacterId(id); setShowPanel('none'); }, []);
     const autoReply = useChatAutoReply({
         // 開了「延遲自動回覆」的角色改走那一套（幾分鐘內自己回），不再疊加全域的 2 秒自動回覆
@@ -4345,7 +4412,7 @@ const Chat: React.FC = () => {
                 onOpenChatExport={() => setShowChatExport(true)}
                 onOpenChatImport={() => { const ln = lineOf(char); chatImportRef.current?.open({ kind: 'private', charId: char.id, ...(ln.personaKey ? { personaKey: ln.personaKey } : {}) }); }} onArchive={handleFullArchive}
                 onCreatePrompt={createNewPrompt} onEditPrompt={editSelectedPrompt} onSavePrompt={handleSavePrompt} onDeletePrompt={handleDeletePrompt}
-                onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
+                onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode} onCollectToBond={selectedMessage ? () => handleCollectToBond([selectedMessage.id]) : undefined}
                 onReplyMessage={handleReplyMessage} onEditMessageStart={() => { if (selectedMessage) { setEditContent(selectedMessage.content); setModalType('edit-message'); } }}
                 onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onCopyMessage={handleCopyMessage}
                 messageFavorited={!!(selectedMessage && contentFavoriteIds.has(contentFavoriteIdForMessage(selectedMessage)))}
@@ -4885,6 +4952,16 @@ const Chat: React.FC = () => {
                         </div>
                     </div>
                 )}
+                {bondRefDraft && bondRefDraft.charId === char.id && (
+                    <div className="flex items-center justify-between gap-3 px-4 py-2 bg-[#f6f1e9] border-b border-[#e8ddd0] text-xs text-[#6b5a52]">
+                        <div className="min-w-0 flex-1">
+                            <div className="text-[10px] tracking-wider text-[#a08f86]">從羈絆帶來 · {BOND_REF_KIND_LABEL[bondRefDraft.ref.kind]}{bondRefDraft.ref.authorName ? `（${bondRefDraft.ref.authorName}寫的）` : ''}</div>
+                            <div className="truncate font-medium text-[#4a3b35]">{bondRefDraft.ref.title || bondRefDraft.ref.excerpt}</div>
+                            <div className="text-[10.5px] text-[#a08f86]">打一句話，跟它一起送出</div>
+                        </div>
+                        <button onClick={() => setBondRefDraft(null)} aria-label="不帶這張" className="p-1 text-[#a08f86] hover:text-[#6b5a52]">×</button>
+                    </div>
+                )}
                 {replyTarget && (
                     <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200 text-xs text-slate-500">
                         {/* 引用的是圖片 / 表情時這裡顯示佔位符，跟落庫的快照同一口徑 */}
@@ -4936,6 +5013,7 @@ const Chat: React.FC = () => {
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}
+                    onCollectSelected={() => handleCollectToBond([...selectedMsgIds])}
                     selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                     emojis={filteredEmojis}
                     emojiSuggestionsEnabled={inputPreferences.emojiSuggestions}

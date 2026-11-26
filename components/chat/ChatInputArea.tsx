@@ -1,6 +1,6 @@
 import EmojiExportDialog from './EmojiExportDialog';
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive, MagnifyingGlass, Microphone, Waveform, X } from '@phosphor-icons/react';
+import { BookmarkSimple, ShareNetwork, Trash, Plus, Smiley, PaperPlaneTilt, Lightning, Money, BookOpenText, Image, Lock, ArrowsClockwise, ChatCircleDots, CalendarBlank, ForkKnife, Coffee, Code, Brain, PencilSimple, Alarm, Sparkle, FadersHorizontal, LinkSimple, Star, Briefcase, ShoppingBag, Lightbulb, Archive, MagnifyingGlass, Microphone, Waveform, X } from '@phosphor-icons/react';
 import { CharacterProfile, ChatTheme, EmojiCategory, Emoji } from '../../types';
 import TokenImg from '../os/TokenImg';
 import { AcnhActionTile } from '../os/acnhIcons';
@@ -33,6 +33,8 @@ interface ChatInputAreaProps {
     onInputFocusChange?: (focused: boolean) => void;
     onDeleteSelected: () => void;
     onForwardSelected?: () => void;
+    /** 多選底列的「收存」：把選到的收存到羈絆（plans/bond-batch2.md 3.1） */
+    onCollectSelected?: () => void;
     selectedCount: number;
     emojis: Emoji[];
     emojiSuggestionsEnabled?: boolean;
@@ -92,7 +94,7 @@ interface ChatInputAreaProps {
 
 const ChatInputArea: React.FC<ChatInputAreaProps> = ({
     input, setInput, isTyping, selectionMode,
-    showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, selectedCount,
+    showPanel, setShowPanel, onSend, onDeleteSelected, onForwardSelected, onCollectSelected, selectedCount,
     sendButtonGenerates = false, enterToSend = true, onGenerate,
     autoReplyEnabled = false, autoReplySeconds = null, onCancelAutoReply, onInputFocusChange,
     emojis, characters = [], activeCharacterId = '', onCharSelect = () => {},
@@ -817,6 +819,17 @@ const ChatInputArea: React.FC<ChatInputAreaProps> = ({
         <div className={`sully-chat-inputbar ${shellClass} pb-safe shrink-0 z-40 relative`}>
             {selectionMode ? (
                 <div className={`p-3 flex gap-2 ${isPixelStyle ? 'bg-[#f3e7d6]' : isDiscordStyle ? 'bg-slate-900/60 backdrop-blur-md' : 'bg-white/50 backdrop-blur-md'}`}>
+                    {onCollectSelected && (
+                        <button
+                            onClick={() => onCollectSelected?.()}
+                            disabled={selectedCount === 0}
+                            aria-label="收存到羈絆"
+                            className={`shrink-0 px-4 py-3 font-bold rounded-xl active:scale-95 transition-all flex items-center justify-center gap-1.5 ${selectedCount === 0 ? 'bg-slate-200 text-slate-400' : 'bg-[#f6f1e9] text-[#8c4a52] border border-[#e3d9cc]'}`}
+                        >
+                            <BookmarkSimple className="w-5 h-5" weight="bold" />
+                            收存
+                        </button>
+                    )}
                     {onForwardSelected && (
                         <button
                             onClick={() => { onForwardSelected?.(); trackEvent('转发选中的消息'); }}

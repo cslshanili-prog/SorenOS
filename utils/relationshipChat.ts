@@ -18,6 +18,8 @@ import { crossPersonaNote } from './personaSpeaker';
 import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
 import { bondForPair } from './bond/registry';
 import { bondFinalLock, bondPromptBlock } from './bond/prompt';
+import { bondEntriesOf } from './bond/entryRegistry';
+import { pairBondId } from './bond/model';
 export interface MiniApiConfig {
     baseUrl: string;
     apiKey: string;
@@ -308,7 +310,11 @@ async function buildSpeakerContext(
     const core = ContextBuilder.buildCoreContext(speaker, user, true, undefined, undefined, { lastInteractionTs });
     if (!otherId) return core;
     const pairBond = bondForPair(speaker.id, otherId);
-    const block = bondPromptBlock({ bond: pairBond, selfName: speaker.name, otherName, selfIsCharId: pairBond ? pairBond.charId === speaker.id : undefined });
+    const block = bondPromptBlock({
+        bond: pairBond, selfName: speaker.name, otherName, selfIsCharId: pairBond ? pairBond.charId === speaker.id : undefined,
+        // 片刻雙方都知道；隨筆只帶自己寫的；你（讀者）補的那句角色不知道
+        entries: bondEntriesOf(pairBondId(speaker.id, otherId)), selfId: speaker.id, includeUserNotes: false,
+    });
     const lock = bondFinalLock(pairBond, otherName);
     return `${core}${block ? `\n${block}` : ''}${lock ? `\n${lock}\n` : ''}`;
 }

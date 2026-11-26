@@ -5512,6 +5512,8 @@ export interface FullBackupData {
     trips?: Trip[];
     /** 羈絆空間（plans/bond.md） */
     bonds?: BondRecord[];
+    /** 羈絆的卡（片刻、隨筆…，plans/bond-batch2.md） */
+    bondEntries?: BondEntry[];
     /** 購物中心（plans/mall-redesign.md）：分類、商品、訂單 */
     mallCategories?: MallCategory[];
     mallProducts?: MallProduct[];
@@ -6257,7 +6259,7 @@ export interface BondOurNow {
 }
 
 export interface BondRecord {
-    /** 身份卡 × 角色：lineKey(line)；角色 × 角色：pairLineId(a, b) */
+    /** 身份卡 × 角色：charId::personaKey（utils/bond/model.ts 的 bondIdForChar）；角色 × 角色：pairLineId(a, b) */
     id: string;
     kind: 'persona' | 'pair';
     /** persona：角色；pair：字典序小的那位 */
@@ -6287,5 +6289,69 @@ export interface BondRecord {
     inviteDeclinedAt?: number;
     /** pair：私聊整理時自動留日記（預設開，plans/bond.md 0.3） */
     pairAutoDiary?: boolean;
+    /**
+     * 拾光時間線上「羈絆這邊的標記」（plans/bond-batch2.md 1.2）：鍵是記憶 id（MemoryFragment.id，
+     * pair 是話題盒 id）。不改記憶本身；記憶的正文、日期要改走神經鏈接同一條路。
+     */
+    memoryMarks?: Record<string, BondMemoryMark>;
+    /** 「從最近的聊天挑幾件」上次掃到的那則訊息 id（plans/bond-batch2.md 3.2），之後只挑更新的 */
+    lastMomentScanId?: number;
+    updatedAt: number;
+}
+
+export interface BondMemoryMark {
+    favorite?: boolean;
+    /** 從時間線收起（不刪） */
+    hidden?: boolean;
+}
+
+/** 事件什麼時候發生；可以不確定（紀要 3.1：不捏造精確日期） */
+export type BondEventDate =
+    | { precision: 'day'; date: string }
+    | { precision: 'month'; date: string }
+    | { precision: 'period'; label: string; date?: string }
+    | { precision: 'unknown' };
+
+/** 一張卡從哪來，能點回去（plans/bond-batch2.md 1.1） */
+export type BondSource =
+    /** 私聊（lineId＝lineKey）或角色私聊（lineId＝pair~A~B）；snippet 是收存當下的原文快照 */
+    | { type: 'message'; lineId: string; messageIds: number[]; snippet: string; at: number }
+    | { type: 'date'; storyId: string; charId: string; messageIds: number[]; snippet: string; at: number }
+    | { type: 'memory'; charId: string; memoryId: string }
+    | { type: 'photo'; galleryId: string };
+
+/** 一張卡建在什麼上面（隨筆 → 片刻／記憶；後記 → 原隨筆）；撤回時用來找誰依賴誰 */
+export type BondLink =
+    | { type: 'entry'; id: string }
+    | { type: 'memory'; charId: string; memoryId: string };
+
+/** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；之後各批加 kind */
+export interface BondEntry {
+    id: string;
+    bondId: string;
+    kind: 'moment' | 'essay';
+    /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
+    author: string;
+    title?: string;
+    /** 片刻：發生了什麼（事實）；隨筆：角色的感想 */
+    text: string;
+    /** 片刻：你補的一句話 */
+    note?: string;
+    eventDate: BondEventDate;
+    writtenAt: number;
+    sources: BondSource[];
+    links: BondLink[];
+    /** 後記：是哪篇隨筆的後記 */
+    afterwordOf?: string;
+    /** 片刻一律 published；隨筆生成後是 draft，你收下才 published（只有 published 進提示詞） */
+    status: 'published' | 'draft';
+    favorite?: boolean;
+    hidden?: boolean;
+    createdBy: 'user' | 'ai';
+    /** 第一次被你編修前的原文 */
+    originalText?: string;
+    revisedAt?: number;
+    /** 依賴的那件事被刪掉、你選了「留著」時標的（卡片上顯示「原本關聯的那件事已刪除」） */
+    orphanedLinks?: BondLink[];
     updatedAt: number;
 }

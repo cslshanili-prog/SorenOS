@@ -96,6 +96,8 @@ interface ChatModalsProps {
     onRestoreAdaptiveContext?: () => void;
     onJumpToMessageInChat?: (id: number) => void;
     onEnterSelectionMode: () => void;
+    /** 收存到羈絆（plans/bond-batch2.md 3.1）；沒傳就不顯示 */
+    onCollectToBond?: () => void;
     onReplyMessage: () => void;
     onEditMessageStart: () => void;
     onConfirmEditMessage: () => void;
@@ -201,7 +203,7 @@ const ChatModals: React.FC<ChatModalsProps> = ({
     onOpenChatImport,
     onOpenChatExport,
     onArchive, onCreatePrompt, onEditPrompt, onSavePrompt, onDeletePrompt,
-    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
+    onSetHistoryStart, onRestoreAdaptiveContext, onJumpToMessageInChat, onEnterSelectionMode, onCollectToBond, onReplyMessage, onEditMessageStart, onConfirmEditMessage, onDeleteMessage, onCopyMessage, onToggleMessageFavorite, messageFavorited, onDownloadImage, onRegenerateImage, imageGenConfig, regeneratingImageId, onDeleteEmoji, onDeleteCategory, onRenameCategory, onDownloadCategory,
     allCharacters = [], onSaveCategoryVisibility,
     xhsEnabled, onToggleXhs,
     htmlModeEnabled, onToggleHtmlMode, htmlModeCustomPrompt, setHtmlModeCustomPrompt,
@@ -882,6 +884,11 @@ const ChatModals: React.FC<ChatModalsProps> = ({
                     <button onClick={onReplyMessage} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                         引用 / 回覆
                     </button>
+                    {onCollectToBond && (
+                        <button onClick={onCollectToBond} className="w-full py-3 bg-[#f6f1e9] text-[#8c4a52] font-medium rounded-2xl active:bg-[#efe7dc] transition-colors flex items-center justify-center gap-2">
+                            收存到羈絆
+                        </button>
+                    )}
                     {selectedMessage?.type === 'text' && (
                         <button onClick={onEditMessageStart} className="w-full py-3 bg-slate-50 text-slate-700 font-medium rounded-2xl active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
                             編輯內容

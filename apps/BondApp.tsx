@@ -1,13 +1,25 @@
 /**
  * 羈絆（plans/bond.md、plans/bond-batch1.md）：一段關係的專屬空間。
  * 第 1 批：空間清單（我和 TA／他們之間）、「我們」首頁、路線設定、天數、此刻的我們、建立空間。
- * 拾光、心意、約定、珍藏四個分頁從第 2 批起陸續出現（還沒做的不顯示）。
+ * 第 2 批：拾光分頁（時間線、片刻、記憶的編輯刪除，plans/bond-batch2.md）。心意、約定、珍藏之後陸續出現（還沒做的不顯示）。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
-import { AppID, type BondRecord, type CalendarEvent, type CharacterProfile } from '../types';
-import { AvatarPair, BondAvatar, BondHeader, BondStyle, SectionLabel } from '../components/bond/bondUi';
+import { AppID, type BondRecord, type BondSource, type CalendarEvent, type CharacterProfile } from '../types';
+import { AvatarPair, BondAvatar, BondHeader, BondStyle, BondTabs, SectionLabel, type BondTab } from '../components/bond/bondUi';
+import { BondMomentsPage } from '../components/bond/BondMomentsPage';
+import { BondItemPage } from '../components/bond/BondItemPage';
+import { BondMemoryEditor, BondMomentEditor } from '../components/bond/BondMomentEditor';
+import { useSpaceTimeline } from '../components/bond/useSpaceTimeline';
+import { BondCollectPage } from '../components/bond/BondCollectPage';
+import { BondPickPage } from '../components/bond/BondPickPage';
+import { BondEssayComposePage } from '../components/bond/BondEssayComposePage';
+import { BondEssayPage } from '../components/bond/BondEssayPage';
+import { BondEssayEditor } from '../components/bond/BondEssayEditor';
+import type { EssayMode } from '../utils/bond/essay';
+import { bondEntryById } from '../utils/bond/entryRegistry';
+import { lineArgFromKey, type BondCollectRequest } from '../utils/bond/collect';
 import { BondSpacePage } from '../components/bond/BondSpacePage';
 import { BondRoutePage } from '../components/bond/BondRoutePage';
 import { BondDaysPage } from '../components/bond/BondDaysPage';
@@ -15,32 +27,49 @@ import { resolveSpace, type ResolvedSpace } from '../components/bond/space';
 import { allRegisteredBonds, onBondRegistryChange } from '../utils/bond/registry';
 import { listPairSpaces, listPersonaSpaces, primaryCounter } from '../utils/bond/spaces';
 import { routeLabel, stageLabel } from '../utils/bond/routes';
-import { pairBondId, personaBondId } from '../utils/bond/model';
+import { pairBondId, parseBondId, personaBondId } from '../utils/bond/model';
 import { bondOrBlank, saveBondRecord, updateBond } from '../utils/bond/store';
 import { withLineFields, lineFor, lineView, lineMsgFields } from '../utils/chatLine';
-import { personaAvatarForKey, personaNameForKey } from '../utils/userPersona';
+import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import { personaOptions } from '../utils/calendarView';
 import { isOnStage } from '../utils/castRole';
 import { loadCalendarEvents } from '../utils/calendarEvents';
-import { appReturn, bondLaunch } from '../utils/appLaunch';
+import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch, dateJumpLaunch, memoryPalaceLaunch, pairChatLaunch } from '../utils/appLaunch';
+import { bondRefFromEssay, bondRefFromItem, type BondRefMeta } from '../utils/bond/bondRef';
+import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
 import { trackEvent } from '../utils/analytics';
 
 type Page =
     | { page: 'list' }
-    | { page: 'space'; id: string }
+    | { page: 'space'; id: string; tab?: BondTab }
+    | { page: 'item'; id: string; key: string; exitOnBack?: boolean }
+    | { page: 'moment-edit'; id: string; entryId?: string; key?: string }
+    | { page: 'memory-edit'; id: string; memoryId: string; key: string }
+    | { page: 'collect'; id: string; request: BondCollectRequest }
+    | { page: 'pick'; id: string }
+    | { page: 'essay'; id: string; essayId: string; chosen?: boolean; key?: string; exitOnBack?: boolean }
+    | { page: 'essay-write'; id: string; mode: EssayMode; key?: string; baseId?: string }
+    | { page: 'essay-edit'; id: string; essayId: string; chosen?: boolean; key?: string }
     | { page: 'route'; id: string; from: 'space' | 'list' }
     | { page: 'days'; id: string }
     | { page: 'mine'; id: string }
     | { page: 'create' };
 
 const BondApp: React.FC = () => {
-    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine } = useOS();
+    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine, updateCharacter, memoryPalaceConfig, remoteVectorConfig, setActivePersonaId, setActiveCharacterId } = useOS();
     const [page, setPage] = useState<Page>(() => {
         // 先 peek、掛上後才 consume（跟行事曆同一招：開發模式重掛或 Suspense 重來時字條不會先被吃掉）
         const launch = bondLaunch.peek();
         if (!launch) return { page: 'list' };
-        return launch.page === 'route' ? { page: 'route', id: launch.bondId, from: 'list' } : { page: 'space', id: launch.bondId };
+        if (launch.page === 'route') return { page: 'route', id: launch.bondId, from: 'list' };
+        if (launch.page === 'collect' && launch.collect) return { page: 'collect', id: launch.bondId, request: launch.collect };
+        // 從聊天氣泡上的小卡直接開到這一件：返回就回聊天（appReturn 由聊天登記）
+        const exitOnBack = appReturn.pending(AppID.Bond);
+        if (launch.essayId) return { page: 'essay', id: launch.bondId, essayId: launch.essayId, exitOnBack };
+        if (launch.itemKey) return { page: 'item', id: launch.bondId, key: launch.itemKey, exitOnBack };
+        if (launch.page === 'moments') return { page: 'space', id: launch.bondId, tab: 'moments' };
+        return { page: 'space', id: launch.bondId };
     });
     useEffect(() => { bondLaunch.consume(); }, []);
     const [tab, setTab] = useState<'persona' | 'pair'>(() => (page.page !== 'list' && page.page !== 'create' && page.id.startsWith('pair~') ? 'pair' : 'persona'));
@@ -64,7 +93,89 @@ const BondApp: React.FC = () => {
 
     const back = () => setPage({ page: 'list' });
 
-    if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine') {
+    /**
+     * 點來源跳回當時那則（plans/bond-batch2.md 6.1）。私聊、見面要先切到那條線的身份卡（線跟著「現在的我」走），
+     * 角色私聊直接開那頁；按返回回到羈絆的這件事。原訊息已刪就不跳。
+     */
+    const openSource = async (spaceId: string, itemKey: string, source: BondSource) => {
+        if (source.type !== 'message' && source.type !== 'date') return;
+        const firstId = source.messageIds[0];
+        if (!firstId || !(await DB.getMessageById(firstId).catch(() => null))) { addToast('原訊息已經刪掉了，這裡留著收存時的原文', 'info'); return; }
+        const backHere = () => { bondLaunch.request({ bondId: spaceId, itemKey }); openApp(AppID.Bond); };
+        if (source.type === 'message' && source.lineId.startsWith('pair~')) {
+            trackEvent('从拾光跳回原文', { 来源: '角色私聊' });
+            pairChatLaunch.request({ pairId: source.lineId, messageId: firstId });
+            appReturn.set(AppID.ChatHub, backHere);
+            openApp(AppID.ChatHub);
+            return;
+        }
+        const line = source.type === 'message' ? lineArgFromKey(source.lineId) : null;
+        const charId = source.type === 'message' ? (typeof line === 'string' ? line : line!.charId) : source.charId;
+        const raw = characters.find(c => c.id === charId);
+        if (!raw) { addToast('這個角色已經不在了', 'info'); return; }
+        // 這條線的身份卡：非主線看 lineId；主線（或見面）用空間的卡
+        const parsed = parseBondId(spaceId);
+        const linePersona = (line && typeof line !== 'string' ? line.personaKey : undefined)
+            || (parsed?.kind === 'persona' ? parsed.personaKey : undefined)
+            || raw.primaryPersonaKey;
+        if (linePersona && linePersona !== globalPersonaKey(userProfileBase)) {
+            await setActivePersonaId(linePersona === REAL_IDENTITY_PERSONA_ID ? undefined : linePersona);
+            addToast(`切到「${personaNameForKey(userProfileBase, linePersona)}」這張身份卡`, 'info');
+        }
+        setActiveCharacterId(charId);
+        if (source.type === 'date') {
+            trackEvent('从拾光跳回原文', { 来源: '见面' });
+            dateJumpLaunch.request({ charId, storyId: source.storyId, messageId: firstId });
+            appReturn.set(AppID.Date, backHere);
+            openApp(AppID.Date);
+            return;
+        }
+        trackEvent('从拾光跳回原文', { 来源: '私聊' });
+        chatJumpLaunch.request({ charId, messageId: firstId });
+        appReturn.set(AppID.Chat, backHere);
+        openApp(AppID.Chat);
+    };
+
+    /**
+     * 帶去聊聊（6.2）：開這條線的私聊（不是現在的身份卡就先切過去），輸入框上方掛著這張卡；
+     * 按返回回到羈絆的這件事。
+     */
+    const bringToChat = async (spaceId: string, ref: BondRefMeta, back: () => void) => {
+        const parsed = parseBondId(spaceId);
+        if (parsed?.kind !== 'persona') return;
+        const raw = characters.find(c => c.id === parsed.charId);
+        if (!raw) { addToast('這個角色已經不在了', 'info'); return; }
+        const linePersona = parsed.personaKey || raw.primaryPersonaKey;
+        if (linePersona && linePersona !== globalPersonaKey(userProfileBase)) {
+            await setActivePersonaId(linePersona === REAL_IDENTITY_PERSONA_ID ? undefined : linePersona);
+            addToast(`切到「${personaNameForKey(userProfileBase, linePersona)}」這張身份卡`, 'info');
+        }
+        setActiveCharacterId(raw.id);
+        chatBondRefLaunch.request({ charId: raw.id, ref });
+        appReturn.set(AppID.Chat, back);
+        openApp(AppID.Chat);
+    };
+
+    /** 記憶：開神經鏈接那個角色的記憶分頁，或直接進他的記憶宮殿（6.1）；按返回回到這件事 */
+    const openMemory = (spaceId: string, itemKey: string, charId: string, where: 'link' | 'palace') => {
+        if (!characters.some(c => c.id === charId)) { addToast('這個角色已經不在了', 'info'); return; }
+        const backHere = () => { bondLaunch.request({ bondId: spaceId, itemKey }); openApp(AppID.Bond); };
+        trackEvent('从拾光跳回原文', { 来源: '记忆' });
+        setActiveCharacterId(charId);
+        if (where === 'palace') {
+            memoryPalaceLaunch.request({ charId });
+            appReturn.set(AppID.MemoryPalace, backHere);
+            openApp(AppID.MemoryPalace);
+            return;
+        }
+        characterLaunch.request({ charId, detailTab: 'memory', backToCaller: true });
+        appReturn.set(AppID.Character, backHere);
+        openApp(AppID.Character);
+    };
+
+    if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine'
+        || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit' || page.page === 'collect' || page.page === 'pick'
+        || page.page === 'essay' || page.page === 'essay-write' || page.page === 'essay-edit') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -76,11 +187,77 @@ const BondApp: React.FC = () => {
             );
         }
         const toSpace = () => setPage({ page: 'space', id: page.id });
+        const toMoments = () => setPage({ page: 'space', id: page.id, tab: 'moments' });
+        const openItem = (key: string) => setPage({ page: 'item', id: page.id, key });
+        const openEssay = (essayId: string, extra?: { chosen?: boolean; key?: string }) => setPage({ page: 'essay', id: page.id, essayId, ...extra });
+        const tabBar = (current: BondTab) => <BondTabs value={current} onChange={t => setPage({ page: 'space', id: page.id, tab: t })} />;
         return (
             <div className="h-full w-full relative bond-root overflow-hidden">
                 <BondStyle />
-                {page.page === 'space' && (
+                {page.page === 'space' && page.tab === 'moments' && (
+                    <BondMomentsPage space={s} characters={chars} tabBar={tabBar('moments')} onBack={back}
+                        onOpenItem={openItem} onNewMoment={() => setPage({ page: 'moment-edit', id: s.id })}
+                        onPick={() => setPage({ page: 'pick', id: s.id })}
+                        onOpenEssay={essayId => openEssay(essayId)}
+                        onChooseEssay={() => setPage({ page: 'essay-write', id: s.id, mode: 'choose' })} />
+                )}
+                {page.page === 'pick' && (
+                    <BondPickPage space={s} characters={chars} apiConfig={apiConfig} onBack={toMoments}
+                        onSaved={() => toMoments()} addToast={addToast} />
+                )}
+                {page.page === 'item' && (
+                    <BondItemPage space={s} itemKey={page.key} characters={chars} onBack={page.exitOnBack ? closeApp : toMoments}
+                        onOpenSource={src => void openSource(s.id, page.key, src)}
+                        onOpenMemory={(charId, where) => openMemory(s.id, page.key, charId, where)}
+                        onEditMoment={entryId => setPage({ page: 'moment-edit', id: s.id, entryId, key: page.key })}
+                        onEditMemory={memoryId => setPage({ page: 'memory-edit', id: s.id, memoryId, key: page.key })}
+                        onOpenEssay={essayId => openEssay(essayId, { key: page.key })}
+                        onWriteEssay={() => setPage({ page: 'essay-write', id: s.id, mode: 'event', key: page.key })}
+                        onBringToChat={s.kind === 'persona' ? item => void bringToChat(s.id, bondRefFromItem(s.id, item), () => { bondLaunch.request({ bondId: s.id, itemKey: item.key }); openApp(AppID.Bond); }) : undefined}
+                        updateCharacter={updateCharacter} addToast={addToast} />
+                )}
+                {page.page === 'essay-write' && (
+                    <BondEssayComposePage space={s} characters={chars} apiConfig={apiConfig} mode={page.mode} itemKey={page.key} baseId={page.baseId}
+                        onBack={page.baseId ? () => openEssay(page.baseId!) : page.key ? () => openItem(page.key!) : toMoments}
+                        onDone={essayId => openEssay(essayId, { chosen: page.mode === 'choose', key: page.key })} addToast={addToast} />
+                )}
+                {page.page === 'essay' && (
+                    <BondEssayPage space={s} characters={chars} apiConfig={apiConfig} essayId={page.essayId} chosen={page.chosen}
+                        onBack={page.exitOnBack ? closeApp : page.key ? () => openItem(page.key!) : toMoments}
+                        onOpenItem={openItem}
+                        onEdit={essayId => setPage({ page: 'essay-edit', id: s.id, essayId, chosen: page.chosen, key: page.key })}
+                        onAfterword={baseId => setPage({ page: 'essay-write', id: s.id, mode: 'afterword', baseId, key: page.key })}
+                        onBringToChat={s.kind === 'persona' ? essayId => {
+                            const essay = bondEntryById(essayId);
+                            if (!essay) return;
+                            void bringToChat(s.id, bondRefFromEssay(s.id, essay, chars.find(c => c.id === essay.author)?.name),
+                                () => { bondLaunch.request({ bondId: s.id, essayId }); openApp(AppID.Bond); });
+                        } : undefined}
+                        addToast={addToast} />
+                )}
+                {page.page === 'essay-edit' && (
+                    <BondEssayEditor essayId={page.essayId}
+                        authorName={chars.find(c => c.id === bondEntryById(page.essayId)?.author)?.name || s.rightName}
+                        onBack={() => setPage({ page: 'essay', id: s.id, essayId: page.essayId, chosen: page.chosen, key: page.key })} addToast={addToast} />
+                )}
+                {page.page === 'moment-edit' && (
+                    <BondMomentEditor space={s} entryId={page.entryId}
+                        onBack={page.key ? () => openItem(page.key!) : toMoments}
+                        onSaved={entry => openItem(`e:${entry.id}`)} addToast={addToast} />
+                )}
+                {page.page === 'collect' && (
+                    // 從聊天帶過來的：存好或取消都回原本的聊天（appReturn 由聊天那頭登記，closeApp 會帶回去）
+                    <BondCollectPage space={s} request={page.request} characters={chars} apiConfig={apiConfig}
+                        onDone={() => closeApp()} addToast={addToast} />
+                )}
+                {page.page === 'memory-edit' && (
+                    <MemoryEditRoute space={s} chars={chars} memoryId={page.memoryId} itemKey={page.key}
+                        embedding={memoryPalaceConfig.embedding} remote={remoteVectorConfig}
+                        updateCharacter={updateCharacter} onBack={() => openItem(page.key)} addToast={addToast} />
+                )}
+                {page.page === 'space' && page.tab !== 'moments' && (
                     <BondSpacePage key={`${s.id}-${version}`} space={s} characters={chars} events={events} apiConfig={apiConfig}
+                        tabBar={tabBar('us')} onOpenItem={openItem}
                         onBack={back}
                         onOpenRoute={() => setPage({ page: 'route', id: s.id, from: 'space' })}
                         onOpenDays={() => setPage({ page: 'days', id: s.id })}
@@ -305,6 +482,32 @@ const CreateSpacePage: React.FC<{
             </div>
         </div>
     );
+};
+
+/** 編輯記憶：正文用時間線上那一列（有宮殿關聯時是宮殿最新正文），存走神經鏈接同一條路 */
+const MemoryEditRoute: React.FC<{
+    space: ResolvedSpace;
+    chars: CharacterProfile[];
+    memoryId: string;
+    itemKey: string;
+    embedding: React.ComponentProps<typeof BondMemoryEditor>['embedding'];
+    remote: React.ComponentProps<typeof BondMemoryEditor>['remote'];
+    updateCharacter: React.ComponentProps<typeof BondMemoryEditor>['updateCharacter'];
+    onBack: () => void;
+    addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
+}> = ({ space, chars, memoryId, itemKey, embedding, remote, updateCharacter, onBack, addToast }) => {
+    const { items, char } = useSpaceTimeline(space, chars);
+    const item = items.find(i => i.key === itemKey);
+    if (!char || !item) {
+        return (
+            <div className="absolute inset-0 flex flex-col bond-root">
+                <BondHeader title="編輯記憶" onBack={onBack} />
+                <div className="flex-1 grid place-items-center text-[13px] text-[var(--bond-muted)]">這筆記憶已經不在了。</div>
+            </div>
+        );
+    }
+    return <BondMemoryEditor key={memoryId} char={char} memoryId={memoryId} currentText={item.text} embedding={embedding} remote={remote}
+        updateCharacter={updateCharacter} onBack={onBack} addToast={addToast} />;
 };
 
 export default BondApp;

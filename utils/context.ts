@@ -49,6 +49,8 @@ import { withGlobalWorldbooks } from './globalWorldbooks';
 
 import { bondForChar, bondForPair } from './bond/registry';
 import { bondPromptBlock, pairRouteNote } from './bond/prompt';
+import { bondEntriesOf } from './bond/entryRegistry';
+import { bondIdForChar } from './bond/model';
 /**
  * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
  * 性別、補充設定選填，留空就不佔提示詞篇幅。補充設定是舊的「自定義設定」「其他補充」合起來的一行（utils/personaSetting.ts）。
@@ -355,7 +357,11 @@ export const ContextBuilder = {
         }
 
         // 4-1. 羈絆：這條線上的你跟角色是什麼路線（plans/bond-batch1.md）。沒空間、全預設時是空字串
-        sections.bond = bondPromptBlock({ bond: bondForChar(char), selfName: char.name, otherName: user.name });
+        // 第 2 批起也帶這段關係收存的片刻、角色收下的隨筆（空間沒存進 bonds 也算，id 照線算）
+        sections.bond = bondPromptBlock({
+            bond: bondForChar(char), selfName: char.name, otherName: user.name,
+            entries: bondEntriesOf(bondIdForChar(char)), selfId: char.id,
+        });
 
         // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）
         const viewKey = lineViewPersonaKey(char);
