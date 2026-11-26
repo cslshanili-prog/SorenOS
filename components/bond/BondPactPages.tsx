@@ -13,7 +13,7 @@ import type { ResolvedSpace } from './space';
 import { useBondEntries, useSpaceTimeline } from './useSpaceTimeline';
 import { charHabitReply, charPromiseReply, charWishReply } from './heartRun';
 import {
-    agreePromise, checkLabel, completeWish, confirmHabit, editPromise, HABIT_STATE_LABEL, habitWaitingOn, linkWishToPromise, MILESTONE_KINDS, milestoneLabel,
+    agreePromise, checkLabel, completeWish, confirmHabit, editPromise, HABIT_STATE_LABEL, habitWaitingOn, linkWishToPromise, milestoneKindsFor, milestoneLabel,
     newHabit, newMilestone, newPromise, newWish, PROMISE_STATE_LABEL, PROMISE_TEMPLATES, promiseWaitingOn, publishWish, RECORD_LABEL, repeatLabel,
     replyHabit, replyPromise, retireHabit, setPromiseState, setWishState, supportWish, templateTitle, WISH_STATE_LABEL, wishOwnerLabel,
 } from '../../utils/bond/pact';
@@ -25,6 +25,11 @@ import { DB } from '../../utils/db';
 import { charParticipant, newEvent, personaParticipant } from '../../utils/calendarEvents';
 import { getLocalDateKey } from '../../utils/localDate';
 import { trackEvent } from '../../utils/analytics';
+import { useBondLedger } from './useBondLedger';
+import { LedgerRowItem } from './BondLedgerPages';
+import { recordManually } from './pactRun';
+import { donePeriod, isCounted, ledgerKeyOf, promiseStartDay, streakOf } from '../../utils/bond/ledger';
+import { addDays, countsOnDay, dayKeyOf, periodKeyOf, periodWord } from '../../utils/bond/period';
 
 type Toast = (m: string, t?: 'success' | 'error' | 'info') => void;
 
@@ -443,7 +448,7 @@ export const BondPromiseComposePage: React.FC<{
                     <div className="flex flex-wrap gap-2">
                         {CHECK_KINDS.map(k => <button key={k.id} type="button" className="bond-chip" aria-pressed={check.kind === k.id} onClick={() => setCheckKind(k.id)}>{k.label}</button>)}
                     </div>
-                    <div className="mt-1.5 text-[11px] text-[var(--bond-muted)]">{CHECK_KINDS.find(k => k.id === check.kind)?.hint}（自動判定在下一小批接上，現在先記下規則）</div>
+                    <div className="mt-1.5 text-[11px] text-[var(--bond-muted)]">{CHECK_KINDS.find(k => k.id === check.kind)?.hint}；判不到的你都可以手動記。</div>
                     {check.kind === 'record' && (
                         <div className="mt-3 flex flex-wrap gap-2">
                             {(Object.keys(RECORD_LABEL) as Array<keyof typeof RECORD_LABEL>).map(r => (
@@ -573,9 +578,10 @@ export const BondPromisePage: React.FC<{
                                 {(p.state === 'active' || p.state === 'paused') && <button type="button" className="bond-btn" onClick={() => setState('dropped', '结束')}>不做了</button>}
                                 {(p.state === 'done' || p.state === 'dropped') && <button type="button" className="bond-btn" onClick={() => setState('active', '新增')}>重新開始</button>}
                             </div>
-                            <p className="mt-2 text-[11px] text-[var(--bond-muted)]">每一期做到了沒、完成紀錄和積分，在下一小批接上。</p>
                         </section>
                     )}
+
+                    {p.state !== 'proposed' && <PromiseProgress space={space} promise={e} addToast={addToast} />}
 
                     <section className="flex flex-wrap gap-2">
                         <button type="button" className="bond-btn" onClick={onEdit}>改內容</button>
@@ -590,6 +596,104 @@ export const BondPromisePage: React.FC<{
                             onBack();
                         }} />
                 </div>
+            </div>
+        </div>
+    );
+};
+
+/** 一個約定的進度（4.2）：這期做了沒、連續幾期、月曆、完成紀錄、補記 */
+const PromiseProgress: React.FC<{ space: ResolvedSpace; promise: BondEntry; addToast: Toast }> = ({ space, promise, addToast }) => {
+    const ledger = useBondLedger(space.id);
+    const pr = promise.promise!;
+    const key = ledgerKeyOf(promise);
+    const today = dayKeyOf(Date.now());
+    const start = promiseStartDay(promise) || undefined;
+    const rows = useMemo(() => ledger.filter(r => r.key === key).sort((a, b) => b.periodKey.localeCompare(a.periodKey) || b.at - a.at), [ledger, key]);
+    const once = pr.repeat.kind === 'once';
+    const curKey = periodKeyOf(pr.repeat, today, start);
+    const doneNow = !!donePeriod(ledger, key, curKey);
+    const streak = streakOf(ledger, key, pr.repeat, today, start);
+    const [month, setMonth] = useState(today.slice(0, 7));
+    const [backDay, setBackDay] = useState(addDays(today, -1));
+    const [shown, setShown] = useState(12);
+    const record = async (day: string) => {
+        if (start && day < start) { addToast(`約定是 ${start} 才說好的`, 'info'); return; }
+        if (day > today) return;
+        await recordManually(space, promise, day);
+        addToast(pr.points ? `記下了 ＋${pr.points}` : '記下了', 'success');
+    };
+    const doneDays = new Set(rows.filter(isCounted).map(r => r.periodKey));
+    const word = periodWord(pr.repeat) || '這次';
+    return (
+        <section>
+            <SectionLabel>做 到 了 沒</SectionLabel>
+            {pr.state === 'active' && (
+                <div className="flex flex-wrap items-center gap-2">
+                    {doneNow ? (
+                        <span className="inline-flex items-center gap-1.5 text-[13px] text-[var(--bond-accent)]"><Check size={14} weight="bold" />{once ? '做到了' : `${word}做到了`}</span>
+                    ) : (
+                        <button type="button" className="bond-btn bond-btn-primary" disabled={!once && !countsOnDay(pr.repeat, today)} onClick={() => record(today)}>
+                            <Check size={14} />{once ? '做到了，記一筆' : `${word}做到了，記一筆`}
+                        </button>
+                    )}
+                    {!once && !countsOnDay(pr.repeat, today) && !doneNow && <span className="text-[11px] text-[var(--bond-muted)]">今天不是約好的日子</span>}
+                </div>
+            )}
+            {!once && (
+                <div className="mt-3 text-[12px] text-[var(--bond-ink-2)]">
+                    {streak.current >= 1 ? `現在連續 ${streak.current} ${pr.repeat.kind === 'daily' ? '天' : '期'}` : '現在沒有連續'}{streak.best > streak.current ? `，最長 ${streak.best}` : ''}
+                    <span className="text-[var(--bond-muted)]">（斷了只是重新數，已經加的分和經歷都留著）</span>
+                </div>
+            )}
+            {pr.repeat.kind === 'daily' && (
+                <MonthDots month={month} onMonth={setMonth} done={doneDays} start={start} today={today} />
+            )}
+            {!once && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px]">
+                    補記
+                    <input type="date" className="bond-input" style={{ width: 160, flex: 'none' }} value={backDay} max={today} min={start}
+                        onChange={ev => ev.target.value && setBackDay(ev.target.value)} />
+                    <button type="button" className="bond-btn" onClick={() => record(backDay)}>那{pr.repeat.kind === 'daily' ? '天' : '期'}有做到</button>
+                </div>
+            )}
+            {rows.length > 0 && (
+                <div className="mt-4">
+                    <div className="text-[10.5px] tracking-wider text-[var(--bond-muted)]">完成紀錄</div>
+                    <div className="mt-1 divide-y bond-hair border-y">
+                        {rows.slice(0, shown).map(r => <LedgerRowItem key={r.id} row={r} showLabel={false} />)}
+                    </div>
+                    {rows.length > shown && <button type="button" className="mt-2 text-[11.5px] text-[var(--bond-accent)]" onClick={() => setShown(n => n + 30)}>再看更早的</button>}
+                </div>
+            )}
+        </section>
+    );
+};
+
+/** 每天的約定：一個月的小月曆，做到的日子點上 */
+const MonthDots: React.FC<{ month: string; onMonth: (m: string) => void; done: Set<string>; start?: string; today: string }> = ({ month, onMonth, done, start, today }) => {
+    const [y, m] = month.split('-').map(Number);
+    const first = `${month}-01`;
+    const daysIn = new Date(y, m, 0).getDate();
+    const lead = new Date(y, m - 1, 1).getDay();
+    const shift = (n: number) => { const d = new Date(y, m - 1 + n, 1); onMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`); };
+    return (
+        <div className="mt-3 rounded-xl border bond-hair bg-[var(--bond-card)] px-3 py-3">
+            <div className="flex items-center justify-between text-[12px]">
+                <button type="button" className="px-2 text-[var(--bond-muted)]" onClick={() => shift(-1)} aria-label="上個月">‹</button>
+                <span>{y} 年 {m} 月</span>
+                <button type="button" className="px-2 text-[var(--bond-muted)] disabled:opacity-30" disabled={month >= today.slice(0, 7)} onClick={() => shift(1)} aria-label="下個月">›</button>
+            </div>
+            <div className="mt-2 grid grid-cols-7 gap-1 text-center text-[10px] text-[var(--bond-muted)]">
+                {['日', '一', '二', '三', '四', '五', '六'].map(d => <span key={d}>{d}</span>)}
+                {Array.from({ length: lead }, (_, i) => <span key={`l${i}`} />)}
+                {Array.from({ length: daysIn }, (_, i) => {
+                    const day = addDays(first, i);
+                    const on = done.has(day);
+                    const out = (start && day < start) || day > today;
+                    return (
+                        <span key={day} className={`mx-auto h-6 w-6 rounded-full grid place-items-center text-[10.5px] ${on ? 'bg-[var(--bond-accent)] text-white' : out ? 'opacity-30' : 'text-[var(--bond-ink-2)]'} ${day === today && !on ? 'border border-[var(--bond-accent)]' : ''}`}>{i + 1}</span>
+                    );
+                })}
             </div>
         </div>
     );
@@ -736,8 +840,7 @@ export const BondMilestoneEditPage: React.FC<{
 }> = ({ space, entryId, onBack, addToast }) => {
     const existing = entryId ? bondEntryById(entryId) : undefined;
     const name = space.rightName;
-    const route = space.bond.route || 'none';
-    const kinds = MILESTONE_KINDS.filter(k => !k.routes || k.routes.includes(route));
+    const kinds = milestoneKindsFor(space.bond.route);
     const [what, setWhat] = useState(existing?.milestone?.what || kinds[0].id);
     const [title, setTitle] = useState(existing?.title || '');
     const [text, setText] = useState(existing?.text || '');

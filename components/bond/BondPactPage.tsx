@@ -4,7 +4,7 @@
  * 「想做」跟「已經說好的約定」分開放（紀要 7.4）；說好、確認要雙方都點頭才算。
  */
 import React, { useMemo, useState } from 'react';
-import { Feather, Flag, Handshake, Sparkle } from '@phosphor-icons/react';
+import { Check, ClockCounterClockwise, Feather, Flag, Handshake, Medal, Sparkle } from '@phosphor-icons/react';
 import type { BondEntry } from '../../types';
 import { SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -14,6 +14,11 @@ import {
     type WishBucket,
 } from '../../utils/bond/pact';
 import { eventSortKey, formatEventDate } from '../../utils/bond/eventDate';
+import { useBondLedger } from './useBondLedger';
+import { LevelPanel } from './BondLevel';
+import { donePeriod, ledgerKeyOf, promiseStartDay, streakOf, totalPoints } from '../../utils/bond/ledger';
+import { dayKeyOf, periodKeyOf, periodWord } from '../../utils/bond/period';
+import { memoriesForLine } from '../../utils/bond/timeline';
 
 export type PactTab = 'wish' | 'promise' | 'habit' | 'milestone';
 
@@ -53,8 +58,17 @@ export const BondPactPage: React.FC<{
     onNewHabit: () => void;
     onOpenMilestone: (id: string) => void;
     onNewMilestone: () => void;
-}> = ({ space, tabBar, header, pact, onPact, onOpenWish, onNewWish, onOpenPromise, onNewPromise, onOpenHabit, onNewHabit, onOpenMilestone, onNewMilestone }) => {
+    onOpenLedger: () => void;
+    onOpenAchievements: () => void;
+    onOpenReview: () => void;
+}> = ({ space, tabBar, header, pact, onPact, onOpenWish, onNewWish, onOpenPromise, onNewPromise, onOpenHabit, onNewHabit, onOpenMilestone, onNewMilestone, onOpenLedger, onOpenAchievements, onOpenReview }) => {
     const entries = useBondEntries(space.id);
+    const ledger = useBondLedger(space.id);
+    const points = useMemo(() => totalPoints(ledger), [ledger]);
+    const today = dayKeyOf(Date.now());
+    // 已經相處一陣子、還沒回顧過：提醒一次（2.6）
+    const askReview = !space.bond.pactReview && !points
+        && memoriesForLine(space.char.memories, space.personaKey, space.char.primaryPersonaKey).length > 0;
     const name = space.rightName;
     const [wishFilter, setWishFilter] = useState<WishBucket | 'all'>('all');
 
@@ -89,6 +103,15 @@ export const BondPactPage: React.FC<{
                         </button>
                     ))}
                 </div>
+
+                {askReview && (
+                    <div className="px-5 pt-4">
+                        <button type="button" onClick={onOpenReview} className="w-full text-left rounded-xl border bond-hair bg-[var(--bond-accent-soft)] px-4 py-3">
+                            <span className="bond-serif block text-[14px]">你們已經相處一陣子了</span>
+                            <span className="block mt-0.5 text-[11.5px] text-[var(--bond-ink-2)]">回顧一下發生過的大事、補算過去的相處，或從現在開始算。</span>
+                        </button>
+                    </div>
+                )}
 
                 {pact === 'wish' && (
                     <div className="px-5 pt-4 pb-12">
@@ -142,15 +165,29 @@ export const BondPactPage: React.FC<{
                                         <div className="divide-y bond-hair border-y">
                                             {list.map(p => {
                                                 const waiting = promiseWaitingOn(p);
+                                                const pr = p.promise!;
+                                                const start = promiseStartDay(p) || undefined;
+                                                const live = pr.state === 'active' && pr.repeat.kind !== 'once';
+                                                const doneNow = live && !!donePeriod(ledger, ledgerKeyOf(p), periodKeyOf(pr.repeat, today, start));
+                                                const streak = live ? streakOf(ledger, ledgerKeyOf(p), pr.repeat, today, start).current : 0;
                                                 return (
-                                                    <button key={p.id} type="button" onClick={() => onOpenPromise(p.id)} className="w-full text-left py-3.5">
+                                                    <button key={p.id} type="button" onClick={() => onOpenPromise(p.id)} className="w-full text-left py-3.5 flex gap-3">
+                                                        {live && (
+                                                            <span className={`mt-1 h-5 w-5 shrink-0 rounded-full border grid place-items-center ${doneNow ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-white' : 'bond-hair'}`}
+                                                                aria-label={doneNow ? `${periodWord(pr.repeat)}做到了` : `${periodWord(pr.repeat)}還沒`}>
+                                                                {doneNow && <Check size={12} weight="bold" />}
+                                                            </span>
+                                                        )}
+                                                        <span className="min-w-0 flex-1">
                                                         <div className="bond-serif text-[14px] leading-relaxed">{p.text}</div>
                                                         <div className="mt-1 flex flex-wrap items-center gap-2 text-[10.5px] tracking-wider text-[var(--bond-muted)]">
                                                             <span>{repeatLabel(p.promise!.repeat)}</span>
                                                             {p.promise!.points ? <span>· {p.promise!.points} 分</span> : null}
                                                             {waiting && <span className={waiting === 'user' ? 'text-[var(--bond-accent)]' : ''}>· {waiting === 'user' ? '等你說好' : `等${name}說好`}</span>}
                                                             {!waiting && p.promise!.state !== 'active' && <span>· {PROMISE_STATE_LABEL[p.promise!.state]}</span>}
+                                                            {streak >= 2 && <span className="text-[var(--bond-accent)]">· 連續 {streak}{pr.repeat.kind === 'daily' ? ' 天' : ' 期'}</span>}
                                                         </div>
+                                                        </span>
                                                     </button>
                                                 );
                                             })}
@@ -200,6 +237,12 @@ export const BondPactPage: React.FC<{
 
                 {pact === 'milestone' && (
                     <div className="px-5 pt-4 pb-12">
+                        <LevelPanel points={points}>
+                            <button type="button" className="bond-btn" onClick={onOpenLedger}><ClockCounterClockwise size={14} />完成紀錄</button>
+                            <button type="button" className="bond-btn" onClick={onOpenAchievements}><Medal size={14} />成就</button>
+                            <button type="button" className="bond-btn" onClick={onOpenReview}>回顧與補算</button>
+                        </LevelPanel>
+                        <div className="mt-4" />
                         <Card title="記一個里程碑" hint="已經發生的大事：告白、在一起、成為摯友、和好……" icon={<Flag size={16} />} onClick={onNewMilestone} />
                         {milestones.length === 0 ? (
                             <Empty>還沒有里程碑。</Empty>

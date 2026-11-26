@@ -5157,6 +5157,8 @@ export interface Trip {
     to: string;
     kind: 'business' | 'travel' | 'other';
     note?: string;
+    /** 同行的人（plans/bond-batch4.md 1.2b：一起旅行的成就看這欄）；沒有＝自己去 */
+    companions?: Participant[];
     createdAt: number;
     updatedAt: number;
 }
@@ -5527,6 +5529,8 @@ export interface FullBackupData {
     bonds?: BondRecord[];
     /** 羈絆的卡（片刻、隨筆…，plans/bond-batch2.md） */
     bondEntries?: BondEntry[];
+    /** 羈絆的完成紀錄與積點（plans/bond-batch4.md 1.3） */
+    bondLedger?: BondLedgerRow[];
     /** 購物中心（plans/mall-redesign.md）：分類、商品、訂單 */
     mallCategories?: MallCategory[];
     mallProducts?: MallProduct[];
@@ -6317,7 +6321,37 @@ export interface BondRecord {
     outputEvents?: BondOutputEvent[];
     /** 自己加的紙條標籤 */
     noteTags?: string[];
+    /** 回顧與補算（2.6）：做過的時間；補算了過去的相處補到哪一天 */
+    pactReview?: { reviewedAt?: number; backfilledAt?: number; backfilledTo?: string; skippedAt?: number };
     updatedAt: number;
+}
+
+/**
+ * 羈絆的完成紀錄與積點（plans/bond-batch4.md 1.3，`bond_ledger` 表）。一筆＝一個約定的一期，
+ * 或一個成就、或某天的一件事實（`fact:*`，0 分，連續天數和成就用）。
+ * id 是 `${bondId}|${key}|${periodKey}`：同一期只會有一筆，自動判、手動補不會重複加分。
+ */
+export interface BondLedgerRow {
+    id: string;
+    bondId: string;
+    /** 約定：模板做的是 `tpl:<模板 id>`（刪掉重建也接得上），自訂的是約定 id；成就 `ach:<id>`；事實 `fact:<種類>` */
+    key: string;
+    /** 約定的 id（模板做的也記，方便跳回去）；成就、事實沒有 */
+    promiseId?: string;
+    /** 每天 'YYYY-MM-DD'、每週 'YYYY-Www'、每月 'YYYY-MM'、每年 'YYYY'、一次性 'once'；成就照次數 'n:10' 或旅行 id */
+    periodKey: string;
+    at: number;
+    /** 記下當時的分數（之後改分數不回頭改舊紀錄）；事實 0 分 */
+    points: number;
+    how: 'auto' | 'manual' | 'ai' | 'backfill';
+    /** 顯示用的名字快照（約定內容、成就名）：約定刪了也看得懂 */
+    label: string;
+    /** 依據 */
+    evidence?: { messageIds?: number[]; reason?: string; refId?: string };
+    /** AI 判讀說沒做到（留著免得重判；不算分，你可以手動補，同一筆會被蓋掉） */
+    miss?: boolean;
+    /** 你撤銷的：留著但不算分，可以恢復 */
+    revokedAt?: number;
 }
 
 /** 主動產出的類型（plans/bond-batch3.md 1.4） */

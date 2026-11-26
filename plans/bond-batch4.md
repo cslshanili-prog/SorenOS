@@ -397,7 +397,8 @@ interface BondFeelingEvent {
 
 1. **4a（做完）**：資料（願望、約定、默契、里程碑、事件卡型別；`bond_ledger` 表挪到 4b 跟完成紀錄一起建）＋「約定」分頁四個小分頁與全部全螢幕頁＋手動流程（寫願望、支持、談成約定、問問 TA、確認默契、完成願望連拾光）＋提示詞段【你們的約定】（一字不差測試）。
    實況：純邏輯 `utils/bond/pact.ts`（願望、約定、默契、里程碑的建立與狀態轉換），知情判斷在 `utils/bond/visibility.ts` 的 `knownWishes`／`knownPromises`／`knownHabits`／`knownMilestones`，提示詞段在 `utils/bond/prompt.ts` 的 `pactLines`；「問問 TA」三種回應的提示詞與解析在 `utils/bond/outputPromptCore.ts`，跑在 `components/bond/heartRun.ts`（`charWishReply`／`charPromiseReply`／`charHabitReply`）；分頁 `components/bond/BondPactPage.tsx`，全螢幕頁 `components/bond/BondPactPages.tsx`。約定的完成判定、積分還沒接（頁面上寫著下一小批接）。
-2. **4b**：任務模板（含今日深聊、送禮收禮）、`bond_ledger` 表與備份登記、任務模板（含今日深聊、送禮收禮）、完成判定（自動、手動、AI、關鍵字，純判斷有測試）、完成紀錄（撤銷、補記、不重複）、連續天數、成就、積點與等級（門檻表有測試）、加分提示、首頁 Lv. 與近期約定入口、旅行「同行」欄位、回顧與補算（2.6）。
+2. **4b（做完）**：任務模板（含今日深聊、送禮收禮）、`bond_ledger` 表與備份登記、完成判定（自動、手動、AI、關鍵字，純判斷有測試）、完成紀錄（撤銷、補記、不重複）、連續天數、成就、積點與等級（門檻表有測試）、加分提示、首頁 Lv. 與近期約定入口、旅行「同行」欄位、回顧與補算（2.6）。
+   實況：帳本 `bond_ledger`（`BondLedgerRow`，id `${bondId}|${key}|${periodKey}` 去重；約定是模板做的鍵用 `tpl:<模板>`，刪掉重建、補算都接得上；成就 `ach:*`；每天的事實 `fact:*` 0 分，連續天數和成就看它），讀寫 `utils/bond/ledgerStore.ts`、同步登記表 `ledgerRegistry.ts`；純判斷：期 `period.ts`、一天的事實與照紀錄／關鍵字判 `taskCheck.ts`、記帳／連續／成就 `ledger.ts`、等級門檻 `level.ts`、AI 判讀與回顧里程碑的提示詞 `pactPrompt.ts`（`utils/bond/bondLedger.test.ts`）。判定跑在 `components/bond/pactRun.ts`（OSContext 5 分鐘 tick、有加分跳一則；判到哪天和看過的等級存 localStorage，不寫進 bonds，免得自動開的空間被存一筆；AI 判讀一次 tick 最多兩期）。畫面：約定清單的這期勾與連續、約定頁的月曆／補記／完成紀錄、里程碑頁的等級面板、完成紀錄頁、成就頁、回顧與補算頁（`components/bond/BondLedgerPages.tsx`）、首頁的 Lv. 與近期約定；行事曆旅行多「跟誰一起」（`Trip.companions`）。提示詞多等級一句、約定後面「這期做了沒、連續幾天」（`ledger`＋`today`，沒分數時一字不差）。未指定路線的里程碑什麼都能記（`milestoneKindsFor`），友情、親情線不列戀愛的。
 3. **4c**：親近與信任（1.8：量表、層與緩衝、防刷與回補上限、未修復的傷、情緒評估裡結算、沒開評估時照每日總結、事件帳可改可刪、起點估算、提示詞的層與行為限制）。
 4. **4d**：事件卡（解鎖、放著、開演情境進私聊或見面、演完整理結果、你確認改階段）＋里程碑（時間線、紀念日、路線歷程）＋聊天先發展的同步承認。
 5. **4e**：聊天銜接（收存三種、挑幾件三種、帶去聊聊四種、角色提議兩個標籤＋worker 直通）＋主動產出多「願望」（本機＋雲端）＋埋點、Sore 知識、文件、驗證、PR。

@@ -242,6 +242,10 @@ export const MILESTONE_KINDS: Array<{ id: string; label: string; routes?: Array<
     { id: 'custom', label: '自訂' },
 ];
 
+/** 這條路線能記的里程碑：未指定路線什麼都能記（還沒選，不替你擋）；友情、親情線不列戀愛的 */
+export const milestoneKindsFor = (route: BondRoute | undefined): typeof MILESTONE_KINDS =>
+    !route ? MILESTONE_KINDS : MILESTONE_KINDS.filter(k => !k.routes || k.routes.includes(route));
+
 export const milestoneLabel = (what: string, label?: string): string =>
     what === 'custom' ? (label?.trim() || '自訂') : MILESTONE_KINDS.find(k => k.id === what)?.label || label || what;
 

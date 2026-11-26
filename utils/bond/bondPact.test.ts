@@ -48,7 +48,7 @@ describe('共同約定：雙方都說好才成立', () => {
         expect(no.promise!.state).toBe('proposed');
         const yes = replyPromise(p, 'c1', 'yes', '好，我會記得', T + 1);
         expect(yes.promise).toMatchObject({ state: 'active', agreedBy: { user: T, char: T + 1 } });
-        expect(knownPromises([yes]).active).toEqual([{ text: '每天睡前說晚安', repeat: { kind: 'daily' } }]);
+        expect(knownPromises([yes]).active).toMatchObject([{ text: '每天睡前說晚安', repeat: { kind: 'daily' } }]);
     });
     it('角色提的要你按好；提議中改了內容等於重新提', () => {
         const p = newPromise({ bondId: B, author: 'c1', text: '週末一起散步', repeat: { kind: 'weekly', days: [6] }, check: { kind: 'manual' }, participants: ['user', 'c1'], now: T });

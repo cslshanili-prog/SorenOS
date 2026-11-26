@@ -123,8 +123,10 @@ import { refreshTripRegistry } from '../utils/trips';
 import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBond, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
+import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
+import { gainToastText, runPactTick } from '../components/bond/pactRun';
 import { markBondOutputCloudDirty, syncBondOutputCloud } from '../components/bond/outputCloud';
 import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
@@ -2560,7 +2562,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
-  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); }, []);
+  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); }, []);
   // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
   const diaryRegistryLoadedRef = useRef(false);
   useEffect(() => {
@@ -2623,6 +2625,26 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       if (document.visibilityState === 'visible') tick();
       else if (!isBackupRunning()) void syncBondOutputCloud(scope(), { leaving: true }).catch(() => {});
     };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characters, userProfileBase, apiConfig]);
+  // 羈絆的約定：完成判定、積點、成就（plans/bond-batch4.md 第 5 節）。頁面開著每 5 分鐘判一次，
+  // 從上次判到的那天補到今天；有加分就跳一則（一段關係一則，一次 tick 合併）
+  useEffect(() => {
+    const scope = () => ({ characters, userProfileBase, apiConfig });
+    const tick = () => {
+      if (isBackupRunning()) return;
+      void runPactTick(scope())
+        .then(gains => {
+          if (document.visibilityState !== 'visible') return;
+          for (const g of gains.slice(0, 3)) addToast(gainToastText(g), 'success');
+        })
+        .catch(e => console.warn('🤝 [BondPact] 判定失敗', e));
+    };
+    const first = window.setTimeout(tick, 45_000);
+    const timer = window.setInterval(tick, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4520,6 +4542,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         // 羈絆空間：身份卡 × 他、他 × 任何角色（plans/bond.md）
         await deleteBondsOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆空間刪除失敗', e));
         await deleteBondEntriesOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆的卡刪除失敗', e));
+        await deleteBondLedgerOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆的完成紀錄刪除失敗', e));
         for (const pairId of await DB.getPairLineIds()) {
             if (parsePairLineId(pairId)?.includes(id)) await DB.clearMessages(pairId);
         }
@@ -4838,6 +4861,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 這張卡的羈絆空間一起刪（plans/bond.md）
       await deleteBondsOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆空間刪除失敗', e));
       await deleteBondEntriesOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆的卡刪除失敗', e));
+      await deleteBondLedgerOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆的完成紀錄刪除失敗', e));
       if (goneLinks.size) {
           for (const c of charactersRef.current) {
               if (!Object.keys(c.altKnowledge || {}).some(k => goneLinks.has(k))) continue;
@@ -5323,7 +5347,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 導入端 importFullData 已支持恢復，這裡必須同步登記，否則備份不含生活記錄。
               'life_records', 'med_plans', 'life_record_settings',
               // 羈絆空間與裡面的卡（plans/bond.md、bond-batch2.md）
-              'bonds', 'bond_entries',
+              'bonds', 'bond_entries', 'bond_ledger',
               // 2026-11-26 補：以下幾張 importFullData 早就會還原（購物中心是這次一起補上），
               // 但一直漏在這份清單外，設置頁的備份根本沒打包（DB.exportFullData 有，所以 roundtrip 測試是綠的）。
               'calendar_events', 'trips',                                    // 行事曆的約定層、旅行
@@ -5719,6 +5743,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               life_record_settings: 'lifeRecordSettings',
               bonds: 'bonds',
               bond_entries: 'bondEntries',
+              bond_ledger: 'bondLedger',
               calendar_events: 'calendarEvents',
               trips: 'trips',
               date_stories: 'dateStories',
@@ -6009,6 +6034,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
                   case 'bonds': backupData.bonds = processedData; break;
                   case 'bond_entries': backupData.bondEntries = processedData; break;
+                  case 'bond_ledger': backupData.bondLedger = processedData; break;
                   case 'calendar_events': backupData.calendarEvents = processedData; break;
                   case 'trips': backupData.trips = processedData; break;
                   case 'date_stories': backupData.dateStories = processedData; break;

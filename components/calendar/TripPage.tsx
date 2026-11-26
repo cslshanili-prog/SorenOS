@@ -27,6 +27,8 @@ const TripPage: React.FC<{
     const [from, setFrom] = useState(initial?.from || defaultFrom);
     const [to, setTo] = useState(initial?.to || defaultFrom);
     const [note, setNote] = useState(initial?.note || '');
+    // 同行的人（plans/bond-batch4.md 1.2b：羈絆的「一起旅行」成就看這欄）
+    const [companions, setCompanions] = useState<Participant[]>(initial?.companions || []);
     const [saving, setSaving] = useState(false);
     const okDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
     const canSave = destination.trim().length > 0 && okDate(from) && okDate(to) && from <= to && !saving;
@@ -35,7 +37,8 @@ const TripPage: React.FC<{
         if (!canSave) return;
         setSaving(true);
         try {
-            const fields = { owner, kind, destination: destination.trim(), timezone: timezone || undefined, from, to, note: note.trim() || undefined };
+            const withWho = companions.filter(c => !sameParticipant(c, owner));
+            const fields = { owner, kind, destination: destination.trim(), timezone: timezone || undefined, from, to, note: note.trim() || undefined, companions: withWho.length ? withWho : undefined };
             await onSave(initial ? { ...initial, ...fields, updatedAt: Date.now() } : newTrip(fields));
         } finally { setSaving(false); }
     };
@@ -60,6 +63,21 @@ const TripPage: React.FC<{
                                 return (
                                     <button key={`${o.participant.kind}_${o.participant.id}`} role="radio" aria-checked={on} onClick={() => setOwner(o.participant)} aria-label={o.name}
                                         className={`flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 text-[12px] font-bold shrink-0 border ${on ? 'bg-pink-400 text-white border-pink-400' : 'bg-white text-slate-600 border-slate-100'}`}>
+                                        <TokenImg value={o.avatar} alt="" className="h-[22px] w-[22px] rounded-full object-cover shrink-0" />{o.name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div>
+                        <span className={label}>跟誰一起 <span className="font-normal">（可以不選；選了算一起旅行）</span></span>
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar py-1" role="group" aria-label="跟誰一起">
+                            {owners.filter(o => !sameParticipant(o.participant, owner)).map(o => {
+                                const on = companions.some(c => sameParticipant(c, o.participant));
+                                return (
+                                    <button key={`with_${o.participant.kind}_${o.participant.id}`} aria-pressed={on} aria-label={`和 ${o.name} 一起`}
+                                        onClick={() => setCompanions(list => (on ? list.filter(c => !sameParticipant(c, o.participant)) : [...list, o.participant]))}
+                                        className={`flex items-center gap-1.5 rounded-full pl-1 pr-3 py-1 text-[12px] font-bold shrink-0 border ${on ? 'bg-sky-400 text-white border-sky-400' : 'bg-white text-slate-600 border-slate-100'}`}>
                                         <TokenImg value={o.avatar} alt="" className="h-[22px] w-[22px] rounded-full object-cover shrink-0" />{o.name}
                                     </button>
                                 );

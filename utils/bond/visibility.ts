@@ -138,7 +138,7 @@ export function knownWishes(entries: BondEntry[], limit = PROMPT_WISH_LIMIT): Kn
 
 export interface KnownPromises {
     /** 成立、進行中的（全部） */
-    active: Array<{ text: string; repeat: NonNullable<BondEntry['promise']>['repeat'] }>;
+    active: Array<{ text: string; repeat: NonNullable<BondEntry['promise']>['repeat']; entry: BondEntry }>;
     /** 還在商量的：等誰說好 */
     proposed: Array<{ text: string; waitingOn: 'user' | 'char' }>;
 }
@@ -146,7 +146,7 @@ export interface KnownPromises {
 export function knownPromises(entries: BondEntry[]): KnownPromises {
     const ps = entries.filter(e => e.kind === 'promise' && e.promise && e.text.trim()).sort((a, b) => a.writtenAt - b.writtenAt);
     return {
-        active: ps.filter(e => e.promise!.state === 'active').map(e => ({ text: e.text.trim(), repeat: e.promise!.repeat })),
+        active: ps.filter(e => e.promise!.state === 'active').map(e => ({ text: e.text.trim(), repeat: e.promise!.repeat, entry: e })),
         proposed: ps.filter(e => e.promise!.state === 'proposed').map(e => ({ text: e.text.trim(), waitingOn: !e.promise!.agreedBy.char ? 'char' as const : 'user' as const })),
     };
 }

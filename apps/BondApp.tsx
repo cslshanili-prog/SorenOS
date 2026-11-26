@@ -14,6 +14,7 @@ import { BondSlipComposePage, BondSlipPage } from '../components/bond/BondSlipPa
 import { BondPactPage, pactNeedsYou, type PactTab } from '../components/bond/BondPactPage';
 import { BondHabitComposePage, BondHabitPage, BondMilestoneEditPage, BondPromiseComposePage, BondPromisePage, BondWishComposePage, BondWishPage } from '../components/bond/BondPactPages';
 import { useBondEntries } from '../components/bond/useSpaceTimeline';
+import { BondAchievementsPage, BondLedgerPage, BondReviewPage } from '../components/bond/BondLedgerPages';
 import { BondOutputSettingsPage } from '../components/bond/BondOutputSettingsPage';
 import { resolveOutputChars, resolveOutputSetting } from '../utils/bond/output';
 import { bondIdForChar } from '../utils/bond/model';
@@ -59,6 +60,9 @@ type Page =
     | { page: 'habit'; id: string; entryId: string }
     | { page: 'habit-edit'; id: string; entryId?: string }
     | { page: 'milestone-edit'; id: string; entryId?: string }
+    | { page: 'ledger'; id: string }
+    | { page: 'achievements'; id: string }
+    | { page: 'review'; id: string }
     | { page: 'diary'; id: string; date?: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean; exitOnBack?: boolean }
     | { page: 'question-new'; id: string }
@@ -218,7 +222,8 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         || page.page === 'essay' || page.page === 'essay-write' || page.page === 'essay-edit'
         || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit' || page.page === 'output'
         || page.page === 'wish' || page.page === 'wish-edit' || page.page === 'promise' || page.page === 'promise-edit'
-        || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit') {
+        || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit'
+        || page.page === 'ledger' || page.page === 'achievements' || page.page === 'review') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -370,7 +375,15 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onOpenWish={entryId => setPage({ page: 'wish', id: s.id, entryId })} onNewWish={() => setPage({ page: 'wish-edit', id: s.id })}
                         onOpenPromise={entryId => setPage({ page: 'promise', id: s.id, entryId })} onNewPromise={() => setPage({ page: 'promise-edit', id: s.id })}
                         onOpenHabit={entryId => setPage({ page: 'habit', id: s.id, entryId })} onNewHabit={() => setPage({ page: 'habit-edit', id: s.id })}
-                        onOpenMilestone={entryId => setPage({ page: 'milestone-edit', id: s.id, entryId })} onNewMilestone={() => setPage({ page: 'milestone-edit', id: s.id })} />
+                        onOpenMilestone={entryId => setPage({ page: 'milestone-edit', id: s.id, entryId })} onNewMilestone={() => setPage({ page: 'milestone-edit', id: s.id })}
+                        onOpenLedger={() => setPage({ page: 'ledger', id: s.id })} onOpenAchievements={() => setPage({ page: 'achievements', id: s.id })}
+                        onOpenReview={() => setPage({ page: 'review', id: s.id })} />
+                )}
+                {page.page === 'ledger' && <BondLedgerPage space={s} onBack={() => toPact('milestone')} />}
+                {page.page === 'achievements' && <BondAchievementsPage space={s} onBack={() => toPact('milestone')} />}
+                {page.page === 'review' && (
+                    <BondReviewPage key={`${s.id}-${version}`} space={s} apiConfig={apiConfig} onBack={() => toPact('milestone')}
+                        onOpenRoute={() => setPage({ page: 'route', id: s.id, from: 'space' })} addToast={addToast} />
                 )}
                 {page.page === 'wish' && (
                     <BondWishPage key={page.entryId} space={s} characters={chars} apiConfig={apiConfig} entryId={page.entryId} onBack={() => toPact('wish')}
@@ -413,6 +426,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onOpenDays={() => setPage({ page: 'days', id: s.id })}
                         onEditMine={() => setPage({ page: 'mine', id: s.id })}
                         onAddAnniversary={() => { appReturn.set(AppID.Calendar, () => openApp(AppID.Bond)); bondLaunch.request({ bondId: s.id }); openApp(AppID.Calendar); }}
+                        onOpenPact={s.kind === 'persona' ? to => (to.promiseId ? setPage({ page: 'promise', id: s.id, entryId: to.promiseId }) : toPact(to.tab)) : undefined}
                         addToast={addToast} />
                 )}
                 {page.page === 'route' && <BondRoutePage key={`${s.id}-${version}`} space={s} onBack={page.from === 'space' ? toSpace : () => setPage({ page: 'space', id: s.id })} addToast={addToast} />}

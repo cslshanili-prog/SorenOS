@@ -5,9 +5,12 @@
  *   現有提示詞一字不差（測試鎖著）。
  * - 友情、親情的鎖定除了在段落裡，系統提示詞最後還要再出現一次（bondFinalLock），預設改不掉。
  */
-import type { BondEntry, BondRecord, BondRoute, DiaryEntry } from '../../types';
+import type { BondEntry, BondLedgerRow, BondRecord, BondRoute, DiaryEntry } from '../../types';
 import { knownDiaries, knownHabits, knownMilestones, knownPromises, knownQuestions, knownSlips, knownWishes } from './visibility';
 import { milestoneLabel, repeatLabel } from './pact';
+import { donePeriod, ledgerKeyOf, promiseStartDay, streakOf, totalPoints } from './ledger';
+import { periodKeyOf, periodWord } from './period';
+import { levelInfo } from './level';
 import { lastTurn } from './model';
 import { eventSortKey, promptEventDate } from './eventDate';
 import { CUSTOM_STAGE, isDefaultBondState, routeLabel, stageLabel } from './routes';
@@ -37,6 +40,10 @@ export interface BondPromptInput {
      * 問答、紙條從 entries 裡挑（揭曉的、投遞的；自己封存的只有自己知道）。只有身份卡 × 角色有。
      */
     diaries?: DiaryEntry[];
+    /** 完成紀錄（plans/bond-batch4.md 第 3 節）：等級、這期做了沒、連續幾天。沒有或都沒分數時不出那幾句 */
+    ledger?: BondLedgerRow[];
+    /** 你裝置的今天（'YYYY-MM-DD'），判「這期做了沒」用；沒給就不寫這期的狀態 */
+    today?: string;
 }
 
 export const PROMPT_DIARY_CHARS = 200;
@@ -148,6 +155,19 @@ function heartLines(input: BondPromptInput): string[] {
 export const PROMPT_PACT_CHARS = 80;
 const WISH_STATE_TEXT = { want: '想做', agreed: '已經約好要一起做', done: '完成了', shelved: '暫時擱著' } as const;
 
+/** 約定後面那段括號：這期做了沒、連續幾期（沒給今天、一次性的約定不寫） */
+function promiseStatus(e: BondEntry, ledger: BondLedgerRow[], today: string | undefined): string {
+    const pr = e.promise;
+    if (!pr || !today || pr.repeat.kind === 'once') return '';
+    const start = promiseStartDay(e) || undefined;
+    const key = ledgerKeyOf(e);
+    const done = !!donePeriod(ledger, key, periodKeyOf(pr.repeat, today, start));
+    const streak = streakOf(ledger, key, pr.repeat, today, start).current;
+    const word = periodWord(pr.repeat);
+    const unit = pr.repeat.kind === 'daily' ? '天' : pr.repeat.kind === 'weekly' ? '週' : pr.repeat.kind === 'monthly' ? '個月' : pr.repeat.kind === 'yearly' ? '年' : '輪';
+    return `（${word}${done ? '已經做到了' : '還沒'}${streak >= 2 ? `；已經連續 ${streak} ${unit}` : ''}）`;
+}
+
 /**
  * 約定四段（plans/bond-batch4.md 第 3 節）：願望、共同約定、默契、里程碑。沒有內容就一行都不出。
  * 願望只是想法，有人支持也不等於答應；約定要雙方都說好才算數，還在商量的寫明等誰。
@@ -155,8 +175,11 @@ const WISH_STATE_TEXT = { want: '想做', agreed: '已經約好要一起做', do
 function pactLines(input: BondPromptInput): string[] {
     const { otherName } = input;
     const entries = input.entries || [];
-    if (!entries.some(e => e.kind === 'wish' || e.kind === 'promise' || e.kind === 'habit' || e.kind === 'milestone')) return [];
+    const ledger = input.ledger || [];
+    const points = totalPoints(ledger);
+    if (!points && !entries.some(e => e.kind === 'wish' || e.kind === 'promise' || e.kind === 'habit' || e.kind === 'milestone')) return [];
     const lines: string[] = [];
+    if (points) lines.push(`你們的羈絆等級是 Lv.${levelInfo(points).level}（一起經歷過的事累積起來的，不代表關係身份，也不會因此改變你們是什麼關係）。`);
     const wishes = knownWishes(entries);
     if (wishes.length) {
         lines.push('你們的願望（只是想做的事，有人支持也不代表答應了要一起做）：');
@@ -169,7 +192,7 @@ function pactLines(input: BondPromptInput): string[] {
     const promises = knownPromises(entries);
     if (promises.active.length || promises.proposed.length) {
         lines.push('你們的約定（雙方都說好了才算數）：');
-        for (const p of promises.active) lines.push(`  - ${repeatLabel(p.repeat)}：${clip(oneLine(p.text), PROMPT_PACT_CHARS)}`);
+        for (const p of promises.active) lines.push(`  - ${repeatLabel(p.repeat)}：${clip(oneLine(p.text), PROMPT_PACT_CHARS)}${promiseStatus(p.entry, ledger, input.today)}`);
         for (const p of promises.proposed) {
             lines.push(`  - 還在商量：${clip(oneLine(p.text), PROMPT_PACT_CHARS)}（${p.waitingOn === 'char' ? `${otherName}提的，等你說好不好` : `你提的，${otherName}還沒說好`}）`);
         }
