@@ -4725,11 +4725,24 @@ export interface DiaryPage {
     text: string;
     paperStyle: string;
     stickers: StickerData[];
+    /** 寫下（最後一次改）的時間；舊資料沒有（plans/bond-batch3.md 1.1） */
+    writtenAt?: number;
+    /** 發布的時間；沒有＝草稿，只有作者自己知道。舊資料沒有 writtenAt 也沒有這格的，有字就算已發布 */
+    publishedAt?: number;
+    /** 誰產生的：你自己寫、請 TA 寫、TA 主動寫 */
+    createdBy?: 'user' | 'ai' | 'ai_scheduled';
+    /** 你第一次改角色那頁、或請 TA 重寫之前的原文 */
+    originalText?: string;
+    revisedAt?: number;
+    /** 你讀過角色這頁的時間 */
+    seenAt?: number;
 }
 
 export interface DiaryEntry {
     id: string;
     charId: string;
+    /** 掛在哪段關係（羈絆 bondIdForChar）；舊資料沒有＝這個角色主線那張卡的空間（utils/bond/diary.ts） */
+    bondId?: string;
     date: string;
     userPage: DiaryPage;
     charPage?: DiaryPage;
@@ -6296,7 +6309,82 @@ export interface BondRecord {
     memoryMarks?: Record<string, BondMemoryMark>;
     /** 「從最近的聊天挑幾件」上次掃到的那則訊息 id（plans/bond-batch2.md 3.2），之後只挑更新的 */
     lastMomentScanId?: number;
+    /** 主動產出設定（plans/bond-batch3.md 1.4）；沒設的類型照預設（utils/bond/output.ts） */
+    output?: Partial<Record<BondOutputKind, Partial<BondOutputSetting>>>;
+    /** 每一種上一次產出的時間（事件觸發或保底都算，下一輪從這裡起算） */
+    outputLast?: Partial<Record<BondOutputKind, number>>;
+    /** 交給雲端、還沒回來的（plans/bond-batch3.md 1.6 對帳用）：類型 → 交出去的時間 */
+    outputHandedOff?: Partial<Record<BondOutputKind, number>>;
+    /** 有值得留下的事、還沒被寫進任何一份（事件觸發用） */
+    outputEvents?: BondOutputEvent[];
+    /** 自己加的紙條標籤 */
+    noteTags?: string[];
     updatedAt: number;
+}
+
+/** 主動產出的類型（plans/bond-batch3.md 1.4） */
+export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay';
+
+export interface BondOutputSetting {
+    enabled: boolean;
+    /** 每隔幾天一次（區間；在區間裡挑一天，不固定週期） */
+    everyDays: [number, number];
+    /** 篇幅 */
+    length: 'short' | 'medium' | 'long';
+    /** 文風（日記用；空＝照角色個性） */
+    style?: string;
+    /** 投遞時段（你的裝置時間 'HH:MM'）；沒設＝全天 */
+    window?: { from: string; to: string };
+    /** 同步進私聊（另外傳一則訊息；不影響知不知道） */
+    syncToChat: boolean;
+    /** 暫停到這個時間（epoch 毫秒），到期自己恢復 */
+    pausedUntil?: number;
+}
+
+export interface BondOutputEvent {
+    kind: 'daily_summary' | 'date_end' | 'moment' | 'note_received' | 'question_received';
+    at: number;
+    ref?: string;
+}
+
+/** 拾光問答（plans/bond-batch3.md 1.2）：一張卡一題，一輪一輪的回答 */
+export interface BondQuestion {
+    prompt: string;
+    origin: 'ai_suggest' | 'user' | 'char';
+    topic?: BondQuestionTopic;
+    rounds: BondQuestionRound[];
+}
+
+export type BondQuestionTopic = 'habit' | 'memory' | 'choice' | 'relationship' | 'daily' | 'custom';
+
+export interface BondQuestionRound {
+    startedAt: number;
+    /** 這一輪誰先答（發起的人）：'user' 或角色 id */
+    openedBy: string;
+    user?: BondAnswer;
+    char?: BondAnswer;
+    /** 雙方都交出（封存或跳過）那刻 */
+    revealedAt?: number;
+}
+
+export interface BondAnswer {
+    text: string;
+    /** draft：暫存（只有自己知道）；sealed：封存等對方；skipped：跳過 */
+    state: 'draft' | 'sealed' | 'skipped';
+    at: number;
+}
+
+/** 心靈角落的紙條（plans/bond-batch3.md 1.3） */
+export interface BondSlip {
+    tags: string[];
+    /** 在回哪張紙條 */
+    replyTo?: string;
+    /** 收到的那方標的狀態；有回應不等於說開 */
+    state?: 'want_to_talk' | 'responded' | 'resolved';
+    /** 收到的那方讀過的時間 */
+    seenAt?: number;
+    /** 投遞的時間（status 變 published 那刻） */
+    deliveredAt?: number;
 }
 
 export interface BondMemoryMark {
@@ -6325,11 +6413,11 @@ export type BondLink =
     | { type: 'entry'; id: string }
     | { type: 'memory'; charId: string; memoryId: string };
 
-/** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；之後各批加 kind */
+/** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay';
+    kind: 'moment' | 'essay' | 'question' | 'note';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6353,5 +6441,11 @@ export interface BondEntry {
     revisedAt?: number;
     /** 依賴的那件事被刪掉、你選了「留著」時標的（卡片上顯示「原本關聯的那件事已刪除」） */
     orphanedLinks?: BondLink[];
+    /** 問答：題目和每一輪的回答（text 放題目的副本，方便列表與搜尋） */
+    question?: BondQuestion;
+    /** 紙條：標籤、回應、狀態（text 是紙條內容） */
+    slip?: BondSlip;
+    /** 你讀過的時間（角色寫的隨筆、出的題用；紙條看 slip.seenAt） */
+    seenAt?: number;
     updatedAt: number;
 }

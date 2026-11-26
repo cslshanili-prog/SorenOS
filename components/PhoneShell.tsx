@@ -89,7 +89,7 @@ const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
   [AppID.Settings]: Settings, [AppID.Character]: Character, [AppID.Chat]: Chat, [AppID.ChatHub]: ChatHub,
   [AppID.GroupChat]: GroupChat, [AppID.ThemeMaker]: ThemeMaker, [AppID.Appearance]: Appearance,
   [AppID.Gallery]: Gallery, [AppID.Date]: DateApp, [AppID.User]: UserApp,
-  [AppID.Journal]: JournalApp, [AppID.Schedule]: CalendarApp, [AppID.Calendar]: CalendarApp, [AppID.Bond]: BondApp, [AppID.Room]: RoomApp,
+  [AppID.Journal]: BondApp, [AppID.Schedule]: CalendarApp, [AppID.Calendar]: CalendarApp, [AppID.Bond]: BondApp, [AppID.Room]: RoomApp,
   [AppID.CheckPhone]: CheckPhone, [AppID.Moments]: MomentsApp, [AppID.Study]: StudyApp,
   [AppID.FAQ]: FAQApp, [AppID.Game]: GameApp, [AppID.Worldbook]: WorldbookApp, [AppID.Presets]: PresetApp, [AppID.Assistant]: AssistantApp,
   [AppID.Novel]: NovelApp, [AppID.Bank]: BankApp, [AppID.Mall]: MallApp, [AppID.XhsStock]: XhsStockApp,
@@ -944,7 +944,8 @@ const PhoneShell: React.FC = () => {
       case AppID.Gallery: return <Gallery />;
       case AppID.Date: return <DateApp />; 
       case AppID.User: return <UserApp />;
-      case AppID.Journal: return <JournalApp />; 
+      // 交換日記搬進羈絆（plans/bond-batch3.md 第 4 節）：舊圖示開羈絆「心意」的日記
+      case AppID.Journal: return <BondApp entry="journal" />;
       // 時光契約退役（plans/calendar.md）：舊入口一律開行事曆
       case AppID.Schedule:
       case AppID.Calendar: return <CalendarApp />;
