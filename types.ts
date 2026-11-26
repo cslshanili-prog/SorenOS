@@ -321,7 +321,7 @@ export interface TranslationApiConfig {
   azureRegion?: string;
 }
 
-/** 全局生圖 API（系統設置 → 生圖API）；OpenAI 兼容的 /images/generations 接口。 */
+/** 全局生圖 API（系統設置 → API 配置 → 生圖）；OpenAI 兼容的 /images/generations 接口。 */
 export interface ImageGenApiConfig {
   /** 總開關：允許調用生圖 API（角色/用戶手動生圖都受它管）。 */
   charImageGenEnabled?: boolean;
@@ -469,7 +469,7 @@ export interface APIConfig {
   //   留空 → 用內置默認（minimaxTts.VOICE_ACTING_GUIDE / fishAudioTts.FISH_VOICE_ACTING_GUIDE）。
   // dateVoice：見面（DateApp）專用的 [v:xxx] 語音情緒規則，與服務商無關、單獨一份；
   //   留空 → 用內置默認（datePrompts.DATE_VOICE_GUIDE）。
-  // 在「設置 → 其他 API → 語音提示詞」裡二次編輯，存 localStorage（隨 apiConfig）。
+  // 在「設置 → 語音與寫歌 → 語音提示詞」裡二次編輯，存 localStorage（隨 apiConfig）。
   voicePrompts?: {
     minimax?: string;
     fishaudio?: string;

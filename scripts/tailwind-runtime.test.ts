@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+// @ts-expect-error jsdom 沒裝型別檔；這裡只用到 JSDOM 建構子和 window
 import { JSDOM } from 'jsdom';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -23,7 +24,7 @@ async function loadRuntime() {
     window.eval(runtime);
     const notify = () => observers[0]([]);
     await notify();
-    const rule = (selector: string) => Array.from(window.document.styleSheets)
+    const rule = (selector: string) => Array.from(window.document.styleSheets as ArrayLike<CSSStyleSheet>)
         .flatMap(sheet => Array.from(sheet.cssRules))
         .find((entry: any) => entry.selectorText === selector) as CSSStyleRule | undefined;
     return { window, notify, rule, stylesChanged: () => observers[1]([]) };

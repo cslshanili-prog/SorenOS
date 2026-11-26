@@ -309,7 +309,7 @@ const AssistantApp: React.FC = () => {
             if (!controller.signal.aborted) {
                 // 直接送圖就失敗，多半是這組模型不收圖（過了識圖的不算，那是純文字）
                 const sentImages = session.messages.some(m => m.role === 'user' && m.images?.length && !imagesHandled(m));
-                setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖。點右上角齒輪換一組能看圖的，或到「設置 → API 設定 → 識圖 API」接一組識圖模型，圖會先轉成文字給 Sore。' : ''}`);
+                setError(`${err?.message || String(err)}${sentImages ? '\n\n有附圖的話：可能是這組模型看不了圖。點右上角齒輪換一組能看圖的，或到「設置 → API 配置 → 識圖」接一組識圖模型，圖會先轉成文字給 Sore。' : ''}`);
             }
         } finally {
             if (abortRef.current === controller) abortRef.current = null;
@@ -767,7 +767,7 @@ const AssistantApp: React.FC = () => {
                                 <p className="text-[11px] leading-relaxed text-slate-400" data-sore-vision-note>
                                     {apiConfig.visionApi?.enabled
                                         ? `看圖：識圖 API 開著（${apiConfig.visionApi.model || '模型沒填'}），你傳的圖會先轉成文字再給 Sore，所以上面這組不用能看圖。`
-                                        : '看圖：圖會直接交給上面這組模型，它要能看圖才行。看不了的話換一組，或到「設置 → API 設定 → 識圖 API」接一組識圖模型。'}
+                                        : '看圖：圖會直接交給上面這組模型，它要能看圖才行。看不了的話換一組，或到「設置 → API 配置 → 識圖」接一組識圖模型。'}
                                 </p>
                                 <p className="text-[11px] leading-relaxed text-slate-400">Sore 看得到設定有沒有填、模型名，看不到 API Key；會改你東西的功能都要你按「套用」才會寫進去。</p>
                             </div>

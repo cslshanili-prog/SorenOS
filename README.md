@@ -94,7 +94,7 @@ npm run dev
 | **API Key** | 你的密鑰，別告訴別人 |
 | **Model** | 模型名，如 `gpt-4o-mini`、`claude-3-sonnet`、`deepseek-chat` |
 
-**TTS（可選）**：語音支持 MiniMax、Fish Audio、ElevenLabs 三選一。在「設置 → 其他 API」填寫所選服務的 Key 和模型，再到角色的語音設置填寫對應音色 ID；未配置時仍可正常使用文字聊天。
+**TTS（可選）**：語音支持 MiniMax、Fish Audio、ElevenLabs 三選一。在「設置 → 語音與寫歌」填寫所選服務的 Key 和模型，再到角色的語音設置填寫對應音色 ID；未配置時仍可正常使用文字聊天。
 
 > 也可以建 `.env.local` 文件預填默認值，但設置裡的優先級更高。
 

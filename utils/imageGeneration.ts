@@ -1,6 +1,6 @@
 /**
  * 生圖：調用 OpenAI 兼容的 /images/generations（純文字）或 /images/edits（帶參考圖）接口，
- * 產出一張圖的 data URL。用於「系統設置 → 生圖API」的測試生圖，以及角色/用戶手動觸發的生圖。
+ * 產出一張圖的 data URL。用於「系統設置 → API 配置 → 生圖」的測試生圖，以及角色/用戶手動觸發的生圖。
  */
 import { CharacterProfile, ImageApiPreset, ImageFeature, ImageGenApiConfig, ImageStylePreset } from '../types';
 import { apiForStyle, applyStyleToPrompt, pickStyle, resolveImageStyle } from './imageStyle';
@@ -277,7 +277,7 @@ export async function generateImage(
     override: options?.styleId,
     worldStyleOf: getWorldStyleId,
   });
-  if (resolved.off) throw new Error('這裡的生圖在「設置 → 生圖API → 各處畫風」關掉了');
+  if (resolved.off) throw new Error('這裡的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了');
   const style = options?.styleOverride !== undefined ? (options.styleOverride || undefined) : pickStyle(config, resolved.styleId);
   const picked = apiForStyle(config, style);
   const global = picked.global;

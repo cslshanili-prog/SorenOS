@@ -873,7 +873,7 @@ const GroupChat: React.FC = () => {
         const lang = resolveChatLanguage(characters.find(c => c.id === msg.charId)?.chatLanguage);
         if (!lang.translateTo || !msg.groupId) return;
         const done = await translateMessagesInPlace([msg], lang.translateTo, apiConfig);
-        if (!done) addToast('還是沒翻成，看看系統設置的「翻譯 API」', 'error');
+        if (!done) addToast('還是沒翻成，看看系統設置「API 配置」的「翻譯」', 'error');
         await refreshMessagesRef.current(msg.groupId);
     }, [characters, apiConfig, addToast]);
 

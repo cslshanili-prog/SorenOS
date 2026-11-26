@@ -1201,7 +1201,7 @@ const DateApp: React.FC = () => {
     const handleCaptureMoment = async () => {
         if (!char || capturingMoment) return;
         const imageConfig = apiConfig.imageGenConfig;
-        if (!canCaptureDateMoment(imageConfig)) { addToast('先到「系統設置 → 生圖 API」填好，並打開「開啟角色生圖」', 'info'); return; }
+        if (!canCaptureDateMoment(imageConfig)) { addToast('先到「系統設置 → API 配置 → 生圖」填好，並打開「開啟角色生圖」', 'info'); return; }
         setCapturingMoment(true);
         addToast('喀嚓——照片洗出來要一點時間', 'info');
         try {

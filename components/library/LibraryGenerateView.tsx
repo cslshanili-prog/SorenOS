@@ -304,10 +304,10 @@ const LibraryGenerateView: React.FC<{ onSaved: (image: GalleryImage) => void; on
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 px-8 text-center">
                     {isImageFeatureOff(imageConfig, 'library') ? (<>
                         <p className="text-sm font-bold text-white/70">資料庫的生圖關掉了</p>
-                        <p className="text-[12px] leading-relaxed text-white/40">到「設置 → 生圖API → 各處畫風」把「資料庫生圖」改回來，就能在這裡生成照片。</p>
+                        <p className="text-[12px] leading-relaxed text-white/40">到「設置 → API 配置 → 生圖 → 各處畫風」把「資料庫生圖」改回來，就能在這裡生成照片。</p>
                     </>) : (<>
                         <p className="text-sm font-bold text-white/70">還沒設生圖 API</p>
-                        <p className="text-[12px] leading-relaxed text-white/40">到「設置 → 生圖 API」填好網址和模型，就能在這裡生成照片。</p>
+                        <p className="text-[12px] leading-relaxed text-white/40">到「設置 → API 配置 → 生圖」填好網址和模型，就能在這裡生成照片。</p>
                     </>)}
                 </div>
             </div>

@@ -36,11 +36,11 @@ export const assertTtsLanguageSupported = (
   if ((languageBoost || '').trim().toLowerCase() !== 'yue') return;
   const provider = resolveTtsProvider(apiConfig);
   if (provider === 'elevenlabs' && resolveElevenLabsModel(apiConfig) !== 'eleven_v3') {
-    throw new Error('ElevenLabs 粵語需要 Eleven v3，請先在「設置 → 其他 API」切換模型');
+    throw new Error('ElevenLabs 粵語需要 Eleven v3，請先在「設置 → 語音與寫歌」切換模型');
   }
   const fishModel = (char.voiceProfile?.fishModel || apiConfig.fishAudioModel || 's2.1-pro').trim().toLowerCase();
   if (provider === 'fishaudio' && fishModel === 's1') {
-    throw new Error('魚聲粵語需要 S2 系列，請先在「設置 → 其他 API」切換到 S2.1 Pro 或 S2 Pro');
+    throw new Error('魚聲粵語需要 S2 系列，請先在「設置 → 語音與寫歌」切換到 S2.1 Pro 或 S2 Pro');
   }
 };
 

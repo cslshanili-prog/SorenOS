@@ -997,7 +997,7 @@ const Chat: React.FC = () => {
         const target = (await DB.getRecentMessagesByCharId(chatLineArg, 200)).find(x => x.id === msgId);
         if (!target || !chatLanguage.translateTo) return;
         const done = await translateMessagesInPlace([target], chatLanguage.translateTo, apiConfig);
-        if (!done) addToast('還是沒翻成，看看系統設置的「翻譯 API」', 'error');
+        if (!done) addToast('還是沒翻成，看看系統設置「API 配置」的「翻譯」', 'error');
         await reloadMessages(visibleCountRef.current);
     }, [chatLineArg, chatLanguage.translateTo, apiConfig, addToast]);
 
@@ -3156,7 +3156,7 @@ const Chat: React.FC = () => {
         if (!description) { addToast('這張圖片沒有可重新生成的描述', 'error'); return; }
         const imageGenConfig = apiConfig.imageGenConfig;
         if (!canGenerateFor(imageGenConfig, 'chatPhoto')) {
-            addToast(isImageFeatureOff(imageGenConfig, 'chatPhoto') ? '聊天照片的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
+            addToast(isImageFeatureOff(imageGenConfig, 'chatPhoto') ? '聊天照片的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingImageId(msg.id);

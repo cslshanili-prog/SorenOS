@@ -125,7 +125,7 @@ const ChatLanguageSettings: React.FC<{ value: ChatLanguageConfig; onChange: (nex
                         <div className="mt-2.5 grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="誰來翻">
                             {([
                                 { value: 'chat', label: '聊天模型順便翻', hint: '不用另外設，但回覆變兩倍長' },
-                                { value: 'api', label: '先寫再翻', hint: '寫完交給系統設置的「翻譯 API」' },
+                                { value: 'api', label: '先寫再翻', hint: '寫完交給系統設置「API 配置」的「翻譯」' },
                             ] as const).map(o => (
                                 <button key={o.value} type="button" role="radio" aria-checked={r.translator === o.value} onClick={() => set({ translator: o.value })}
                                     className={`rounded-2xl px-2 py-2 text-center transition-colors ${r.translator === o.value ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'}`}>
@@ -137,7 +137,7 @@ const ChatLanguageSettings: React.FC<{ value: ChatLanguageConfig; onChange: (nex
                     </div>
                 )}
                 {r.speak && (
-                    <Row label="我的訊息自動譯出" hint={`你照平常打字，送出時翻成${languageLabel(r.speak)}再傳給 TA；氣泡上點一下看你打的原句。用系統設置的「翻譯 API」翻。`}>
+                    <Row label="我的訊息自動譯出" hint={`你照平常打字，送出時翻成${languageLabel(r.speak)}再傳給 TA；氣泡上點一下看你打的原句。用系統設置「API 配置」的「翻譯」翻。`}>
                         <Toggle on={r.translateMine} onToggle={() => set({ translateMine: !r.translateMine })} label="我的訊息自動譯出" />
                     </Row>
                 )}

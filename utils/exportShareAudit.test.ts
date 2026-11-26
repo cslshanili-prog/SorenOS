@@ -26,7 +26,7 @@ describe('文件導出統一分享適配', () => {
 
     it('大體積系統備份也複用統一分享，並開啟原生分片寫盤', () => {
         const settings = readFileSync(`${projectRoot}/apps/Settings.tsx`, 'utf8');
-        expect(settings).toContain("import { shareOrDownloadBlob } from '../utils/shareExport'");
+        expect(settings).toMatch(/import \{[^}]*\bshareOrDownloadBlob\b[^}]*\} from '\.\.\/utils\/shareExport'/);
         expect(settings).toContain('nativeChunked: true');
         expect(settings).not.toContain('Filesystem.appendFile');
     });
