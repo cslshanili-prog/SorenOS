@@ -34,7 +34,7 @@ import {
   Newspaper,
   Planet,
   Wrench,
-  HouseLine, SlidersHorizontal, SmileyWink, CalendarDots } from '@phosphor-icons/react';
+  HouseLine, SlidersHorizontal, SmileyWink, CalendarDots, Infinity as InfinityIcon } from '@phosphor-icons/react';
 
 // SVG 圖標庫 - Phosphor Icons
 export const Icons: Record<string, React.FC<{ className?: string }>> = {
@@ -58,6 +58,7 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   Worldbook: ({ className }) => <Globe className={className} weight="regular" />,
   Presets: ({ className }) => <SlidersHorizontal className={className} weight="regular" />,
   Assistant: ({ className }) => <SmileyWink className={className} weight="regular" />,
+  Bond: ({ className }) => <InfinityIcon className={className} weight="regular" />,
   Novel: ({ className }) => <PenNib className={className} weight="regular" />,
   Bank: ({ className }) => <PiggyBank className={className} weight="regular" />,
   Mall: ({ className }) => <ShoppingBag className={className} weight="regular" />,
@@ -101,6 +102,7 @@ export const INSTALLED_APPS: AppConfig[] = [
   { id: AppID.Songwriting, name: '寫歌', icon: 'Songwriting', color: 'fuchsia' },
   { id: AppID.VRWorld, name: '彼方', icon: 'VRWorld', color: 'indigo' },
   // 時光契約（AppID.Schedule）2026-11 退役：桌面不再列，舊入口（小小窩等）打開的是行事曆
+  { id: AppID.Bond, name: '羈絆', icon: 'Bond', color: 'rose' }, // 一段關係的專屬空間（plans/bond.md）
   { id: AppID.Calendar, name: '行事曆', icon: 'Calendar', color: 'pink' }, // 身份卡和角色的日程、待辦、旅行（plans/calendar.md）
   { id: AppID.Worldbook, name: '世界書', icon: 'Worldbook', color: 'indigo' },
   { id: AppID.Presets, name: '預設', icon: 'Presets', color: 'violet' },

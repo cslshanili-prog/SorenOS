@@ -6240,6 +6240,8 @@ export interface BondDays {
     /** 首頁主要顯示哪個：'met'（相識）或某個起點 id */
     primary: string;
     extra: BondDayStart[];
+    /** 角色 × 角色的相識日（身份卡 × 角色讀聊天設定的 acquaintanceStartDate，不存這裡） */
+    metDate?: string;
 }
 
 /** 此刻的我們（角色寫）／我眼中的我們（你寫）；角色 × 角色是雙方各一段 */

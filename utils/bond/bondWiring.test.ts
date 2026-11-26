@@ -44,7 +44,7 @@ describe('核心上下文的羈絆段', () => {
 
 describe('你身邊的人：角色之間的路線', () => {
     it('友情、親情線在那一行後面補一句；沒設就跟以前一樣', () => {
-        const base = { char: { id: 'a', relationships: [{ targetId: 'b', description: '同事' }] }, others: [], nameOf: (id: string) => (id === 'b' ? 'B' : null), userName: '你' };
+        const base = { char: { id: 'a', relationships: [{ id: 'r1', targetId: 'b', description: '同事' }] } as Pick<CharacterProfile, 'id' | 'relationships'>, others: [], nameOf: (id: string): string | null => (id === 'b' ? 'B' : null), userName: '你' };
         expect(castRelationLines(base)).toEqual(['跟「B」：同事']);
         expect(castRelationLines({ ...base, routeNoteOf: () => '你們是友情，不會變成戀愛' })).toEqual(['跟「B」：同事（你們是友情，不會變成戀愛）']);
     });

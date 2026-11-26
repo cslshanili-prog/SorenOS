@@ -23,6 +23,9 @@ import type { MeetingPresetRecord } from '../../utils/meetingPreset/types';
 import { BUILTIN_PRESET, scenesOfPreset } from '../../utils/presetBinding';
 import { useOS } from '../../context/OSContext';
 
+import { appReturn, bondLaunch } from '../../utils/appLaunch';
+import { bondIdForChar } from '../../utils/bond/model';
+import { AppID } from '../../types';
 /** 「完成」時一起存的欄位：Relationship 一排與 Scenario。 */
 export type ChatSettingsPatch = Pick<CharacterProfile,
     'chatNickname' | 'userNickname' | 'userViewRelationship' | 'charViewRelationship'
@@ -107,7 +110,7 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
     const [replyDrafts, setReplyDrafts] = useState(false);
     const [draftActions, setDraftActions] = useState(false);
     // 私聊用哪份預設（plans/preset-library.md 第 2 批）：'' 跟著預設 App、'builtin' 內建、其它是 id
-    const { userProfileBase } = useOS();
+    const { userProfileBase, openApp } = useOS();
     const [presetChoice, setPresetChoice] = useState('');
     const [callPresetChoice, setCallPresetChoice] = useState('');
     // 這條線的時鐘（plans/time-system.md 第 2b 節）：草稿，按「完成」才存
@@ -234,6 +237,20 @@ const ChatSettingsPage: React.FC<Props> = ({ isOpen, char, chatUser, onClose, on
                         <CalendarBlank size={14} />
                         {days !== null ? `我們已相識 ${days} 天` : '設定你們認識的那一天'}
                     </button>
+                    {!char.altOf && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                // 羈絆空間（plans/bond-batch1.md 3.1）：這條線的那段，關掉回聊天
+                                bondLaunch.request({ bondId: bondIdForChar(char) });
+                                appReturn.set(AppID.Bond, () => openApp(AppID.Chat));
+                                openApp(AppID.Bond);
+                            }}
+                            className="mt-2 text-[11px] font-bold text-rose-400 active:opacity-70"
+                        >
+                            羈絆空間 ›
+                        </button>
+                    )}
                     {editingDate && (
                         <div className="mt-3 w-72 rounded-2xl bg-white border border-slate-100 p-3 shadow-sm space-y-2">
                             <label className="block text-[11px] font-bold text-slate-400">自定義起始日期</label>

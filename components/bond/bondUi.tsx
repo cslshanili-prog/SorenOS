@@ -1,0 +1,87 @@
+/**
+ * 羈絆 App 的共用外觀（plans/bond-batch1.md 3.6）：米白紙色、暖灰字、細線、扁平色塊、襯線字，
+ * 灰粉／低彩度酒紅少量點綴。只套在 .bond-root 底下。
+ */
+import React from 'react';
+import { CaretLeft } from '@phosphor-icons/react';
+import TokenImg from '../os/TokenImg';
+
+export const BOND_CSS = `
+.bond-root {
+  --bond-paper: #f6f1e9;
+  --bond-paper-2: #efe7dc;
+  --bond-card: #fbf8f3;
+  --bond-ink: #463f3a;
+  --bond-ink-2: #6b5f57;
+  --bond-muted: #a1958c;
+  --bond-line: #e3d9cc;
+  --bond-accent: #8c4a52;
+  --bond-accent-soft: #ecdcd8;
+  --bond-rose: #c9a5a2;
+  background: var(--bond-paper);
+  color: var(--bond-ink);
+}
+.bond-serif { font-family: 'Noto Serif TC', 'Songti TC', 'Shippori Mincho', 'PMingLiU', serif; }
+.bond-hair { border-color: var(--bond-line); }
+.bond-note { font-size: 10.5px; letter-spacing: 0.18em; color: var(--bond-muted); }
+.bond-input {
+  width: 100%; background: var(--bond-card); border: 1px solid var(--bond-line); border-radius: 10px;
+  padding: 9px 12px; font-size: 14px; color: var(--bond-ink); outline: none;
+}
+.bond-input:focus { border-color: var(--bond-rose); }
+.bond-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--bond-line); background: var(--bond-card); color: var(--bond-ink-2);
+}
+.bond-btn:active { transform: scale(0.97); }
+.bond-btn[disabled] { opacity: 0.45; }
+.bond-btn-primary { background: var(--bond-accent); border-color: var(--bond-accent); color: #fbf7f0; }
+.bond-chip {
+  display: inline-flex; align-items: center; border: 1px solid var(--bond-line); border-radius: 999px;
+  padding: 3px 11px; font-size: 12px; color: var(--bond-ink-2); background: var(--bond-card);
+}
+.bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
+`;
+
+export const BondStyle: React.FC = () => <style>{BOND_CSS}</style>;
+
+/** 全螢幕頁的頂欄：返回、標題（襯線）、右邊放一顆動作 */
+export const BondHeader: React.FC<{ title: string; onBack: () => void; right?: React.ReactNode; backLabel?: string }> = ({ title, onBack, right, backLabel = '返回' }) => (
+    <div className="shrink-0 flex items-center gap-2 px-3 pb-2 border-b bond-hair" style={{ paddingTop: 'calc(var(--safe-top, 0px) + 8px)' }}>
+        <button type="button" onClick={onBack} aria-label={backLabel} className="h-9 w-9 grid place-items-center rounded-full text-[var(--bond-ink-2)] active:bg-[var(--bond-paper-2)]">
+            <CaretLeft size={18} />
+        </button>
+        <h1 className="bond-serif flex-1 min-w-0 truncate text-[17px] tracking-wide">{title}</h1>
+        {right}
+    </div>
+);
+
+/** 一個頭像；沒設頭像時用名字的第一個字（不顯示破圖） */
+export const BondAvatar: React.FC<{ value?: string; name?: string; size: number; className?: string; style?: React.CSSProperties }> = ({ value, name, size, className = '', style }) => {
+    const base = `rounded-full bg-[var(--bond-paper-2)] ${className}`;
+    if (!value) {
+        return (
+            <div className={`${base} grid place-items-center bond-serif text-[var(--bond-ink-2)]`} style={{ width: size, height: size, fontSize: Math.round(size * 0.4), ...style }} aria-hidden>
+                {(name || '').trim().slice(0, 1)}
+            </div>
+        );
+    }
+    return <TokenImg value={value} alt="" className={`${base} object-cover`} style={{ width: size, height: size, ...style }} />;
+};
+
+/** 兩個頭像疊在一起（我們） */
+export const AvatarPair: React.FC<{ a?: string; b?: string; aName?: string; bName?: string; size?: number }> = ({ a, b, aName, bName, size = 40 }) => (
+    <div className="relative shrink-0" style={{ width: size * 1.6, height: size }}>
+        <BondAvatar value={a} name={aName} size={size} className="absolute left-0 top-0 border-2 border-[var(--bond-paper)]" />
+        <BondAvatar value={b} name={bName} size={size} className="absolute top-0 border-2 border-[var(--bond-paper)]" style={{ left: size * 0.6 }} />
+    </div>
+);
+
+/** 區塊標題：細字、拉開字距，像書頁上的小標 */
+export const SectionLabel: React.FC<{ children: React.ReactNode; right?: React.ReactNode }> = ({ children, right }) => (
+    <div className="flex items-baseline justify-between mb-2">
+        <div className="bond-note">{children}</div>
+        {right}
+    </div>
+);
