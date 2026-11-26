@@ -108,7 +108,16 @@ export interface MomentCandidate {
     text: string;
     /** 對應到哪幾則訊息（給 AI 的編號是 1 起算的序號，這裡已換回訊息 id） */
     messageIds: number[];
+    /** 收成什麼（第 4 批；沒寫就是片刻） */
+    kind?: CollectKind;
+    /** 願望：誰的（說出口的那方） */
+    owner?: 'user' | 'char' | 'both';
+    /** 約定：頻率原文 */
+    freq?: string;
 }
+
+/** 收存頁能收成的四種（第 4 批：願望、約定、默契只在身份卡 × 角色） */
+export type CollectKind = 'moment' | 'wish' | 'promise' | 'habit';
 
 /** 給 AI 看的清單：每則一行「#序號 名字：內容」 */
 export function numberedTranscript(
@@ -123,8 +132,9 @@ export function numberedTranscript(
     }).join('\n');
 }
 
-export function buildMomentPickPrompt(args: { transcript: string; leftName: string; rightName: string; count?: number }): string {
+export function buildMomentPickPrompt(args: { transcript: string; leftName: string; rightName: string; count?: number; withPact?: boolean }): string {
     const n = args.count || 5;
+    if (args.withPact) return buildPickWithPactPrompt({ ...args, count: n });
     return [
         `下面是 ${args.leftName} 和 ${args.rightName} 最近的對話，每則前面有編號。`,
         `從裡面挑出最多 ${n} 件值得留下來的小事——一句好笑的話、一個約定、一次撒嬌或吵架和好、一個第一次……不一定要是大事。`,
@@ -136,6 +146,28 @@ export function buildMomentPickPrompt(args: { transcript: string; leftName: stri
         args.transcript,
     ].join('\n');
 }
+
+/** 身份卡 × 角色：除了片刻，也挑願望、約定、默契（plans/bond-batch4.md 4e）；你勾了才存 */
+function buildPickWithPactPrompt(args: { transcript: string; leftName: string; rightName: string; count: number }): string {
+    const { leftName: L, rightName: R } = args;
+    return [
+        `下面是 ${L} 和 ${R} 最近的對話，每則前面有編號。`,
+        `從裡面挑出最多 ${args.count} 件值得留下來的事，每件標一種：`,
+        `- moment：一件小事——一句好笑的話、一次撒嬌或吵架和好、一個第一次……`,
+        `- wish：有人說出口想做的事、想要的東西（還沒說好一起做）；owner 寫說出口的那方：user＝${L}、char＝${R}、both＝兩人都說想`,
+        `- promise：兩人說好要做的事（一次或固定做的）；freq 寫「一次」「每天」「每週」「每週三」「每月」「每 3 天」「每年」其中一種`,
+        `- habit：兩人之間不用說也會這樣的習慣（例如誰先說晚安），要對話裡真的看得出來`,
+        '每件寫：一個短標題（十個字內）、一兩句內容（片刻寫發生了什麼；願望、約定、默契直接寫那件事本身）、對應的訊息編號。只寫對話裡有的，不補沒發生的事；看不出來的欄位留空。',
+        '沒有值得留的就回空陣列。',
+        '只輸出 JSON 陣列：[{"kind":"moment","title":"…","text":"…","refs":[3,4]},{"kind":"promise","title":"…","text":"…","freq":"每天","refs":[7]}]',
+        '',
+        '【對話】',
+        args.transcript,
+    ].join('\n');
+}
+
+const COLLECT_KINDS: CollectKind[] = ['moment', 'wish', 'promise', 'habit'];
+const asOwner = (v: unknown): MomentCandidate['owner'] => (v === 'user' || v === 'char' || v === 'both' ? v : undefined);
 
 /** 解析挑選結果；編號換回訊息 id，對不上的丟掉 */
 export function parseMomentPick(raw: string, msgs: Array<{ id: number }>): MomentCandidate[] {
@@ -154,7 +186,14 @@ export function parseMomentPick(raw: string, msgs: Array<{ id: number }>): Momen
         if (!text) continue;
         const refs = Array.isArray(o.refs) ? o.refs : [];
         const ids = refs.map(r => Number(r)).filter(n => Number.isInteger(n) && n >= 1 && n <= msgs.length).map(n => msgs[n - 1].id);
-        out.push({ title: String(o.title || '').trim().slice(0, 30), text, messageIds: [...new Set(ids)].sort((a, b) => a - b) });
+        const kind = COLLECT_KINDS.includes(o.kind as CollectKind) ? o.kind as CollectKind : undefined;
+        const cand: MomentCandidate = { title: String(o.title || '').trim().slice(0, 30), text, messageIds: [...new Set(ids)].sort((a, b) => a - b) };
+        if (kind && kind !== 'moment') {
+            cand.kind = kind;
+            if (kind === 'wish') { const owner = asOwner(o.owner); if (owner) cand.owner = owner; }
+            if (kind === 'promise' && typeof o.freq === 'string' && o.freq.trim()) cand.freq = o.freq.trim();
+        }
+        out.push(cand);
     }
     return out;
 }
@@ -163,4 +202,44 @@ export function parseMomentPick(raw: string, msgs: Array<{ id: number }>): Momen
 export function unscannedMessages<T extends { id: number }>(msgs: T[], lastScanId: number | undefined, limit = 120): T[] {
     const fresh = sortById(msgs).filter(m => !lastScanId || m.id > lastScanId);
     return fresh.slice(-limit);
+}
+
+// ── AI：收成願望、約定、默契時幫忙填欄位（plans/bond-batch4.md 4e） ──
+
+export function buildPactFillPrompt(args: { kind: Exclude<CollectKind, 'moment'>; snippet: string; leftName: string; rightName: string }): string {
+    const { leftName: L, rightName: R } = args;
+    const ask = args.kind === 'wish'
+        ? [`這段對話裡有人說出想做的事或想要的東西。寫出那個願望本身（一句，像「想一起去看極光」），再判斷是誰說出口的：user＝${L}、char＝${R}、both＝兩人都說想。`,
+            '只輸出 JSON：{"text":"…","owner":"user"}']
+        : args.kind === 'promise'
+        ? ['這段對話裡兩人說好了一件事。寫出約定的內容（一句，像「每天睡前互道晚安」），再寫頻率：「一次」「每天」「每週」「每週三」「每月」「每 3 天」「每年」其中一種。',
+            '只輸出 JSON：{"text":"…","freq":"每天"}']
+        : ['這段對話裡看得出兩人之間一個不用說也會這樣的習慣。寫出那個默契（一句，像「吵架後總是他先傳貼圖」）。',
+            '只輸出 JSON：{"text":"…"}'];
+    return [
+        `下面是 ${L} 和 ${R} 的一段對話。`,
+        ask[0],
+        '只照這段對話寫，看不出來的欄位留空字串，不要補對話裡沒有的事。',
+        ask[1],
+        '',
+        '【對話】',
+        args.snippet,
+    ].join('\n');
+}
+
+export function parsePactFill(raw: string): { text: string; owner?: 'user' | 'char' | 'both'; freq?: string } | null {
+    const s = String(raw || '');
+    const start = s.indexOf('{');
+    const end = s.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    try {
+        const o = JSON.parse(s.slice(start, end + 1)) as Record<string, unknown>;
+        const text = String(o.text || '').trim().replace(/^["「『]|["」』]$/g, '');
+        const owner = asOwner(o.owner);
+        const freq = typeof o.freq === 'string' && o.freq.trim() ? o.freq.trim() : undefined;
+        if (!text && !owner && !freq) return null;
+        return { text, ...(owner ? { owner } : {}), ...(freq ? { freq } : {}) };
+    } catch {
+        return null;
+    }
 }

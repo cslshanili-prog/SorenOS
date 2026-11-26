@@ -2657,7 +2657,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     const onDone = (e: Event) => {
       const done = (e as CustomEvent<BondOutputDone>).detail;
       if (!done) return;
-      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
+      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）', wish: '寫了一個願望' }[done.kind];
       if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
       if (done.notice) {
         setLastMsgTimestamp(Date.now());

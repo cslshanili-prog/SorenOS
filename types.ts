@@ -6427,7 +6427,8 @@ export interface BondLedgerRow {
 }
 
 /** 主動產出的類型（plans/bond-batch3.md 1.4） */
-export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay';
+/** 主動產出的種類；'wish' 是第 4 批加的（角色寫一個自己的願望） */
+export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay' | 'wish';
 
 export interface BondOutputSetting {
     enabled: boolean;

@@ -15,10 +15,12 @@
  * 往這裡加代碼前先確認：不 import 任何帶瀏覽器依賴的模塊。`pnpm build:workers` 會把這份打進 amsg worker bundle。
  */
 import type { BondOutputKind, BondOutputSetting } from '../../types';
-import { buildDiaryPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, type OutputContext } from './outputPromptCore';
+import { buildDiaryPrompt, parseCharAsk, parseCharWish, parseDiary, parseNotice, parseSlip, type OutputContext } from './outputPromptCore';
 
 export const BOND_OUTPUT_KIND = 'bond-output';
 export const BOND_OUTPUT_RESULT_KIND = 'bond-output';
+/** worker 在 config-check 報這個，才認得「願望」這一種（第 4 批；舊 bundle 只認四種） */
+export const BOND_OUTPUT_WISH_CAPABILITY = 'bond-output:wish';
 
 /** standing job 的 key（一段關係一份，四種共用） */
 export const bondOutputJobKey = (bondId: string): string => `bond-output:${bondId}`;
@@ -26,7 +28,7 @@ export const bondOutputJobKey = (bondId: string): string => `bond-output:${bondI
 export const bondOutputJobId = (bondId: string, kind: BondOutputKind): string => `bond-output|${kind}|${bondId}`;
 export const parseBondOutputJobId = (raw: unknown): { bondId: string; kind: BondOutputKind } | null => {
     if (typeof raw !== 'string') return null;
-    const m = /^bond-output\|(diary|question|note|essay)\|(.+)$/.exec(raw);
+    const m = /^bond-output\|(diary|question|note|essay|wish)\|(.+)$/.exec(raw);
     return m ? { kind: m[1] as BondOutputKind, bondId: m[2] } : null;
 };
 /** 雲端自己記的寫過哪些（全部關係共用一行，跟 job 放同一個命名空間） */
@@ -59,7 +61,7 @@ export interface BondOutputJobKind {
     withNotice: boolean;
     /** 現在認的那條任務（舊的、孤兒任務到點看到對不上就跳過） */
     taskUuid?: string;
-    /** 問答、紙條、隨筆：整段提示詞（本機那條路組的同一份） */
+    /** 問答、紙條、隨筆、願望：整段提示詞（本機那條路組的同一份） */
     prompt?: string;
     diary?: BondOutputJobDiary;
     /** 紙條：回哪一張（沒有＝自己丟一張）；新丟的那張能用哪些標籤 */
@@ -262,6 +264,7 @@ export function bondOutputLooksValid(kind: BondOutputKind, raw: string, tags: st
     if (kind === 'diary') return !!parseDiary(raw);
     if (kind === 'question') return !!parseCharAsk(raw);
     if (kind === 'note') return !!parseSlip(raw, tags);
+    if (kind === 'wish') return !!parseCharWish(raw);
     return /"text"\s*:/.test(raw);
 }
 
@@ -290,7 +293,7 @@ export function buildBondOutputResult(args: Omit<BondOutputResult, 'resultKind' 
     return { resultKind: BOND_OUTPUT_RESULT_KIND, v: 1, ...args };
 }
 
-const KINDS = new Set(['diary', 'question', 'note', 'essay']);
+const KINDS = new Set(['diary', 'question', 'note', 'essay', 'wish']);
 
 export function parseBondOutputResult(raw: unknown): BondOutputResult | null {
     if (!isObj(raw) || raw.resultKind !== BOND_OUTPUT_RESULT_KIND || raw.v !== 1) return null;

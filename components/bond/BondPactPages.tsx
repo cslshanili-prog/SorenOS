@@ -836,8 +836,9 @@ export const BondMilestoneEditPage: React.FC<{
     space: ResolvedSpace;
     entryId?: string;
     onBack: () => void;
+    onBringToChat?: (e: BondEntry) => void;
     addToast: Toast;
-}> = ({ space, entryId, onBack, addToast }) => {
+}> = ({ space, entryId, onBack, onBringToChat, addToast }) => {
     const existing = entryId ? bondEntryById(entryId) : undefined;
     const name = space.rightName;
     const kinds = milestoneKindsFor(space.bond.route);
@@ -908,6 +909,7 @@ export const BondMilestoneEditPage: React.FC<{
                 )}
             </div>
             <Footer>
+                {existing && onBringToChat && <button type="button" className="bond-btn flex-1" onClick={() => onBringToChat(existing)}><ChatCircleText size={14} />帶去聊聊</button>}
                 <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={busy || (what === 'custom' && !title.trim())} onClick={save}><Flag size={14} />{existing ? '存' : '記下來'}</button>
             </Footer>
         </div>

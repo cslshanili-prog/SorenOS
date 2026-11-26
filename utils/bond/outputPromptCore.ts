@@ -106,6 +106,32 @@ ${input.withNotice ? `- ${NOTICE_FIELD_HINT('出了一題問答給對方', input
 只輸出 JSON，不要其他文字：${input.withNotice ? '{"question":"題目","topic":"daily","answer":"你的答案","notice":"私聊那句"}' : '{"question":"題目","topic":"daily","answer":"你的答案"}'}`;
 }
 
+/**
+ * 角色寫一個自己的願望（plans/bond-batch4.md 1.7，主動產出多一種）：照人設、最近的事；
+ * 可以是自己想做的，也可以是想跟對方一起做的。寫了只是讓對方看見，不等於約好。
+ */
+export function buildCharWishPrompt(input: OutputContext & {
+    /** 已經寫過的願望（雙方的；避免重複） */
+    wishesBefore?: string[];
+    relationLine?: string;
+    length?: OutputLength;
+    chars?: [number, number];
+    style?: string;
+    withNotice?: boolean;
+}): string {
+    const before = (input.wishesBefore || []).slice(-15).map(w => `- ${w}`).join('\n');
+    return `你和${input.otherName}有一個放願望的地方：誰想做什麼、想要什麼，都可以寫下來讓對方看見。現在換你寫一個。
+${input.relationLine ? `\n（你們的關係：${input.relationLine}）\n` : ''}
+${recentBlock(input)}
+${before ? `\n【已經寫過的願望（不要重複）】\n${before}\n` : ''}
+請以「${input.selfName}」的身份寫一個你真的想做、想要、想體驗的事，可以從最近的事、你的個性、你平常在意的東西來。
+${GROUND_RULES(input)}
+- 可以是你自己的（owner 寫 self），也可以是想跟${input.otherName}一起做的（owner 寫 both）；照你們的關係，不是戀愛關係就不要寫曖昧的。
+- 寫願望本身就好（篇幅：${lengthText(input)}），像一句寫在便條上的話；不要寫成要求、不要逼對方答應。寫下來不代表你們約好了。
+${styleLine(input)}${input.withNotice ? `- ${NOTICE_FIELD_HINT('寫了一個願望', input.otherName)}\n` : ''}
+只輸出 JSON，不要其他文字：${input.withNotice ? '{"wish":"願望","owner":"self","notice":"私聊那句"}' : '{"wish":"願望","owner":"self"}'}`;
+}
+
 /** AI 推薦題目（給你挑，選中才變成你出的題） */
 export function buildQuestionSuggestPrompt(input: {
     userName: string;
@@ -257,6 +283,13 @@ export function parseSlip(raw: string, allowedTags: string[]): { text: string; t
 }
 
 /** 抓 notice（同步私聊那句）；沒有就空字串 */
+export function parseCharWish(raw: string): { wish: string; together: boolean } | null {
+    const o = parseJsonObject(raw);
+    const wish = str(o?.wish);
+    if (!o || !wish) return null;
+    return { wish: wish.slice(0, 200), together: str(o.owner) === 'both' };
+}
+
 export function parseNotice(raw: string): string {
     const o = parseJsonObject(raw);
     return o ? str(o.notice).slice(0, 200) : '';

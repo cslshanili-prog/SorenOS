@@ -1,5 +1,8 @@
 import { isUserVoiceMessage } from '../../utils/userVoice';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, bondRefOf } from '../../utils/bond/bondRef';
+import { proposalStatus, type BondProposalMeta } from '../../utils/bond/pactTags';
+import { bondEntryById, onBondEntryRegistryChange } from '../../utils/bond/entryRegistry';
+import { repeatLabel } from '../../utils/bond/pact';
 import { effectiveCallStatus } from '../../utils/charCall';
 import { MONEY_SYMBOL } from '../../utils/realBalance';
 import { avatarDecorationImageStyle, isAnniversaryFrame } from '../../utils/anniversaryGifts';
@@ -1023,6 +1026,64 @@ const PersonaSuspectCard: React.FC<{
                         </button>
                     </div>
                 ) : null}
+            </div>
+        </div>
+    );
+};
+
+/** 羈絆 · 角色提議約定／確認默契（utils/bond/pactTags.ts）：按「好／先不要」；狀態照卡片現在的樣子，點「看看」開羈絆那張 */
+const BondProposalCard: React.FC<{
+    m: Message;
+    charName: string;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onResolveBondInvite?: (m: Message, action: 'accepted' | 'declined') => void;
+}> = ({ m, charName, commonLayout, selectionMode, onResolveBondInvite }) => {
+    const meta = m.metadata?.bondProposal as BondProposalMeta;
+    // 卡片在羈絆裡被答應、改過也要跟著變：聽登記表
+    const [, bump] = React.useReducer((x: number) => x + 1, 0);
+    React.useEffect(() => onBondEntryRegistryChange(bump), []);
+    const entry = bondEntryById(meta.entryId);
+    const status = proposalStatus(meta, entry);
+    const canResolve = status === 'pending' && !!onResolveBondInvite && !selectionMode;
+    const habit = meta.kind === 'habit';
+    const text = entry?.text || meta.text;
+    const repeat = entry?.promise ? repeatLabel(entry.promise.repeat) : meta.repeatText;
+    const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!entry || selectionMode) return;
+        window.dispatchEvent(new CustomEvent(BOND_REF_OPEN_EVENT, { detail: { bondId: meta.bondId, kind: meta.kind, pactId: meta.entryId, excerpt: text } }));
+    };
+    return commonLayout(
+        <div className="sully-bond-proposal w-64 rounded-2xl overflow-hidden border border-[#e6dccf] bg-[#fbf7f0] shadow-sm" style={{ fontFamily: "'Noto Serif TC', 'Songti TC', serif" }}>
+            <div className="px-4 pt-3.5 pb-3">
+                <div className="text-[10px] tracking-[0.25em] text-[#a1887f]">{habit ? '默 契' : '約 定'}</div>
+                <div className="mt-1 text-[13px] text-[#4a4340] leading-relaxed">{habit ? `${charName} 覺得這是你們的默契` : `${charName} 想跟你約定`}</div>
+                <button type="button" onClick={open} className="mt-2 w-full text-left border-l-2 border-[#c9a9a6] pl-2.5 text-[12.5px] text-[#4a4340] leading-relaxed">
+                    {text}
+                    {!habit && repeat && <span className="block mt-0.5 text-[10.5px] text-[#a1958c]" style={{ fontFamily: 'var(--app-font)' }}>{repeat}{entry?.promise?.points ? `・${entry.promise.points} 點` : ''}</span>}
+                </button>
+                {status === 'accepted' ? (
+                    <div className="mt-2.5 text-[11px] text-[#8c4a52]">{habit ? '你認了，記進你們的默契' : '你答應了，約定成立'}</div>
+                ) : status === 'declined' ? (
+                    <div className="mt-2.5 text-[11px] text-[#a1958c]">你說先不要</div>
+                ) : canResolve ? (
+                    <div className="mt-3 flex gap-2" style={{ fontFamily: 'var(--app-font)' }}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onResolveBondInvite?.(m, 'accepted'); }}
+                            className="flex-1 py-1.5 rounded-lg bg-[#8c4a52] text-[#fbf7f0] text-[11px] font-bold active:scale-95 transition-transform">
+                            {habit ? '對，是這樣' : '好'}
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onResolveBondInvite?.(m, 'declined'); }}
+                            className="flex-1 py-1.5 rounded-lg border border-[#e6dccf] text-[#6b5e57] text-[11px] font-bold active:scale-95 transition-transform">
+                            先不要
+                        </button>
+                    </div>
+                ) : null}
+                {status === 'pending' && entry && !selectionMode && (
+                    <button type="button" onClick={open} className="mt-2 text-[10.5px] text-[#a1887f] underline underline-offset-2" style={{ fontFamily: 'var(--app-font)' }}>
+                        {habit ? '在羈絆裡看看' : '想改頻率或內容？在羈絆裡看看'}
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -3589,6 +3650,10 @@ const MessageItem = React.memo(({
         return <PersonaSuspectCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolvePersonaReveal={onResolvePersonaReveal} />;
     }
 
+    if (m.type === 'bond_invite' && m.metadata?.bondProposal) {
+        return <BondProposalCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveBondInvite={onResolveBondInvite} />;
+    }
+
     if (m.type === 'bond_invite') {
         return <BondInviteCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveBondInvite={onResolveBondInvite} />;
     }
@@ -4260,6 +4325,9 @@ const MessageItem = React.memo(({
            prev.msg.metadata?.receipt === next.msg.metadata?.receipt &&
            prev.msg.metadata?.dateInvite?.status === next.msg.metadata?.dateInvite?.status &&
            prev.msg.metadata?.charCall?.status === next.msg.metadata?.charCall?.status &&
+           // 羈絆邀請卡、角色提議的約定／默契小卡：按了「好／先不要」只改 metadata
+           prev.msg.metadata?.bondInvite?.status === next.msg.metadata?.bondInvite?.status &&
+           prev.msg.metadata?.bondProposal?.status === next.msg.metadata?.bondProposal?.status &&
            prev.msg.type === next.msg.type &&
            prev.msg.metadata?.pendingPhoto?.attempts === next.msg.metadata?.pendingPhoto?.attempts &&
            prev.msg.metadata?.pendingPhoto?.gaveUp === next.msg.metadata?.pendingPhoto?.gaveUp &&
