@@ -8,7 +8,6 @@ import { ProactiveChat } from './utils/proactiveChat';
 import { VRScheduler } from './utils/vrWorld/scheduler';
 import { installIOSStandaloneWorkaround } from './utils/iosStandalone';
 import { installIOSStatusBarEdge } from './utils/iosStatusBarEdge';
-import { installTailwindRepair } from './utils/tailwindRepair';
 import { installWakeListener } from './utils/proactivePushConfig';
 import { initAnalytics } from './utils/analytics';
 import { Capacitor } from '@capacitor/core';
@@ -35,7 +34,6 @@ KeepAlive.init().then(() => {
 
 const disposeIOSStatusBarEdge = installIOSStatusBarEdge();
 // 第一次開 App、切 App 那幾秒，等畫面安靜下來叫 Tailwind 整份重做一次，補回被舊的重算蓋掉的樣式（plans/todo.md 第 1 項）
-installTailwindRepair();
 installIOSStandaloneWorkaround();
 if (import.meta.hot) import.meta.hot.dispose(disposeIOSStatusBarEdge);
 

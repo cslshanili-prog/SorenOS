@@ -40,3 +40,5 @@
 ## 匯出回來的縮放重設（2026-11-26）
 
 `utils/viewportReset.ts` 在匯出（`utils/shareExport.ts` 的兩個入口）結束和回到前景時，把 viewport 的 `initial-scale` 換個寫法再改回原文，處理 iOS 分享／存檔回來後畫面放大偏移、不能縮小的情況。它只動那一格，下一幀就還原整串原文；如果這中間 viewport 被別人改過（例如這裡的 `viewport-fit=contain`），就不蓋回去。
+
+放大的來源多半是 `<a download>` 跳去的 Safari 檔案預覽頁；iOS 網頁的備份匯出現在不走那條路，分享不成就讓用戶點「分享／存到檔案」（`utils/shareExport.ts` 的 `deferDownloadOnIos`／`shareBlobOnTap`）。

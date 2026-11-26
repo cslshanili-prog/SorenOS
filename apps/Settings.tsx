@@ -8,7 +8,7 @@ import { extractContent, safeResponseJson } from '../utils/safeApi';
 import { extractModelIds, normalizeModelIds } from '../utils/modelList';
 import UserHolidaySettings from '../components/settings/UserHolidaySettings';
 import type { UserHolidayConfig } from '../utils/userHolidays';
-import { shareOrDownloadBlob } from '../utils/shareExport';
+import { lastWebShareFailure, shareBlobOnTap, shareOrDownloadBlob } from '../utils/shareExport';
 import { armViewportReset } from '../utils/viewportReset';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
@@ -923,6 +923,8 @@ const Settings: React.FC = () => {
   // For web download link
   const [downloadUrl, setDownloadUrl] = useState<string>('');
   const [downloadFileName, setDownloadFileName] = useState('Sully_Backup.zip');
+  /** iOS 網頁自動分享沒開成：備份檔留在這，「備份下載」視窗放一顆分享鈕讓你點（有手勢才開得出分享面板） */
+  const [pendingShare, setPendingShare] = useState<{ blob: Blob; fileName: string; title: string; reason: string } | null>(null);
   // 用 ref 跟住當前的 object URL，關彈窗 / 重新導出 / 卸載時都能 revoke 到最新那個，
   // 不受 state 閉包過期影響。
   const downloadUrlRef = useRef<string>('');
@@ -1411,12 +1413,15 @@ const Settings: React.FC = () => {
               setDownloadFileName(fileName);
               setShowExportModal(true);
           }
+          setPendingShare(null);
           const result = await shareOrDownloadBlob({
               blob,
               fileName,
               shareTitle: 'Sully Backup',
               nativeChunked: true,
+              deferDownloadOnIos: true,
           });
+          if (result === 'needs-tap') setPendingShare({ blob, fileName, title: 'Sully Backup', reason: lastWebShareFailure() });
           if (result === 'cancelled') return;
       } catch (e: any) {
           // 只報導出檔位，錯誤文案是動態串不能進屬性
@@ -1460,7 +1465,22 @@ const Settings: React.FC = () => {
           setDownloadFileName(fileName);
           setShowExportModal(true);
       }
-      await shareOrDownloadBlob({ blob, fileName, shareTitle, nativeChunked: true });
+      setPendingShare(null);
+      const result = await shareOrDownloadBlob({ blob, fileName, shareTitle, nativeChunked: true, deferDownloadOnIos: true });
+      if (result === 'needs-tap') setPendingShare({ blob, fileName, title: shareTitle, reason: lastWebShareFailure() });
+  };
+
+  const sharePendingBackup = async () => {
+      if (!pendingShare) return;
+      const { blob, fileName, title } = pendingShare;
+      try {
+          const result = await shareBlobOnTap(blob, fileName, title);
+          if (result === 'shared') { setPendingShare(null); trackEvent('点按分享备份文件', { result: 'shared' }); }
+          else if (result === 'downloaded') { trackEvent('点按分享备份文件', { result: 'downloaded' }); }
+          else setPendingShare(prev => prev && { ...prev, reason: lastWebShareFailure() || prev.reason });
+      } catch (e: any) {
+          addToast(e?.message || '分享失敗', 'error');
+      }
   };
 
   const handleAvatarModelExport = async () => {
@@ -4198,9 +4218,9 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 強制導出 Modal */}
-      <Modal isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setShowExportModal(false); }} footer={
+      <Modal isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} footer={
           <div className="flex gap-2 w-full">
-               <button onClick={() => { revokeDownloadUrl(); setShowExportModal(false); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">關閉</button>
+               <button onClick={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">關閉</button>
           </div>
       }>
           <div className="space-y-4 text-center py-4">
@@ -4208,7 +4228,16 @@ const Settings: React.FC = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
               </div>
               <p className="text-sm font-bold text-slate-700">備份文件已生成！</p>
-              <p className="text-xs text-slate-500">如果瀏覽器沒有自動下載，請點擊下方鏈接。</p>
+              {pendingShare ? (
+                  <>
+                      <p className="text-xs text-slate-500">點下面的按鈕，選「儲存到檔案」或傳到別的地方。</p>
+                      <button onClick={sharePendingBackup} className="w-full py-3 bg-primary text-white font-bold rounded-2xl shadow-sm active:scale-95 transition-transform">分享／存到檔案</button>
+                      {pendingShare.reason && <p className="text-[10px] text-slate-400 break-all">自動分享沒開成：{pendingShare.reason}</p>}
+                      <p className="text-[11px] text-slate-400">按鈕沒反應的話，再用下面的連結。</p>
+                  </>
+              ) : (
+                  <p className="text-xs text-slate-500">如果瀏覽器沒有自動下載，請點擊下方鏈接。</p>
+              )}
               {downloadUrl && <a href={downloadUrl} download={downloadFileName} onClick={armViewportReset} className="text-primary text-sm underline block py-2">點擊手動下載 .zip</a>}
           </div>
       </Modal>

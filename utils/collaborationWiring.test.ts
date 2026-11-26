@@ -94,7 +94,7 @@ describe('collaboration sidecar wiring', () => {
     const windowSource = read('features/collaboration/CollaborationWindow.tsx');
     const settings = read('apps/Settings.tsx');
     expect(windowSource).toContain("import { shareOrDownloadBlob } from '../../utils/shareExport'");
-    expect(settings).toContain("import { shareOrDownloadBlob } from '../utils/shareExport'");
+    expect(settings).toMatch(/import \{[^}]*\bshareOrDownloadBlob\b[^}]*\} from '\.\.\/utils\/shareExport'/);
     expect(windowSource).not.toContain('preferDownloadOnWeb: true');
     expect(windowSource).toContain("notify('已打開系統分享面板', 'success')");
   });
