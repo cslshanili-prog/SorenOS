@@ -11,6 +11,7 @@ import { milestoneLabel, repeatLabel } from './pact';
 import { donePeriod, ledgerKeyOf, promiseStartDay, streakOf, totalPoints } from './ledger';
 import { periodKeyOf, periodWord } from './period';
 import { levelInfo } from './level';
+import { feelingPromptLines } from './feeling';
 import { lastTurn } from './model';
 import { eventSortKey, promptEventDate } from './eventDate';
 import { CUSTOM_STAGE, isDefaultBondState, routeLabel, stageLabel } from './routes';
@@ -261,6 +262,7 @@ function ourNowLines(bond: BondRecord, input: BondPromptInput): string[] {
 export function bondHasPromptContent(bond: BondRecord | undefined | null): boolean {
     if (!bond) return false;
     if (!isDefaultBondState(bond)) return true;
+    if (bond.feeling) return true;
     if (lastTurn(bond)) return true;
     const now = bond.ourNow;
     return !!(now?.char?.text.trim() || now?.user?.text.trim() || now?.other?.text.trim());
@@ -292,6 +294,8 @@ export function bondPromptBlock(input: BondPromptInput): string {
         lines.push(`你們在 ${turn.storyDay} 從「${stageText(turn.from.route, turn.from.stage, turn.from.label)}」變成「${stageText(turn.to.route, turn.to.stage, turn.to.label)}」${note}。之前那段關係是真的，不要回頭改寫成一開始就是現在這樣。`);
     }
     lines.push(...ourNowLines(bond, input));
+    // 親近與信任（plans/bond-batch4.md 1.8）：只給層和規範、未修復的傷；開始記了才有
+    lines.push(...feelingPromptLines(bond.feeling, otherName, bond.route));
     lines.push(...extra);
     if (!lines.length) return '';
     return `### 你和${otherName}的關係\n${lines.map(l => (l.startsWith('  ') ? l : `- ${l}`)).join('\n')}\n\n`;

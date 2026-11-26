@@ -1,3 +1,4 @@
+import { landFeelingFromEval } from './bond/feelingStore';
 import { DB } from './db';
 import type { CharacterProfile, CharacterBuff } from '../types';
 import { landAmbientEventFromEval } from './roomAmbient';
@@ -389,6 +390,8 @@ export function settleEmotionEval(result: EmotionEvalResult, current: Partial<Em
 export async function applyEmotionEvalRaw(
     rawText: string,
     charData: CharacterProfile,
+    /** 親近與信任落在哪段關係（雲端回來的照雲端 id 拆出的線）；沒給照角色卡（線的視圖）算 */
+    opts: { bondId?: string } = {},
 ): Promise<string | null> {
     try {
         const result = parseEmotionEvalOutput(rawText || '');
@@ -419,6 +422,8 @@ export async function applyEmotionEvalRaw(
         // 本函數是在線 / instant(worker) 兩條路徑的共用落點，所以在這裡接。
         // 與情緒主鏈路完全解耦——失敗只丟這條動態，不影響 buff。
         await landAmbientEventFromEval(result, charData);
+        // 親近與信任（plans/bond-batch4.md 1.8）：同一招順風車，開始記了的關係才會有；失敗只丟這幾筆
+        await landFeelingFromEval(rawText, charData, opts.bondId);
 
         if (!result.changed) {
             console.log('🎭 [Emotion] No change detected, skipping buff update');

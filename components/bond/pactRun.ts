@@ -19,7 +19,8 @@ import { diariesOfBondSync } from '../../utils/bond/diaryRegistry';
 import { listPersonaSpaces } from '../../utils/bond/spaces';
 import { saveBondLedgerRows } from '../../utils/bond/ledgerStore';
 import { saveBondEntries } from '../../utils/bond/entries';
-import { updateBond } from '../../utils/bond/store';
+import { bondOrBlank, updateBond } from '../../utils/bond/store';
+import { checkNeglect } from './feelingRun';
 import { parseBondId } from '../../utils/bond/model';
 import { pagePublished } from '../../utils/bond/diary';
 import { dayFacts, type DayFacts } from '../../utils/bond/taskCheck';
@@ -256,6 +257,12 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
                 await saveBondLedgerRows(fresh.map(({ group: _g, ...r }) => r));
                 await closeOncePromises(fresh);
                 trackGains(fresh, false);
+            }
+            // 親近與信任開始記了的：一週以上你沒說話，記一次冷落（components/bond/feelingRun.ts）
+            if (bondOrBlank(bondId).feeling) {
+                let lastUser = [...msgs].reverse().find(m => m.role === 'user')?.timestamp || 0;
+                if (!lastUser) lastUser = (await DB.getRecentMessagesByCharId(lineArgOf(char, personaKey) as any, 60, true).catch(() => [] as Message[])).reverse().find(m => m.role === 'user')?.timestamp || 0;
+                await checkNeglect(bondId, lastUser, now).catch(() => {});
             }
             scan[bondId] = today;
             const levelUp = levelChange(bondId, [...existing.values()]);

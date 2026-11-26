@@ -5531,6 +5531,8 @@ export interface FullBackupData {
     bondEntries?: BondEntry[];
     /** 羈絆的完成紀錄與積點（plans/bond-batch4.md 1.3） */
     bondLedger?: BondLedgerRow[];
+    /** 親近與信任的事件帳（plans/bond-batch4.md 1.8） */
+    bondFeelingLog?: BondFeelingEvent[];
     /** 購物中心（plans/mall-redesign.md）：分類、商品、訂單 */
     mallCategories?: MallCategory[];
     mallProducts?: MallProduct[];
@@ -6323,7 +6325,54 @@ export interface BondRecord {
     noteTags?: string[];
     /** 回顧與補算（2.6）：做過的時間；補算了過去的相處補到哪一天 */
     pactReview?: { reviewedAt?: number; backfilledAt?: number; backfilledTo?: string; skippedAt?: number };
+    /** 親近與信任（plans/bond-batch4.md 1.8）：角色對你的兩條；開始記了才有 */
+    feeling?: BondFeeling;
+    /** 上一次記「長期冷落」的時間（一週一次） */
+    feelingNeglectAt?: number;
     updatedAt: number;
+}
+
+/** 親近與信任的兩條量表（0～100）。層有緩衝，不是直接拿數值換 */
+export interface BondFeeling {
+    closeness: number;
+    trust: number;
+    tier: { closeness: number; trust: number };
+    /** 起點（估的或你設的）；事件帳改了從這裡重算 */
+    start: { closeness: number; trust: number; at: number; how: 'estimate' | 'manual' };
+    openHurts: BondFeelingHurt[];
+    updatedAt: number;
+}
+
+export interface BondFeelingHurt {
+    id: string;
+    at: number;
+    what: string;
+    severity: 'mid' | 'major';
+    /** 當初扣了多少（道歉＋補救最多回補 70%） */
+    lost: { closeness: number; trust: number };
+    repairedAt?: number;
+    /** 道歉、補救回補過多少 */
+    recovered?: { closeness: number; trust: number };
+}
+
+/** 親近與信任的事件帳（`bond_feeling_log` 表）：為什麼動了、動多少、依據 */
+export interface BondFeelingEvent {
+    id: string;
+    bondId: string;
+    at: number;
+    what: string;
+    /** 事件類別（防刷、上限照它算） */
+    category: string;
+    cause: 'malice' | 'careless' | 'unavoidable' | 'repaired' | 'repeated' | 'positive';
+    delta: { closeness: number; trust: number };
+    before: { closeness: number; trust: number };
+    /** 這件事記了一筆傷（重大負面）；修好了哪一筆 */
+    hurt?: { id: string; severity: 'mid' | 'major' };
+    repairs?: string;
+    source: 'eval' | 'summary' | 'neglect' | 'manual';
+    evidence?: { messageIds?: number[]; memoryId?: string };
+    editedAt?: number;
+    deletedAt?: number;
 }
 
 /**

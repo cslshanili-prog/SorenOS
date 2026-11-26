@@ -23,6 +23,7 @@ import { formatEventDate } from '../../utils/bond/eventDate';
 import { useBondLedger } from './useBondLedger';
 import { useBondEntries } from './useSpaceTimeline';
 import { LevelMark } from './BondLevel';
+import { FeelingBars } from './BondFeelingPage';
 import { donePeriod, ledgerKeyOf, promiseStartDay, totalPoints } from '../../utils/bond/ledger';
 import { countsOnDay, dayKeyOf, periodKeyOf, periodWord } from '../../utils/bond/period';
 import { promiseWaitingOn } from '../../utils/bond/pact';
@@ -50,8 +51,10 @@ export const BondSpacePage: React.FC<{
     onOpenNotice?: (n: HeartNotice) => void;
     /** 約定（plans/bond-batch4.md 4.3）：Lv. 點了去里程碑頁、近期約定點了去那個約定 */
     onOpenPact?: (to: { tab: 'promise' | 'milestone'; promiseId?: string }) => void;
+    /** 親近與信任（plans/bond-batch4.md 4.1） */
+    onOpenFeeling?: () => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenFeeling, addToast }) => {
     const notice = useHeartNotice(space);
     const ledger = useBondLedger(space.id);
     const pactEntries = useBondEntries(space.id);
@@ -216,6 +219,25 @@ export const BondSpacePage: React.FC<{
                             </div>
                         </div>
                     </section>
+
+                    {/* 親近與信任：此刻的我們旁邊，兩條細線＋層名 */}
+                    {!isPair && onOpenFeeling && (
+                        <section>
+                            <SectionLabel>親 近 與 信 任</SectionLabel>
+                            <button type="button" onClick={onOpenFeeling} className="w-full text-left">
+                                {bond.feeling ? (
+                                    <>
+                                        <FeelingBars feeling={bond.feeling} route={bond.route} />
+                                        {bond.feeling.openHurts.some(h => !h.repairedAt) && (
+                                            <div className="mt-2 text-[11.5px] text-[var(--bond-accent)]">還有沒修好的事：{bond.feeling.openHurts.filter(h => !h.repairedAt).map(h => h.what).join('；')}</div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <span className="text-[12.5px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]">{space.rightName}對你的親近和信任——還沒開始記</span>
+                                )}
+                            </button>
+                        </section>
+                    )}
 
                     {notice && onOpenNotice && (
                         <section>
