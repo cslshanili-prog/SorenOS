@@ -3,7 +3,6 @@ import type {
     CharacterProfile,
     Message,
     MountedWorldbook,
-    NPCProfile,
     StoryTheaterEntry,
     StoryTheaterMask,
     StoryTheaterMaskSelection,
@@ -20,7 +19,6 @@ import {
     type WorldbookScanMessage,
 } from './worldbook';
 import { shareOrDownloadFile } from './shareExport';
-import { buildNpcMemoryBlock } from './npcMemory';
 import { withGlobalWorldbooks } from './globalWorldbooks';
 import { isPersonaSelection, messageWriters, normalizePresenceSelections, presenceCharacterIds, storyPromptIdentityName, type StoryPresent } from './storyPresence';
 
@@ -1293,35 +1291,6 @@ export const buildBareTheaterActorContext = (char: CharacterProfile): string => 
     `- 核心指令：\n${char.systemPrompt || '無額外核心指令'}`,
     char.worldview?.trim() ? `- 世界觀：\n${char.worldview.trim()}` : '',
 ].filter(Boolean).join('\n');
-
-/**
- * 劇情客串 NPC 的輕量上下文塊——不走 ContextBuilder.buildCoreContext（NPCProfile 沒有
- * systemPrompt/記憶宮殿/世界書這套），只取 NPCProfile 自身的設定字段，跟群聊「NPC 客串」
- * (utils/npcGroupGuestLine.ts) 用的是同一種"輕量素材"思路。沒有獨立記憶輸入輸出、
- * 不追蹤好感度，標題特意跟 buildBareTheaterActorContext 的 `### 劇情角色：` 區分開，
- * 讓模型知道這是戲份更輕的客串，不用當成主角經營完整人物弧光。
- */
-export const buildTheaterNpcContext = (
-    npc: NPCProfile,
-    userName: string,
-    sceneCharacters: Pick<CharacterProfile, 'id' | 'name'>[],
-): string => {
-    const relationshipNote = npc.relationships
-        .filter(r => r.targetId === 'user' || sceneCharacters.some(c => c.id === r.targetId))
-        .map(r => r.targetId === 'user'
-            ? `對「${userName}」：${r.description}`
-            : `對「${sceneCharacters.find(c => c.id === r.targetId)?.name || '在場角色'}」：${r.description}`)
-        .join('\n');
-    return [
-        `### 劇情客串角色：${npc.name}（非常駐演員，戲份比主角輕，按需自然出場即可）`,
-        `- 名字：${npc.name}`,
-        npc.description?.trim() ? `- 設定：\n${npc.description.trim()}` : '',
-        npc.worldview?.trim() ? `- 世界觀：\n${npc.worldview.trim()}` : '',
-        relationshipNote ? `- 關係：\n${relationshipNote}` : '',
-        buildNpcMemoryBlock(npc),
-        '- 這是客串角色：不追蹤好感度，按以上設定（和 TA 記得的事）自然參與本場劇情即可。',
-    ].filter(Boolean).join('\n');
-};
 
 export const buildStoryActorMemoryEnvelope = (
     characterName: string,

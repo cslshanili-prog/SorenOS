@@ -154,6 +154,12 @@ interface MomentPost {
 
 ### 第二批落地實況
 
+> **2026-11-26 更新：NPC 換成配角**（`plans/npc-cleanup.md`）。舊 NPC 搬成配角之後，下面寫到「NPC」的地方都改成配角，NPC 專用的那幾支（`generateNpcMoment`、`npcVoice`、`resolveNpcApi`）已經拿掉：
+> - **誰跟誰是朋友**：你跟所有角色（主角、配角）都是朋友，小號照舊要你加；角色之間是任一方通訊錄標 friend，**或任一方的關係清單（`relationships`，配角多半從 NPC 搬來）寫了對方**。舊資料通訊錄裡的 `linkedNpcId` 照 id 當成那個配角。好友圖 `buildFriendGraph(characters, personas?)`，`kindOf` 只剩 user／character。
+> - **配角自己一組設定**：發文間隔（預設 96～168 小時，主角 48～72）、按讚 50%、留言 20%、配角互動延遲 30 分、主角回覆配角留言延遲 3 秒。欄位是 `supporting*`（`supportingMinPostIntervalHours`、`supportingMaxPostIntervalHours`、`supportingLikeProbability`、`supportingCommentProbability`、`supportingInteractionDelayMin`、`replyToSupportingDelaySec`），舊存檔的 `npc*` 四格讀的時候換過來（`normalizeMomentsSettings`）。發文間隔照人給：`postIntervalFor(settings, isSupporting(char))`。
+> - **發文**：配角跟主角同一條 `generateCharacterMoment`，用自己的對話模型（朋友圈 API 設了就用它）。
+> - 舊貼文上 `kind: 'npc'` 的作者／讚／留言：搬家時已改成 character；萬一還有，`actorDisplayName` 照 id 找角色。
+
 - **總開關只管自動發文**（設定頁原本就寫「關掉的不會自動發帖，但還是會看到、回應別人的動態」）。看到新貼文的反應照「按讚機率」「留言機率」走，不受總開關管；按讚不花 API，留言會花，調成 0% 就不自動留言。角色和 NPC 的機率分兩組調（NPC 留言預設 20%，比角色的 40% 低，NPC 多的時候免得洗版；舊存檔補預設，角色那組不動）。
 - **自動發文**（`utils/momentsAuto.ts` 排程＋`utils/momentsAutoRuntime.ts` 執行）：總開關開著、沒被單獨關掉的角色／NPC 各自排下一次發文時間，存在 localStorage `soren_moments_next_post`。第一次在 2 分鐘～min(最短間隔, 6 小時) 之間隨機（不然開了總開關要等 48 小時才看得到第一篇），之後照「最短～最長間隔」。App 開著時每分鐘看一次，一輪最多發一篇；失敗的人往後推 30 分鐘。角色走 `generateCharacterMoment`（生圖設定開著才配圖），NPC 走 `generateNpcMoment`（純文字，用 NPC 自己的 API）。
 - **角色發文看得到什麼**（2026-10-06 補）：`generateCharacterMoment` 原本只給角色設定（`skipMemories`），發的跟你們之間的事接不上。現在帶記憶摘要（月度＋當月日度）、角色所在地的現在時間（關了時間感知就不給）、今天日程的當前時段（日程總開關開著、只讀本機不另外生成）、最近 16 則私聊（照角色眼中的身份卡）。有帶聊天時提示詞多一句：朋友圈是公開的，只發願意讓大家看到的那一面，不引用私聊原話、不寫對方隱私。自動發文、朋友圈頁 ↻、軌跡 Moments 生成都走這條。

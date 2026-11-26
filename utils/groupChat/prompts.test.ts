@@ -175,22 +175,10 @@ describe('隱身圍觀模式：userLurking 選項', () => {
     });
 });
 
-describe('NPC 成員與旁觀劇情方向', () => {
+describe('私下找人與旁觀劇情方向', () => {
     const history = { text: '小夏: 今天天氣不錯', attachedImages: [], attachedImagesNote: '' };
 
-    it('導演模式：有 NPC 才加 NPC 說明', () => {
-        expect(buildDirectorInstruction(history, '無')).not.toContain('#### NPC 成員');
-        expect(buildDirectorInstruction(history, '無', { npcNames: ['房東'] })).toContain('房東 是群裡的 NPC 配角');
-    });
-
-    it('輪詢模式以 NPC 身份：不教 PRIVATE、不教退群、關係以檔案為準', () => {
-        const prompt = buildRoundRobinInstruction('房東', history, '無', { asNpc: true, allowMemberLeave: true });
-        expect(prompt).toContain('不要用 PRIVATE');
-        expect(prompt).not.toContain('[[PRIVATE: 內容]]');
-        expect(prompt).not.toContain('LEAVE_GROUP');
-        expect(prompt).toContain('以你 NPC 成員檔案裡寫的為準');
-        expect(prompt).not.toContain('私聊空窗期');
-        // 角色：有私下找人那段才教
+    it('角色：有私下找人那段才教', () => {
         expect(buildRoundRobinInstruction('小夏', history, '無', { sideNote: '### 私下找人\n`[[PRIVATE|名字: 內容]]`' })).toContain('[[PRIVATE|名字: 內容]]');
         expect(buildRoundRobinInstruction('小夏', history, '無')).toContain('這個群不用');
     });

@@ -43,7 +43,7 @@ describe('群裡各自私下認識的人', () => {
         const prompt = buildGroupTopicPrompt(
             { id: 'g', name: '群', members: ['c1', 'c2'], createdAt: 0 } as any,
             [{ id: 1, charId: 'c1', role: 'assistant', type: 'text', content: '他今天很累', timestamp: 0 }] as any,
-            members, '真我', [], undefined, note,
+            members, '真我', undefined, note,
         );
         expect(prompt).toContain('【成員各自私下認識的人】');
     });

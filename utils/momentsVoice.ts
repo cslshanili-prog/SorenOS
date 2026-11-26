@@ -1,5 +1,5 @@
 import { charOneLiner } from './charIdentity';
-import type { CharacterProfile, NPCProfile, PhoneContact } from '../types';
+import type { CharacterProfile, PhoneContact } from '../types';
 import { USER_ID } from './momentsPool';
 import { resolveBriefPersona } from './briefPersona';
 
@@ -40,24 +40,21 @@ export function voiceSnippet(parts: Array<string | undefined>, max: number = VOI
 export const characterVoice = (char: Pick<CharacterProfile, 'description' | 'systemPrompt' | 'briefPersona'>): string =>
     resolveBriefPersona(char) || voiceSnippet([char.systemPrompt, charOneLiner(char)]);
 
-export const npcVoice = (npc: Pick<NPCProfile, 'description'>): string => voiceSnippet([npc.description]);
-
-type RelChar = Pick<CharacterProfile, 'id' | 'charViewRelationship'> & { phoneState?: { contacts?: PhoneContact[] } };
-type RelNpc = Pick<NPCProfile, 'id' | 'relationships'>;
+type RelChar = Pick<CharacterProfile, 'id' | 'charViewRelationship' | 'relationships'> & { phoneState?: { contacts?: PhoneContact[] } };
 
 /** 留言的人跟發文的人什麼關係（一句話；不知道就空字串）。 */
 export function relationToAuthor(params: {
     commenterId: string;
     authorId: string | undefined;
     characters: RelChar[];
-    npcs: RelNpc[];
 }): string {
-    const { commenterId, authorId, characters, npcs } = params;
+    const { commenterId, authorId, characters } = params;
     if (!authorId) return '';
-    const npc = npcs.find(n => n.id === commenterId);
-    if (npc) return npc.relationships.find(r => r.targetId === authorId)?.description?.trim() || '';
     const char = characters.find(c => c.id === commenterId);
     if (!char) return '';
+    // 關係清單（配角多半從舊 NPC 搬來，關係寫在這裡）先看，沒寫再看私聊設定和通訊錄
+    const listed = char.relationships?.find(r => r.targetId === authorId)?.description?.trim();
+    if (listed) return listed;
     if (authorId === USER_ID) return char.charViewRelationship?.trim() || '';
     const contact = (char.phoneState?.contacts || []).find(c => c.linkedCharId === authorId || c.linkedNpcId === authorId);
     return [contact?.identity, contact?.note].map(s => s?.trim()).filter(Boolean).join('，');

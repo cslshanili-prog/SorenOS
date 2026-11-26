@@ -2573,10 +2573,8 @@ export interface StoryTheaterEntry {
     presence?: StoryTheaterMaskSelection[];
     characterIds: string[];
     /**
-     * 客串出場的 NPC（神經鏈接「NPC」分頁的 NPCProfile.id，非 characterIds）。真實時間陪伴、
-     * 虛構劇場的編輯器都會露出選擇入口；讀取側也不按模式過濾。NPC 沒有獨立記憶輸入輸出、
-     * 不進 applyActorMemoryPipeline / 好感度系統，只作為輕量客串角色注入 actorContext，
-     * 見 utils/storyTheater.ts 的 buildTheaterNpcContext。缺省 = 沒有 NPC 客串。
+     * 舊資料：客串的 NPC（NPCProfile.id）。NPC 搬成配角時會併進 characterIds（utils/npcMigration.ts 的
+     * migrateTheater），之後就只剩還沒搬的；劇情不再讀它，配角直接當演員選。
      */
     npcIds?: string[];
     /** true=像【陪伴】一樣，把第三人稱正文分別寫入每個角色的正常記憶流。 */
@@ -3967,12 +3965,11 @@ export interface NPCRelationship {
 }
 
 /**
- * NPC 檔案——神經鏈接「NPC」分頁下的簡化角色卡。
+ * 舊的 NPC 檔案（以前神經鏈接「NPC」分頁的簡化角色卡）。
  *
- * 故意不復用 CharacterProfile：NPC 不參與日程生成、情緒評估、主動消息、記憶宮殿這些
- * 背景任務，獨立成一份精簡結構，能避免在十幾處背景邏輯裡到處補「跳過 NPC」的判斷。
- * 目前只在群聊、查手機聯繫人、見面劇情三處被讀取；沒有立繪/生圖/語音/印象/門牌/手辦，
- * 也沒有好感度——好感度等以後 NPC 能開一對一聊天窗口時再回落到 CharacterProfile 同一套。
+ * NPC 已經改成配角（CharacterProfile 的 castRole 'supporting'，plans/persona-line-batch6.md）：
+ * 開機時還沒搬的會自動搬成配角（utils/npcMigration.ts），id 照舊。這個型別只留給搬家和舊備份讀，
+ * 新功能不要再讀它（plans/npc-cleanup.md）。
  */
 export interface NPCProfile {
     id: string;
@@ -4009,9 +4006,8 @@ export interface NPCProfile {
         model: string;
     };
     /**
-     * 輕量記憶（路線圖第 5 項 B）：NPC 第一人稱的條列記憶，從參與過的群聊、查手機裡跟角色的
-     * 私聊自動整理，也可以在 NPC 編輯頁手動改；輪到它說話時帶進 prompt。不接記憶宮殿。
-     * 見 utils/npcMemory.ts。
+     * 輕量記憶（舊資料）：NPC 第一人稱的條列記憶。搬成配角時寫進角色的記憶（utils/npcMigration.ts），
+     * 整理它的程式已經拿掉（plans/npc-cleanup.md）。
      */
     memory?: string;
     memoryUpdatedAt?: number;
@@ -4304,25 +4300,30 @@ export type CharBlockCooldown = 'short' | 'normal' | 'long';
 
 /** 見 UserProfile.momentsSettings。數值欄位的範圍和預設值在 utils/momentsSettings.ts。 */
 export interface MomentsInteractionSettings {
-    /** 總開關：角色／NPC 會不會在背景自動發朋友圈。預設關，免得一接上就開始花 API。 */
+    /** 總開關：角色（主角、配角）會不會在背景自動發朋友圈。預設關，免得一接上就開始花 API。 */
     autoPostEnabled: boolean;
-    /** 清單裡被關掉的角色／NPC id。存「關掉的」而不是「開著的」，新加的角色預設可以發。 */
+    /** 清單裡被關掉的角色 id。存「關掉的」而不是「開著的」，新加的角色預設可以發。 */
     disabledPosterIds: string[];
-    /** 兩次自動發帖之間最短、最長等多久（小時）；實際在這個區間裡隨機。 */
+    /** 主角兩次自動發帖之間最短、最長等多久（小時）；實際在這個區間裡隨機。 */
     minPostIntervalHours: number;
     maxPostIntervalHours: number;
-    /** 角色看到一篇動態後留言、按讚的機率（0–100）。 */
+    /** 主角看到一篇動態後留言、按讚的機率（0–100）。 */
     commentProbability: number;
     likeProbability: number;
-    /** NPC 的留言、按讚機率，跟角色分開調：NPC 通常比角色多，留言預設低一點免得洗版。 */
-    npcCommentProbability: number;
-    npcLikeProbability: number;
+    /**
+     * 配角自己一組（2026-11-26，Liora 定：舊的 NPC 那組改成配角的，配角發文、互動都比主角少一點）。
+     * 舊存檔的 npc* 讀進來時當成這組的值（utils/momentsSettings.ts 的 normalize），之後只存這組。
+     */
+    supportingMinPostIntervalHours: number;
+    supportingMaxPostIntervalHours: number;
+    supportingCommentProbability: number;
+    supportingLikeProbability: number;
     /** 發帖後第一則留言要等多久、之後每則留言間隔多久（秒）。 */
     firstCommentDelaySec: number;
     commentIntervalSec: number;
-    /** NPC 對動態產生互動前等多久（分鐘）；角色回覆 NPC 留言前等多久（秒）。 */
-    npcInteractionDelayMin: number;
-    replyToNpcDelaySec: number;
+    /** 配角對動態產生互動前多等多久（分鐘）；作者回覆配角留言前等多久（秒）。 */
+    supportingInteractionDelayMin: number;
+    replyToSupportingDelaySec: number;
 }
 
 /** Real Balance 錢包旗下的一張銀行卡——跟 Real Balance 之間可以互轉，卡本身的餘額不計入 Real Balance。 */
@@ -5075,6 +5076,7 @@ export interface Task {
 }
 
 /** 行事曆：誰的、跟誰（plans/calendar.md）。persona 的 id 是身份鍵（REAL_IDENTITY_PERSONA_ID 或身份卡 id） */
+/** 'npc' 只出現在舊資料：NPC 搬成配角時 id 照舊，讀的時候當 'char'（utils/calendarEvents.ts 的 sameParticipant） */
 export interface Participant { kind: 'persona' | 'char' | 'npc'; id: string }
 
 /**

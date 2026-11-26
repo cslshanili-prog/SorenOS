@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CharacterProfile, Message, NPCProfile, StoryTheaterPreset, UserProfile } from '../types';
+import type { CharacterProfile, Message, StoryTheaterPreset, UserProfile } from '../types';
 import { STORY_PRESET_SIMPLE_CHOICES } from '../components/date/story/StoryPresetMaker';
 import {
     appendStoryAffinityInput,
@@ -16,7 +16,6 @@ import {
     buildStoryPrefillInstruction,
     buildStoryMultiAffinityGuide,
     buildStoryWorldbookScanMessages,
-    buildTheaterNpcContext,
     buildTheaterWorldbookSlots,
     compileStoryPreset,
     prepareStoryGenerationSettings,
@@ -710,49 +709,5 @@ describe('本輪關係備註', () => {
         expect(reconciled).toContain('<c_to_u_score>71</c_to_u_score>');
         expect(reconciled).toContain('<u_to_c_score>80</u_to_c_score>');
         expect(reconciled).toContain('<u_to_c_delta>+0</u_to_c_delta>');
-    });
-});
-
-describe('劇情客串 NPC', () => {
-    const npc = (overrides: Partial<NPCProfile> = {}): NPCProfile => ({
-        id: 'npc-1', name: '阿宅', avatar: '', description: '樓下便利店店員，嘴硬心軟。',
-        relationships: [], worldview: '', createdAt: 0, updatedAt: 0, ...overrides,
-    });
-
-    it('客串標題跟正式演員的 `### 劇情角色：` 區分開，且帶上設定/世界觀', () => {
-        const context = buildTheaterNpcContext(npc({ worldview: '本劇發生在同一個小鎮上。' }), '林夕', []);
-        expect(context).toContain('### 劇情客串角色：阿宅');
-        expect(context).not.toContain('### 劇情角色：阿宅');
-        expect(context).toContain('樓下便利店店員，嘴硬心軟。');
-        expect(context).toContain('本劇發生在同一個小鎮上。');
-        expect(context).toContain('不追蹤好感度');
-        expect(context).not.toContain('記得的事（');
-    });
-
-    it('NPC 有輕量記憶時帶進客串上下文', () => {
-        const context = buildTheaterNpcContext(npc({ memory: '- 林夕上週幫我搬過貨' }), '林夕', []);
-        expect(context).toContain('阿宅 記得的事');
-        expect(context).toContain('林夕上週幫我搬過貨');
-    });
-
-    it('只帶上對用戶和「本場在場角色」的關係，濾掉不在場的關係對象', () => {
-        const withRelationships = npc({
-            relationships: [
-                { id: 'r1', targetId: 'user', description: '常客，認識好幾年了' },
-                { id: 'r2', targetId: 'c-onstage', description: '同班同學' },
-                { id: 'r3', targetId: 'c-offstage', description: '不喜歡這個人' },
-            ],
-        });
-        const context = buildTheaterNpcContext(withRelationships, '林夕', [{ id: 'c-onstage', name: '小滿' }]);
-        expect(context).toContain('對「林夕」：常客，認識好幾年了');
-        expect(context).toContain('對「小滿」：同班同學');
-        expect(context).not.toContain('不喜歡這個人');
-    });
-
-    it('沒有設定/世界觀/關係時仍能生成一個乾淨的最小上下文', () => {
-        const context = buildTheaterNpcContext(npc({ description: '', worldview: '' }), '林夕', []);
-        expect(context).toContain('### 劇情客串角色：阿宅');
-        expect(context).toContain('- 名字：阿宅');
-        expect(context).not.toContain('undefined');
     });
 });

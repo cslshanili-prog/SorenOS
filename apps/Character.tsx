@@ -18,7 +18,6 @@ import { resolveCharacterChatApi } from '../utils/characterApi';
 import { buildSARMemoryBoundaryInstruction, formatMessageWithTime, formatMessageForPrompt } from '../utils/messageFormat';
 import { DEFAULT_ARCHIVE_PROMPTS } from '../components/chat/ChatConstants';
 import ImpressionPanel from '../components/character/ImpressionPanel';
-import NPCManagerView from '../components/character/NPCManagerView';
 import { isSupporting, sortByCast } from '../utils/castRole';
 import CastGeneratorPage from '../components/character/CastGeneratorPage';
 import AltAccountsSection from '../components/character/AltAccountsSection';
@@ -123,12 +122,11 @@ const CharacterCard: React.FC<{
 );
 
 const Character: React.FC = () => {
-  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, updateCharacterGroup, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, npcs, addNPC, updateNPC, deleteNPC, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
+  const { closeApp, openApp, characters, activeCharacterId, setActiveCharacterId, addCharacter, updateCharacter, updateLine, activeLineFor, deleteCharacter, characterGroups, createCharacterGroup, renameCharacterGroup, setCharacterGroupStyle, updateCharacterGroup, setCharacterGroupSections, deleteCharacterGroup, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, worldbooks, addWorldbook, apiPresets, personaLinesEnabled, setCharBenched } = useOS();
   const launchIntent = characterLaunch.peek();
   const launchedBackToCaller = useRef(!!launchIntent?.backToCaller);
-  // 神經鏈接頂部「主角 / NPC」分頁；NPC 那邊是完全獨立的列表+編輯流程（見 NPCManagerView），
-  // 不共用下面這套角色專用的 view/formData 狀態機。
-  const [topTab, setTopTab] = useState<'characters' | 'supporting' | 'npcs'>(() => launchIntent?.tab || 'characters');
+  // 神經鏈接頂部「主角 / 配角」分頁（配角是同一張表的角色，plans/persona-line-batch6.md）
+  const [topTab, setTopTab] = useState<'characters' | 'supporting'>(() => launchIntent?.tab || 'characters');
   // 關係線預覽開著：主角／配角分開列（配角是同一張表的角色，plans/persona-line-batch6.md）；關著照舊全列
   const [showCastGenerator, setShowCastGenerator] = useState(false);
   // 批次補別名與身份（plans/character-identity-fields.md 3.6）
@@ -1231,19 +1229,7 @@ ${isInitialGeneration ? `
 
   return (
     <div className="h-full w-full bg-slate-50/30 font-light relative">
-       {topTab === 'npcs' ? (
-           <NPCManagerView
-               npcs={npcs}
-               characters={characters}
-               worldbooks={worldbooks}
-               apiPresets={apiPresets}
-               addNPC={addNPC}
-               updateNPC={updateNPC}
-               deleteNPC={deleteNPC}
-               onSwitchTab={setTopTab}
-               closeApp={closeApp}
-           />
-       ) : view === 'list' ? (
+       {view === 'list' ? (
            <div className="flex flex-col h-full animate-fade-in relative"
                 style={{ background: 'linear-gradient(180deg, #f5f2fb 0%, #ece6f6 100%)' }}>
                {/* safe-area: pt 用 max(3.5rem, 劉海高度)，保呼吸感同時更高劉海設備不被擋 */}
@@ -1290,12 +1276,6 @@ ${isInitialGeneration ? `
                            配角{characters.some(isSupporting) ? ` (${characters.filter(isSupporting).length})` : ''}
                        </button>
                    )}
-                   {(!personaLinesEnabled || npcs.length > 0) && <button
-                       onClick={() => setTopTab('npcs')}
-                       className="px-4 py-1.5 rounded-full text-xs font-bold bg-white/60 text-violet-500 border border-violet-200"
-                   >
-                       NPC{npcs.length > 0 ? ` (${npcs.length})` : ''}
-                   </button>}
                    <span className="flex-1" />
                    <button
                        onClick={() => setShowIdentityBatch(true)}
@@ -2237,7 +2217,6 @@ ${isInitialGeneration ? `
                         <div className="text-center text-sm text-slate-400 py-16 leading-relaxed">還沒有世界。建一個試試——<br />角色列表和各處選角色的地方都會照世界收起來，<br />世界底下還能再分組（例如家族、勢力）。</div>
                     ) : sortCharacterGroups(characterGroups).map(g => {
                         const charCount = characters.filter(c => c.groupId === g.id).length;
-                        const npcCount = npcs.filter(n => n.groupId === g.id).length;
                         return (
                             <section key={g.id} className="rounded-3xl bg-white border border-slate-100 p-4 space-y-3" data-world-card={g.name}>
                                 <div className="flex items-center gap-2">
@@ -2248,7 +2227,7 @@ ${isInitialGeneration ? `
                                         onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                                         className="flex-1 min-w-0 bg-transparent text-[16px] font-bold text-slate-800 outline-none border-b border-transparent focus:border-slate-300 py-0.5"
                                     />
-                                    <span className="text-xs text-slate-400 tabular-nums shrink-0">{charCount} 個角色{npcCount ? ` · ${npcCount} 個 NPC` : ''}</span>
+                                    <span className="text-xs text-slate-400 tabular-nums shrink-0">{charCount} 個角色</span>
                                     {pendingWorldDelete === g.id ? (
                                         <button
                                             onClick={() => { setPendingWorldDelete(null); deleteCharacterGroup(g.id); addToast(`世界「${g.name}」已刪除，裡面的角色回到沒有世界`, 'info'); }}
@@ -2282,7 +2261,7 @@ ${isInitialGeneration ? `
                             </section>
                         );
                     })}
-                    <p className="text-[11px] text-slate-400 leading-relaxed px-1">刪除世界不會刪除角色或 NPC，裡面的都會回到「沒有世界」；刪除世界底下的分組，裡面的角色回到沒分組。給角色選世界和分組：進入角色的「設定」頁；NPC 在 NPC 編輯頁裡指派世界。</p>
+                    <p className="text-[11px] text-slate-400 leading-relaxed px-1">刪除世界不會刪除角色，裡面的都會回到「沒有世界」；刪除世界底下的分組，裡面的角色回到沒分組。給角色選世界和分組：進入角色的「設定」頁。</p>
                 </div>
             </div>
         )}

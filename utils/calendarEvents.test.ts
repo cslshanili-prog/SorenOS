@@ -16,10 +16,13 @@ const ev = (fields: Partial<CalendarEvent> & Pick<CalendarEvent, 'title' | 'star
     newEvent({ owner: me, kind: 'event', source: 'user', ...fields });
 
 describe('純函數', () => {
-    it('personaParticipant 沒給 key 就是真實身份；sameParticipant 比 kind＋id', () => {
+    it('personaParticipant 沒給 key 就是真實身份；sameParticipant 比 kind＋id（舊資料的 npc 當同 id 的角色）', () => {
         expect(me).toEqual({ kind: 'persona', id: REAL_IDENTITY_PERSONA_ID });
         expect(sameParticipant(him, charParticipant('c1'))).toBe(true);
-        expect(sameParticipant(him, { kind: 'npc', id: 'c1' })).toBe(false);
+        // NPC 搬成配角時 id 照舊：舊事件上的 npc 參與者就是那個角色
+        expect(sameParticipant(him, { kind: 'npc', id: 'c1' })).toBe(true);
+        expect(sameParticipant(him, { kind: 'npc', id: 'c2' })).toBe(false);
+        expect(sameParticipant(him, { kind: 'persona', id: 'c1' })).toBe(false);
         expect(sameParticipant(undefined, him)).toBe(false);
     });
 

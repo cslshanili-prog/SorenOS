@@ -9,7 +9,7 @@ import UserProfileHome from '../components/user/UserProfileHome';
 import MomentsFeed from '../components/moments/MomentsFeed';
 import { messageLogText } from '../utils/groupChat/format';
 import { formatChatListTimestamp } from '../utils/chatListTime';
-import { characterLaunch } from '../utils/characterLaunch';
+import { isSupporting } from '../utils/castRole';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
 import { trackEvent } from '../utils/analytics';
 import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
@@ -46,8 +46,10 @@ interface ContactRow {
     id: string;
     name: string;
     avatar: string;
-    kind: 'character' | 'npc';
+    kind: 'character';
     sub: string;
+    /** 配角：名字旁邊標一下 */
+    supporting?: boolean;
 }
 
 const ALL_PERSONAS_KEY = 'chathub_all_personas_v1';
@@ -58,7 +60,7 @@ const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
  * Chat 主頁：消息/聯繫人/動態/主頁四欄導航殼，取代原本"神經鏈接點角色卡直接開聊天"的入口。
  *
  * 範圍說明（跟用戶對齊過的 v1 切法）：
- * - 消息／聯繫人兩欄是真功能：消息欄聚合私聊+群聊的最近一條消息；聯繫人欄是角色+NPC 的統一通訊錄。
+ * - 消息／聯繫人兩欄是真功能：消息欄聚合私聊+群聊的最近一條消息；聯繫人欄是角色（主角、配角）的通訊錄。
  * - 動態欄是單一貼文池的用戶視角（components/moments/MomentsFeed，路線圖第 6 項）。舊的沖浪 App
  *   （SocialApp）不再從這裡進，留在桌面當獨立 App。
  * - 主頁欄就是「個人檔案」本體（components/user/UserProfileHome，跟桌面「檔案」App 共用）：
@@ -67,7 +69,7 @@ const INDEX_LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')];
  */
 const ChatHub: React.FC = () => {
     const {
-        closeApp, openApp, characters, npcs, groups, unreadMessages,
+        closeApp, openApp, characters, groups, unreadMessages,
         setActiveCharacterId, openGroupChat,
         userProfileBase, personaLinesEnabled, setActivePersonaId, addToast, updateCharacter,
     } = useOS();
@@ -209,8 +211,7 @@ const ChatHub: React.FC = () => {
         const q = contactQuery.trim().toLowerCase();
         const items: ContactRow[] = [
             // 小號（關係線第 7 批）你通過了它的好友申請才列
-            ...characters.filter(c => !c.altOf || c.altUserFriend).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: charSubtitle(c) })),
-            ...npcs.map(n => ({ id: n.id, name: n.name, avatar: n.avatar, kind: 'npc' as const, sub: n.description || '' })),
+            ...characters.filter(c => !c.altOf || c.altUserFriend).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, kind: 'character' as const, sub: charSubtitle(c), ...(isSupporting(c) ? { supporting: true } : {}) })),
         ].filter(it => !q || it.name.toLowerCase().includes(q));
         items.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
 
@@ -224,7 +225,7 @@ const ChatHub: React.FC = () => {
         return INDEX_LETTERS
             .filter(l => grouped.has(l))
             .map(letter => ({ letter, items: grouped.get(letter)! }));
-    }, [characters, npcs, contactQuery]);
+    }, [characters, contactQuery]);
 
     const openContact = (item: ContactRow) => {
         // 他還不認識現在這張卡：「先加好友才能對話」開著就先加好友，關著就直接認識（不掉進別張卡的那條線）
@@ -238,16 +239,9 @@ const ChatHub: React.FC = () => {
                 return;
             }
         }
-        if (item.kind === 'character') {
-            setActiveCharacterId(item.id);
-            chatReturnTarget.set(AppID.ChatHub);
-            openApp(AppID.Chat);
-        } else {
-            // NPC 目前沒有獨立的一對一聊天入口（見 docs/relationship-system.md 的設計約束），
-            // 停在神經鏈接的 NPC 分頁，讓用戶自己點進去看/改設定。
-            characterLaunch.request({ tab: 'npcs' });
-            openApp(AppID.Character);
-        }
+        setActiveCharacterId(item.id);
+        chatReturnTarget.set(AppID.ChatHub);
+        openApp(AppID.Chat);
         trackEvent('Chat 主页打开联系人', { kind: item.kind });
     };
 
@@ -438,8 +432,8 @@ const ChatHub: React.FC = () => {
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-1.5">
                                                             <span className="text-sm font-bold text-slate-800 truncate">{item.name}</span>
-                                                            {item.kind === 'npc' && (
-                                                                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 text-[9px] font-bold">NPC</span>
+                                                            {item.supporting && (
+                                                                <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-500 text-[9px] font-bold">配角</span>
                                                             )}
                                                             {item.kind === 'character' && strangerIds.has(item.id) && (
                                                                 <span className="shrink-0 px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[9px] font-bold">還不認識你</span>

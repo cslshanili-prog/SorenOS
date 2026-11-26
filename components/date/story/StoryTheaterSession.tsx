@@ -11,7 +11,7 @@ import { Archive, ArrowBendDownRight, ArrowClockwise, ArrowLeft, Broadcast, Care
 import { useOS } from '../../../context/OSContext';
 import TokenImg from '../../os/TokenImg';
 import ExpandableTextarea from '../../common/ExpandableTextarea';
-import type { CharacterProfile, Message, NPCProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
+import type { CharacterProfile, Message, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset } from '../../../types';
 import { DB } from '../../../utils/db';
 import { ContextBuilder } from '../../../utils/context';
 import { safeResponseJson, extractContent } from '../../../utils/safeApi';
@@ -27,7 +27,6 @@ import {
     buildStoryIdentityGuard,
     buildStoryMiniTheaterReminder,
     buildStoryWorldbookScanMessages,
-    buildTheaterNpcContext,
     buildTheaterPersonas,
     formatStoryHistoryText,
     buildTheaterWorldbookSlots,
@@ -288,13 +287,10 @@ const StoryOutput: React.FC<{ content: string; onChoose?: (text: string) => void
 };
 
 const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, onEdit, onOpenVectorMemory, onEntryChange }) => {
-    const { characters, npcs, userProfile, userProfileBase, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
+    const { characters, userProfile, userProfileBase, apiConfig, memoryPalaceConfig, remoteVectorConfig, updateCharacter, addToast } = useOS();
     const threadId = storyTheaterThreadId(entry.id);
     const actors = useMemo(() => characters.filter(char => entry.characterIds.includes(char.id)), [characters, entry.characterIds]);
-    // 客串 NPC：只作為輕量補充出現在 actorContext / 名單類提示詞裡，不進記憶、好感度、
-    // 世界書掛載或歸檔——那些管道就是圍繞 actors（真角色）設計的，見 buildActorContexts。
-    const npcActors = useMemo(() => npcs.filter(npc => (entry.npcIds || []).includes(npc.id)), [npcs, entry.npcIds]);
-    const sceneActorNames = useMemo(() => [...actors, ...npcActors].map(a => a.name), [actors, npcActors]);
+    const sceneActorNames = useMemo(() => actors.map(a => a.name), [actors]);
     const memoryActors = useMemo(() => {
         const recipientIds = new Set(storyTheaterMemoryRecipientIds(entry));
         return characters.filter(char => recipientIds.has(char.id));
@@ -590,11 +586,10 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                 lineSections: (view, profile) => ContextBuilder.buildCoreSections(view, profile, false),
             }));
         }
-        for (const npc of npcActors) blocks.push(buildTheaterNpcContext(npc, userProfile.name, actors));
         // 演員各自私下認識的人不是同一位：幕後須知（不帶記憶的劇情用不到）
         const knownPeopleNote = entry.carryCharacterMemory ? buildStoryKnownPeopleNote(actors, userProfileBase) : '';
         return [blocks.join('\n\n---\n\n'), knownPeopleNote].filter(Boolean).join('\n\n---\n\n');
-    }, [actors, npcActors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, identityLabel, identityNames, lurking, memoryPalaceConfig.embedding, present, remoteVectorConfig, userProfile.name, userProfileBase]);
+    }, [actors, entry.id, entry.carryCharacterMemory, entry.characterContextLimits, identityLabel, identityNames, lurking, memoryPalaceConfig.embedding, present, remoteVectorConfig, userProfile.name, userProfileBase]);
 
     const buildMaskMemoryContext = useCallback(async (query: string): Promise<string> => {
         if (!entry.carryCharacterMemory || presentCharacterIds.length === 0) return '';
@@ -930,7 +925,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
                         ? <span className='w-7 h-7 rounded-full bg-slate-200 text-slate-500 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10' title='旁觀'>觀</span>
                         : present.slice(0, 3).map(item => item.avatar
                             ? <TokenImg key={item.key} value={item.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100 relative z-10' />
-                            : <span key={item.key} className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{item.name.slice(0, 1)}</span>)}{[...actors, ...npcActors].slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
+                            : <span key={item.key} className='w-7 h-7 rounded-full bg-violet-100 text-violet-700 border-2 border-stone-100 grid place-items-center text-[9px] font-bold relative z-10'>{item.name.slice(0, 1)}</span>)}{actors.slice(0, 2).map(actor => <TokenImg key={actor.id} value={actor.avatar} alt='' className='w-7 h-7 rounded-full object-cover border-2 border-stone-100' />)}</span>
                     <span className='min-w-0 flex-1'><strong className='block truncate text-[11px] text-slate-700'>{youLabel} · 角色：{sceneActorNames.join('、')}</strong><span className='block mt-0.5 truncate text-[9px] text-slate-400'>{entry.writesToCharacterMemory ? '真實時間陪伴' : '虛構劇場'}{activeMiniTheater ? ` · ${activeMiniTheater.name.replace(/^\S+小[剧劇][场場][｜·]?\s*/, '')}` : ''}</span></span>
                     <span className='shrink-0 text-[9px] font-bold text-slate-400' title={displayedTokenInfo.exact ? '本輪實際使用的完整上下文' : '按本輪完整上下文估算'}>{displayedTokenInfo.count > 0 ? `${(displayedTokenInfo.count / 1000).toFixed(displayedTokenInfo.count >= 10000 ? 0 : 1)}k` : '—'}</span>
                     <CaretDown size={13} className='shrink-0 text-slate-400 transition-transform group-open:rotate-180' />

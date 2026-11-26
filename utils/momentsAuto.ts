@@ -4,8 +4,8 @@ import { canViewMoment, USER_ID, type FriendGraph } from './momentsPool';
 
 /**
  * 朋友圈第二批（路線圖第 6 項，設計見 plans/moments-pool-design.md「生成與互動」）的純邏輯：
- * - 自動發文：每個能發的角色／NPC 各自排下一次發文時間（最短～最長間隔之間隨機）；
- * - 看到新貼文的反應：每個看得到的角色／NPC 各擲一次按讚、留言的骰子，排成待辦；
+ * - 自動發文：每個能發的角色各自排下一次發文時間（最短～最長間隔之間隨機；配角用配角那組，間隔長一點）；
+ * - 看到新貼文的反應：每個看得到的角色各擲一次按讚、留言的骰子，排成待辦（主角、配角各一組機率）；
  * - 待辦存在 localStorage，App 開著時由 utils/momentsAutoRuntime.ts 到點執行，重新整理後接著跑。
  * 自動發文受「自動發帖」總開關管；看到新貼文的反應照按讚／留言機率走（調成 0 就不會發生）。
  */
@@ -54,11 +54,13 @@ export function reconcilePostSchedule(
     schedule: Record<string, number>,
     posterIds: string[],
     now: number,
-    settings: Pick<MomentsInteractionSettings, 'minPostIntervalHours'>,
+    /** 一組間隔給全部人，或照人給（配角跟主角的間隔不同） */
+    settings: Pick<MomentsInteractionSettings, 'minPostIntervalHours'> | ((id: string) => Pick<MomentsInteractionSettings, 'minPostIntervalHours'>),
     random: () => number = Math.random,
 ): { schedule: Record<string, number>; due: string[] } {
     const next: Record<string, number> = {};
-    for (const id of posterIds) next[id] = typeof schedule[id] === 'number' ? schedule[id] : firstPostDueAt(now, settings, random);
+    const intervalOf = typeof settings === 'function' ? settings : () => settings;
+    for (const id of posterIds) next[id] = typeof schedule[id] === 'number' ? schedule[id] : firstPostDueAt(now, intervalOf(id), random);
     const due = posterIds.filter(id => next[id] <= now).sort((a, b) => next[a] - next[b]);
     return { schedule: next, due };
 }
@@ -71,7 +73,7 @@ export type MomentJob =
     | { id: string; type: 'commentBatch'; postId: string; actorIds: string[]; dueAt: number }
     /** 已經生成好的留言，到點才貼出來（一批裡第二則以後） */
     | { id: string; type: 'postComment'; postId: string; actorId: string; content: string; replyTo?: string; dueAt: number }
-    /** 作者回覆某則留言（角色回 NPC 的留言） */
+    /** 作者回覆某則留言（作者回配角的留言） */
     | { id: string; type: 'reply'; postId: string; actorId: string; replyTo: string; dueAt: number };
 
 const genJobId = () => `mj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -79,38 +81,38 @@ const genJobId = () => `mj-${Date.now().toString(36)}-${Math.random().toString(3
 /**
  * 一篇新貼文發出來後，誰會按讚、誰會留言、什麼時候。
  * - 作者自己、用戶不在內（用戶自己動手）；看不到這篇的人不在內；
- * - 角色和 NPC 各用自己那組機率（NPC 的在設定頁單獨一區）；
+ * - 主角和配角各用自己那組機率（配角的在設定頁單獨一區，預設低一點）；
  * - 讚：在「首則留言延遲」之內隨機一個時間點（沒有 API 成本）；
- * - 留言：角色一批在「首則留言延遲」後，NPC 一批再多等「NPC 互動延遲」。
+ * - 留言：主角一批在「首則留言延遲」後，配角一批再多等「配角互動延遲」。
  */
 export function planReactions(params: {
     post: Pick<MomentPost, 'id' | 'author' | 'visibility'>;
     graph: FriendGraph;
-    candidates: Array<{ id: string; kind: 'character' | 'npc' }>;
-    settings: Pick<MomentsInteractionSettings, 'likeProbability' | 'commentProbability' | 'npcLikeProbability' | 'npcCommentProbability' | 'firstCommentDelaySec' | 'npcInteractionDelayMin'>;
+    candidates: Array<{ id: string; kind: 'character' | 'supporting' }>;
+    settings: Pick<MomentsInteractionSettings, 'likeProbability' | 'commentProbability' | 'supportingLikeProbability' | 'supportingCommentProbability' | 'firstCommentDelaySec' | 'supportingInteractionDelayMin'>;
     now: number;
     random?: () => number;
 }): MomentJob[] {
     const { post, graph, candidates, settings, now, random = Math.random } = params;
     const firstDelay = settings.firstCommentDelaySec * 1000;
-    const npcDelay = settings.npcInteractionDelayMin * MINUTE;
+    const supportingDelay = settings.supportingInteractionDelayMin * MINUTE;
     const jobs: MomentJob[] = [];
-    const commenters: Record<'character' | 'npc', string[]> = { character: [], npc: [] };
+    const commenters: Record<'character' | 'supporting', string[]> = { character: [], supporting: [] };
     for (const c of candidates) {
         if (c.id === USER_ID || c.id === post.author.id) continue;
         if (!canViewMoment(c.id, post, graph)) continue;
-        const isNpc = c.kind === 'npc';
-        const extra = isNpc ? npcDelay : 0;
-        if (random() * 100 < (isNpc ? settings.npcLikeProbability : settings.likeProbability)) {
+        const supporting = c.kind === 'supporting';
+        const extra = supporting ? supportingDelay : 0;
+        if (random() * 100 < (supporting ? settings.supportingLikeProbability : settings.likeProbability)) {
             jobs.push({ id: genJobId(), type: 'like', postId: post.id, actorId: c.id, dueAt: now + extra + Math.round(Math.max(firstDelay, 15_000) * random()) });
         }
-        if (random() * 100 < (isNpc ? settings.npcCommentProbability : settings.commentProbability)) commenters[c.kind].push(c.id);
+        if (random() * 100 < (supporting ? settings.supportingCommentProbability : settings.commentProbability)) commenters[c.kind].push(c.id);
     }
     if (commenters.character.length) {
         jobs.push({ id: genJobId(), type: 'commentBatch', postId: post.id, actorIds: commenters.character, dueAt: now + firstDelay });
     }
-    if (commenters.npc.length) {
-        jobs.push({ id: genJobId(), type: 'commentBatch', postId: post.id, actorIds: commenters.npc, dueAt: now + npcDelay + firstDelay });
+    if (commenters.supporting.length) {
+        jobs.push({ id: genJobId(), type: 'commentBatch', postId: post.id, actorIds: commenters.supporting, dueAt: now + supportingDelay + firstDelay });
     }
     return jobs;
 }

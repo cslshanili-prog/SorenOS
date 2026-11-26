@@ -461,11 +461,6 @@ interface OSContextType {
   /** 一次加好幾個已經組好的角色（AI 生成配角用）：不切換正在聊的角色 */
   addCharacters: (chars: CharacterProfile[]) => Promise<void>;
 
-  /** NPC 檔案（神經鏈接「NPC」分頁）。獨立於 characters，不參與日程/情緒/主動消息/記憶宮殿。 */
-  npcs: NPCProfile[];
-  addNPC: () => Promise<NPCProfile>;
-  updateNPC: (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => void;
-  deleteNPC: (id: string) => Promise<void>;
   setActiveCharacterId: (id: string) => void;
 
   // 角色分組（神經鏈接"文件夾"，與群聊 groups 無關）
@@ -2547,10 +2542,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   charactersRef.current = characters;
 
   // 同步 charId → 角色名 註冊表，讓 utils 層（群聊背景注入等）能標出真實發言人名。
-  // NPC 也登記：群聊裡 NPC 說的話進角色私聊的「近期群聊」背景時要有名字，不然只剩「群友」
+  // 舊 NPC 說過的話：搬成配角時 id 照舊，照角色就找得到名字
   useEffect(() => {
-    setCharNameRegistry([...characters, ...npcs]);
-  }, [characters, npcs]);
+    setCharNameRegistry(characters);
+  }, [characters]);
   // 世界的畫風（plans/image-style-presets.md）：生圖時 utils 層照角色的分組找
   useEffect(() => {
     setWorldRegistry(characterGroups);
@@ -2601,8 +2596,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 私聊 prompt 的「最近的朋友圈」要用朋友關係（utils/momentsContext.ts），同樣登記一份
   // 連同身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）
   useEffect(() => {
-    setMomentsGraphInputs(characters, npcs, { profileBase: userProfileBase, groups });
-  }, [characters, npcs, userProfileBase, groups]);
+    setMomentsGraphInputs(characters, { profileBase: userProfileBase, groups });
+  }, [characters, userProfileBase, groups]);
   // 劇情裡誰跟誰同場過（朋友圈「見過的身份」用）：開機載一次，之後劇情頁存檔、刪除時自己更新
   useEffect(() => {
     let cancelled = false;
@@ -2641,8 +2636,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   userProfileBaseRef.current = userProfileBase;
   /** 背景替某個角色生成時用的「你」：照這個角色的身份綁定（角色自己指定 > 世界預設 > 全域默認）。 */
   const userForChar = (char: CharacterProfile) => resolveUserProfileForChar(userProfileBaseRef.current, char);
-  const npcsRef = useRef(npcs);
-  npcsRef.current = npcs;
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
@@ -3317,7 +3310,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       runPendingPhotos();
       // 朋友圈第二批（utils/momentsAutoRuntime.ts）：新貼文排按讚留言；App 開著時每分鐘做到期的互動、看誰該自動發文
       const momentsCtx = () => ({
-          characters: charactersRef.current, npcs: npcsRef.current,
+          characters: charactersRef.current,
           userProfile: userProfileRef.current, apiConfig: apiConfigRef.current,
           // 身份資料：同一世界裡不同身份卡是不同的人（見 plans/multi-persona-isolation-design.md）
           userProfileBase: userProfileBaseRef.current, groups: groupsRef.current,
@@ -4057,8 +4050,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const [personaLinesEnabled, setPersonaLinesEnabled] = useState(() => isPersonaLinesEnabled());
 
-  // NPC 搬成配角（關係線第 6 批 6b，utils/npcMigration.ts）：預覽開著、資料載入完、還有沒搬的就搬一次。
-  // 舊表留著當備份；搬完 npcs 清單是空的，NPC 那些專用路徑自然沒事做，配角走角色那套。
+  // NPC 搬成配角（關係線第 6 批 6b，utils/npcMigration.ts）：資料載入完、還有沒搬的就搬一次。
+  // npcs 只放還沒搬的、只給搬家用（舊 NPC 的編輯頁和專用路徑已拿掉，plans/npc-cleanup.md）；舊表留著當備份。
   const npcMigratingRef = useRef(false);
   useEffect(() => {
       if (!personaLinesEnabled || !isDataLoaded || !npcs.length || npcMigratingRef.current) return;
@@ -4439,41 +4432,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return { status: 'deleted' };
   };
 
-  // NPC 檔案（神經鏈接「NPC」分頁）。刻意不帶 amsg2/雲端善後那一整套——NPC 沒有
-  // 主動消息任務、沒有云端 client_state，本地增刪改直接落庫即可。
-  const addNPC = async (): Promise<NPCProfile> => {
-    const name = '新 NPC';
-    const now = Date.now();
-    const newNpc: NPCProfile = {
-      id: `npc-${now}`,
-      name,
-      avatar: generateAvatar(name),
-      description: '',
-      relationships: [],
-      createdAt: now,
-      updatedAt: now,
-    };
-    setNpcs(prev => [...prev, newNpc]);
-    await DB.saveNPC(newNpc);
-    return newNpc;
-  };
-
-  const updateNPC = (id: string, updates: Partial<NPCProfile> | ((prev: NPCProfile) => Partial<NPCProfile>)) => {
-    setNpcs(prev => {
-      const updated = prev.map(n => n.id === id
-        ? { ...n, ...(typeof updates === 'function' ? updates(n) : updates), updatedAt: Date.now() }
-        : n);
-      const target = updated.find(n => n.id === id);
-      if (target) DB.saveNPC(target);
-      return updated;
-    });
-  };
-
-  const deleteNPC = async (id: string) => {
-    setNpcs(prev => prev.filter(n => n.id !== id));
-    await DB.deleteNPC(id);
-  };
-
   // 角色分組方法（神經鏈接"文件夾"）
   const createCharacterGroup = async (name: string): Promise<CharacterGroup | null> => {
       const trimmed = name.trim();
@@ -4543,7 +4501,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           DB.saveCharacter(next);
           return next;
       }));
-      // NPC 跟主角共用分組：組內的 NPC 一起回到未分組
+      // 還沒搬成配角的舊 NPC 也跟著回到未分組（搬家時才不會帶著一個不存在的世界）
       setNpcs(prev => prev.map(n => {
           if (n.groupId !== id) return n;
           const next = { ...n, groupId: undefined };
@@ -5230,8 +5188,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const allStores = [
               // character_groups（角色分組定義）必須與 characters 同進退：
               // 角色身上的 groupId 指向這張表，漏導會讓導入端全員回落「未分組」
-              // npcs（神經鏈接「NPC」分頁，獨立於 characters）同理必須一起帶走，否則整合導出
-              // 之後再導入，NPC 名單會清空——查手機聯繫人的 linkedNpcId 也會全部懸空。
+              // npcs（舊 NPC 表）同理一起帶走：從舊備份還原回來還沒搬的，開機後照常搬成配角。
               // moment_posts（單一貼文池）：朋友圈貼文與圖片令牌，漏了導入端的朋友圈會清空
               'characters', 'character_groups', 'npcs', 'moment_posts', 'messages', 'themes', 'emojis', 'emoji_categories', 'assets', 'gallery',
               'user_profile', 'diaries', 'tasks', 'anniversaries', 'room_todos',
@@ -6785,10 +6742,6 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     setCharBenched,
     addCharacters,
     setActiveCharacterId,
-    npcs,
-    addNPC,
-    updateNPC,
-    deleteNPC,
     characterGroups,
     createCharacterGroup,
     renameCharacterGroup,

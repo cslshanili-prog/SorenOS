@@ -1,5 +1,5 @@
 import type {
-    CharacterProfile, MomentActor, MomentComment, MomentLike, MomentPost, NPCProfile, PhoneContact, TrajectoryMomentPost,
+    CharacterProfile, MomentActor, MomentComment, MomentLike, MomentPost, PhoneContact, TrajectoryMomentPost,
 } from '../types';
 
 /**
@@ -7,21 +7,27 @@ import type {
  * 誰跟誰是朋友、誰看得到哪篇貼文、看得到哪些讚和留言，以及舊軌跡 Moments 的搬遷。
  * 不碰資料庫，全部可以單測。
  *
- * 參與者 id：'user' 是用戶本人；其他是角色 id 或 NPC id（NPC 靠 npcs 清單認出來）。
+ * 參與者 id：'user' 是用戶本人；其他是角色 id（主角、配角；舊 NPC 搬成配角時 id 照舊）。
  */
 
 export const USER_ID = 'user';
 
-type FriendChar = Pick<CharacterProfile, 'id'> & { phoneState?: { contacts?: PhoneContact[] }; chatBlock?: CharacterProfile['chatBlock']; altOf?: string; altUserFriend?: boolean };
-type FriendNpc = Pick<NPCProfile, 'id' | 'relationships'>;
+type FriendChar = Pick<CharacterProfile, 'id'> & {
+    phoneState?: { contacts?: PhoneContact[] };
+    chatBlock?: CharacterProfile['chatBlock'];
+    altOf?: string;
+    altUserFriend?: boolean;
+    /** 配角（多半從舊 NPC 搬來）的關係清單：寫了誰就算認識誰 */
+    relationships?: Array<{ targetId: string }>;
+};
 
 export interface FriendGraph {
     areFriends(a: string, b: string): boolean;
-    kindOf(id: string): 'user' | 'character' | 'npc';
+    kindOf(id: string): 'user' | 'character';
     /** 兩人之間有拉黑（私聊拉黑或通訊錄拉黑／刪除）：連公開貼文都看不到。 */
     isBlocked(a: string, b: string): boolean;
     /**
-     * 角色／NPC 跟「用戶的某張身份卡」是什麼關係（同一世界裡不同身份是不同的人，
+     * 角色跟「用戶的某張身份卡」是什麼關係（同一世界裡不同身份是不同的人，
      * 見 plans/multi-persona-isolation-design.md）：main＝它的主身份（私聊那條線），
      * seen＝在共同的群裡見過，stranger＝不認識。沒帶身份資料、或舊資料沒有身份鍵，一律算 main。
      */
@@ -32,7 +38,7 @@ export interface FriendGraph {
 
 /** 誰認識哪張身份卡（由 utils/momentsPersona.ts 的 buildPersonaKnowledge 從用戶資料和群組算出來）。 */
 export interface PersonaKnowledge {
-    /** 角色／NPC 的主身份鍵；不認得的 id 回 undefined（當成 main，寬鬆處理）。 */
+    /** 角色的主身份鍵；不認得的 id 回 undefined（當成 main，寬鬆處理）。 */
     mainKeyOf(viewerId: string): string | undefined;
     /** 在共同的群裡見過的身份鍵（不含主身份）。 */
     seenKeysOf(viewerId: string): ReadonlySet<string>;
@@ -43,21 +49,17 @@ export interface PersonaKnowledge {
 
 /**
  * 朋友關係（定案：角色之間單向就算）：
- * - 用戶 ↔ 角色：一律是朋友
- * - 用戶 ↔ NPC：NPC 的關係清單裡有 'user'
- * - 角色 ↔ 角色：任一方的查手機通訊錄把對方標成 friend
- * - 角色 ↔ NPC：NPC 的關係清單裡有這個角色，或角色通訊錄裡綁了這個 NPC、標成 friend
- * - NPC ↔ NPC：不是朋友
+ * - 用戶 ↔ 角色：一律是朋友（小號要你通過它的好友申請才是）
+ * - 角色 ↔ 角色：任一方的查手機通訊錄把對方標成 friend，或任一方的關係清單寫了對方
+ *   （配角多半從舊 NPC 搬來，以前靠 NPC 的關係清單認朋友，搬來後照舊算）
  * 任何一方的通訊錄把另一方拉黑或刪掉，就不是朋友（優先於上面所有規則）。
  * 用戶跟角色之間私聊拉黑中（不管誰拉黑誰，見 utils/chatBlock.ts）也一樣。
  */
-export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[], personas?: PersonaKnowledge): FriendGraph {
-    const npcById = new Map(npcs.map(n => [n.id, n]));
+export function buildFriendGraph(characters: FriendChar[], personas?: PersonaKnowledge): FriendGraph {
     const charById = new Map(characters.map(c => [c.id, c]));
-    const kindOf = (id: string): 'user' | 'character' | 'npc' =>
-        id === USER_ID ? 'user' : npcById.has(id) ? 'npc' : 'character';
+    const kindOf = (id: string): 'user' | 'character' => id === USER_ID ? 'user' : 'character';
 
-    /** 角色 a 的通訊錄裡指向 b 的那條（真角色或綁定 NPC） */
+    /** 角色 a 的通訊錄裡指向 b 的那條（舊資料可能還寫在 linkedNpcId：NPC 搬成配角時 id 照舊） */
     const contactOf = (a: string, b: string): PhoneContact | undefined =>
         (charById.get(a)?.phoneState?.contacts || []).find(c => c.linkedCharId === b || c.linkedNpcId === b);
     const blocks = (a: string, b: string): boolean => {
@@ -67,26 +69,17 @@ export function buildFriendGraph(characters: FriendChar[], npcs: FriendNpc[], pe
     };
     const isBlocked = (a: string, b: string): boolean => a !== b && (blocks(a, b) || blocks(b, a));
     const listsFriend = (a: string, b: string): boolean => contactOf(a, b)?.status === 'friend';
-    const npcKnows = (npcId: string, other: string): boolean =>
-        !!npcById.get(npcId)?.relationships.some(r => r.targetId === other);
+    const knows = (a: string, b: string): boolean => !!charById.get(a)?.relationships?.some(r => r.targetId === b);
 
     const areFriends = (a: string, b: string): boolean => {
         if (a === b) return true;
         if (isBlocked(a, b)) return false;
-        const ka = kindOf(a);
-        const kb = kindOf(b);
-        if (ka === 'npc' && kb === 'npc') return false;
-        if (ka === 'user' || kb === 'user') {
-            const other = ka === 'user' ? b : a;
+        if (a === USER_ID || b === USER_ID) {
+            const other = charById.get(a === USER_ID ? b : a);
             // 角色預設跟你是朋友；小號（關係線第 7 批）要你通過它的好友申請才是
-            if (kindOf(other) === 'character') return charById.get(other)?.altOf ? !!charById.get(other)?.altUserFriend : true;
-            return npcKnows(other, USER_ID);
+            return other?.altOf ? !!other.altUserFriend : true;
         }
-        if (ka === 'npc' || kb === 'npc') {
-            const [npc, char] = ka === 'npc' ? [a, b] : [b, a];
-            return npcKnows(npc, char) || listsFriend(char, npc);
-        }
-        return listsFriend(a, b) || listsFriend(b, a);
+        return listsFriend(a, b) || listsFriend(b, a) || knows(a, b) || knows(b, a);
     };
 
     const personaRelation = (viewerId: string, personaKey: string | undefined): 'main' | 'seen' | 'stranger' => {
@@ -148,36 +141,31 @@ export function displayLikeCount(viewerId: string, post: MomentPost, graph: Frie
 
 // ── 參與者 ───────────────────────────────────────────────────────────
 
-/** 把 id 變成帶名字快照的參與者；找不到的角色／NPC 回 null。 */
+/** 把 id 變成帶名字快照的參與者；找不到的角色回 null。 */
 export function actorFor(
     id: string,
     characters: Array<Pick<CharacterProfile, 'id' | 'name'>>,
-    npcs: Array<Pick<NPCProfile, 'id' | 'name'>>,
     userName: string,
     /** 用戶用哪張身份卡（身份鍵）；不給就是舊的「所有人都認識的你」 */
     personaKey?: string,
 ): MomentActor | null {
     if (id === USER_ID) return { kind: 'user', id: USER_ID, name: userName.trim() || '我', ...(personaKey ? { personaKey } : {}) };
-    const npc = npcs.find(n => n.id === id);
-    if (npc) return { kind: 'npc', id, name: npc.name };
     const char = characters.find(c => c.id === id);
     return char ? { kind: 'character', id, name: char.name } : null;
 }
 
 /**
- * 展示名：角色／NPC 用現在的名字（改名跟著變），刪掉了用快照。
+ * 展示名：角色用現在的名字（改名跟著變），刪掉了用快照。舊資料裡 kind 是 'npc' 的，NPC 搬成配角時 id 照舊，照角色找。
  * 用戶：有身份鍵且好友圖帶了身份資料 → 那張身份卡現在的名字；否則用傳進來的名字（看的人認識的那個你）。
  */
 export function actorDisplayName(
     actor: MomentActor,
     characters: Array<Pick<CharacterProfile, 'id' | 'name'>>,
-    npcs: Array<Pick<NPCProfile, 'id' | 'name'>>,
     userName: string,
     graph?: Pick<FriendGraph, 'personaName'>,
 ): string {
     if (actor.kind === 'user') return graph?.personaName?.(actor.personaKey) || userName.trim() || actor.name;
-    if (actor.kind === 'npc') return npcs.find(n => n.id === actor.id)?.name || actor.name;
-    if (actor.kind === 'character') return characters.find(c => c.id === actor.id)?.name || actor.name;
+    if (actor.kind === 'character' || actor.kind === 'npc') return characters.find(c => c.id === actor.id)?.name || actor.name;
     return actor.name;
 }
 

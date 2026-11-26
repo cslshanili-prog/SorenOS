@@ -87,8 +87,6 @@ export function buildGroupTopicPrompt(
     batch: Message[],
     characters: CharacterProfile[],
     userName: string,
-    /** 群裡的 NPC 成員（只要名字；NPC 說的話在記錄裡要有名字，不能變成「未知成員」） */
-    npcSpeakers: Array<{ id: string; name: string }> = [],
     /** 你那一行照訊息上記的身份卡寫名字（關係線第 5 批）；不給就一律 userName */
     userNameOf?: (m: Message) => string,
     /** 成員各自私下認識的人不同時的說明（utils/groupChat/knownPeople.ts 的 buildKnownPeopleSummaryNote） */
@@ -96,11 +94,8 @@ export function buildGroupTopicPrompt(
 ): string {
     const nameOf = (m: Message) => m.role === 'user'
         ? (userNameOf ? userNameOf(m) : userName)
-        : (characters.find(c => c.id === m.charId)?.name || npcSpeakers.find(n => n.id === m.charId)?.name || '未知成員');
-    const participants = [
-        ...group.members.map(id => characters.find(c => c.id === id)?.name),
-        ...npcSpeakers.map(n => `${n.name}（NPC）`),
-    ].filter(Boolean).join('、');
+        : (characters.find(c => c.id === m.charId)?.name || '未知成員');
+    const participants = group.members.map(id => characters.find(c => c.id === id)?.name).filter(Boolean).join('、');
     // 只給總結機角色語義資料，不傳頭像/立繪/房間圖片等媒體字段，避免 base64 撐爆請求。
     const memberProfiles = group.members.map(id => characters.find(c => c.id === id)).filter(Boolean).map(char => {
         const c = char as CharacterProfile;

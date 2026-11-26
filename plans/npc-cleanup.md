@@ -1,6 +1,14 @@
-# 拿掉舊 NPC 程式碼：清單（等 Liora 看過再動手）
+# 拿掉舊 NPC 程式碼
 
-> 狀態：**清單，還沒刪任何東西**（2026-11-26 盤點）。對應 `plans/todo.md` 第 3 項。
+> 狀態：**做完了**（2026-11-26 盤點、同天 Liora 點頭後動手）。對應 `plans/todo.md` 第 3 項。
+>
+> 做法跟下面的清單一樣，幾個定下來的細節：
+> - 朋友圈那四格 NPC 設定：**改成「配角」自己一組**，配角發文少一點（預設間隔 96～168 小時，主角 48～72；按讚 50%、留言 20%），細節見 `plans/moments-pool-design.md`「第二批落地實況」的更新。
+> - 群聊客串改寫成直接吃角色卡：`utils/groupGuestLine.ts`（原本的 `npcGroupGuestLine.ts`），人選只有在戲上、不是小號、不在群裡的配角；客串的輕量檔案 `buildGuestGrounding`。埋點改名「群聊配角客串一句」，「群聊添加／移除NPC成员」拿掉。
+> - 劇情的「客串 NPC」那格拿掉，配角直接當演員選；`StoryTheaterEntry.npcIds` 欄位留著（舊資料，搬家讀）。
+> - 查手機：加聯繫人的「NPC」只剩「隨機產生」（虛構路人），改綁定只剩真角色／轉為虛構；配角是真角色，走「真人」綁。
+> - 行事曆：舊事件上的 `Participant.kind === 'npc'` 照 id 當成角色（`sameParticipant`），最近看過的清單讀到 npc 換成 char。
+> - 搬家路徑多一個走真資料庫的測試 `utils/npcMigrationRun.test.ts`。
 
 ## 背景
 

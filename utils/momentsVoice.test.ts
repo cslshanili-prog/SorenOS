@@ -21,13 +21,14 @@ describe('朋友圈留言的人設片段', () => {
 describe('跟發文的人什麼關係', () => {
     const characters = [
         { id: 'a', charViewRelationship: '戀人', phoneState: { contacts: [{ id: 'c1', name: 'B', kind: 'real' as const, status: 'friend' as const, linkedCharId: 'b', identity: '大學室友', note: '常借錢' }] } },
+        // 配角（從舊 NPC 搬來）：關係寫在自己的關係清單
+        { id: 'n', relationships: [{ id: 'r', targetId: 'user', description: '樓下的房東' }] },
     ];
-    const npcs = [{ id: 'n', relationships: [{ id: 'r', targetId: 'user', description: '樓下的房東' }] }];
-    it('用戶的貼文看角色認為的關係、角色的貼文看通訊錄、NPC 看自己的關係清單', () => {
-        expect(relationToAuthor({ commenterId: 'a', authorId: 'user', characters, npcs } as any)).toBe('戀人');
-        expect(relationToAuthor({ commenterId: 'a', authorId: 'b', characters, npcs } as any)).toBe('大學室友，常借錢');
-        expect(relationToAuthor({ commenterId: 'n', authorId: 'user', characters, npcs } as any)).toBe('樓下的房東');
-        expect(relationToAuthor({ commenterId: 'n', authorId: 'b', characters, npcs } as any)).toBe('');
+    it('用戶的貼文看角色認為的關係、角色的貼文看通訊錄、配角看自己的關係清單', () => {
+        expect(relationToAuthor({ commenterId: 'a', authorId: 'user', characters } as any)).toBe('戀人');
+        expect(relationToAuthor({ commenterId: 'a', authorId: 'b', characters } as any)).toBe('大學室友，常借錢');
+        expect(relationToAuthor({ commenterId: 'n', authorId: 'user', characters } as any)).toBe('樓下的房東');
+        expect(relationToAuthor({ commenterId: 'n', authorId: 'b', characters } as any)).toBe('');
     });
 });
 

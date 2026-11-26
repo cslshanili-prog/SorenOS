@@ -2,14 +2,13 @@ import React, { useMemo, useRef, useState } from 'react';
 import ExpandableTextarea from '../../common/ExpandableTextarea';
 import { ArrowLeft, DownloadSimple, UploadSimple, UserCircle } from '@phosphor-icons/react';
 import TokenImg from '../../os/TokenImg';
-import type { CharacterProfile, NPCProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, UserProfile } from '../../../types';
+import type { CharacterProfile, StoryTheaterEntry, StoryTheaterMask, StoryTheaterPreset, UserProfile } from '../../../types';
 import { dedupeTheaterWorldbooks, downloadStoryPreset, estimateStoryTokens, getPresetPromptStats, resolveStoryPresetDocument } from '../../../utils/storyTheater';
 import { isPersonaSelection, joinPresentNames, presenceCharacterIds, resolveStoryPresence, storyPresenceSelections } from '../../../utils/storyPresence';
 
 interface Props {
     initial: StoryTheaterEntry;
     characters: CharacterProfile[];
-    npcs: NPCProfile[];
     /** 沒套身份卡的原始檔案：在場的你要照卡解析 */
     userBase: UserProfile;
     masks: StoryTheaterMask[];
@@ -30,7 +29,7 @@ const localDateTime = (timestamp = Date.now()): string => {
 
 const Toggle: React.FC<{ value: boolean; onChange: (value: boolean) => void; label?: string }> = ({ value, onChange, label }) => <button type='button' aria-label={label} aria-pressed={value} onClick={() => onChange(!value)} className={`w-11 h-6 shrink-0 rounded-full p-1 transition-colors ${value ? 'bg-violet-600' : 'bg-slate-200'}`}><span className={`block w-4 h-4 rounded-full bg-white transition-transform ${value ? 'translate-x-5' : ''}`} /></button>;
 
-const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBase, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox }) => {
+const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, userBase, masks, maskLocked, presets, onCancel, onSave, onImportPreset, onEditPreset, onOpenMaskBox }) => {
     const [draft, setDraft] = useState<StoryTheaterEntry>({ ...initial });
     const [saving, setSaving] = useState(false);
     const fileInput = useRef<HTMLInputElement>(null);
@@ -61,13 +60,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBa
             characterContextLimits: { ...current.characterContextLimits, ...(adding && !current.characterContextLimits[char.id] ? { [char.id]: 100 } : {}) },
             updatedAt: Date.now(),
         };
-    });
-    // 客串 NPC：只在「真實時間陪伴」編輯器裡露出入口（見下方渲染的條件），不影響
-    // 記憶/好感度/世界書掛載這些圍繞 characterIds 設計的管道，見 buildTheaterNpcContext。
-    const toggleNpc = (npc: NPCProfile) => setDraft(current => {
-        const ids = current.npcIds || [];
-        const npcIds = ids.includes(npc.id) ? ids.filter(id => id !== npc.id) : [...ids, npc.id];
-        return { ...current, npcIds, updatedAt: Date.now() };
     });
     const tokenPreview = useMemo(() => {
         const actorText = [...present.flatMap(you => [you.name, you.description, you.extra, you.coreInstruction, you.worldview]), ...actors.map(char => [char.name, char.systemPrompt, char.worldview, draft.carryCharacterMemory ? JSON.stringify(char.memories || []) : ''].join('\n'))].join('\n');
@@ -114,11 +106,6 @@ const StoryTheaterEditor: React.FC<Props> = ({ initial, characters, npcs, userBa
                 </button>
                 <p className='mt-2 text-[10px] leading-5 text-slate-500'>{draft.writesToCharacterMemory ? '真實時間陪伴只能用身份卡：寫進角色記憶的必須是真的你。可以好幾張一起在場，每個角色照自己認識的卡記這場戲；也可以一張都不選（旁觀）。' : '可以好幾個你一起在場，也可以一個都不選（旁觀）。劇情開始之後照樣能改。'}</p>
                 <div className='mt-4 grid grid-cols-2 gap-2.5'>{characters.map(char => { const selected = draft.characterIds.includes(char.id); const isMask = playedIds.has(char.id); return <button key={char.id} disabled={isMask} onClick={() => toggleCharacter(char)} className={`flex items-center gap-3 p-3 rounded-2xl border text-left disabled:opacity-45 ${selected ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-200'}`}><TokenImg value={char.avatar} alt='' className='w-10 h-10 rounded-full object-cover' /><span className='min-w-0 flex-1'><span className='block text-sm font-semibold truncate'>{char.name}</span>{isMask && <span className='block text-[9px] text-violet-500'>當前由你扮演</span>}</span><span className={`w-4 h-4 rounded-full border-2 ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`} /></button>; })}</div>
-                <div className='mt-5 pt-5 border-t border-slate-200'>
-                    <div className='text-sm font-semibold'>客串 NPC · 可選</div>
-                    <p className='mt-1 text-[10px] leading-5 text-slate-500'>神經鏈接「NPC」分頁裡的角色可以客串出場，戲份比主角輕；沒有獨立記憶、不追蹤好感度，只是讓這一場戲裡能自然出現更多人。真實陪伴、虛構劇場都能用。</p>
-                    {npcs.length === 0 ? <p className='mt-3 text-[10px] text-slate-400'>還沒有 NPC，可以去神經鏈接「NPC」分頁新建。</p> : <div className='mt-3 grid grid-cols-2 gap-2.5'>{npcs.map(npc => { const selected = (draft.npcIds || []).includes(npc.id); return <button key={npc.id} onClick={() => toggleNpc(npc)} className={`flex items-center gap-3 p-3 rounded-2xl border text-left ${selected ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-200'}`}><TokenImg value={npc.avatar} alt='' className='w-10 h-10 rounded-full object-cover' /><span className='min-w-0 flex-1'><span className='block text-sm font-semibold truncate'>{npc.name}</span><span className='block text-[9px] text-slate-400'>客串</span></span><span className={`w-4 h-4 rounded-full border-2 ${selected ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`} /></button>; })}</div>}
-                </div>
             </section>
             <section className='pt-6 border-t border-slate-200'>
                 <div className='text-[9px] tracking-[.22em] uppercase font-bold text-violet-500'>03 / Memory</div><h2 className='mt-1 text-lg font-semibold'>這段故事是真的嗎</h2>

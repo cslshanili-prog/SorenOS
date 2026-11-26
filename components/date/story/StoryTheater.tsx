@@ -36,7 +36,7 @@ interface Props {
 type View = 'list' | 'editor' | 'session' | 'preset' | 'masks' | 'vectors';
 
 const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) => {
-    const { characters, npcs, userProfileBase, addToast, remoteVectorConfig } = useOS();
+    const { characters, userProfileBase, addToast, remoteVectorConfig } = useOS();
     const [view, setView] = useState<View>('list');
     const [entries, setEntries] = useState<StoryTheaterEntry[]>([]);
     const [customPresets, setCustomPresets] = useState<StoryTheaterPreset[]>([]);
@@ -236,7 +236,6 @@ const StoryTheaterContent: React.FC<Props> = ({ onSwitchCompanion, onClose }) =>
     if (view === 'editor' && activeEntry) return <StoryTheaterEditor key={`${activeEntry.id}:${activeEntry.updatedAt}`}
         initial={activeEntry}
         characters={characters}
-        npcs={npcs}
         userBase={userProfileBase}
         masks={masks}
         maskLocked={maskLocked}

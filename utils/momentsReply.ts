@@ -1,5 +1,5 @@
 import { ALT_RECOGNITION_RULE } from './charAlt';
-import type { APIConfig, CharacterProfile, MomentComment, MomentPost, NPCProfile } from '../types';
+import type { APIConfig, CharacterProfile, MomentComment, MomentPost } from '../types';
 import { ContextBuilder } from './context';
 import { resolveCharacterChatApi } from './characterApi';
 import { resolveMomentsApi } from './apiCenter';
@@ -14,8 +14,8 @@ export const MOMENT_SKIP_TOKEN = '[[SKIP]]';
 export const isMomentSkip = (text: string): boolean => /\[\[\s*SKIP\s*\]\]/i.test(text);
 
 /**
- * 有人在角色的貼文底下留言 → 作者回一句：用戶留言時馬上排（朋友圈頁）；NPC 留言時由第二批的自動化排
- * （utils/momentsAutoRuntime.ts，延遲照「角色回覆 NPC 留言延遲」）。
+ * 有人在角色的貼文底下留言 → 作者回一句：用戶留言時馬上排（朋友圈頁）；配角留言時由第二批的自動化排
+ * （utils/momentsAutoRuntime.ts，延遲照「作者回覆配角留言延遲」）。
  * 設計見 plans/moments-pool-design.md「生成與互動」。
  */
 
@@ -73,23 +73,22 @@ export async function replyAsAuthor(params: {
     userName: string;
     apiConfig: APIConfig;
     characters: CharacterProfile[];
-    npcs: NPCProfile[];
     delayMs?: number;
     /** 帶身份資料的好友圖：你用別的身份留的言用那張卡的名字（多身份隔離 2a）。userName 此時是作者認識的那個你 */
     graph?: FriendGraph;
 }): Promise<void> {
-    const { char, post, userComment, userName, apiConfig, characters, npcs, delayMs = 0, graph } = params;
+    const { char, post, userComment, userName, apiConfig, characters, delayMs = 0, graph } = params;
     // 朋友圈槽設了就用它，沒設照角色自己的對話模型 → 主 API
     const api = resolveMomentsApi(apiConfig, resolveCharacterChatApi(char, apiConfig));
     if (!api.baseUrl || !api.apiKey) return;
-    const { nameOf, personaNote, relationOf } = personaNaming(char.id, userName, characters, npcs, graph);
+    const { nameOf, personaNote, relationOf } = personaNaming(char.id, userName, characters, graph);
     const thread = post.comments
         .filter(c => c.id !== userComment.id)
         .map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`)
         .join('\n');
     const replyTarget = userComment.replyTo ? post.comments.find(c => c.id === userComment.replyTo) : undefined;
     const replyingToName = replyTarget && replyTarget.actor.id !== char.id ? nameOf(replyTarget) : undefined;
-    // 留言的人不一定是用戶：第二批裡角色也會回 NPC 的留言
+    // 留言的人不一定是用戶：第二批裡作者也會回配角的留言
     const commenterName = userComment.actor.id === USER_ID && !graph ? userName : nameOf(userComment);
     const prompt = buildAuthorReplyPrompt({
         authorName: char.name, userName: commenterName, post, thread, userComment: userComment.content, replyingToName,
@@ -124,7 +123,6 @@ function personaNaming(
     charId: string,
     userName: string,
     characters: Array<Pick<CharacterProfile, 'id' | 'name'>>,
-    npcs: Array<Pick<NPCProfile, 'id' | 'name'>>,
     graph?: FriendGraph,
 ) {
     const others: string[] = [];
@@ -134,7 +132,7 @@ function personaNaming(
         return rel === 'main' ? undefined : rel;
     };
     const nameOf = (c: Pick<MomentComment, 'actor'>) => {
-        const name = actorDisplayName(c.actor, characters, npcs, userName, graph);
+        const name = actorDisplayName(c.actor, characters, userName, graph);
         if (relationOf(c.actor)) others.push(name);
         return name;
     };
@@ -177,15 +175,14 @@ export async function commentAsCharacter(params: {
     userName: string;
     apiConfig: APIConfig;
     characters: CharacterProfile[];
-    npcs: NPCProfile[];
     /** 同 replyAsAuthor：userName 是這個角色認識的那個你 */
     graph?: FriendGraph;
 }): Promise<boolean> {
-    const { char, post, userName, apiConfig, characters, npcs, graph } = params;
+    const { char, post, userName, apiConfig, characters, graph } = params;
     // 朋友圈槽設了就用它，沒設照角色自己的對話模型 → 主 API
     const api = resolveMomentsApi(apiConfig, resolveCharacterChatApi(char, apiConfig));
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
-    const { nameOf, personaNote } = personaNaming(char.id, userName, characters, npcs, graph);
+    const { nameOf, personaNote } = personaNaming(char.id, userName, characters, graph);
     const thread = post.comments.map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`).join('\n');
     const authorName = post.author.id === char.id ? '你自己' : nameOf({ actor: post.author });
     const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {

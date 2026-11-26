@@ -24,13 +24,8 @@ export interface DispatchContext {
     groupId: string;
     /** 群成員 id 列表——charId 不在其中的動作直接丟棄 */
     memberIds: string[];
-    /** 名字查詢表：角色 + 群裡的 NPC（只用到 id / name） */
+    /** 名字查詢表：群成員（只用到 id / name） */
     characters: Array<{ id: string; name: string }>;
-    /**
-     * 其中哪些是 NPC：NPC 沒有和用戶的私聊，[[PRIVATE:]] 的內容直接丟掉（不落進任何私聊）；
-     * 也不能退群（退群只管 members 裡的角色）。
-     */
-    npcIds?: ReadonlySet<string>;
     emojis: EmojiItem[];
     categories: EmojiCategory[];
     /** 每條氣泡落庫後刷新 UI（GroupChat 的 refreshMessages） */
@@ -122,10 +117,9 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         }
 
         if (privateMatches.length > 0) {
-            const isNpc = !!ctx.npcIds?.has(targetId);
             for (const m of privateMatches) {
                 const privateContent = (m[2] || '').trim();
-                const line = privateContent && !isNpc
+                const line = privateContent
                     ? (ctx.privateTarget ? ctx.privateTarget(targetId, m[1]?.trim() || undefined) : { charId: targetId })
                     : null;
                 if (line && ctx.onPrivate) {
@@ -160,7 +154,7 @@ export async function dispatchMemberActions(actions: DirectorAction[], ctx: Disp
         }
         if (dms.length) {
             publicContent = publicContent.replace(dmRegex, '').trim();
-            if (ctx.onMemberDm && !ctx.npcIds?.has(targetId)) {
+            if (ctx.onMemberDm) {
                 for (const d of dms) await ctx.onMemberDm(targetId, d.to, d.content);
             }
             if (!publicContent) { await fireLeaveIfWanted(); continue; }
