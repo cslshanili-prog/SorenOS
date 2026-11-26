@@ -122,6 +122,7 @@ import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry
 import { refreshTripRegistry } from '../utils/trips';
 import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
 import { parseBondId } from '../utils/bond/model';
+import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
 import { extractBondInvite } from '../utils/bond/invite';
 import { globalAmsgApi } from '../utils/apiCenter';
@@ -2555,7 +2556,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
-  useEffect(() => { void refreshBondRegistry(); }, []);
+  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); }, []);
   // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
   // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；
   // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。
@@ -4447,6 +4448,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     try {
         // 羈絆空間：身份卡 × 他、他 × 任何角色（plans/bond.md）
         await deleteBondsOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆空間刪除失敗', e));
+        await deleteBondEntriesOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆的卡刪除失敗', e));
         for (const pairId of await DB.getPairLineIds()) {
             if (parsePairLineId(pairId)?.includes(id)) await DB.clearMessages(pairId);
         }
@@ -4764,6 +4766,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }));
       // 這張卡的羈絆空間一起刪（plans/bond.md）
       await deleteBondsOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆空間刪除失敗', e));
+      await deleteBondEntriesOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆的卡刪除失敗', e));
       if (goneLinks.size) {
           for (const c of charactersRef.current) {
               if (!Object.keys(c.altKnowledge || {}).some(k => goneLinks.has(k))) continue;
@@ -5248,8 +5251,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 生活記錄（檔案 App：生理期/藥盒/鍛鍊 + 藥盒計劃 + 設置；記帳走 bank_transactions）
               // 導入端 importFullData 已支持恢復，這裡必須同步登記，否則備份不含生活記錄。
               'life_records', 'med_plans', 'life_record_settings',
-              // 羈絆空間（plans/bond.md）
-              'bonds',
+              // 羈絆空間與裡面的卡（plans/bond.md、bond-batch2.md）
+              'bonds', 'bond_entries',
               // 2026-11-26 補：以下幾張 importFullData 早就會還原（購物中心是這次一起補上），
               // 但一直漏在這份清單外，設置頁的備份根本沒打包（DB.exportFullData 有，所以 roundtrip 測試是綠的）。
               'calendar_events', 'trips',                                    // 行事曆的約定層、旅行
@@ -5644,6 +5647,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               med_plans: 'medPlans',
               life_record_settings: 'lifeRecordSettings',
               bonds: 'bonds',
+              bond_entries: 'bondEntries',
               calendar_events: 'calendarEvents',
               trips: 'trips',
               date_stories: 'dateStories',
@@ -5933,6 +5937,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'worlds': backupData.worlds = processedData; break;
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
                   case 'bonds': backupData.bonds = processedData; break;
+                  case 'bond_entries': backupData.bondEntries = processedData; break;
                   case 'calendar_events': backupData.calendarEvents = processedData; break;
                   case 'trips': backupData.trips = processedData; break;
                   case 'date_stories': backupData.dateStories = processedData; break;

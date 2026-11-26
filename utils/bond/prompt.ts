@@ -5,8 +5,9 @@
  *   現有提示詞一字不差（測試鎖著）。
  * - 友情、親情的鎖定除了在段落裡，系統提示詞最後還要再出現一次（bondFinalLock），預設改不掉。
  */
-import type { BondRecord, BondRoute } from '../../types';
+import type { BondEntry, BondRecord, BondRoute } from '../../types';
 import { lastTurn } from './model';
+import { eventSortKey, promptEventDate } from './eventDate';
 import { CUSTOM_STAGE, isDefaultBondState, routeLabel, stageLabel } from './routes';
 
 export interface BondPromptInput {
@@ -20,6 +21,67 @@ export interface BondPromptInput {
      * persona：一律是角色。
      */
     selfIsCharId?: boolean;
+    /**
+     * 這段關係的卡（plans/bond-batch2.md 第 2 節）：已收存的片刻、「你」已收下的隨筆會帶進來。
+     * 沒傳或沒有可帶的卡時，段落跟第 1 批一字不差。空間還沒存進 bonds（自動開的）也照樣帶。
+     */
+    entries?: BondEntry[];
+    /** 「你」的角色 id：隨筆只帶自己寫的（角色之間互相不讀隨筆） */
+    selfId?: string;
+    /** 片刻上那句「想留著的原因」是你（用戶）寫的；角色 × 角色時角色不知道，不帶 */
+    includeUserNotes?: boolean;
+}
+
+export const PROMPT_MOMENT_LIMIT = 8;
+export const PROMPT_ESSAY_LIMIT = 3;
+export const PROMPT_ESSAY_CHARS = 200;
+
+const oneLine = (s: string | undefined) => String(s || '').replace(/\s+/g, ' ').trim();
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+/** 會進提示詞的片刻：已收存、沒收起，照事件日期新到舊 */
+export function promptMoments(entries: BondEntry[] | undefined): BondEntry[] {
+    return (entries || [])
+        .filter(e => e.kind === 'moment' && e.status === 'published' && !e.hidden && oneLine(e.text || e.title))
+        .sort((a, b) => {
+            const ka = eventSortKey(a.eventDate); const kb = eventSortKey(b.eventDate);
+            return ka === kb ? b.writtenAt - a.writtenAt : ka < kb ? 1 : -1;
+        })
+        .slice(0, PROMPT_MOMENT_LIMIT);
+}
+
+/** 會進提示詞的隨筆：「你」寫的、已收下的，最近幾篇 */
+export function promptEssays(entries: BondEntry[] | undefined, selfId: string | undefined): BondEntry[] {
+    if (!selfId) return [];
+    return (entries || [])
+        .filter(e => e.kind === 'essay' && e.status === 'published' && e.author === selfId && oneLine(e.text))
+        .sort((a, b) => b.writtenAt - a.writtenAt)
+        .slice(0, PROMPT_ESSAY_LIMIT);
+}
+
+function entryLines(input: BondPromptInput): string[] {
+    const lines: string[] = [];
+    const moments = promptMoments(input.entries);
+    if (moments.length) {
+        lines.push(`你們收存的片刻（實際發生過的事，${input.otherName}也記得）：`);
+        for (const m of moments) {
+            const head = oneLine(m.title);
+            const body = oneLine(m.text);
+            const what = head && body && head !== body ? `${head}：${body}` : (head || body);
+            const note = input.includeUserNotes !== false && m.author === 'user' && oneLine(m.note) ? `（${input.otherName}想留著它，因為：${oneLine(m.note)}）` : '';
+            lines.push(`  - ${promptEventDate(m.eventDate)}｜${what}${note}`);
+        }
+    }
+    const essays = promptEssays(input.entries, input.selfId);
+    if (essays.length) {
+        lines.push('你寫過的隨筆（是你當時的感想，不是事實；你現在可以有不同的想法）：');
+        for (const e of essays) {
+            const about = promptEventDate(e.eventDate);
+            const title = oneLine(e.title);
+            lines.push(`  - 關於 ${about}${title ? `〈${title}〉` : ''}：${clip(oneLine(e.text), PROMPT_ESSAY_CHARS)}`);
+        }
+    }
+    return lines;
 }
 
 const FRIENDSHIP_RULES = [
@@ -78,7 +140,10 @@ export function bondHasPromptContent(bond: BondRecord | undefined | null): boole
 /** 一段關係的提示詞段落（自帶結尾空行；沒東西時空字串） */
 export function bondPromptBlock(input: BondPromptInput): string {
     const bond = input.bond;
-    if (!bond || !bondHasPromptContent(bond)) return '';
+    const extra = entryLines(input);
+    if (!bond || !bondHasPromptContent(bond)) {
+        return extra.length ? `### 你和${input.otherName}的關係\n${extra.map(l => (l.startsWith('  ') ? l : `- ${l}`)).join('\n')}\n\n` : '';
+    }
     const { selfName, otherName } = input;
     const lines: string[] = [];
     if (bond.route) {
@@ -98,8 +163,9 @@ export function bondPromptBlock(input: BondPromptInput): string {
         lines.push(`你們在 ${turn.storyDay} 從「${stageText(turn.from.route, turn.from.stage, turn.from.label)}」變成「${stageText(turn.to.route, turn.to.stage, turn.to.label)}」${note}。之前那段關係是真的，不要回頭改寫成一開始就是現在這樣。`);
     }
     lines.push(...ourNowLines(bond, input));
+    lines.push(...extra);
     if (!lines.length) return '';
-    return `### 你和${otherName}的關係\n${lines.map(l => `- ${l}`).join('\n')}\n\n`;
+    return `### 你和${otherName}的關係\n${lines.map(l => (l.startsWith('  ') ? l : `- ${l}`)).join('\n')}\n\n`;
 }
 
 /** 系統提示詞最後那一句（只有友情、親情有） */
