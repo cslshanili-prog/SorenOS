@@ -11,6 +11,7 @@ import { AvatarPair, BondAvatar, BondHeader, BondStyle, BondTabs, bondTabsFor, S
 import { BondHeartPage, mainBondIdOf, useHeartNotice, type HeartNotice, type HeartTab } from '../components/bond/BondHeartPage';
 import { BondQuestionComposePage, BondQuestionPage } from '../components/bond/BondQuestionPages';
 import { BondSlipComposePage, BondSlipPage } from '../components/bond/BondSlipPages';
+import { BondOutputSettingsPage } from '../components/bond/BondOutputSettingsPage';
 import { resolveOutputSetting } from '../utils/bond/output';
 import { bondIdForChar } from '../utils/bond/model';
 import { BondMomentsPage } from '../components/bond/BondMomentsPage';
@@ -51,6 +52,7 @@ type Page =
     | { page: 'diary'; id: string; date?: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean; exitOnBack?: boolean }
     | { page: 'question-new'; id: string }
+    | { page: 'output'; id: string }
     | { page: 'slip'; id: string; entryId: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'slip-edit'; id: string; entryId?: string; replyTo?: string }
     | { page: 'item'; id: string; key: string; exitOnBack?: boolean }
@@ -204,7 +206,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
     if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine'
         || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit' || page.page === 'collect' || page.page === 'pick'
         || page.page === 'essay' || page.page === 'essay-write' || page.page === 'essay-edit'
-        || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit') {
+        || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit' || page.page === 'output') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -300,6 +302,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onNewQuestion={() => setPage({ page: 'question-new', id: s.id })}
                         onOpenSlip={entryId => setPage({ page: 'slip', id: s.id, entryId })}
                         onNewSlip={() => setPage({ page: 'slip-edit', id: s.id })}
+                        onOpenSettings={() => setPage({ page: 'output', id: s.id })}
                         addToast={addToast} />
                 )}
                 {page.page === 'diary' && s.kind === 'persona' && s.view && s.user && (
@@ -324,6 +327,9 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                             if (ref) void bringToChat(s.id, ref, () => { bondLaunch.request({ bondId: s.id, heart: 'question', questionId: e.id }); openApp(AppID.Bond); });
                         }}
                         onBack={() => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('question'))} addToast={addToast} />
+                )}
+                {page.page === 'output' && s.kind === 'persona' && (
+                    <BondOutputSettingsPage key={`${s.id}-${version}`} space={s} apiConfig={apiConfig} onBack={() => toHeart('diary')} addToast={addToast} />
                 )}
                 {page.page === 'question-new' && (
                     <BondQuestionComposePage space={s} apiConfig={apiConfig} onBack={() => toHeart('question')}

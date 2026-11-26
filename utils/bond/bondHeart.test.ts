@@ -198,3 +198,69 @@ describe('心意進提示詞（知情範圍）', () => {
         expect(bondRefFromSlip('b', newSlip({ bondId: 'b', author: 'user', text: '草稿', tags: [] }), 'x', 'Liora')).toBeNull();
     });
 });
+
+import { decideBondOutputs, inWindow, intervalDueAt, markOutputDone, withOutputEvent } from './output';
+
+describe('主動產出排程', () => {
+    const DAY = 86400_000;
+    const now = 100 * DAY;
+    const dayStart = now - 12 * 3600_000;
+    const bond = (id: string, over: Partial<ReturnType<typeof blankBond>> = {}) => ({ ...blankBond(id, 1), ...over });
+    const cand = (b: ReturnType<typeof bond>, over: Partial<{ eligible: boolean; recentlyActive: boolean }> = {}) => ({ bondId: b.id, bond: b, eligible: true, recentlyActive: true, ...over });
+    // 22:00（日記的預設時段 20:00–23:30 裡）
+    const at22 = 22 * 60;
+
+    it('第一次只記起點，不寫', () => {
+        const d = decideBondOutputs([cand(bond('c1::p'))], now, at22, dayStart);
+        expect(d.due).toEqual([]);
+        expect(d.seeds.map(s => s.kind).sort()).toEqual(['diary', 'essay', 'note', 'question']);
+        expect(d.seeds.find(s => s.kind === 'diary')!.at).toBe(now - DAY / 2);
+    });
+    it('沒聊過的預設不開；自己開了就算', () => {
+        expect(decideBondOutputs([cand(bond('c1::p'), { recentlyActive: false })], now, at22, dayStart).seeds).toEqual([]);
+        const b = bond('c1::p', { output: { diary: { enabled: true } } });
+        expect(decideBondOutputs([cand(b, { recentlyActive: false })], now, at22, dayStart).seeds.map(s => s.kind)).toEqual(['diary']);
+        expect(decideBondOutputs([cand(bond('c1::p'), { eligible: false })], now, at22, dayStart).seeds).toEqual([]);
+    });
+    it('保底：到了區間裡挑的那天、在時段裡才寫', () => {
+        const last = now - 3 * DAY - 1;
+        const b = bond('c1::p', { outputLast: { diary: last, question: now - DAY, note: now - DAY, essay: now - DAY } });
+        expect(intervalDueAt(b, 'diary')!).toBeLessThanOrEqual(now);
+        expect(decideBondOutputs([cand(b)], now, at22, dayStart).due).toEqual([{ bondId: 'c1::p', kind: 'diary', reason: 'interval' }]);
+        // 時段外（早上 9 點）不寫
+        expect(decideBondOutputs([cand(b)], now, 9 * 60, dayStart).due).toEqual([]);
+        // 暫停中不寫
+        expect(decideBondOutputs([cand({ ...b, output: { diary: { pausedUntil: now + 1 } } })], now, at22, dayStart).due).toEqual([]);
+    });
+    it('事件提早：離上次過了區間下限的一半', () => {
+        const b = withOutputEvent(bond('c1::p', { outputLast: { diary: now - 13 * 3600_000, question: now - DAY, note: now - DAY, essay: now - DAY } }), { kind: 'daily_summary', at: now - 1000 });
+        expect(decideBondOutputs([cand(b)], now, at22, dayStart).due).toEqual([{ bondId: 'c1::p', kind: 'diary', reason: 'event' }]);
+        const tooSoon = withOutputEvent(bond('c1::p', { outputLast: { diary: now - 3600_000, question: now - DAY, note: now - DAY, essay: now - DAY } }), { kind: 'daily_summary', at: now - 1000 });
+        expect(decideBondOutputs([cand(tooSoon)], now, at22, dayStart).due).toEqual([]);
+    });
+    it('上限：同一段一輪一份、兩份隔 3 小時、一段一天 2 份、全部一天 6 份；最久沒寫的先', () => {
+        const old = now - 30 * DAY;
+        const b1 = bond('a::p', { outputLast: { diary: old, question: old - 1, note: old, essay: old } });
+        expect(decideBondOutputs([cand(b1)], now, at22, dayStart).due.map(d => d.kind)).toEqual(['question']);
+        const recent = bond('a::p', { outputLast: { diary: old, question: now - 3600_000, note: old, essay: old } });
+        expect(decideBondOutputs([cand(recent)], now, at22, dayStart).due).toEqual([]);
+        const full = bond('a::p', { outputLast: { diary: old, question: now - 4 * 3600_000, note: now - 8 * 3600_000, essay: old } });
+        expect(decideBondOutputs([cand(full)], now, at22, dayStart).due).toEqual([]);
+        const many = Array.from({ length: 8 }, (_, i) => bond(`c${i}::p`, { outputLast: { diary: old + i, question: now - DAY, note: now - DAY, essay: now - DAY } }));
+        expect(decideBondOutputs(many.map(b => cand(b)), now, at22, dayStart).due).toHaveLength(6 - 0 - 0);
+    });
+    it('交給雲端一天內不排；寫完換起點', () => {
+        const old = now - 30 * DAY;
+        const b = bond('a::p', { outputLast: { diary: old, question: now - DAY, note: now - DAY, essay: now - DAY }, outputHandedOff: { diary: now - 3600_000 } });
+        expect(decideBondOutputs([cand(b)], now, at22, dayStart).due).toEqual([]);
+        const done = markOutputDone(b, 'diary', now);
+        expect(done.outputLast!.diary).toBe(now);
+        expect(done.outputHandedOff!.diary).toBeUndefined();
+    });
+    it('跨午夜的時段', () => {
+        expect(inWindow({ from: '22:00', to: '02:00' }, 23 * 60)).toBe(true);
+        expect(inWindow({ from: '22:00', to: '02:00' }, 60)).toBe(true);
+        expect(inWindow({ from: '22:00', to: '02:00' }, 12 * 60)).toBe(false);
+        expect(inWindow(undefined, 5)).toBe(true);
+    });
+});

@@ -1,0 +1,159 @@
+/**
+ * 主動產出設定（plans/bond-batch3.md 1.4、3.2）：日記、拾光問答、心靈角落、隨筆各一區——
+ * 開關、多久一次、篇幅、文風（日記）、投遞時段、同步私聊、暫停；下面寫下一次大概什麼時候。
+ * 沒動過的類型照預設：最近 14 天有聊過才算開。
+ */
+import React, { useState } from 'react';
+import { Feather } from '@phosphor-icons/react';
+import type { APIConfig, BondOutputKind, BondOutputSetting } from '../../types';
+import { BondHeader, SectionLabel } from './bondUi';
+import type { ResolvedSpace } from './space';
+import { writeOne } from './outputRun';
+import { DEFAULT_OUTPUT, DIARY_LENGTH_CHARS, intervalDueAt, markOutputDone, OUTPUT_KIND_LABEL, OUTPUT_KINDS, OUTPUT_LIMITS, resolveOutputSetting } from '../../utils/bond/output';
+import { updateBond } from '../../utils/bond/store';
+import { trackEvent } from '../../utils/analytics';
+
+const KIND_HINT: Record<BondOutputKind, string> = {
+    diary: '有值得留下的一天（每日總結、見面）會提早寫；沒有就照區間寫一篇。',
+    question: '照最近的事、或從人設出發出一題，先交出並封存自己的答案。',
+    note: '你丟來的紙條先回；沒有就丟一張——可以只是一句話。',
+    essay: '從還沒寫過的事裡挑一件寫感想，寫成草稿等你收下。',
+};
+
+const LENGTH_LABEL: Record<BondOutputSetting['length'], string> = { short: '短', medium: '中', long: '長' };
+const DAY = 86400_000;
+const EVENT_LABEL = { diary: '日記', question: '問答', note: '紙條', essay: '隨筆' } as const;
+
+const whenText = (ts: number | null) => {
+    if (!ts) return '還沒排';
+    const diff = ts - Date.now();
+    if (diff <= 0) return '這幾天、下一個投遞時段';
+    const d = Math.round(diff / DAY);
+    return d <= 0 ? '今天之內' : `大約 ${d} 天後`;
+};
+
+export const BondOutputSettingsPage: React.FC<{
+    space: ResolvedSpace;
+    apiConfig: APIConfig;
+    onBack: () => void;
+    addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
+}> = ({ space, apiConfig, onBack, addToast }) => {
+    const [bond, setBond] = useState(space.bond);
+    const [busy, setBusy] = useState<BondOutputKind | null>(null);
+    const name = space.rightName;
+
+    const patch = async (kind: BondOutputKind, p: Partial<BondOutputSetting>, action?: '开' | '关' | '暂停' | '改区间') => {
+        const next = await updateBond(space.id, b => ({ ...b, output: { ...(b.output || {}), [kind]: { ...(b.output?.[kind] || {}), ...p } } }));
+        setBond(next);
+        if (action) trackEvent('调整主动产出', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔' } as const)[kind], 动作: action });
+    };
+
+    const tryNow = async (kind: BondOutputKind) => {
+        setBusy(kind);
+        try {
+            const done = await writeOne({ ...space, bond }, kind, apiConfig);
+            setBond(await updateBond(space.id, b => markOutputDone(b, kind, Date.now())));
+            addToast(done ? `${name}寫了一份${EVENT_LABEL[kind]}` : `${name}今天已經寫過了`, 'success');
+        } catch (e: any) {
+            addToast(e?.message || '這次沒寫出來', 'error');
+        } finally {
+            setBusy(null);
+        }
+    };
+
+    return (
+        <div className="absolute inset-0 flex flex-col bond-root">
+            <BondHeader title="主動產出" onBack={onBack} />
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 space-y-8">
+                <p className="text-[12px] leading-relaxed text-[var(--bond-ink-2)]">
+                    {name}會照這裡的節奏自己寫：有值得留下的事會提早，沒有就到點寫一份。每段關係一天最多 {OUTPUT_LIMITS.perBondPerDay} 份、兩份至少隔 {OUTPUT_LIMITS.minGapMs / 3600_000} 小時；所有關係加起來一天最多 {OUTPUT_LIMITS.allPerDay} 份。沒改過的類型，最近 14 天有聊過才會開始寫。
+                </p>
+                {OUTPUT_KINDS.map(kind => {
+                    const s = resolveOutputSetting(bond, kind);
+                    const own = bond.output?.[kind];
+                    const on = own && typeof own.enabled === 'boolean' ? own.enabled : s.enabled;
+                    const paused = !!s.pausedUntil && s.pausedUntil > Date.now();
+                    return (
+                        <section key={kind}>
+                            <SectionLabel right={
+                                <button type="button" className="bond-chip" aria-pressed={on} onClick={() => patch(kind, { enabled: !on }, on ? '关' : '开')}>{on ? '開著' : '關著'}</button>
+                            }>{OUTPUT_KIND_LABEL[kind]}</SectionLabel>
+                            <p className="text-[11.5px] leading-relaxed text-[var(--bond-muted)]">{KIND_HINT[kind]}</p>
+                            {on && (
+                                <div className="mt-3 space-y-3">
+                                    <Row label="多久一次">
+                                        <NumberBox value={s.everyDays[0]} onChange={v => patch(kind, { everyDays: [v, Math.max(v, s.everyDays[1])] }, '改区间')} />
+                                        <span className="text-[12px] text-[var(--bond-muted)]">～</span>
+                                        <NumberBox value={s.everyDays[1]} onChange={v => patch(kind, { everyDays: [Math.min(v, s.everyDays[0]), v] }, '改区间')} />
+                                        <span className="text-[12px] text-[var(--bond-muted)]">天</span>
+                                    </Row>
+                                    <Row label="篇幅">
+                                        {(['short', 'medium', 'long'] as const).map(l => (
+                                            <button key={l} type="button" className="bond-chip" aria-pressed={s.length === l} onClick={() => patch(kind, { length: l })}>
+                                                {LENGTH_LABEL[l]}{kind === 'diary' ? ` ${DIARY_LENGTH_CHARS[l][0]}～${DIARY_LENGTH_CHARS[l][1]} 字` : ''}
+                                            </button>
+                                        ))}
+                                    </Row>
+                                    {kind === 'diary' && (
+                                        <Row label="文風">
+                                            <input className="bond-input" style={{ flex: 1, minWidth: 0 }} defaultValue={s.style || ''} maxLength={60} placeholder="空著＝照角色個性，例如：像寫信、短句、會畫重點"
+                                                onBlur={e => { if ((e.target.value || '') !== (s.style || '')) void patch(kind, { style: e.target.value.trim() || undefined }); }} />
+                                        </Row>
+                                    )}
+                                    <Row label="投遞時段">
+                                        {s.window ? (
+                                            <>
+                                                <input type="time" className="bond-input" style={{ width: 112, flex: 'none' }} value={s.window.from} onChange={e => patch(kind, { window: { from: e.target.value, to: s.window!.to } })} />
+                                                <span className="text-[12px] text-[var(--bond-muted)]">～</span>
+                                                <input type="time" className="bond-input" style={{ width: 112, flex: 'none' }} value={s.window.to} onChange={e => patch(kind, { window: { from: s.window!.from, to: e.target.value } })} />
+                                                <button type="button" className="text-[11.5px] text-[var(--bond-accent)]" onClick={() => patch(kind, { window: undefined })}>全天</button>
+                                            </>
+                                        ) : (
+                                            <button type="button" className="bond-chip" onClick={() => patch(kind, { window: DEFAULT_OUTPUT.diary.window })}>全天（點了改時段）</button>
+                                        )}
+                                    </Row>
+                                    <Row label="同步私聊">
+                                        <button type="button" className="bond-chip" aria-pressed={s.syncToChat} onClick={() => patch(kind, { syncToChat: !s.syncToChat })}>
+                                            {s.syncToChat ? `寫好後${name}會在私聊說一聲` : '只留在羈絆'}
+                                        </button>
+                                    </Row>
+                                    <Row label="暫停">
+                                        {paused ? (
+                                            <>
+                                                <span className="text-[12px] text-[var(--bond-ink-2)]">暫停到 {new Date(s.pausedUntil!).toLocaleDateString()}</span>
+                                                <button type="button" className="text-[11.5px] text-[var(--bond-accent)]" onClick={() => patch(kind, { pausedUntil: undefined })}>恢復</button>
+                                            </>
+                                        ) : (
+                                            [3, 7, 30].map(d => <button key={d} type="button" className="bond-chip" onClick={() => patch(kind, { pausedUntil: Date.now() + d * DAY }, '暂停')}>{d} 天</button>)
+                                        )}
+                                    </Row>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-[11.5px] text-[var(--bond-muted)]">下一次：{paused ? '暫停中' : whenText(intervalDueAt(bond, kind))}</span>
+                                        <button type="button" className="bond-btn" disabled={!!busy} onClick={() => tryNow(kind)}>
+                                            <Feather size={14} />{busy === kind ? '寫著…' : '現在寫一份'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </section>
+                    );
+                })}
+                <p className="text-[11px] leading-relaxed text-[var(--bond-muted)] pb-6">
+                    同步私聊只管要不要另外傳一則訊息，不管{name}記不記得：寫好的日記、出的題、丟的紙條，{name}本來就知道。
+                </p>
+            </div>
+        </div>
+    );
+};
+
+const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+    <div className="flex items-center gap-3">
+        <span className="w-16 shrink-0 text-[12px] text-[var(--bond-ink-2)]">{label}</span>
+        <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">{children}</div>
+    </div>
+);
+
+const NumberBox: React.FC<{ value: number; onChange: (v: number) => void }> = ({ value, onChange }) => (
+    <input type="number" min={1} max={60} className="bond-input text-center" style={{ width: 64, flex: 'none' }} value={value}
+        onChange={e => { const v = Math.max(1, Math.min(60, Math.round(Number(e.target.value) || 1))); onChange(v); }} />
+);

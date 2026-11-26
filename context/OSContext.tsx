@@ -120,10 +120,12 @@ const AMSG_IDENTITY_LABELS_RESYNC_LS_KEY = 'amsg2_identity_labels_resync_v1';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
-import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
-import { parseBondId } from '../utils/bond/model';
+import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBond, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
+import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
+import { runBondOutputTick } from '../components/bond/outputRun';
+import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
 import { extractBondInvite } from '../utils/bond/invite';
 import { globalAmsgApi } from '../utils/apiCenter';
@@ -2602,6 +2604,48 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [characters, userProfileBase, apiConfig, groups, realtimeConfig]);
+  // 羈絆的主動產出（plans/bond-batch3.md 1.6）：頁面開著每 5 分鐘看一次，該寫的寫一份（日記、問答、紙條、隨筆）
+  useEffect(() => {
+    const tick = () => {
+      if (isBackupRunning()) return;
+      void runBondOutputTick({ characters, userProfileBase, apiConfig }).then(done => {
+        if (!done) return;
+        const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
+        if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
+        if (done.notice) {
+          setLastMsgTimestamp(Date.now());
+          const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === done.charId;
+          if (!viewing) setUnreadMessages(prev => ({ ...prev, [done.notice!.lineKey]: (prev[done.notice!.lineKey] || 0) + 1 }));
+        }
+      }).catch(() => {});
+    };
+    const first = window.setTimeout(tick, 45_000);
+    const timer = window.setInterval(tick, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characters, userProfileBase, apiConfig]);
+  // 每日總結寫好了（記憶多了一筆）：記成那條線的事件，日記、紙條、問答可以提早寫（plans/bond-batch3.md 1.5）
+  const memoryCountRef = useRef<Map<string, Set<string>> | null>(null);
+  useEffect(() => {
+    if (!characters.length) return;
+    const prev = memoryCountRef.current;
+    const next = new Map<string, Set<string>>();
+    for (const c of characters) next.set(c.id, new Set((c.memories || []).map(m => m.id)));
+    memoryCountRef.current = next;
+    if (!prev) return; // 開機那一次只記下來
+    const now = Date.now();
+    for (const c of characters) {
+      const before = prev.get(c.id);
+      if (!before || c.altOf) continue;
+      const added = (c.memories || []).filter(m => !before.has(m.id));
+      const keys = new Set(added.map(m => m.personaKey || c.primaryPersonaKey).filter((k): k is string => !!k));
+      for (const key of keys) {
+        void updateBond(personaBondId(c.id, key), b => withOutputEvent(b, { kind: 'daily_summary', at: now })).catch(() => {});
+      }
+    }
+  }, [characters]);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
     setCloudLineRegistry(characters);

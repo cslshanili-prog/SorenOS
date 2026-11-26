@@ -43,7 +43,7 @@ export async function heartContext(space: ResolvedSpace): Promise<OutputContext>
     };
 }
 
-async function askChar(space: ResolvedSpace, apiConfig: APIConfig, prompt: string, purpose: string, signal?: AbortSignal): Promise<string> {
+export async function askChar(space: ResolvedSpace, apiConfig: APIConfig, prompt: string, purpose: string, signal?: AbortSignal): Promise<string> {
     const writer = space.view || space.char;
     const api = resolveCharacterChatApi(writer, apiConfig);
     if (!api.baseUrl || !api.apiKey) throw new Error('還沒設定 API');
@@ -120,7 +120,7 @@ export async function suggestQuestions(space: ResolvedSpace, apiConfig: APIConfi
 }
 
 /** 最近投遞的紙條，一則一行（給模型避免重複） */
-function recentSlipLines(space: ResolvedSpace, entries: BondEntry[]): string {
+export function recentSlipLines(space: ResolvedSpace, entries: BondEntry[]): string {
     const view = space.view || space.char;
     return entries
         .filter(e => e.kind === 'note' && e.status === 'published')

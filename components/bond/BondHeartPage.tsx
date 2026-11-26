@@ -3,7 +3,7 @@
  * 身份卡 × 角色的空間才有；角色之間的心意在第 6 批。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Feather, Plus, Sparkle } from '@phosphor-icons/react';
+import { Feather, GearSix, Plus, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, CharacterProfile, DiaryEntry } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -83,8 +83,10 @@ export const BondHeartPage: React.FC<{
     onNewQuestion: () => void;
     onOpenSlip: (id: string) => void;
     onNewSlip: () => void;
+    /** 主動產出設定 */
+    onOpenSettings: () => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, apiConfig, tabBar, heart, onHeart, onBack, onOpenDiary, onOpenQuestion, onNewQuestion, onOpenSlip, onNewSlip, addToast }) => {
+}> = ({ space, apiConfig, tabBar, heart, onHeart, onBack, onOpenDiary, onOpenQuestion, onNewQuestion, onOpenSlip, onNewSlip, onOpenSettings, addToast }) => {
     const entries = useBondEntries(space.id);
     const diaries = useBondDiaries(space);
     const name = space.rightName;
@@ -118,7 +120,8 @@ export const BondHeartPage: React.FC<{
 
     return (
         <div className="absolute inset-0 flex flex-col bond-root">
-            <BondHeader title={name} onBack={onBack} />
+            <BondHeader title={name} onBack={onBack}
+                right={<button type="button" onClick={onOpenSettings} aria-label="主動產出設定" className="h-9 w-9 grid place-items-center rounded-full text-[var(--bond-ink-2)] active:bg-[var(--bond-paper-2)]"><GearSix size={18} /></button>} />
             {tabBar}
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 <div className="px-5 pt-4 flex gap-2">
