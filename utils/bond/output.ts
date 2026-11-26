@@ -4,15 +4,17 @@
  */
 import type { BondOutputKind, BondOutputSetting, BondRecord } from '../../types';
 
-export const OUTPUT_KINDS: BondOutputKind[] = ['diary', 'question', 'note', 'essay'];
+export const OUTPUT_KINDS: BondOutputKind[] = ['diary', 'question', 'note', 'essay', 'wish'];
 
-export const OUTPUT_KIND_LABEL: Record<BondOutputKind, string> = { diary: '日記', question: '拾光問答', note: '心靈角落', essay: '隨筆' };
+export const OUTPUT_KIND_LABEL: Record<BondOutputKind, string> = { diary: '日記', question: '拾光問答', note: '心靈角落', essay: '隨筆', wish: '願望' };
 
 export const DEFAULT_OUTPUT: Record<BondOutputKind, BondOutputSetting> = {
     diary: { enabled: true, everyDays: [1, 3], length: 'medium', syncToChat: true, window: { from: '20:00', to: '23:30' } },
     question: { enabled: true, everyDays: [3, 7], length: 'short', syncToChat: true },
     note: { enabled: true, everyDays: [3, 7], length: 'short', syncToChat: false },
     essay: { enabled: true, everyDays: [5, 10], length: 'medium', syncToChat: false },
+    // 第 4 批：角色寫一個自己的願望（plans/bond-batch4.md 1.7）
+    wish: { enabled: true, everyDays: [7, 14], length: 'short', syncToChat: true },
 };
 
 /** 每段關係一天最多幾份、任兩份至少隔多久；全部關係一天最多幾份 */
@@ -24,6 +26,7 @@ export const OUTPUT_CHARS: Record<BondOutputKind, Record<BondOutputSetting['leng
     question: { short: [20, 100], medium: [100, 250], long: [250, 500] },
     note: { short: [20, 120], medium: [120, 300], long: [300, 600] },
     essay: { short: [150, 300], medium: [300, 700], long: [700, 1200] },
+    wish: { short: [8, 40], medium: [20, 80], long: [40, 160] },
 };
 export const DIARY_LENGTH_CHARS = OUTPUT_CHARS.diary;
 /** 字數格子能填的範圍 */
@@ -55,6 +58,7 @@ export const EVENT_KINDS: Record<BondOutputKind, Array<import('../../types').Bon
     essay: ['moment', 'date_end'],
     note: ['note_received', 'daily_summary'],
     question: ['question_received', 'daily_summary'],
+    wish: ['moment', 'date_end'],
 };
 
 /** 'HH:MM' → 一天裡的第幾分鐘 */

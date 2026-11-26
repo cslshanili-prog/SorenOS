@@ -2,7 +2,7 @@
 import { legacyChatLanguage, legacyChatLanguageKeys } from '../utils/chatLanguage';
 import { detachCharacterPatch, detachGroupPatch, detachThemePatch } from '../utils/decorationTemplates';
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
-import { isBenched } from '../utils/castRole';
+import { isBenched, isOnStage } from '../utils/castRole';
 import { pendingNpcs } from '../utils/npcMigration';
 import { runNpcMigration } from '../utils/npcMigrationRun';
 import { parsePairLineId } from '../utils/pairLine';
@@ -12,7 +12,7 @@ import { initializeFirstUseGuide } from '../utils/firstUseGuide';
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import type { VRSARActivity } from '../types';
 import { APIConfig, AppID, OSTheme, VirtualTime, CharacterProfile, CharacterGroup, WorldSection, NPCProfile, MomentPost, ChatTheme, Toast, FullBackupData, UserProfile, UserPersona, ApiPreset, GroupProfile, SystemLog, Worldbook, NovelBook, SongSheet, Message, RealtimeConfig, AppearancePreset, CloudBackupConfig, CloudBackupFile, MemoryPalaceFeatureFlags, ChatLine } from '../types';
-import { applyActivePersona, globalPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
+import { applyActivePersona, globalPersonaKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { browserHolidayCache, deviceTimeZone, getUserHolidayReminder } from '../utils/userHolidays';
 import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
@@ -123,8 +123,13 @@ import { refreshTripRegistry } from '../utils/trips';
 import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBond, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
+import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
+import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
+import { gainToastText, runPactTick } from '../components/bond/pactRun';
+import { settleFeelingFromSummary } from '../components/bond/feelingRun';
+import { checkSyncFromChat, checkSyncFromSummary } from '../components/bond/eventCardRun';
 import { markBondOutputCloudDirty, syncBondOutputCloud } from '../components/bond/outputCloud';
 import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
@@ -2560,7 +2565,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
-  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); }, []);
+  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); }, []);
   // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
   const diaryRegistryLoadedRef = useRef(false);
   useEffect(() => {
@@ -2627,12 +2632,32 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characters, userProfileBase, apiConfig]);
+  // 羈絆的約定：完成判定、積點、成就（plans/bond-batch4.md 第 5 節）。頁面開著每 5 分鐘判一次，
+  // 從上次判到的那天補到今天；有加分就跳一則（一段關係一則，一次 tick 合併）
+  useEffect(() => {
+    const scope = () => ({ characters, userProfileBase, apiConfig });
+    const tick = () => {
+      if (isBackupRunning()) return;
+      void runPactTick(scope())
+        .then(gains => {
+          if (document.visibilityState !== 'visible') return;
+          for (const g of gains.slice(0, 3)) addToast(gainToastText(g), 'success');
+        })
+        .catch(e => console.warn('🤝 [BondPact] 判定失敗', e));
+    };
+    const first = window.setTimeout(tick, 45_000);
+    const timer = window.setInterval(tick, 5 * 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characters, userProfileBase, apiConfig]);
   // 寫好一份（本機或雲端收件）：跳提示、私聊那句打未讀
   useEffect(() => {
     const onDone = (e: Event) => {
       const done = (e as CustomEvent<BondOutputDone>).detail;
       if (!done) return;
-      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
+      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）', wish: '寫了一個願望' }[done.kind];
       if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
       if (done.notice) {
         setLastMsgTimestamp(Date.now());
@@ -2661,6 +2686,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       const keys = new Set(added.map(m => m.personaKey || c.primaryPersonaKey).filter((k): k is string => !!k));
       for (const key of keys) {
         void updateBond(personaBondId(c.id, key), b => withOutputEvent(b, { kind: 'daily_summary', at: now })).catch(() => {});
+      }
+      // 親近與信任：沒開情緒評估的角色，那天的總結寫好時判一次（plans/bond-batch4.md 1.8）
+      for (const m of added) {
+        const userName = personaNameForKey(userProfileBase, m.personaKey || c.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID);
+        void settleFeelingFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('💗 [BondFeeling] 總結結算失敗', e));
+        // 同步承認：那天的總結裡有沒有已經發生的關係轉折（plans/bond-batch4.md 2.4）
+        if (isOnStage(c)) void checkSyncFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🤝 [BondSync] 總結判斷失敗', e));
       }
     }
   }, [characters]);
@@ -4272,6 +4304,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const target = charactersRef.current.find(c => c.id === detail.charId);
           const view = target ? lineView(target, lineFor(target, detail.personaKey)) : { id: detail.charId };
           void updateLineRef.current(view, { charViewRelationship: detail.relationship });
+          // 同步承認（plans/bond-batch4.md 2.4）：看這段聊天是不是已經發生了告白成功、在一起…；有就排一張卡等你按「對」
+          if (target && !target.altOf) {
+              const key = detail.personaKey || target.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID;
+              void checkSyncFromChat(target, detail.personaKey, personaNameForKey(userProfileBaseRef.current, key), apiConfigRef.current)
+                  .catch(e => console.warn('🤝 [BondSync] 聊天判斷失敗', e));
+          }
       };
       window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
       return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
@@ -4520,6 +4558,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         // 羈絆空間：身份卡 × 他、他 × 任何角色（plans/bond.md）
         await deleteBondsOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆空間刪除失敗', e));
         await deleteBondEntriesOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆的卡刪除失敗', e));
+        await deleteBondLedgerOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆的完成紀錄刪除失敗', e));
+        await deleteFeelingLogOfChar(id).catch(e => console.warn('[deleteCharacter] 親近與信任的事件帳刪除失敗', e));
         for (const pairId of await DB.getPairLineIds()) {
             if (parsePairLineId(pairId)?.includes(id)) await DB.clearMessages(pairId);
         }
@@ -4838,6 +4878,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       // 這張卡的羈絆空間一起刪（plans/bond.md）
       await deleteBondsOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆空間刪除失敗', e));
       await deleteBondEntriesOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆的卡刪除失敗', e));
+      await deleteBondLedgerOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆的完成紀錄刪除失敗', e));
+      await deleteFeelingLogOfPersona(id).catch(e => console.warn('[deleteUserPersona] 親近與信任的事件帳刪除失敗', e));
       if (goneLinks.size) {
           for (const c of charactersRef.current) {
               if (!Object.keys(c.altKnowledge || {}).some(k => goneLinks.has(k))) continue;
@@ -5323,7 +5365,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 導入端 importFullData 已支持恢復，這裡必須同步登記，否則備份不含生活記錄。
               'life_records', 'med_plans', 'life_record_settings',
               // 羈絆空間與裡面的卡（plans/bond.md、bond-batch2.md）
-              'bonds', 'bond_entries',
+              'bonds', 'bond_entries', 'bond_ledger', 'bond_feeling_log',
               // 2026-11-26 補：以下幾張 importFullData 早就會還原（購物中心是這次一起補上），
               // 但一直漏在這份清單外，設置頁的備份根本沒打包（DB.exportFullData 有，所以 roundtrip 測試是綠的）。
               'calendar_events', 'trips',                                    // 行事曆的約定層、旅行
@@ -5719,6 +5761,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               life_record_settings: 'lifeRecordSettings',
               bonds: 'bonds',
               bond_entries: 'bondEntries',
+              bond_ledger: 'bondLedger',
+              bond_feeling_log: 'bondFeelingLog',
               calendar_events: 'calendarEvents',
               trips: 'trips',
               date_stories: 'dateStories',
@@ -6009,6 +6053,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
                   case 'bonds': backupData.bonds = processedData; break;
                   case 'bond_entries': backupData.bondEntries = processedData; break;
+                  case 'bond_ledger': backupData.bondLedger = processedData; break;
+                  case 'bond_feeling_log': backupData.bondFeelingLog = processedData; break;
                   case 'calendar_events': backupData.calendarEvents = processedData; break;
                   case 'trips': backupData.trips = processedData; break;
                   case 'date_stories': backupData.dateStories = processedData; break;

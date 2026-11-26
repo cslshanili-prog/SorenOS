@@ -20,6 +20,7 @@ const KIND_HINT: Record<BondOutputKind, string> = {
     question: '照最近的事、或從人設出發出一題，先交出並封存自己的答案。',
     note: '你丟來的紙條先回；沒有就丟一張——可以只是一句話。',
     essay: '從還沒寫過的事裡挑一件寫感想，寫成草稿等你收下。',
+    wish: '照人設和最近的事寫一個自己的願望，或想跟你一起做的事；寫了只是讓你看見，不等於約好。',
 };
 
 const STYLE_PLACEHOLDER: Record<BondOutputKind, string> = {
@@ -27,9 +28,10 @@ const STYLE_PLACEHOLDER: Record<BondOutputKind, string> = {
     question: '空著＝照角色個性，例如：答得直白一點、愛用比喻',
     note: '空著＝照角色個性，例如：像便利貼、一句話就好',
     essay: '空著＝照角色個性，例如：像散文、少一點形容詞',
+    wish: '空著＝照角色個性，例如：很具體、像便條上的一句話',
 };
 const DAY = 86400_000;
-const EVENT_LABEL = { diary: '日記', question: '問答', note: '紙條', essay: '隨筆' } as const;
+const EVENT_LABEL = { diary: '日記', question: '問答', note: '紙條', essay: '隨筆', wish: '願望' } as const;
 
 const whenText = (ts: number | null) => {
     if (!ts) return '還沒排';
@@ -53,7 +55,7 @@ export const BondOutputSettingsPage: React.FC<{
     const patch = async (kind: BondOutputKind, p: Partial<BondOutputSetting>, action?: '开' | '关' | '暂停' | '改区间' | '改篇幅' | '改文风') => {
         const next = await updateBond(space.id, b => ({ ...b, output: { ...(b.output || {}), [kind]: { ...(b.output?.[kind] || {}), ...p } } }));
         setBond(next);
-        if (action) trackEvent('调整主动产出', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔' } as const)[kind], 动作: action });
+        if (action) trackEvent('调整主动产出', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望' } as const)[kind], 动作: action });
     };
 
     const tryNow = async (kind: BondOutputKind) => {

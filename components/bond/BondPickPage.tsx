@@ -20,6 +20,8 @@ import { pairSpeakerOf } from '../../utils/pairLine';
 import { globalMeterApi } from '../../utils/apiCenter';
 import { extractContent, safeFetchJson } from '../../utils/safeApi';
 import { formatEventDate } from '../../utils/bond/eventDate';
+import { collectedPactEntry, parseRepeat } from '../../utils/bond/pactTags';
+import { repeatLabel } from '../../utils/bond/pact';
 import { trackEvent } from '../../utils/analytics';
 
 const SCAN_LIMIT = 120;
@@ -64,7 +66,7 @@ export const BondPickPage: React.FC<{
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
                 body: JSON.stringify({
                     model: api.model,
-                    messages: [{ role: 'user', content: buildMomentPickPrompt({ transcript: numberedTranscript(fresh, nameOf), leftName: space.leftName, rightName: space.rightName }) }],
+                    messages: [{ role: 'user', content: buildMomentPickPrompt({ transcript: numberedTranscript(fresh, nameOf), leftName: space.leftName, rightName: space.rightName, withPact: !isPair }) }],
                     temperature: 0.5,
                     max_tokens: 1500,
                 }),
@@ -98,6 +100,14 @@ export const BondPickPage: React.FC<{
             const entries: BondEntry[] = candidates.filter((_, i) => chosen.has(i)).map(c => {
                 const msgs = c.messageIds.map(id => byId.get(id)).filter(Boolean) as Message[];
                 const at = msgs[0]?.timestamp || now;
+                // 願望、約定、默契（第 4 批）：願望照誰的記、約定與默契是提議中
+                if (c.kind && c.kind !== 'moment' && !isPair) {
+                    return collectedPactEntry({
+                        kind: c.kind, bondId: space.id, charId: space.char.id, text: c.text,
+                        owner: c.owner || (msgs[0]?.role === 'user' ? 'user' : 'char'), repeat: parseRepeat(c.freq), now,
+                        source: { type: 'message', lineId, messageIds: c.messageIds, snippet: buildCollectSnippet(msgs, nameOf, 600), at },
+                    });
+                }
                 return {
                     id: newBondEntryId(), bondId: space.id, kind: 'moment', author: 'user',
                     title: c.title || undefined, text: c.text,
@@ -109,7 +119,12 @@ export const BondPickPage: React.FC<{
             });
             const saved = await saveBondEntries(entries);
             await markScanned();
-            for (let i = 0; i < saved.length; i++) trackEvent('收存拾光片刻', { 来源: 'AI挑选' });
+            for (const e of saved) {
+                if (e.kind === 'moment') trackEvent('收存拾光片刻', { 来源: 'AI挑选' });
+                else if (e.kind === 'wish') trackEvent('写羁绊愿望', { 谁: '我', 类型: e.wish?.owner === 'both' ? '我们的' : e.wish?.owner === 'user' ? '我的' : 'TA的', 方式: '收存' });
+                else if (e.kind === 'promise') trackEvent('羁绊约定', { 动作: '新增', 来源: '收存', 计分: e.promise?.points ? '是' : '否' });
+                else if (e.kind === 'habit') trackEvent('羁绊默契', { 动作: '提议', 谁: '我' });
+            }
             addToast(saved.length ? `收存了 ${saved.length} 件` : '這次都沒留，下次從更新的聊天挑', 'success');
             onSaved(saved);
         } catch (e: any) {
@@ -128,7 +143,7 @@ export const BondPickPage: React.FC<{
             <BondHeader title="從最近的聊天挑幾件" onBack={onBack} />
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5">
                 <p className="text-[12px] leading-relaxed text-[var(--bond-ink-2)]">
-                    {isPair ? `從 ${space.leftName} 和 ${space.rightName} 最近私下聊的` : `從你和 ${space.rightName} 最近的私聊`}裡挑，上次挑過的不會再挑。勾起來的才會收存。
+                    {isPair ? `從 ${space.leftName} 和 ${space.rightName} 最近私下聊的` : `從你和 ${space.rightName} 最近的私聊`}裡挑，上次挑過的不會再挑。勾起來的才會收存{isPair ? '' : '；約定和默契存了是提議中，要對方說好'}。
                 </p>
                 {busy === 'pick' && <div className="mt-10 text-center text-[13px] text-[var(--bond-muted)]">翻著最近的聊天…</div>}
                 {error && (
@@ -156,6 +171,12 @@ export const BondPickPage: React.FC<{
                                             {on && <Check size={11} weight="bold" />}
                                         </span>
                                         <span className="min-w-0 flex-1">
+                                            {c.kind && c.kind !== 'moment' && (
+                                                <span className="inline-block mb-1 px-1.5 py-px rounded border border-[var(--bond-line)] text-[10.5px] text-[var(--bond-accent)]">
+                                                    {c.kind === 'wish' ? `${c.owner === 'both' ? '我們' : c.owner === 'user' ? '我' : space.rightName}的願望`
+                                                        : c.kind === 'promise' ? `約定・${repeatLabel(parseRepeat(c.freq))}` : '默契'}
+                                                </span>
+                                            )}
                                             {c.title && <span className="bond-serif block text-[15px]">{c.title}</span>}
                                             <span className="block mt-0.5 text-[13.5px] leading-relaxed">{c.text}</span>
                                             {first && <span className="block mt-1 text-[11px] text-[var(--bond-muted)]">{formatEventDate(defaultEventDate([toKey(first.timestamp)]))}</span>}

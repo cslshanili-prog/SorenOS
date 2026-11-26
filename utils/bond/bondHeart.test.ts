@@ -213,7 +213,7 @@ describe('主動產出排程', () => {
     it('第一次只記起點，不寫', () => {
         const d = decideBondOutputs([cand(bond('c1::p'))], now, at22, dayStart);
         expect(d.due).toEqual([]);
-        expect(d.seeds.map(s => s.kind).sort()).toEqual(['diary', 'essay', 'note', 'question']);
+        expect(d.seeds.map(s => s.kind).sort()).toEqual(['diary', 'essay', 'note', 'question', 'wish']);
         expect(d.seeds.find(s => s.kind === 'diary')!.at).toBe(now - DAY / 2);
     });
     it('沒聊過的預設不開；自己開了就算', () => {

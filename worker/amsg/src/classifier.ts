@@ -193,7 +193,7 @@ interface SideEffectSpec {
  * `[[ACTION:…]]` 連原文一起剝掉，雲端生成的回覆裡這些功能就全部消失。
  * 名字清單要跟客戶端那幾份正則認的別名一致。
  */
-export const SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SEND_SAVED_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE|BLOCK_USER|BLOCK|拉黑|拉黑你|拉黑對方|拉黑对方|封鎖|封锁|SUSPECT|SUSPECT_IDENTITY|懷疑|怀疑|懷疑身份|怀疑身份|認出|认出|OPEN_ALT|NEW_ALT|開小號|开小号|ALT_ADD|ALT_FRIEND|小號加好友|小号加好友|ALT_REVEAL|REVEAL_ALT|承認小號|承认小号|說出小號|说出小号|BOND_INVITE|羈絆邀請|羁绊邀请)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
+export const SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SEND_SAVED_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE|BLOCK_USER|BLOCK|拉黑|拉黑你|拉黑對方|拉黑对方|封鎖|封锁|SUSPECT|SUSPECT_IDENTITY|懷疑|怀疑|懷疑身份|怀疑身份|認出|认出|OPEN_ALT|NEW_ALT|開小號|开小号|ALT_ADD|ALT_FRIEND|小號加好友|小号加好友|ALT_REVEAL|REVEAL_ALT|承認小號|承认小号|說出小號|说出小号|BOND_INVITE|羈絆邀請|羁绊邀请|BOND_PROMISE|羈絆約定|羁绊约定|BOND_HABIT|羈絆默契|羁绊默契)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
 
 /**
  * 私下找人（plans/side-messages.md）：`[[PRIVATE|身份名: 內容]]`、`[[DM|角色名: 內容]]` 不是 ACTION 開頭，

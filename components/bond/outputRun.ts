@@ -1,6 +1,6 @@
 /**
  * 主動產出的本機那條路（plans/bond-batch3.md 1.5、1.6）：頁面開著每 5 分鐘看一次，
- * 該寫的（事件提早、區間保底，錯開、有上限）一次寫一份：日記、問答、紙條、隨筆。
+ * 該寫的（事件提早、區間保底，錯開、有上限）一次寫一份：日記、問答、紙條、隨筆、願望（第 4 批）。
  * 判斷是純函式（utils/bond/output.ts 的 decideBondOutputs）；這裡只負責組名單、叫模型、存檔、同步私聊。
  *
  * 一份產出拆成兩步，本機和雲端（第 3d 批，components/bond/outputCloud.ts）共用：
@@ -25,8 +25,9 @@ import { listPersonaSpaces } from '../../utils/bond/spaces';
 import { decideBondOutputs, markOutputDone, OUTPUT_KIND_LABEL, resolveOutputChars, resolveOutputSetting, type OutputCandidate } from '../../utils/bond/output';
 import {
     buildCharAskPrompt, buildSlipPrompt, buildSlipReplyPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, parseSlipReplyState,
-    buildDiaryPrompt, outputMaxTokens,
+    buildDiaryPrompt, outputMaxTokens, buildCharWishPrompt, parseCharWish,
 } from '../../utils/bond/outputPromptCore';
+import { newWish, publishWish } from '../../utils/bond/pact';
 import type { BondOutputJobDiary } from '../../utils/bond/outputCloudJob';
 import { answerQuestion, newQuestion } from '../../utils/bond/question';
 import { deliverSlip, newSlip, setSlipState, slipReplies, slipTagOptions } from '../../utils/bond/slip';
@@ -42,7 +43,7 @@ const ACTIVE_MS = 14 * 86400_000;
 const HEADER = '💌 [BondOutput]';
 let running = false;
 
-export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔' } as const;
+export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望' } as const;
 
 export interface BondOutputDone {
     bondId: string;
@@ -192,6 +193,16 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
             }),
         };
     }
+    if (kind === 'wish') {
+        // 第 4 批：角色寫一個自己的願望（或想跟你一起做的事）；寫了只是讓你看見，不等於約好
+        return {
+            ...base, purpose: '角色願望',
+            prompt: buildCharWishPrompt({
+                ...ctx, relationLine: relationLineOf(space), chars, style, withNotice,
+                wishesBefore: entries.filter(e => e.kind === 'wish' && e.status === 'published').map(e => e.text),
+            }),
+        };
+    }
     // 紙條：你丟來、TA 還沒回的那張先回；沒有就自己丟一張
     const pending = entries
         .filter(e => e.kind === 'note' && e.status === 'published' && e.author === 'user' && !e.slip?.replyTo)
@@ -264,6 +275,11 @@ export async function applyOutput(space: ResolvedSpace, kind: BondOutputKind, ra
             await saveBondEntry(deliverSlip(newSlip({ bondId: space.id, author: space.char.id, text: out.text, tags: out.tags })));
         }
         trackEvent('投递心灵纸条', { 谁: '角色', 方式: '主动' });
+    } else if (kind === 'wish') {
+        const out = parseCharWish(raw);
+        if (!out) throw new Error('沒寫成願望');
+        await saveBondEntry(publishWish(newWish({ bondId: space.id, author: space.char.id, owner: out.together ? 'both' : space.char.id, text: out.wish })));
+        trackEvent('写羁绊愿望', { 谁: '角色', 类型: out.together ? '我们的' : 'TA的', 方式: '主动' });
     } else {
         const parsed = parseEssay(raw, 'choose');
         const key = parsed?.pick ? meta.candidateKeys?.[parsed.pick - 1] : undefined;

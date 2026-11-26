@@ -19,9 +19,11 @@ import { normalizeMessageContent } from '../../utils/messageFormat';
 import {
     buildCharAnswerPrompt, buildCharAskPrompt, buildQuestionSuggestPrompt, buildSlipPrompt, buildSlipReplyPrompt,
     parseCharAnswer, parseCharAsk, parseSlip, outputMaxTokens, type OutputContext,
+    buildHabitReplyPrompt, buildPromiseReplyPrompt, buildWishReplyPrompt, parseHabitReply, parsePromiseReply, parseWishReply,
 } from '../../utils/bond/outputPromptCore';
 import { parseQuestionSuggestions, revealedRounds, visibleAnswer } from '../../utils/bond/question';
 import { slipReplies } from '../../utils/bond/slip';
+import { repeatLabel } from '../../utils/bond/pact';
 import { resolveOutputChars, resolveOutputSetting } from '../../utils/bond/output';
 
 /** 這段關係一句話：「友情線，現在是好朋友」 */
@@ -164,4 +166,37 @@ export async function charSlipReply(space: ResolvedSpace, apiConfig: APIConfig, 
     const out = parseSlip(raw, []);
     if (!out) throw new Error('這次沒寫出來，再試一次');
     return out.text;
+}
+
+// ─── 約定（plans/bond-batch4.md 1.1、1.2、1.4）：問問 TA ───
+
+/** 你寫的願望，TA 怎麼想（支持不等於答應） */
+export async function charWishReply(space: ResolvedSpace, apiConfig: APIConfig, wish: BondEntry, signal?: AbortSignal): Promise<{ stance: 'support' | 'together' | 'neutral'; words: string }> {
+    const ctx = await heartContext(space);
+    const raw = await askChar(space, apiConfig, buildWishReplyPrompt({
+        ...ctx, wish: wish.text, owner: wish.wish?.owner === 'both' ? 'both' : 'user', relationLine: relationLineOf(space),
+    }), '羈絆願望', signal);
+    const out = parseWishReply(raw);
+    if (!out) throw new Error('這次沒回出來，再試一次');
+    return out;
+}
+
+/** 你提的約定，TA 答不答應 */
+export async function charPromiseReply(space: ResolvedSpace, apiConfig: APIConfig, promise: BondEntry, fromWish?: string, signal?: AbortSignal): Promise<{ answer: 'yes' | 'tweak' | 'no'; words: string }> {
+    const ctx = await heartContext(space);
+    const raw = await askChar(space, apiConfig, buildPromiseReplyPrompt({
+        ...ctx, promise: promise.text, repeatText: repeatLabel(promise.promise!.repeat), relationLine: relationLineOf(space), fromWish,
+    }), '羈絆約定', signal);
+    const out = parsePromiseReply(raw);
+    if (!out) throw new Error('這次沒回出來，再試一次');
+    return out;
+}
+
+/** 你覺得的默契，TA 認不認 */
+export async function charHabitReply(space: ResolvedSpace, apiConfig: APIConfig, habit: BondEntry, signal?: AbortSignal): Promise<{ answer: 'yes' | 'no'; words: string }> {
+    const ctx = await heartContext(space);
+    const raw = await askChar(space, apiConfig, buildHabitReplyPrompt({ ...ctx, habit: habit.text, relationLine: relationLineOf(space) }), '羈絆默契', signal);
+    const out = parseHabitReply(raw);
+    if (!out) throw new Error('這次沒回出來，再試一次');
+    return out;
 }

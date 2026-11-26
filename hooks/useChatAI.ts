@@ -1,4 +1,5 @@
 
+import { consumeEventScene } from '../components/bond/eventCardRun';
 import { chatLanguageForCloud, resolveChatLanguage } from '../utils/chatLanguage';
 import { postTranslateRecentReplies } from '../utils/chatTranslateRun';
 import { isOnlinePaused } from '../utils/dateOffline';
@@ -65,6 +66,7 @@ import { shouldSendThinkingParams } from '../utils/thinkingGate';
 import { buildClaudeProxyCompatibilityBody, shouldRetryClaudeProxyCompatibility } from '../utils/claudeProxyCompat';
 import { routeMiniAppToolCall } from '../utils/miniAppToolRoute';
 import { applyEmotionEvalRaw, extractAssistantText } from '../utils/emotionApply';
+import { feelingEvalSectionFor } from '../utils/bond/feelingStore';
 import { announceChatGen, CHAT_GEN_EVENTS } from '../utils/chatGenEvents';
 import {
     advanceSARModuleAfterReply,
@@ -381,7 +383,9 @@ export async function evaluateEmotionBackground(
     // start/finally 派發一次即可全覆蓋；即時對話的 worker 評估另行點燈。
     announceChatGen(CHAT_GEN_EVENTS.emotionStart, { charId: charData.id, charName: charData.name });
     try {
-        const ambientSection = options.ambient !== false && shouldRequestAmbient(charData.id) ? buildAmbientEvalSection(charData) : '';
+        const ambientSection = (options.ambient !== false && shouldRequestAmbient(charData.id) ? buildAmbientEvalSection(charData) : '')
+            // 親近與信任（plans/bond-batch4.md 1.8）：這條線開始記了才加；見面那條（applyRaw）不帶
+            + (options.applyRaw ? '' : feelingEvalSectionFor(charData, userProfile.name));
         const prompt = buildEmotionEvalPrompt(charData, userProfile, mainSystemPrompt, apiMessages, true, ambientSection);
 
         const baseUrl = api.baseUrl.replace(/\/+$/, '');
@@ -918,6 +922,8 @@ export const useChatAI = ({
             }));
             const systemPrompt = payload.systemPrompt;
             const cleanedApiMessages = payload.cleanedApiMessages;
+            // 事件卡的情境只帶一輪：這一輪的提示詞組好了就清（plans/bond-batch4.md 2.3）
+            void consumeEventScene(charForGen).catch(() => {});
             // 在續說補丁和本地/即時對話分流前檢查最終歷史，不能用補出來的 user 掩蓋空上下文。
             assertChatHasDialogue(payload.fullMessages);
             const fullMessages = payload.flags.promptBuildSkipped
@@ -981,7 +987,7 @@ export const useChatAI = ({
                     // 把 emotionEval 塊壓到最小, 不把上下文在請求體裡重複一份.
                     prompt: buildEmotionEvalPrompt(
                         charForGen, userProfile, systemPrompt, cleanedApiMessages, false,
-                        shouldRequestAmbient(charForGen.id) ? buildAmbientEvalSection(charForGen) : ''
+                        (shouldRequestAmbient(charForGen.id) ? buildAmbientEvalSection(charForGen) : '') + feelingEvalSectionFor(charForGen, userProfile.name)
                     ),
                     api: { baseUrl: emotionApi.baseUrl, apiKey: emotionApi.apiKey, model: emotionApi.model },
                 }

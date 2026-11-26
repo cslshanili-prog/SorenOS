@@ -74,6 +74,10 @@ import { includesAnyScript } from './scriptKey';
 import { relationshipChangeBlocked } from './bond/guard';
 import { canInviteBond, extractBondInvite } from './bond/invite';
 import { bondIdForChar } from './bond/model';
+import { canProposePact, extractPactTags, proposalEntry, proposalMeta, type PactProposalTag } from './bond/pactTags';
+import { bondForChar } from './bond/registry';
+import { bondEntriesOf } from './bond/entryRegistry';
+import { saveBondEntry } from './bond/entries';
 // ─── 模塊內輔助 ──────────────────────────────────────────────────────────────
 
 /**
@@ -923,6 +927,17 @@ export async function applyAssistantPostProcessing(
         return cleanedText;
     };
 
+    // 角色提議約定／默契（plans/bond-batch4.md 1.7）：標籤一律剝掉；有空間、不是小號、沒拉黑才收，一輪各一個
+    const pendingPact: { promise: PactProposalTag | null; habit: PactProposalTag | null } = { promise: null, habit: null };
+    const consumePactTags = (content: string): string => {
+        const r = extractPactTags(content);
+        if ((r.promise || r.habit) && canProposePact(char, bondForChar(char))) {
+            if (r.promise && !pendingPact.promise) pendingPact.promise = r.promise;
+            if (r.habit && !pendingPact.habit) pendingPact.habit = r.habit;
+        }
+        return r.cleanedText;
+    };
+
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
         const { cleanedText, block } = extractBlockUser(content);
@@ -944,6 +959,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeAltTags(aiContent);
     aiContent = consumeSide(aiContent);
     aiContent = consumeBondInvite(aiContent);
+    aiContent = consumePactTags(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2442,6 +2458,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeAltTags(aiContent);
     aiContent = consumeSide(aiContent);
     aiContent = consumeBondInvite(aiContent);
+    aiContent = consumePactTags(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2599,6 +2616,26 @@ export async function applyAssistantPostProcessing(
             metadata: { ...(mcdInheritMeta || {}), bondInvite: { text: pendingBondInvite, status: 'pending', bondId: bondIdForChar(char) } },
         } as Parameters<typeof DB.saveMessage>[0]);
         setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
+    }
+
+    // 角色提議的約定／默契：先建「提議中」的卡，再落一張小卡（按「好／先不要」在 Chat.tsx，utils/bond/pactActions.ts）
+    for (const tag of [pendingPact.promise, pendingPact.habit]) {
+        if (!tag) continue;
+        try {
+            const bondId = bondIdForChar(char);
+            // 同一條線已經有同一句、還在等你的提議（重試那一趟、或角色又提一次）：不再落一張
+            if (bondEntriesOf(bondId).some(e => e.kind === tag.kind && e.text === tag.text && (e.promise?.state === 'proposed' || e.habit?.state === 'proposed'))) continue;
+            const entry = await saveBondEntry(proposalEntry(tag, { bondId, charId: char.id }));
+            const meta = proposalMeta(entry);
+            await persistMessage({
+                ...lineMsgFields(char), role: 'assistant', type: 'bond_invite',
+                content: tag.kind === 'habit' ? `${char.name} 想跟你確認一個默契：${tag.text}` : `${char.name} 想跟你約定：${tag.text}${meta.repeatText ? `（${meta.repeatText}）` : ''}`,
+                metadata: { ...(mcdInheritMeta || {}), bondProposal: meta },
+            } as Parameters<typeof DB.saveMessage>[0]);
+            setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
+        } catch (e) {
+            console.warn('[bond] 角色提議沒存成', e);
+        }
     }
 
     // 見面邀請卡排在這一輪所有話的後面

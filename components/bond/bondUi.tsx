@@ -87,14 +87,15 @@ export const SectionLabel: React.FC<{ children: React.ReactNode; right?: React.R
 );
 
 /** 羈絆空間的分頁（我們／拾光／心意；之後的分頁做了才出現）。像書的章節標，細線底、選中的字變深 */
-export type BondTab = 'us' | 'moments' | 'heart';
+export type BondTab = 'us' | 'moments' | 'heart' | 'pact';
 export const BOND_TABS: Array<{ id: BondTab; label: string }> = [
     { id: 'us', label: '我們' },
     { id: 'moments', label: '拾光' },
     { id: 'heart', label: '心意' },
+    { id: 'pact', label: '約定' },
 ];
-/** 角色之間的空間沒有心意（第 6 批） */
-export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart']);
+/** 角色之間的空間沒有心意、約定（第 6 批） */
+export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart', 'pact']);
 export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void; tabs?: BondTab[]; dots?: Partial<Record<BondTab, boolean>> }> = ({ value, onChange, tabs, dots }) => (
     <div className="shrink-0 flex gap-6 px-6 border-b bond-hair" role="tablist">
         {BOND_TABS.filter(t => !tabs || tabs.includes(t.id)).map(t => (

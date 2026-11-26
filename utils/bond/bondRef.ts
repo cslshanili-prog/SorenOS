@@ -7,10 +7,13 @@
  * - 氣泡上方顯示那張小卡，點了回到羈絆的那件事（BOND_REF_OPEN_EVENT，由私聊頁接手開 App）。
  */
 import type { BondEntry, DiaryEntry, Message } from '../../types';
+import { milestoneLabel, PROMISE_STATE_LABEL, repeatLabel, WISH_STATE_LABEL, HABIT_STATE_LABEL, wishOwnerLabel } from './pact';
 import { lastRound, visibleAnswer } from './question';
 import type { TimelineItem } from './timeline';
 
-export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note';
+export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone';
+/** 約定分頁的四種（第 4 批） */
+export type BondPactRefKind = Extract<BondRefKind, 'wish' | 'promise' | 'habit' | 'milestone'>;
 
 export interface BondRefMeta {
     bondId: string;
@@ -25,6 +28,8 @@ export interface BondRefMeta {
     questionId?: string;
     /** 紙條那一張（一串最上面那張） */
     slipId?: string;
+    /** 願望、約定、默契、里程碑那張卡（第 4 批） */
+    pactId?: string;
     title?: string;
     excerpt: string;
     /** 隨筆、日記那頁、紙條是誰寫的 */
@@ -33,7 +38,10 @@ export interface BondRefMeta {
 
 export const BOND_REF_OPEN_EVENT = 'soren-open-bond-ref';
 
-export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = { moment: '片刻', memory: '記憶', essay: '隨筆', diary: '日記', question: '問答', note: '紙條' };
+export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = {
+    moment: '片刻', memory: '記憶', essay: '隨筆', diary: '日記', question: '問答', note: '紙條',
+    wish: '願望', promise: '約定', habit: '默契', milestone: '里程碑',
+};
 
 const EXCERPT_MAX = 80;
 
@@ -111,4 +119,29 @@ export function bondRefFromSlip(bondId: string, e: BondEntry, rootId: string, au
     if (e.kind !== 'note' || e.status !== 'published' || !oneLine(e.text)) return null;
     const tags = (e.slip?.tags || []).slice(0, 2).join('、');
     return { bondId, kind: 'note', slipId: rootId, ...(tags ? { title: tags } : {}), excerpt: clip(oneLine(e.text), EXCERPT_MAX), authorName };
+}
+
+/**
+ * 約定分頁的一張卡（第 4 批）：願望（發布了的）、約定、默契、里程碑。
+ * 摘要寫成角色看得懂的一句：誰的願望、什麼頻率、現在什麼狀態。
+ */
+export function bondRefFromPact(bondId: string, e: BondEntry, names: { user: string; char: string }): BondRefMeta | null {
+    const text = oneLine(e.text);
+    if (e.kind === 'wish') {
+        if (e.status !== 'published' || !text || !e.wish) return null;
+        const owner = e.wish.owner === 'both' ? '我們的' : e.wish.owner === 'user' ? `${names.user}的` : wishOwnerLabel(e.wish.owner, names.char);
+        return { bondId, kind: 'wish', pactId: e.id, title: owner, excerpt: `${clip(text, EXCERPT_MAX)}（${WISH_STATE_LABEL[e.wish.state]}）` };
+    }
+    if (e.kind === 'promise' && e.promise && text) {
+        return { bondId, kind: 'promise', pactId: e.id, title: repeatLabel(e.promise.repeat), excerpt: `${clip(text, EXCERPT_MAX)}（${PROMISE_STATE_LABEL[e.promise.state]}）` };
+    }
+    if (e.kind === 'habit' && e.habit && text) {
+        return { bondId, kind: 'habit', pactId: e.id, excerpt: `${clip(text, EXCERPT_MAX)}（${HABIT_STATE_LABEL[e.habit.state]}）` };
+    }
+    if (e.kind === 'milestone' && e.milestone) {
+        const label = milestoneLabel(e.milestone.what, e.title);
+        const d = e.eventDate?.precision === 'day' && e.eventDate.date ? `${Number(e.eventDate.date.slice(5, 7))} 月 ${Number(e.eventDate.date.slice(8, 10))} 日` : '';
+        return { bondId, kind: 'milestone', pactId: e.id, title: label, excerpt: clip([d, text].filter(Boolean).join('，') || label, EXCERPT_MAX) };
+    }
+    return null;
 }

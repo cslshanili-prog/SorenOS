@@ -170,6 +170,7 @@ import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../
 
 import { withApiCallMeta } from '../utils/apiCallLog';
 import { resolveBondInvite } from '../utils/bond/inviteActions';
+import { resolveBondProposal } from '../utils/bond/pactActions';
 import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch } from '../utils/appLaunch';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, type BondRefMeta } from '../utils/bond/bondRef';
 import { bondIdForChar } from '../utils/bond/model';
@@ -1637,7 +1638,7 @@ const Chat: React.FC = () => {
         if (bondRef) {
             metadata = { ...(metadata || {}), bondRef };
             setBondRefDraft(null);
-            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条' } as const;
+            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条', wish: '愿望', promise: '约定', habit: '默契', milestone: '里程碑' } as const;
             trackEvent('带去聊聊', { 类型: kindLabel[bondRef.kind] });
         }
         const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
@@ -1987,6 +1988,15 @@ const Chat: React.FC = () => {
     // 羈絆邀請卡上按「好／先不要」（utils/bond/inviteActions.ts）：好了就直接去路線設定，讓你選路線
     const handleResolveBondInvite = useCallback(async (msg: Message, action: 'accepted' | 'declined') => {
         if (!char) return;
+        // 角色提議的約定／默契（utils/bond/pactActions.ts）
+        if (msg.metadata?.bondProposal) {
+            const meta = await resolveBondProposal(msg, action);
+            await reloadMessages(visibleCountRef.current);
+            if (meta?.kind === 'habit') trackEvent('羁绊默契', { 动作: action === 'accepted' ? '确认' : '拒绝', 谁: '我' });
+            else if (meta) trackEvent('羁绊约定', { 动作: action === 'accepted' ? '成立' : '删除', 来源: '角色提议', 计分: '否' });
+            if (meta && action === 'accepted') addToast(meta.kind === 'habit' ? '記進你們的默契了' : '約定成立了', 'success');
+            return;
+        }
         const bondId = await resolveBondInvite(msg, action);
         await reloadMessages(visibleCountRef.current);
         trackEvent('角色邀请建立羁绊', { 结果: action === 'accepted' ? '接受' : '先不要' });
@@ -1995,7 +2005,7 @@ const Chat: React.FC = () => {
             appReturn.set(AppID.Bond, () => openApp(AppID.Chat));
             openApp(AppID.Bond);
         }
-    }, [char, reloadMessages, openApp]);
+    }, [char, reloadMessages, openApp, addToast]);
 
     // 未接／拒接的來電卡上按「回撥」：照一般流程打回去（這次是用戶打的，角色照平常接）。
     const handleCallBack = useCallback((msg: Message) => {
@@ -3263,7 +3273,8 @@ const Chat: React.FC = () => {
             const backTo = activeCharIdRef.current;
             bondLaunch.request({
                 bondId: ref.bondId,
-                ...(ref.essayId ? { essayId: ref.essayId }
+                ...(ref.pactId && (ref.kind === 'wish' || ref.kind === 'promise' || ref.kind === 'habit' || ref.kind === 'milestone') ? { pact: { kind: ref.kind, entryId: ref.pactId } }
+                    : ref.essayId ? { essayId: ref.essayId }
                     : ref.itemKey ? { itemKey: ref.itemKey }
                     : ref.questionId ? { heart: 'question' as const, questionId: ref.questionId }
                     : ref.slipId ? { heart: 'note' as const, slipId: ref.slipId }

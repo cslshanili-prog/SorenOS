@@ -73,6 +73,9 @@ import { formatLibraryFileRecord } from './libraryShare';
 import { mirrorSceneNote } from './storyMirrorMeta';
 
 import { buildBondInvitePrompt, formatBondInviteRecord } from './bond/invite';
+import { buildPactProposalPrompt, formatBondProposalRecord, proposalStatus } from './bond/pactTags';
+import { bondEntryById } from './bond/entryRegistry';
+import { bondForChar } from './bond/registry';
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
 // 用戶在「設置 → 語音與寫歌 → 語音提示詞」裡自定義過該服務商的指南時，優先用用戶那份；留空則回退內置默認。
@@ -460,6 +463,8 @@ export const ChatPrompts = {
         add('interact', buildSuspectPrompt(char, userProfile));
         // 羈絆：這條線還沒有空間時，教角色可以邀請你建一個（plans/bond-batch1.md 3.5）
         add('interact', buildBondInvitePrompt(char, userProfile.name));
+        // 羈絆 · 約定：有空間時教角色可以提議約定、確認默契（plans/bond-batch4.md 1.7）
+        add('interact', buildPactProposalPrompt(char, bondForChar(char), userProfile.name));
         // 關係線第 7 批 · 本人私聊教「你的小號」：小號加你好友（ALT_ADD）、自己開小號（OPEN_ALT），見 utils/altFriend.ts
         if (isPersonaLinesEnabled() && !char.altOf) add('interact', buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name));
         if (isPersonaLinesEnabled() && char.altOf) add('interact', buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name));
@@ -1597,7 +1602,8 @@ ${voiceActingGuide()}`);
                 }
                 else if (m.type === 'bond_invite') {
                     // 羈絆邀請卡：帶上對方回了沒（見 utils/bond/invite.ts）
-                    content = `${timeStr} ${formatBondInviteRecord(m.metadata?.bondInvite)}`;
+                    const prop = m.metadata?.bondProposal;
+                    content = `${timeStr} ${prop ? formatBondProposalRecord(prop, proposalStatus(prop, bondEntryById(prop.entryId))) : formatBondInviteRecord(m.metadata?.bondInvite)}`;
                 }
                 else if (m.type === 'mall_order') {
                     // 購物中心卡片的記錄形態，跟轉帳同一個路數（見 utils/mallOrderFormat.ts 頭注）；

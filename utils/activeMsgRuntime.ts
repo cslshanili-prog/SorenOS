@@ -1,3 +1,5 @@
+import { cloudFeelingBondId } from './bond/feelingStore';
+import { parseLineScheduleId } from './chatLine';
 import { loadCharacterContextMessages } from './chatContextRange';
 import { lineArgOf } from './chatLine';
 import { resolveChatLanguage } from './chatLanguage';
@@ -314,7 +316,9 @@ const landCloudEmotionResult = async (charId: string, raw: string): Promise<void
     const chars = await DB.getAllCharacters();
     const ch = chars.find((c) => c.id === localId);
     if (!ch) return;
-    const innerState = await applyEmotionEvalRaw(raw, ch);
+    // 親近與信任照線落：雲端 id 帶著線（`c1~line~pB`）
+    const line = parseLineScheduleId(charId);
+    const innerState = await applyEmotionEvalRaw(raw, ch, { bondId: cloudFeelingBondId(localId, line.personaKey, ch.primaryPersonaKey) });
     if (innerState) {
       window.dispatchEvent(new CustomEvent('emotion-innerstate-updated', {
         detail: { charId: localId, innerState },

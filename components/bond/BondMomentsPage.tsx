@@ -14,6 +14,7 @@ import { eventMonthKey, formatEventDate, formatMonthKey } from '../../utils/bond
 const FILTERS: Array<{ id: TimelineFilter; label: string }> = [
     { id: 'all', label: '全部' },
     { id: 'moment', label: '片刻' },
+    { id: 'milestone', label: '里程碑' },
     { id: 'memory', label: '記憶' },
     { id: 'essay', label: '隨筆' },
     { id: 'favorite', label: '收藏' },
@@ -37,6 +38,7 @@ export function itemHeadline(item: Pick<TimelineItem, 'title' | 'text'>, max = 7
 
 export function itemKindLabel(item: TimelineItem, space: ResolvedSpace): string {
     if (item.kind === 'moment') return '片刻';
+    if (item.kind === 'milestone') return '里程碑';
     if (item.ref.type === 'topic') {
         const owner = item.ref.ownerId === space.char.id ? space.char.name : space.other?.name;
         return `${owner || ''}的整理`;
@@ -157,7 +159,7 @@ export const BondMomentsPage: React.FC<{
                                             className={`w-full text-left py-3.5 flex gap-4 ${it.hidden ? 'opacity-50' : ''}`}>
                                             <div className="w-12 shrink-0 pt-0.5 text-[11.5px] text-[var(--bond-muted)] tabular-nums leading-snug">{shortEventDay(it)}</div>
                                             <div className="min-w-0 flex-1">
-                                                <div className={`text-[14.5px] leading-relaxed ${it.kind === 'moment' ? 'bond-serif' : 'text-[var(--bond-ink-2)] text-[13.5px]'}`}>
+                                                <div className={`text-[14.5px] leading-relaxed ${it.kind === 'moment' || it.kind === 'milestone' ? 'bond-serif' : 'text-[var(--bond-ink-2)] text-[13.5px]'}`}>
                                                     {itemHeadline(it)}
                                                 </div>
                                                 <div className="mt-1 flex items-center gap-2 text-[10.5px] tracking-wider text-[var(--bond-muted)]">
