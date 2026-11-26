@@ -6327,9 +6327,11 @@ export interface BondOutputSetting {
     enabled: boolean;
     /** 每隔幾天一次（區間；在區間裡挑一天，不固定週期） */
     everyDays: [number, number];
-    /** 篇幅 */
+    /** 篇幅（舊的三檔；沒填 chars 時拿它換成預設字數，utils/bond/output.ts 的 OUTPUT_CHARS） */
     length: 'short' | 'medium' | 'long';
-    /** 文風（日記用；空＝照角色個性） */
+    /** 篇幅：大約幾字到幾字（設定頁填的兩格；沒填照 length 換） */
+    chars?: [number, number];
+    /** 文風（空＝照角色個性；四種都能填） */
     style?: string;
     /** 投遞時段（你的裝置時間 'HH:MM'）；沒設＝全天 */
     window?: { from: string; to: string };

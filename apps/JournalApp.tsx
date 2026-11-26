@@ -22,7 +22,7 @@ import { resolveUserProfileForChar } from '../utils/userPersona';
 import type { UserProfile } from '../types';
 import { lineMsgFields } from '../utils/chatLine';
 import { diaryInBond, markCharPageSeen, pageEmpty, pagePublished, publishUserPage, putCharPage, touchUserPage } from '../utils/bond/diary';
-import { DIARY_LENGTH_CHARS } from '../utils/bond/output';
+import { outputMaxTokens } from '../utils/bond/outputPromptCore';
 
 import { withApiCallMeta } from '../utils/apiCallLog';
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
@@ -92,7 +92,8 @@ export interface JournalEmbed {
     initialDate?: string;
     /** 日記設定：同步私聊、篇幅、文風（羈絆的主動產出設定） */
     syncToChat: boolean;
-    length: 'short' | 'medium' | 'long';
+    /** 篇幅：大約幾字到幾字 */
+    chars: [number, number];
     style?: string;
     onBack: () => void;
     /** 帶去聊聊（發布了的頁才能帶；羈絆第 3 批） */
@@ -555,7 +556,7 @@ ${userWrote ? `1. 閱讀用戶今天的日記 (${currentEntry.date})。
    - 結合上文的聊天記錄，可以接著上一篇沒談完的事，不用逐日重述。`}
    - 最重要的是分享你的生活，此條為必須項**務必說至少一件用戶不知道的，你今天做的事情，儘量與用戶無關！用戶希望看到角色完全獨立的一面**。
    - 語言風格在符合設定的基礎上，應該更加書面化和詩意，不過一切以角色性格優先。${embed ? `
-   - 篇幅大約 ${DIARY_LENGTH_CHARS[embed.length][0]}～${DIARY_LENGTH_CHARS[embed.length][1]} 字；話少的角色可以短一點，但要像是寫給對方看的一篇完整日記。${embed.style?.trim() ? `
+   - 篇幅大約 ${embed.chars[0]}～${embed.chars[1]} 字；話少的角色可以短一點，但要像是寫給對方看的一篇完整日記。${embed.style?.trim() ? `
    - 文風：${embed.style.trim()}（仍以角色性格優先）。` : ''}
    - 只寫真的發生過的事；人設裡的喜好不能寫成你們一起做過的事，不要編造沒發生過的共同經歷。` : ''}
 3. 選擇適合你心情的信紙和貼紙。
@@ -584,7 +585,9 @@ Structure:
                         { role: 'system', content: systemPrompt },
                         { role: 'user', content: userWrote ? `Users Diary:\n${currentEntry.userPage.text}` : `（用戶這天還沒寫日記，請你先寫你的這一頁。）` }
                     ],
-                    temperature: 0.85
+                    temperature: 0.85,
+                    // 羈絆裡照設定的篇幅留輸出上限（篇幅填得長時才不會被截斷）；原本的交換日記不設
+                    ...(embed ? { max_tokens: outputMaxTokens(embed.chars) } : {}),
                 })
             }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '交換日記' }));
 

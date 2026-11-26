@@ -18,10 +18,26 @@ export const DEFAULT_OUTPUT: Record<BondOutputKind, BondOutputSetting> = {
 /** 每段關係一天最多幾份、任兩份至少隔多久；全部關係一天最多幾份 */
 export const OUTPUT_LIMITS = { perBondPerDay: 2, minGapMs: 3 * 3600_000, allPerDay: 6 };
 
-/** 篇幅對應的字數（日記用；其他類型照提示詞的口語說法） */
-export const DIARY_LENGTH_CHARS: Record<BondOutputSetting['length'], [number, number]> = {
-    short: [80, 200], medium: [200, 500], long: [500, 900],
+/** 沒自己填字數時，舊的三檔篇幅換成幾字到幾字（每種不一樣：紙條本來就比日記短） */
+export const OUTPUT_CHARS: Record<BondOutputKind, Record<BondOutputSetting['length'], [number, number]>> = {
+    diary: { short: [80, 200], medium: [200, 500], long: [500, 900] },
+    question: { short: [20, 100], medium: [100, 250], long: [250, 500] },
+    note: { short: [20, 120], medium: [120, 300], long: [300, 600] },
+    essay: { short: [150, 300], medium: [300, 700], long: [700, 1200] },
 };
+export const DIARY_LENGTH_CHARS = OUTPUT_CHARS.diary;
+/** 字數格子能填的範圍 */
+export const OUTPUT_CHARS_LIMIT: [number, number] = [10, 5000];
+
+/** 這一種的篇幅（幾字到幾字）：自己填的優先，沒填照三檔換；小的在前 */
+export function resolveOutputChars(bond: Pick<BondRecord, 'output'> | undefined, kind: BondOutputKind): [number, number] {
+    const s = resolveOutputSetting(bond, kind);
+    const raw = s.chars && s.chars.length === 2 ? s.chars : OUTPUT_CHARS[kind][s.length] || OUTPUT_CHARS[kind].medium;
+    const clamp = (n: number) => Math.max(OUTPUT_CHARS_LIMIT[0], Math.min(OUTPUT_CHARS_LIMIT[1], Math.round(Number(n) || OUTPUT_CHARS_LIMIT[0])));
+    const a = clamp(raw[0]);
+    const b = clamp(raw[1]);
+    return a <= b ? [a, b] : [b, a];
+}
 
 export function resolveOutputSetting(bond: Pick<BondRecord, 'output'> | undefined, kind: BondOutputKind): BondOutputSetting {
     const base = DEFAULT_OUTPUT[kind];

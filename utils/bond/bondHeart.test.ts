@@ -274,3 +274,40 @@ describe('主動產出排程', () => {
         expect(inWindow(undefined, 5)).toBe(true);
     });
 });
+
+import { OUTPUT_CHARS, resolveOutputChars } from './output';
+import { buildSlipPrompt, buildSlipReplyPrompt, outputMaxTokens } from './outputPromptCore';
+import { buildEssayChoosePrompt } from './essay';
+
+describe('篇幅填字數、文風四種都能填', () => {
+    const b = (output: Record<string, unknown>) => ({ output } as any);
+    it('自己填的字數優先；沒填照三檔換；顛倒的排回來、超出範圍的夾住', () => {
+        expect(resolveOutputChars(undefined, 'diary')).toEqual(OUTPUT_CHARS.diary.medium);
+        expect(resolveOutputChars(b({ note: { length: 'long' } }), 'note')).toEqual(OUTPUT_CHARS.note.long);
+        expect(resolveOutputChars(b({ note: { length: 'long', chars: [30, 80] } }), 'note')).toEqual([30, 80]);
+        expect(resolveOutputChars(b({ essay: { chars: [900, 400] } }), 'essay')).toEqual([400, 900]);
+        expect(resolveOutputChars(b({ diary: { chars: [1, 99999] } }), 'diary')).toEqual([10, 5000]);
+    });
+    it('提示詞：有字數寫字數、有文風多一行；沒給照舊', () => {
+        const ctx = { selfName: '煦', otherName: 'Liora' };
+        const withChars = buildSlipPrompt({ ...ctx, tags: ['掛念'], chars: [30, 80], style: '像便利貼' });
+        expect(withChars).toContain('篇幅：大約 30～80 字');
+        expect(withChars).toContain('- 文風：像便利貼（仍以你的個性優先）。');
+        const plain = buildSlipPrompt({ ...ctx, tags: ['掛念'], length: 'short' });
+        expect(plain).toContain('篇幅：短短的就好');
+        expect(plain).not.toContain('文風');
+        expect(buildCharAskPrompt({ ...ctx, chars: [20, 60] })).toContain('（篇幅：大約 20～60 字');
+        expect(buildCharAnswerPrompt({ ...ctx, question: 'Q', askedByOther: true, style: '直白' })).toContain('- 文風：直白');
+        expect(buildSlipReplyPrompt({ ...ctx, slip: { fromName: 'Liora', text: '嗨', tags: [] }, chars: [10, 40] })).toContain('大約 10～40 字');
+        const essay = buildEssayChoosePrompt({ ...ctx, candidates: [{ dateText: '11 月', label: '片刻', text: '看電影' }], chars: [300, 700], style: '像散文' });
+        expect(essay).toContain('篇幅大約 300～700 字');
+        expect(essay).toContain('文風：像散文');
+        expect(buildEssayChoosePrompt({ ...ctx, candidates: [] })).not.toContain('篇幅大約');
+    });
+    it('輸出上限跟著篇幅：短的照下限、長的放寬、封頂 8000', () => {
+        expect(outputMaxTokens([20, 100])).toBe(1500);
+        expect(outputMaxTokens([500, 2000])).toBe(5000);
+        expect(outputMaxTokens([10, 5000])).toBe(8000);
+        expect(outputMaxTokens(undefined, 2000)).toBe(2000);
+    });
+});

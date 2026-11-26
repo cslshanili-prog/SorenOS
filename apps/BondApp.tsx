@@ -12,7 +12,7 @@ import { BondHeartPage, mainBondIdOf, useHeartNotice, type HeartNotice, type Hea
 import { BondQuestionComposePage, BondQuestionPage } from '../components/bond/BondQuestionPages';
 import { BondSlipComposePage, BondSlipPage } from '../components/bond/BondSlipPages';
 import { BondOutputSettingsPage } from '../components/bond/BondOutputSettingsPage';
-import { resolveOutputSetting } from '../utils/bond/output';
+import { resolveOutputChars, resolveOutputSetting } from '../utils/bond/output';
 import { bondIdForChar } from '../utils/bond/model';
 import { BondMomentsPage } from '../components/bond/BondMomentsPage';
 import { BondItemPage } from '../components/bond/BondItemPage';
@@ -310,7 +310,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         <React.Suspense fallback={<div className="h-full grid place-items-center text-[13px] text-[var(--bond-muted)]">翻開日記本…</div>}>
                             <JournalApp embed={{
                                 char: s.view, user: s.user, bondId: s.id, mainBondId: mainBondIdOf(s), today: s.todayKey,
-                                initialDate: page.date, syncToChat: diarySetting.syncToChat, length: diarySetting.length, style: diarySetting.style,
+                                initialDate: page.date, syncToChat: diarySetting.syncToChat, chars: resolveOutputChars(s.bond, 'diary'), style: diarySetting.style,
                                 onBack: () => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('diary')),
                                 onBringToChat: (d, side) => {
                                     const ref = bondRefFromDiary(s.id, d, side, side === 'user' ? s.leftName : s.rightName);

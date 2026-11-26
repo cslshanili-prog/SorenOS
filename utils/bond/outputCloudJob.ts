@@ -32,9 +32,8 @@ export const parseBondOutputJobId = (raw: unknown): { bondId: string; kind: Bond
 /** 雲端自己記的寫過哪些（全部關係共用一行，跟 job 放同一個命名空間） */
 export const BOND_OUTPUT_LOG_KEY = 'bond-output-log';
 
-/** 本機和雲端同一組（askChar 是 0.85；隨筆 2000、其他 1500） */
+/** 本機和雲端同一組（askChar 是 0.85）；輸出上限照篇幅算（outputPromptCore 的 outputMaxTokens），排任務時帶上 */
 export const BOND_OUTPUT_TEMPERATURE = 0.85;
-export const BOND_OUTPUT_MAX_TOKENS = 2000;
 export const BOND_OUTPUT_LLM_TIMEOUT_MS = 150_000;
 
 const DAY = 86400_000;

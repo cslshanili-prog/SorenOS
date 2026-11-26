@@ -19,6 +19,17 @@ export const LENGTH_HINT: Record<OutputLength, string> = {
 };
 
 /** 給模型看的「最近」：每日總結＋最近的私聊（呼叫端整理好） */
+/** 篇幅那句：有填字數就寫字數，沒有照三檔的口語說法 */
+const lengthText = (input: { length?: OutputLength; chars?: [number, number] }) =>
+    input.chars ? `大約 ${input.chars[0]}～${input.chars[1]} 字（話少的話可以短一點）` : LENGTH_HINT[input.length || 'short'];
+/** 文風那行（沒填就沒有） */
+const styleLine = (input: { style?: string }) => (input.style?.trim() ? `- 文風：${input.style.trim()}（仍以你的個性優先）。
+` : '');
+
+/** 輸出上限照篇幅算（中文一字大約一到兩個 token，再留 JSON 和私聊那句的量） */
+export const outputMaxTokens = (chars: [number, number] | undefined, floor = 1500): number =>
+    Math.max(floor, Math.min(8000, chars ? Math.ceil(chars[1] * 2.2) + 600 : floor));
+
 export interface OutputContext {
     selfName: string;
     otherName: string;
@@ -49,6 +60,8 @@ export function buildCharAnswerPrompt(input: OutputContext & {
     /** 以前揭曉過的輪（舊到新） */
     earlierRounds?: Array<{ mine?: string; theirs?: string }>;
     length?: OutputLength;
+    chars?: [number, number];
+    style?: string;
 }): string {
     const earlier = (input.earlierRounds || [])
         .map((r, i) => `第 ${i + 1} 次：你答「${r.mine || '（跳過）'}」；${input.otherName}答「${r.theirs || '（跳過）'}」`)
@@ -62,8 +75,8 @@ ${recentBlock(input)}
 
 請以「${input.selfName}」的身份回答。你看不到${input.otherName}這次的答案，也不要去猜對方會怎麼答。
 ${GROUND_RULES(input)}
-- 篇幅：${LENGTH_HINT[input.length || 'short']}。
-- 真的不想答可以跳過。
+- 篇幅：${lengthText(input)}。
+${styleLine(input)}- 真的不想答可以跳過。
 
 只輸出 JSON，不要其他文字：{"answer":"你的答案"} 或 {"skip":true}`;
 }
@@ -75,6 +88,8 @@ export function buildCharAskPrompt(input: OutputContext & {
     /** 路線＋階段的一句話（例如「友情線，現在是好朋友」） */
     relationLine?: string;
     length?: OutputLength;
+    chars?: [number, number];
+    style?: string;
     withNotice?: boolean;
 }): string {
     const asked = (input.askedBefore || []).slice(-15).map(q => `- ${q}`).join('\n');
@@ -85,8 +100,8 @@ ${asked ? `\n【以前問過的（不要重複）】\n${asked}\n` : ''}
 請以「${input.selfName}」的身份出一題，可以是最近的事讓你好奇的、想更了解對方的、或延續一個話題；可以很日常、很短，不用每次都是深入的關係測驗。
 ${GROUND_RULES(input)}
 - 題目要對方答得出來，不要問對方不可能知道的事。
-- 同時寫下你自己的答案（篇幅：${LENGTH_HINT[input.length || 'short']}），這個答案會封存，對方答完才看得到。
-- topic 從這些挑一個：habit（生活習慣）、memory（回憶）、choice（二選一或假設題）、relationship（對彼此的想法）、daily（日常小事）。
+- 同時寫下你自己的答案（篇幅：${lengthText(input)}），這個答案會封存，對方答完才看得到。
+${styleLine(input)}- topic 從這些挑一個：habit（生活習慣）、memory（回憶）、choice（二選一或假設題）、relationship（對彼此的想法）、daily（日常小事）。
 ${input.withNotice ? `- ${NOTICE_FIELD_HINT('出了一題問答給對方', input.otherName)}\n` : ''}
 只輸出 JSON，不要其他文字：${input.withNotice ? '{"question":"題目","topic":"daily","answer":"你的答案","notice":"私聊那句"}' : '{"question":"題目","topic":"daily","answer":"你的答案"}'}`;
 }
@@ -118,6 +133,8 @@ export function buildSlipPrompt(input: OutputContext & {
     recentSlips?: string;
     relationLine?: string;
     length?: OutputLength;
+    chars?: [number, number];
+    style?: string;
     withNotice?: boolean;
 }): string {
     return `「心靈角落」是你和${input.otherName}之間丟紙條的地方：吐槽、掛念、想一起做的事、心結、開心的事，或當面沒說出口的話。丟進去才算說出口。
@@ -128,8 +145,8 @@ ${input.recentSlips ? `\n【最近的紙條】\n${input.recentSlips}\n` : ''}
 例如話少的人可以寫：「上次你說沒人在意。我當時沒接話，不代表我同意。」
 ${GROUND_RULES(input)}
 - 重大的心結、過去的傷要有設定或發生過的事當依據，不要為了寫而捏造。
-- 篇幅：${LENGTH_HINT[input.length || 'short']}。
-- 標籤從這些挑 1～2 個：${input.tags.join('、')}。
+- 篇幅：${lengthText(input)}。
+${styleLine(input)}- 標籤從這些挑 1～2 個：${input.tags.join('、')}。
 ${input.withNotice ? `- ${NOTICE_FIELD_HINT('丟了一張紙條', input.otherName)}\n` : ''}
 只輸出 JSON，不要其他文字：${input.withNotice ? '{"tags":["掛念"],"text":"紙條內容","notice":"私聊那句"}' : '{"tags":["掛念"],"text":"紙條內容"}'}`;
 }
@@ -141,6 +158,8 @@ export function buildSlipReplyPrompt(input: OutputContext & {
     /** 這一串已經有的回應（舊到新） */
     thread?: Array<{ fromName: string; text: string }>;
     length?: OutputLength;
+    chars?: [number, number];
+    style?: string;
     /** 這張是對方丟給你的：可以順手標狀態（想再談／已回應／已說開） */
     canMarkState?: boolean;
     withNotice?: boolean;
@@ -155,8 +174,8 @@ ${recentBlock(input)}
 
 請以「${input.selfName}」的身份回一張紙條。照你的個性：可以認真回、可以嘴硬、可以只回一句；有回應不代表事情就解決了，不用硬把話說開。
 ${GROUND_RULES(input)}
-- 篇幅：${LENGTH_HINT[input.length || 'short']}。
-${input.canMarkState ? `- 你也可以替這張紙條標一個狀態（state）：want_to_talk（想再談）、responded（已回應）、resolved（已說開）；只有真的說開了才標 resolved，不想標就不要給這個欄位。\n` : ''}${input.withNotice ? `- ${NOTICE_FIELD_HINT('回了紙條', input.otherName)}\n` : ''}
+- 篇幅：${lengthText(input)}。
+${styleLine(input)}${input.canMarkState ? `- 你也可以替這張紙條標一個狀態（state）：want_to_talk（想再談）、responded（已回應）、resolved（已說開）；只有真的說開了才標 resolved，不想標就不要給這個欄位。\n` : ''}${input.withNotice ? `- ${NOTICE_FIELD_HINT('回了紙條', input.otherName)}\n` : ''}
 只輸出 JSON，不要其他文字：{"text":"回應內容"${input.canMarkState ? ',"state":"responded"' : ''}${input.withNotice ? ',"notice":"私聊那句"' : ''}}`;
 }
 

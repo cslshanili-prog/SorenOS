@@ -22,12 +22,12 @@ import { bondOrBlank, updateBond } from '../../utils/bond/store';
 import { bondEntriesOf } from '../../utils/bond/entryRegistry';
 import { diariesOfBondSync } from '../../utils/bond/diaryRegistry';
 import { listPersonaSpaces } from '../../utils/bond/spaces';
-import { decideBondOutputs, DIARY_LENGTH_CHARS, markOutputDone, OUTPUT_KIND_LABEL, resolveOutputSetting, type OutputCandidate } from '../../utils/bond/output';
+import { decideBondOutputs, markOutputDone, OUTPUT_KIND_LABEL, resolveOutputChars, resolveOutputSetting, type OutputCandidate } from '../../utils/bond/output';
 import {
     buildCharAskPrompt, buildSlipPrompt, buildSlipReplyPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, parseSlipReplyState,
-    buildDiaryPrompt,
+    buildDiaryPrompt, outputMaxTokens,
 } from '../../utils/bond/outputPromptCore';
-import { BOND_OUTPUT_MAX_TOKENS, type BondOutputJobDiary } from '../../utils/bond/outputCloudJob';
+import type { BondOutputJobDiary } from '../../utils/bond/outputCloudJob';
 import { answerQuestion, newQuestion } from '../../utils/bond/question';
 import { deliverSlip, newSlip, setSlipState, slipReplies, slipTagOptions } from '../../utils/bond/slip';
 import { blankDiary, pageEmpty, pagePublished, putCharPage } from '../../utils/bond/diary';
@@ -147,7 +147,9 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
     const withNotice = setting.syncToChat && !isChatBlocked(view);
     const entries = bondEntriesOf(space.id);
     const { system, lock } = charSystemOf(space);
-    const base = { kind, withNotice, system, lock, maxTokens: 1500 };
+    const chars = resolveOutputChars(space.bond, kind);
+    const style = setting.style?.trim() || undefined;
+    const base = { kind, withNotice, system, lock, maxTokens: outputMaxTokens(chars, kind === 'essay' ? 2000 : 1500) };
 
     if (kind === 'essay') {
         // 隨筆：讓 TA 自己挑一件還沒寫過的，寫成草稿（你收下才算，跟第 2 批同一條路）
@@ -156,8 +158,9 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
         const prompt = buildEssayChoosePrompt({
             selfName: view.name, otherName: space.leftName,
             candidates: cands.map(c => { const t = essayTargetOf(c, { includeUserNote: true, topicOwnerName: c.ref.type === 'topic' && c.ref.ownerId === space.char.id ? view.name : undefined }); return { dateText: t.dateText, label: c.kind === 'moment' ? '片刻' : '記憶', text: t.title ? `${t.title}：${t.text}` : t.text }; }),
+            chars, style,
         });
-        return { ...base, prompt, candidateKeys: cands.map(c => c.key), maxTokens: BOND_OUTPUT_MAX_TOKENS, purpose: '角色隨筆' };
+        return { ...base, prompt, candidateKeys: cands.map(c => c.key), purpose: '角色隨筆' };
     }
 
     const ctx = await heartContext(space);
@@ -171,7 +174,7 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
         return {
             ...base, purpose: '日記',
             diary: {
-                base: { ...ctx, recentDiaries: recent, chars: DIARY_LENGTH_CHARS[setting.length], style: setting.style, withNotice },
+                base: { ...ctx, recentDiaries: recent, chars, style, withNotice },
                 dateTz: resolveCharTimeZone(view) ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
                 dateOffsetMs: clock ? clock.now - Date.now() : 0,
                 today: space.todayKey,
@@ -184,7 +187,7 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
         return {
             ...base, purpose: '拾光問答',
             prompt: buildCharAskPrompt({
-                ...ctx, relationLine: relationLineOf(space), length: setting.length, withNotice,
+                ...ctx, relationLine: relationLineOf(space), chars, style, withNotice,
                 askedBefore: entries.filter(e => e.kind === 'question' && e.status === 'published').map(e => e.question!.prompt),
             }),
         };
@@ -198,7 +201,7 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
         return {
             ...base, purpose: '心靈角落', replyTo: pending.id,
             prompt: buildSlipReplyPrompt({
-                ...ctx, length: setting.length, withNotice, canMarkState: true,
+                ...ctx, chars, style, withNotice, canMarkState: true,
                 slip: { fromName: space.leftName, text: pending.text, tags: pending.slip?.tags || [] },
                 thread: slipReplies(entries, pending.id).map(e => ({ fromName: e.author === 'user' ? space.leftName : view.name, text: e.text })),
             }),
@@ -207,7 +210,7 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
     const tags = slipTagOptions(space.bond.noteTags);
     return {
         ...base, purpose: '心靈角落', tags,
-        prompt: buildSlipPrompt({ ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), length: setting.length, withNotice }),
+        prompt: buildSlipPrompt({ ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), chars, style, withNotice }),
     };
 }
 

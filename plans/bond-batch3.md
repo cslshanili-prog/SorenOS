@@ -38,6 +38,7 @@
 > - 能不能交（`components/bond/outputCloud.ts` 的 `bondOutputCloudGate`）：這條線開了主動消息 2.0、主動消息那組 API 配得齊（憑據行用這條線的雲端 id）、這台 worker 認得 `bond-output`。「認不認得」不看版本號：`GET /config-check` 多報一個 `backgroundJobKinds`（註冊表裡有哪幾種），`ActiveMsgClient.probeBackgroundJobKind` 照它判斷；老 bundle 沒這個欄位就只在本機跑。bundle 版本號跳到 2026-11-26。
 > - 什麼時候重傳 job：這段關係改了（`BOND_CHANGE_EVENT`：寫了一份、你丟紙條、改設定、日記存了…）、聊天有新訊息兩小時以上、一天沒刷、頁面要藏起來（有新訊息就傳）。帳（哪段、哪種、哪條任務、幾點）記在 localStorage `soren_bond_output_cloud_v1`，關係沒了、類型關了、時段改了就取消重排。
 > - 收件在 `applyBondOutputResult`（`utils/amsgResults.ts` 分派 `bond-output`）：先重讀三個登記表再對帳，收下後記起點、發 `BOND_OUTPUT_DONE_EVENT`（OSContext 跳提示、打未讀，本機寫的也走這個事件）；埋點「主动产出完成」的來源是「云端」。
+> - 設定頁改版（Liora 2026-11-26）：篇幅不再是短／中／長三顆，改成兩格填「大約幾字到幾字」（存 `BondOutputSetting.chars`，沒填過的照舊的三檔換，每種各一套預設，`utils/bond/output.ts` 的 `OUTPUT_CHARS`／`resolveOutputChars`）；文風四種都能填（以前只有日記），框可以全螢幕寫。問答、紙條、隨筆的提示詞也照字數和文風寫；手動按「請 TA 答／出題／回」也照同一份設定。輸出上限跟著篇幅放寬（`outputMaxTokens`，封頂 8000），雲端任務的上限是排任務時定的，篇幅改了會重排。
 
 ## 0. 範圍
 

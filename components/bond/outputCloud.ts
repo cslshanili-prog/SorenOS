@@ -22,13 +22,14 @@ import { buildCharChatCredRow } from '../../utils/amsgLlmCredentials';
 import { cloudCharId } from '../../utils/amsgCloudLine';
 import { withLineFields } from '../../utils/chatLine';
 import { DB } from '../../utils/db';
-import { EVENT_KINDS, markOutputDone, OUTPUT_KINDS, OUTPUT_LIMITS, resolveOutputSetting, nextDueAt } from '../../utils/bond/output';
+import { EVENT_KINDS, markOutputDone, OUTPUT_KINDS, OUTPUT_LIMITS, resolveOutputChars, resolveOutputSetting, nextDueAt } from '../../utils/bond/output';
+import { outputMaxTokens } from '../../utils/bond/outputPromptCore';
 import { refreshBondRegistry, updateBond } from '../../utils/bond/store';
 import { bondById } from '../../utils/bond/registry';
 import { refreshBondEntryRegistry } from '../../utils/bond/entries';
 import { refreshDiaryRegistry } from '../../utils/bond/diaryStore';
 import {
-    BOND_OUTPUT_KIND, BOND_OUTPUT_MAX_TOKENS, BOND_OUTPUT_TEMPERATURE, bondOutputFireTime, bondOutputJobId, bondOutputJobKey, buildBondOutputJob,
+    BOND_OUTPUT_KIND, BOND_OUTPUT_TEMPERATURE, bondOutputFireTime, bondOutputJobId, bondOutputJobKey, buildBondOutputJob,
     nextFireLocal, parseBondOutputResult, type BondOutputJob, type BondOutputJobKind,
 } from '../../utils/bond/outputCloudJob';
 import { trackEvent } from '../../utils/analytics';
@@ -44,7 +45,7 @@ const JOB_CHAT_REFRESH_MS = 2 * HOUR;
 /** 結果晚到太多就不用了 */
 const RESULT_MAX_AGE_MS = 3 * 24 * HOUR;
 
-interface CloudTask { taskUuid: string; fireAt: string; tzId: string }
+interface CloudTask { taskUuid: string; fireAt: string; tzId: string; maxTokens?: number }
 interface CloudRecord { jobAt: number; tasks: Partial<Record<BondOutputKind, CloudTask>> }
 type CloudStore = Record<string, CloudRecord>;
 
@@ -108,20 +109,25 @@ export async function syncBondOutputCloud(scope: { characters: CharacterProfile[
             if (!space || space.kind !== 'persona' || !space.view || !space.user) continue;
             const gate = cand.eligible ? await bondOutputCloudGate(space.view, scope.apiConfig) : 'off';
             if (gate === 'unknown') continue; // 問不到：這一輪不動（手上的任務可能還在跑）
-            const wanted = new Map<BondOutputKind, string>();
+            // 每一種：幾點到點、輸出上限（照篇幅算；改了篇幅要重排任務，上限是排任務時定的）
+            const wanted = new Map<BondOutputKind, { fireAt: string; maxTokens: number }>();
             if (gate === 'ok') {
                 for (const kind of OUTPUT_KINDS) {
                     const own = space.bond.output?.[kind];
                     const setting = resolveOutputSetting(space.bond, kind);
                     const on = own && typeof own.enabled === 'boolean' ? own.enabled : setting.enabled && cand.recentlyActive;
-                    if (on) wanted.set(kind, bondOutputFireTime(cand.bondId, kind, setting.window));
+                    if (on) wanted.set(kind, {
+                        fireAt: bondOutputFireTime(cand.bondId, kind, setting.window),
+                        maxTokens: outputMaxTokens(resolveOutputChars(space.bond, kind), kind === 'essay' ? 2000 : 1500),
+                    });
                 }
             }
             // 不要的、時間變了的：取消
             let changed = false;
             for (const kind of Object.keys(rec.tasks) as BondOutputKind[]) {
                 const t = rec.tasks[kind]!;
-                if (wanted.get(kind) === t.fireAt && t.tzId === tz) continue;
+                const w = wanted.get(kind);
+                if (w && w.fireAt === t.fireAt && w.maxTokens === t.maxTokens && t.tzId === tz) continue;
                 await ActiveMsgClient.cancelTask(t.taskUuid).catch(e => console.warn(HEADER, '取消任務失敗（可能已經沒了）', e));
                 delete rec.tasks[kind];
                 changed = true;
@@ -142,14 +148,14 @@ export async function syncBondOutputCloud(scope: { characters: CharacterProfile[
                 const job = await buildJob(space, [...wanted.keys()], rec, tz);
                 const credRow = credRowFor(space.view, scope.apiConfig)!;
                 for (const kind of missing) {
-                    const fireAt = wanted.get(kind)!;
+                    const { fireAt, maxTokens } = wanted.get(kind)!;
                     const { uuid } = await ActiveMsgClient.scheduleBackgroundJob({
                         kind: BOND_OUTPUT_KIND, charId: cloudCharId(space.view), charName: space.view.name,
                         jobKey: bondOutputJobKey(cand.bondId), jobId: bondOutputJobId(cand.bondId, kind), jobInput: job, credRow,
-                        temperature: BOND_OUTPUT_TEMPERATURE, maxTokens: BOND_OUTPUT_MAX_TOKENS,
+                        temperature: BOND_OUTPUT_TEMPERATURE, maxTokens,
                         recurring: { firstSendTime: nextFireLocal(tz, fireAt, Date.now()), recurrenceType: 'daily', tzId: tz },
                     });
-                    rec.tasks[kind] = { taskUuid: uuid, fireAt, tzId: tz };
+                    rec.tasks[kind] = { taskUuid: uuid, fireAt, tzId: tz, maxTokens };
                     if (job.kinds[kind]) job.kinds[kind]!.taskUuid = uuid;
                     console.log(`${HEADER} ${space.view.name} 的${kind}排好了：每天 ${fireAt}（任務 ${uuid}）`);
                 }

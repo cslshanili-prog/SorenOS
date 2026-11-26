@@ -18,11 +18,11 @@ import { loadCharacterContextMessages } from '../../utils/chatContextRange';
 import { normalizeMessageContent } from '../../utils/messageFormat';
 import {
     buildCharAnswerPrompt, buildCharAskPrompt, buildQuestionSuggestPrompt, buildSlipPrompt, buildSlipReplyPrompt,
-    parseCharAnswer, parseCharAsk, parseSlip, type OutputContext, type OutputLength,
+    parseCharAnswer, parseCharAsk, parseSlip, outputMaxTokens, type OutputContext,
 } from '../../utils/bond/outputPromptCore';
 import { parseQuestionSuggestions, revealedRounds, visibleAnswer } from '../../utils/bond/question';
 import { slipReplies } from '../../utils/bond/slip';
-import { resolveOutputSetting } from '../../utils/bond/output';
+import { resolveOutputChars, resolveOutputSetting } from '../../utils/bond/output';
 
 /** 這段關係一句話：「友情線，現在是好朋友」 */
 export function relationLineOf(space: ResolvedSpace): string {
@@ -71,7 +71,10 @@ export async function askChar(space: ResolvedSpace, apiConfig: APIConfig, prompt
     return extractContent(data);
 }
 
-const lengthOf = (space: ResolvedSpace, kind: 'question' | 'note'): OutputLength => resolveOutputSetting(space.bond, kind).length;
+/** 這一種在主動產出設定裡的篇幅、文風（手動按「請 TA …」也照它） */
+const lengthOf = (space: ResolvedSpace, kind: 'question' | 'note'): { chars: [number, number]; style?: string } =>
+    ({ chars: resolveOutputChars(space.bond, kind), style: resolveOutputSetting(space.bond, kind).style });
+const tokensOf = (space: ResolvedSpace, kind: 'question' | 'note') => ({ maxTokens: outputMaxTokens(resolveOutputChars(space.bond, kind)) });
 
 /** 角色回答這一題（只看題目和揭曉過的舊輪） */
 export async function charAnswer(space: ResolvedSpace, apiConfig: APIConfig, entry: BondEntry, signal?: AbortSignal): Promise<{ answer: string } | { skip: true }> {
@@ -83,8 +86,8 @@ export async function charAnswer(space: ResolvedSpace, apiConfig: APIConfig, ent
     }));
     const raw = await askChar(space, apiConfig, buildCharAnswerPrompt({
         ...ctx, question: q.prompt, askedByOther: q.rounds[q.rounds.length - 1].openedBy === 'user' || entry.author === 'user',
-        earlierRounds, length: lengthOf(space, 'question'),
-    }), '拾光問答', signal);
+        earlierRounds, ...lengthOf(space, 'question'),
+    }), '拾光問答', signal, tokensOf(space, 'question'));
     const out = parseCharAnswer(raw);
     if (!out) throw new Error('這次沒答出來，再試一次');
     return out;
@@ -97,8 +100,8 @@ export async function charAsk(space: ResolvedSpace, apiConfig: APIConfig, entrie
         ...ctx,
         relationLine: relationLineOf(space),
         askedBefore: entries.filter(e => e.kind === 'question' && e.status === 'published').map(e => e.question!.prompt),
-        length: lengthOf(space, 'question'),
-    }), '拾光問答', signal);
+        ...lengthOf(space, 'question'),
+    }), '拾光問答', signal, tokensOf(space, 'question'));
     const out = parseCharAsk(raw);
     if (!out) throw new Error('這次沒出成題，再試一次');
     return out;
@@ -140,8 +143,8 @@ export function recentSlipLines(space: ResolvedSpace, entries: BondEntry[]): str
 export async function charSlip(space: ResolvedSpace, apiConfig: APIConfig, entries: BondEntry[], tags: string[], signal?: AbortSignal): Promise<{ text: string; tags: string[] }> {
     const ctx = await heartContext(space);
     const raw = await askChar(space, apiConfig, buildSlipPrompt({
-        ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), length: lengthOf(space, 'note'),
-    }), '心靈角落', signal);
+        ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), ...lengthOf(space, 'note'),
+    }), '心靈角落', signal, tokensOf(space, 'note'));
     const out = parseSlip(raw, tags);
     if (!out) throw new Error('這次沒寫出來，再試一次');
     return out;
@@ -156,8 +159,8 @@ export async function charSlipReply(space: ResolvedSpace, apiConfig: APIConfig, 
         ...ctx,
         slip: { fromName: nameOf(root), text: root.text, tags: root.slip?.tags || [] },
         thread: slipReplies(entries, root.id).map(e => ({ fromName: nameOf(e), text: e.text })),
-        length: lengthOf(space, 'note'),
-    }), '心靈角落', signal);
+        ...lengthOf(space, 'note'),
+    }), '心靈角落', signal, tokensOf(space, 'note'));
     const out = parseSlip(raw, []);
     if (!out) throw new Error('這次沒寫出來，再試一次');
     return out.text;
