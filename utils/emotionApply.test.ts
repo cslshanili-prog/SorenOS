@@ -9,9 +9,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const saveCharacter = vi.fn(async (_char: any) => {});
+const saveMessage = vi.fn(async (_msg: any) => {});
 let storedCharacters: any[] = [];
 vi.mock('./db', () => ({ DB: {
     saveCharacter: (c: any) => saveCharacter(c),
+    saveMessage: (m: any) => saveMessage(m),
     getAllCharacters: async () => storedCharacters,
 } }));
 
@@ -36,6 +38,7 @@ const VALID = {
 
 beforeEach(() => {
     saveCharacter.mockClear();
+    saveMessage.mockClear();
     storedCharacters = [];
 });
 
@@ -258,5 +261,60 @@ describe('applyEmotionEvalRaw — 失敗可見性 (chat-gen-emotion-failed)', ()
         } finally {
             delete (globalThis as any).window;
         }
+    });
+});
+
+// 迴歸守衛：parseEmotionEvalOutput 曾只返回 changed/buffs/injection/innerState，
+// 模型按小屋段給了 ambientEvent 也被丟掉 → landAmbientEventFromEval 永遠拿不到、room_card 從不出現。
+describe('ambientEvent 透傳 (小屋生活動態)', () => {
+    const AMBIENT = { text: '把飄窗那本書換成了新的一本', emoji: '📖' };
+
+    it('parser: 有 ambientEvent 時原樣帶出', () => {
+        const r = parseEmotionEvalOutput(JSON.stringify({ ...VALID, ambientEvent: AMBIENT }));
+        expect(r?.ambientEvent).toEqual(AMBIENT);
+    });
+
+    it('parser: 沒有 ambientEvent 時結果裡不出現這個鍵', () => {
+        const r = parseEmotionEvalOutput(JSON.stringify(VALID));
+        expect(r && 'ambientEvent' in r).toBe(false);
+    });
+
+    it('parser: ambientEvent 不是對象 → 不帶', () => {
+        const r = parseEmotionEvalOutput(JSON.stringify({ ...VALID, ambientEvent: '亂寫的字符串' }));
+        expect(r?.ambientEvent).toBeUndefined();
+    });
+
+    it('搶救: 整體 JSON 爛掉時仍能摳出完整的 ambientEvent', () => {
+        const raw = `{"changed": true, "buffs": [{"name": : broken!!], "injection": "### 新注入", "ambientEvent": {"text": "窗台多了盆花", "emoji": "🌱"}, "innerState": "獨白"`;
+        const r = parseEmotionEvalOutput(raw);
+        expect(r?.salvaged).toBe(true);
+        expect(r?.ambientEvent).toEqual({ text: '窗台多了盆花', emoji: '🌱' });
+    });
+
+    it('搶救: 只摳出 ambientEvent、主體全滅 → 仍按失敗處理', () => {
+        const r = parseEmotionEvalOutput(`{"changed": tru, "ambientEvent": {"text": "燈還亮著"}, "buffs": [[[`);
+        expect(r).toBeNull();
+    });
+
+    it('applyEmotionEvalRaw: ambientEvent 落成私聊 room_card', async () => {
+        const char = makeChar();
+        const inner = await applyEmotionEvalRaw(JSON.stringify({ ...VALID, ambientEvent: AMBIENT }), char);
+        expect(inner).toBe('她還沒回消息……');
+        expect(saveMessage).toHaveBeenCalledTimes(1);
+        const msg = saveMessage.mock.calls[0][0];
+        expect(msg.type).toBe('room_card');
+        expect(msg.charId).toBe('char-1');
+        expect(msg.metadata).toEqual({ roomAmbient: true, text: AMBIENT.text, emoji: AMBIENT.emoji });
+    });
+
+    it('applyEmotionEvalRaw: changed=false 也照樣落 room_card (動態與情緒變化無關)', async () => {
+        await applyEmotionEvalRaw(JSON.stringify({ changed: false, innerState: '平穩', ambientEvent: AMBIENT }), makeChar());
+        expect(saveCharacter).not.toHaveBeenCalled();
+        expect(saveMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('applyEmotionEvalRaw: 沒有 ambientEvent → 不落 room_card', async () => {
+        await applyEmotionEvalRaw(JSON.stringify(VALID), makeChar());
+        expect(saveMessage).not.toHaveBeenCalled();
     });
 });

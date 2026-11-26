@@ -198,9 +198,16 @@ export interface EmotionEvalResult {
     buffs?: CharacterBuff[];
     injection?: string;
     innerState?: string;
+    /** 可選「小屋生活動態」（utils/roomAmbient.ts），只在模型給了時才帶; 由 landAmbientEventFromEval 校驗落地 */
+    ambientEvent?: AmbientEventRaw;
     /** true = 整體 JSON.parse 全失敗, 靠字段級正則搶救出來的部分結果 */
     salvaged?: boolean;
 }
+
+/** ambientEvent 原樣透傳 (只要求是個對象), 細校驗 (text 非空 / 截長 / emoji) 歸 landAmbientEventFromEval. */
+export type AmbientEventRaw = { text?: unknown; emoji?: unknown };
+const pickAmbientEvent = (v: any): AmbientEventRaw | undefined =>
+    (v && typeof v === 'object' && !Array.isArray(v)) ? v : undefined;
 
 const looksLikeEvalResult = (v: any): boolean =>
     !!v && typeof v === 'object' && !Array.isArray(v)
@@ -256,15 +263,24 @@ const salvageFields = (repairedRaw: string): EmotionEvalResult | null => {
         }
     }
 
+    // ambientEvent 是個小對象: 定位到它的 { 再按括號平衡截取; 沒閉合 (截斷) / 本身爛就放棄.
+    let ambientEvent: AmbientEventRaw | undefined;
+    const ambientIdx = repairedRaw.search(/"ambientEvent"\s*:\s*\{/);
+    if (ambientIdx >= 0) {
+        const obj = extractBalancedObject(repairedRaw.slice(ambientIdx));
+        if (obj) ambientEvent = pickAmbientEvent(tryParseObject(stripTrailingCommas(obj)));
+    }
+
     const injection = pickString('injection');
     const innerState = pickString('innerState');
     const changedMatch = repairedRaw.match(/"changed"\s*:\s*"?(true|false)"?/i);
 
+    // 只搶救出 ambientEvent 不算救活 —— 主體全滅仍按解析失敗處理 (失敗可見性那條不變).
     if (!injection && !innerState && !buffs) return null;
     const changed = changedMatch
         ? changedMatch[1].toLowerCase() === 'true'
         : !!(injection || buffs); // 搶救出了 injection/buffs 就當有變化, 只有 innerState 則不動 buff
-    return { changed, buffs, injection, innerState, salvaged: true };
+    return { changed, buffs, injection, innerState, ...(ambientEvent ? { ambientEvent } : {}), salvaged: true };
 };
 
 /**
@@ -314,6 +330,8 @@ export function parseEmotionEvalOutput(rawText: string): EmotionEvalResult | nul
                     buffs: Array.isArray(v.buffs) ? v.buffs : undefined,
                     injection: typeof v.injection === 'string' ? v.injection : undefined,
                     innerState: typeof v.innerState === 'string' ? v.innerState : undefined,
+                    // 只在有時才帶, 不改變沒有 ambientEvent 時的結果形狀
+                    ...(pickAmbientEvent(v.ambientEvent) ? { ambientEvent: v.ambientEvent } : {}),
                 };
             }
         }
