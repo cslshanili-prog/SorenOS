@@ -16,6 +16,7 @@ import {
 import { eventSortKey, formatEventDate } from '../../utils/bond/eventDate';
 import { useBondLedger } from './useBondLedger';
 import { LevelPanel } from './BondLevel';
+import { EventCardList } from './BondEventCardPages';
 import { donePeriod, ledgerKeyOf, promiseStartDay, streakOf, totalPoints } from '../../utils/bond/ledger';
 import { dayKeyOf, periodKeyOf, periodWord } from '../../utils/bond/period';
 import { memoriesForLine } from '../../utils/bond/timeline';
@@ -27,7 +28,8 @@ export function pactNeedsYou(entries: BondEntry[]): boolean {
     return entries.some(e =>
         (e.kind === 'promise' && promiseWaitingOn(e) === 'user')
         || (e.kind === 'habit' && habitWaitingOn(e) === 'user')
-        || (e.kind === 'wish' && e.author !== 'user' && e.status === 'published' && !e.seenAt));
+        || (e.kind === 'wish' && e.author !== 'user' && e.status === 'published' && !e.seenAt)
+        || (e.kind === 'eventCard' && e.eventCard?.state === 'unlocked' && !e.seenAt));
 }
 
 const Card: React.FC<{ title: string; hint: string; icon: React.ReactNode; onClick: () => void }> = ({ title, hint, icon, onClick }) => (
@@ -61,7 +63,9 @@ export const BondPactPage: React.FC<{
     onOpenLedger: () => void;
     onOpenAchievements: () => void;
     onOpenReview: () => void;
-}> = ({ space, tabBar, header, pact, onPact, onOpenWish, onNewWish, onOpenPromise, onNewPromise, onOpenHabit, onNewHabit, onOpenMilestone, onNewMilestone, onOpenLedger, onOpenAchievements, onOpenReview }) => {
+    onOpenCard: (key: string) => void;
+    onNewCard: () => void;
+}> = ({ space, tabBar, header, pact, onPact, onOpenWish, onNewWish, onOpenPromise, onNewPromise, onOpenHabit, onNewHabit, onOpenMilestone, onNewMilestone, onOpenLedger, onOpenAchievements, onOpenReview, onOpenCard, onNewCard }) => {
     const entries = useBondEntries(space.id);
     const ledger = useBondLedger(space.id);
     const points = useMemo(() => totalPoints(ledger), [ledger]);
@@ -84,7 +88,7 @@ export const BondPactPage: React.FC<{
         wish: wishes.some(e => e.author !== 'user' && !e.seenAt),
         promise: promises.some(e => promiseWaitingOn(e) === 'user'),
         habit: habits.some(e => habitWaitingOn(e) === 'user'),
-        milestone: false,
+        milestone: entries.some(e => e.kind === 'eventCard' && e.eventCard?.state === 'unlocked' && !e.seenAt),
     };
     const SUBTABS: Array<{ id: PactTab; label: string }> = [
         { id: 'wish', label: '願望' }, { id: 'promise', label: '約定' }, { id: 'habit', label: '默契' }, { id: 'milestone', label: '里程碑' },
@@ -242,7 +246,8 @@ export const BondPactPage: React.FC<{
                             <button type="button" className="bond-btn" onClick={onOpenAchievements}><Medal size={14} />成就</button>
                             <button type="button" className="bond-btn" onClick={onOpenReview}>回顧與補算</button>
                         </LevelPanel>
-                        <div className="mt-4" />
+                        <EventCardList space={space} onOpen={onOpenCard} onNewCustom={onNewCard} />
+                        <div className="mt-6" />
                         <Card title="記一個里程碑" hint="已經發生的大事：告白、在一起、成為摯友、和好……" icon={<Flag size={16} />} onClick={onNewMilestone} />
                         {milestones.length === 0 ? (
                             <Empty>還沒有里程碑。</Empty>

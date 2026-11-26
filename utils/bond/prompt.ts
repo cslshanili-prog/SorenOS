@@ -263,6 +263,7 @@ export function bondHasPromptContent(bond: BondRecord | undefined | null): boole
     if (!bond) return false;
     if (!isDefaultBondState(bond)) return true;
     if (bond.feeling) return true;
+    if (bond.eventScene?.text) return true;
     if (lastTurn(bond)) return true;
     const now = bond.ourNow;
     return !!(now?.char?.text.trim() || now?.user?.text.trim() || now?.other?.text.trim());
@@ -297,6 +298,8 @@ export function bondPromptBlock(input: BondPromptInput): string {
     // 親近與信任（plans/bond-batch4.md 1.8）：只給層和規範、未修復的傷；開始記了才有
     lines.push(...feelingPromptLines(bond.feeling, otherName, bond.route));
     lines.push(...extra);
+    // 事件卡在私聊開演（plans/bond-batch4.md 2.3）：只帶這一輪，組完就清
+    if (bond.eventScene?.text) lines.push(bond.eventScene.text);
     if (!lines.length) return '';
     return `### 你和${otherName}的關係\n${lines.map(l => (l.startsWith('  ') ? l : `- ${l}`)).join('\n')}\n\n`;
 }

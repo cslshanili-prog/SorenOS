@@ -2,7 +2,7 @@
 import { legacyChatLanguage, legacyChatLanguageKeys } from '../utils/chatLanguage';
 import { detachCharacterPatch, detachGroupPatch, detachThemePatch } from '../utils/decorationTemplates';
 import { isOnlinePaused, pauseAmsgForStory, resumeAmsgAfterStory } from '../utils/dateOffline';
-import { isBenched } from '../utils/castRole';
+import { isBenched, isOnStage } from '../utils/castRole';
 import { pendingNpcs } from '../utils/npcMigration';
 import { runNpcMigration } from '../utils/npcMigrationRun';
 import { parsePairLineId } from '../utils/pairLine';
@@ -129,6 +129,7 @@ import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
 import { gainToastText, runPactTick } from '../components/bond/pactRun';
 import { settleFeelingFromSummary } from '../components/bond/feelingRun';
+import { checkSyncFromChat, checkSyncFromSummary } from '../components/bond/eventCardRun';
 import { markBondOutputCloudDirty, syncBondOutputCloud } from '../components/bond/outputCloud';
 import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
@@ -2688,7 +2689,10 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
       // 親近與信任：沒開情緒評估的角色，那天的總結寫好時判一次（plans/bond-batch4.md 1.8）
       for (const m of added) {
-        void settleFeelingFromSummary(c, m, personaNameForKey(userProfileBase, m.personaKey || c.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID), apiConfigRef.current).catch(e => console.warn('💗 [BondFeeling] 總結結算失敗', e));
+        const userName = personaNameForKey(userProfileBase, m.personaKey || c.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID);
+        void settleFeelingFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('💗 [BondFeeling] 總結結算失敗', e));
+        // 同步承認：那天的總結裡有沒有已經發生的關係轉折（plans/bond-batch4.md 2.4）
+        if (isOnStage(c)) void checkSyncFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🤝 [BondSync] 總結判斷失敗', e));
       }
     }
   }, [characters]);
@@ -4300,6 +4304,12 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           const target = charactersRef.current.find(c => c.id === detail.charId);
           const view = target ? lineView(target, lineFor(target, detail.personaKey)) : { id: detail.charId };
           void updateLineRef.current(view, { charViewRelationship: detail.relationship });
+          // 同步承認（plans/bond-batch4.md 2.4）：看這段聊天是不是已經發生了告白成功、在一起…；有就排一張卡等你按「對」
+          if (target && !target.altOf) {
+              const key = detail.personaKey || target.primaryPersonaKey || REAL_IDENTITY_PERSONA_ID;
+              void checkSyncFromChat(target, detail.personaKey, personaNameForKey(userProfileBaseRef.current, key), apiConfigRef.current)
+                  .catch(e => console.warn('🤝 [BondSync] 聊天判斷失敗', e));
+          }
       };
       window.addEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);
       return () => window.removeEventListener(CHAR_RELATIONSHIP_CHANGE_EVENT, onRelationshipChange);

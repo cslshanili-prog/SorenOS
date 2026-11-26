@@ -8,6 +8,7 @@
  *   丟了（換裝置、還原備份）就從今天重新判，帳本照 id 去重，不會重複加分。
  * - 背景系統一律過 isOnStage；小號不算（跟羈絆不單獨開小號的空間一致）。
  */
+import { unlockEventCards } from './eventCardRun';
 import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, Message, UserProfile } from '../../types';
 import { DB } from '../../utils/db';
 import { withLineFields, lineFor } from '../../utils/chatLine';
@@ -266,6 +267,8 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
             }
             scan[bondId] = today;
             const levelUp = levelChange(bondId, [...existing.values()]);
+            // 等級到了的事件卡開出來（plans/bond-batch4.md 2.2）
+            await unlockEventCards(bondId, levelInfo(totalPoints([...existing.values()])).level).catch(e => console.warn(HEADER, '事件卡解鎖失敗', e));
             const scored = fresh.filter(r => r.points && isCounted(r));
             if (scored.length || levelUp) gains.push({ bondId, charId: char.id, charName: char.name, rows: scored, ...(levelUp ? { levelUp } : {}) });
         }

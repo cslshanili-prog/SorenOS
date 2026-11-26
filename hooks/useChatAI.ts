@@ -1,4 +1,5 @@
 
+import { consumeEventScene } from '../components/bond/eventCardRun';
 import { chatLanguageForCloud, resolveChatLanguage } from '../utils/chatLanguage';
 import { postTranslateRecentReplies } from '../utils/chatTranslateRun';
 import { isOnlinePaused } from '../utils/dateOffline';
@@ -921,6 +922,8 @@ export const useChatAI = ({
             }));
             const systemPrompt = payload.systemPrompt;
             const cleanedApiMessages = payload.cleanedApiMessages;
+            // 事件卡的情境只帶一輪：這一輪的提示詞組好了就清（plans/bond-batch4.md 2.3）
+            void consumeEventScene(charForGen).catch(() => {});
             // 在續說補丁和本地/即時對話分流前檢查最終歷史，不能用補出來的 user 掩蓋空上下文。
             assertChatHasDialogue(payload.fullMessages);
             const fullMessages = payload.flags.promptBuildSkipped

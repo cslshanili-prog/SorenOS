@@ -6329,7 +6329,30 @@ export interface BondRecord {
     feeling?: BondFeeling;
     /** 上一次記「長期冷落」的時間（一週一次） */
     feelingNeglectAt?: number;
+    /** 事件卡在私聊開演：下一輪的系統提示詞帶這段情境（只帶一輪，帶過就清；plans/bond-batch4.md 2.3） */
+    eventScene?: { entryId: string; cardId: string; text: string; at: number };
+    /** 聊天先發展、等你確認的同步承認（2.4） */
+    syncPending?: BondSyncProposal[];
+    /** 同一段聊天／同一筆總結看到的關係變化只問一次：來源鍵 → 問過的時間 */
+    syncAsked?: Record<string, number>;
     updatedAt: number;
+}
+
+/** 同步承認（plans/bond-batch4.md 2.4）：看起來聊天裡已經發生了，等你按「對」 */
+export interface BondSyncProposal {
+    id: string;
+    /** 里程碑種類（together、proposal、married、bestFriends、reconciled…） */
+    what: string;
+    /** 要改成的階段；未指定路線看到告白成功時一併問要不要設路線 */
+    stageTo?: string;
+    routeTo?: BondRoute;
+    date?: string;
+    text: string;
+    source: 'relationship' | 'summary';
+    evidence: { lineId?: string; messageIds?: number[]; memoryId?: string };
+    /** 去重用的來源鍵 */
+    key: string;
+    at: number;
 }
 
 /** 親近與信任的兩條量表（0～100）。層有緩衝，不是直接拿數值換 */
@@ -6617,4 +6640,8 @@ export interface BondEventCard {
     venue?: 'chat' | 'date';
     startedAt?: number;
     outcome?: { result: 'yes' | 'notYet' | 'other'; at: number; note?: string; storyId?: string };
+    /** 演過的每一次（還沒、換方向的也留著） */
+    history?: Array<{ result: 'yes' | 'notYet' | 'other'; at: number; note?: string; venue?: 'chat' | 'date' }>;
+    /** 開演時帶進去的願望、拾光（你可以勾掉） */
+    context?: { wishIds?: string[]; itemKeys?: string[] };
 }

@@ -7,11 +7,12 @@
  * - 隨筆不單獨占一列（「隨筆」篩選才列），掛在它寫的那件事底下算數量。
  * - 收藏、收起：片刻存在卡上；記憶存在 bonds.memoryMarks，不改記憶本身。
  */
+import { milestoneLabel } from './pact';
 import type { BondEntry, BondEventDate, BondRecord, CharacterProfile, ConvTopic, MemoryFragment, PhoneContact } from '../../types';
 import { getLocalDateKey } from '../localDate';
 import { eventDateFromText, eventSortKey } from './eventDate';
 
-export type TimelineFilter = 'all' | 'moment' | 'memory' | 'essay' | 'favorite';
+export type TimelineFilter = 'all' | 'moment' | 'milestone' | 'memory' | 'essay' | 'favorite';
 
 export type TimelineRef =
     | { type: 'entry'; entry: BondEntry }
@@ -21,7 +22,7 @@ export type TimelineRef =
 export interface TimelineItem {
     /** 'e:<entryId>' | 'm:<memoryId>' | 't:<ownerId>:<topicId>' */
     key: string;
-    kind: 'moment' | 'memory' | 'essay';
+    kind: 'moment' | 'memory' | 'essay' | 'milestone';
     eventDate: BondEventDate;
     sortKey: string;
     /** 同一天的先後（片刻用寫下時間；記憶照原本順序） */
@@ -88,11 +89,12 @@ export function buildTimeline(input: BuildTimelineInput): TimelineItem[] {
     }
     const items: TimelineItem[] = [];
     for (const e of entries) {
-        if (e.kind !== 'moment') continue;
+        // 里程碑（plans/bond-batch4.md 1.5）跟片刻同一條路，類型另外標
+        if (e.kind !== 'moment' && !(e.kind === 'milestone' && e.status === 'published')) continue;
         const key = `e:${e.id}`;
         items.push({
-            key, kind: 'moment', eventDate: e.eventDate, sortKey: eventSortKey(e.eventDate), tieBreak: e.writtenAt,
-            title: e.title, text: e.text, favorite: !!e.favorite, hidden: !!e.hidden,
+            key, kind: e.kind === 'milestone' ? 'milestone' : 'moment', eventDate: e.eventDate, sortKey: eventSortKey(e.eventDate), tieBreak: e.writtenAt,
+            title: e.kind === 'milestone' ? (e.title || milestoneLabel(e.milestone?.what || '')) : e.title, text: e.text, favorite: !!e.favorite, hidden: !!e.hidden,
             essays: essaysByKey.get(key) || [], ref: { type: 'entry', entry: e },
         });
     }
@@ -135,6 +137,7 @@ export function filterTimeline(items: TimelineItem[], filter: TimelineFilter, sh
     return items.filter(it => {
         if (it.hidden && !showHidden) return false;
         if (filter === 'moment') return it.kind === 'moment';
+        if (filter === 'milestone') return it.kind === 'milestone';
         if (filter === 'memory') return it.kind === 'memory';
         if (filter === 'favorite') return it.favorite;
         return true;
