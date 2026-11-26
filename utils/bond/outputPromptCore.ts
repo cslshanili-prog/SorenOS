@@ -275,3 +275,94 @@ export function parseSlipReplyState(raw: string): typeof SLIP_STATES[number] | u
     const v = o ? str(o.state) : '';
     return (SLIP_STATES as readonly string[]).includes(v) ? v as typeof SLIP_STATES[number] : undefined;
 }
+
+// ─── 約定（plans/bond-batch4.md 1.1、1.2、1.4）：對方的回應 ───
+// 角色照人設回應，不預設答應：提示詞只給內容，不給「請答應」的暗示。
+
+/** 對方寫了一個願望，問你怎麼想（支持不等於答應一起做） */
+export function buildWishReplyPrompt(input: OutputContext & {
+    wish: string;
+    /** 'user'＝對方自己的願望、'both'＝對方想跟你一起完成的 */
+    owner: 'user' | 'both';
+    relationLine?: string;
+}): string {
+    return `${input.otherName}寫了一個願望給你看：
+${input.relationLine ? `（你們的關係：${input.relationLine}）\n` : ''}
+【願望】${input.owner === 'both' ? `（${input.otherName}想跟你一起完成的）` : `（${input.otherName}自己的）`}
+${input.wish}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份照你真正的想法回應一句或一小段：
+${GROUND_RULES(input)}
+- 看見不等於答應。你可以支持（support：替對方加油、想幫忙，但不一定要一起做）、想一起做（together：你也想參與）、或只是說說你的看法（neutral：不支持也不反對、有保留、覺得不太可能都可以）。照你的個性和你們的關係選，不要為了討好而答應。
+- 不要替雙方訂時間、做承諾；真的要一起做，之後會另外約好。
+
+只輸出 JSON，不要其他文字：{"stance":"support","words":"你說的話"}`;
+}
+
+/** 對方提了一個約定，問你答不答應 */
+export function buildPromiseReplyPrompt(input: OutputContext & {
+    promise: string;
+    repeatText: string;
+    relationLine?: string;
+    /** 這個約定是從哪個願望談來的 */
+    fromWish?: string;
+}): string {
+    return `${input.otherName}想跟你約定一件事：
+${input.relationLine ? `（你們的關係：${input.relationLine}）\n` : ''}
+【約定】${input.promise}（${input.repeatText}）
+${input.fromWish ? `（從這個願望談來的：${input.fromWish}）\n` : ''}${recentBlock(input)}
+
+請以「${input.selfName}」的身份決定答不答應，並說一句或一小段你會說的話：
+${GROUND_RULES(input)}
+- 照你的個性、你們的關係和你自己的生活來決定：可以答應（yes）、想改一下（tweak：說你想怎麼改，例如頻率、時間、做法）、或先不要（no：說你的理由）。不要因為對方提了就一定答應，也不要為了顯得有個性而故意拒絕。
+- 答應了就是你們說好的事，之後你會記得、會做到；做不到的就別答應。
+
+只輸出 JSON，不要其他文字：{"answer":"yes","words":"你說的話"}`;
+}
+
+/** 對方覺得你們之間有一個默契，問你認不認 */
+export function buildHabitReplyPrompt(input: OutputContext & {
+    habit: string;
+    relationLine?: string;
+}): string {
+    return `${input.otherName}覺得你們之間有一個默契：
+${input.relationLine ? `（你們的關係：${input.relationLine}）\n` : ''}
+【默契】${input.habit}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份說你認不認，並說一句你會說的話：
+${GROUND_RULES(input)}
+- 默契是雙方真的說好、或真的反覆這樣做過的小習慣。照下面的總結和聊天判斷：你們真的有這樣（yes），或你不覺得、記不得有這回事（no）；可以嘴硬地認、也可以笑著否認。
+- 不要為了讓對方開心而承認沒發生過的事。
+
+只輸出 JSON，不要其他文字：{"answer":"yes","words":"你說的話"}`;
+}
+
+const WISH_STANCES = ['support', 'together', 'neutral'] as const;
+export function parseWishReply(raw: string): { stance: typeof WISH_STANCES[number]; words: string } | null {
+    const o = parseJsonObject(raw);
+    if (!o) return null;
+    const words = str(o.words);
+    if (!words) return null;
+    const stance = (WISH_STANCES as readonly string[]).includes(str(o.stance)) ? str(o.stance) as typeof WISH_STANCES[number] : 'neutral';
+    return { stance, words };
+}
+
+export function parsePromiseReply(raw: string): { answer: 'yes' | 'tweak' | 'no'; words: string } | null {
+    const o = parseJsonObject(raw);
+    if (!o) return null;
+    const words = str(o.words);
+    const a = str(o.answer);
+    if (!words || !['yes', 'tweak', 'no'].includes(a)) return null;
+    return { answer: a as 'yes' | 'tweak' | 'no', words };
+}
+
+export function parseHabitReply(raw: string): { answer: 'yes' | 'no'; words: string } | null {
+    const o = parseJsonObject(raw);
+    if (!o) return null;
+    const words = str(o.words);
+    const a = str(o.answer);
+    if (!words || !['yes', 'no'].includes(a)) return null;
+    return { answer: a as 'yes' | 'no', words };
+}

@@ -6,7 +6,8 @@
  * - 友情、親情的鎖定除了在段落裡，系統提示詞最後還要再出現一次（bondFinalLock），預設改不掉。
  */
 import type { BondEntry, BondRecord, BondRoute, DiaryEntry } from '../../types';
-import { knownDiaries, knownQuestions, knownSlips } from './visibility';
+import { knownDiaries, knownHabits, knownMilestones, knownPromises, knownQuestions, knownSlips, knownWishes } from './visibility';
+import { milestoneLabel, repeatLabel } from './pact';
 import { lastTurn } from './model';
 import { eventSortKey, promptEventDate } from './eventDate';
 import { CUSTOM_STAGE, isDefaultBondState, routeLabel, stageLabel } from './routes';
@@ -93,6 +94,7 @@ function entryLines(input: BondPromptInput): string[] {
         }
     }
     lines.push(...heartLines(input));
+    lines.push(...pactLines(input));
     return lines;
 }
 
@@ -138,6 +140,51 @@ function heartLines(input: BondPromptInput): string[] {
             // 狀態是收到的那方標的：你丟的由對方標，對方丟的由你標
             const state = sl.state ? `；${sl.fromUser ? '你' : otherName}標了「${SLIP_STATE_TEXT[sl.state]}」` : '';
             lines.push(`  - ${who}${reply}${tags}：${clip(oneLine(sl.text), PROMPT_SLIP_CHARS)}${state}`);
+        }
+    }
+    return lines;
+}
+
+export const PROMPT_PACT_CHARS = 80;
+const WISH_STATE_TEXT = { want: '想做', agreed: '已經約好要一起做', done: '完成了', shelved: '暫時擱著' } as const;
+
+/**
+ * 約定四段（plans/bond-batch4.md 第 3 節）：願望、共同約定、默契、里程碑。沒有內容就一行都不出。
+ * 願望只是想法，有人支持也不等於答應；約定要雙方都說好才算數，還在商量的寫明等誰。
+ */
+function pactLines(input: BondPromptInput): string[] {
+    const { otherName } = input;
+    const entries = input.entries || [];
+    if (!entries.some(e => e.kind === 'wish' || e.kind === 'promise' || e.kind === 'habit' || e.kind === 'milestone')) return [];
+    const lines: string[] = [];
+    const wishes = knownWishes(entries);
+    if (wishes.length) {
+        lines.push('你們的願望（只是想做的事，有人支持也不代表答應了要一起做）：');
+        for (const w of wishes) {
+            const whose = w.owner === 'both' ? `${otherName}說是你們倆的` : w.owner === 'user' ? `${otherName}的` : '你的';
+            const support = w.supportedBy ? `；${w.supportedBy === 'user' ? otherName : '你'}表示支持` : '';
+            lines.push(`  - ${whose}：${clip(oneLine(w.text), PROMPT_PACT_CHARS)}（${WISH_STATE_TEXT[w.state]}${support}）`);
+        }
+    }
+    const promises = knownPromises(entries);
+    if (promises.active.length || promises.proposed.length) {
+        lines.push('你們的約定（雙方都說好了才算數）：');
+        for (const p of promises.active) lines.push(`  - ${repeatLabel(p.repeat)}：${clip(oneLine(p.text), PROMPT_PACT_CHARS)}`);
+        for (const p of promises.proposed) {
+            lines.push(`  - 還在商量：${clip(oneLine(p.text), PROMPT_PACT_CHARS)}（${p.waitingOn === 'char' ? `${otherName}提的，等你說好不好` : `你提的，${otherName}還沒說好`}）`);
+        }
+    }
+    const habits = knownHabits(entries);
+    if (habits.length) {
+        lines.push('你們的默契（你們都認了的相處方式，自然照著做，不用每次提起）：');
+        for (const h of habits) lines.push(`  - ${clip(oneLine(h), PROMPT_PACT_CHARS)}`);
+    }
+    const milestones = knownMilestones(entries);
+    if (milestones.length) {
+        lines.push('你們的里程碑（真的發生過的轉折）：');
+        for (const m of milestones) {
+            const body = oneLine(m.text);
+            lines.push(`  - ${promptEventDate(m.eventDate)}｜${milestoneLabel(m.milestone!.what, m.title)}${body ? `：${clip(body, PROMPT_PACT_CHARS)}` : ''}`);
         }
     }
     return lines;

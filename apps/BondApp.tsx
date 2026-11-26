@@ -11,6 +11,9 @@ import { AvatarPair, BondAvatar, BondHeader, BondStyle, BondTabs, bondTabsFor, S
 import { BondHeartPage, mainBondIdOf, useHeartNotice, type HeartNotice, type HeartTab } from '../components/bond/BondHeartPage';
 import { BondQuestionComposePage, BondQuestionPage } from '../components/bond/BondQuestionPages';
 import { BondSlipComposePage, BondSlipPage } from '../components/bond/BondSlipPages';
+import { BondPactPage, pactNeedsYou, type PactTab } from '../components/bond/BondPactPage';
+import { BondHabitComposePage, BondHabitPage, BondMilestoneEditPage, BondPromiseComposePage, BondPromisePage, BondWishComposePage, BondWishPage } from '../components/bond/BondPactPages';
+import { useBondEntries } from '../components/bond/useSpaceTimeline';
 import { BondOutputSettingsPage } from '../components/bond/BondOutputSettingsPage';
 import { resolveOutputChars, resolveOutputSetting } from '../utils/bond/output';
 import { bondIdForChar } from '../utils/bond/model';
@@ -48,7 +51,14 @@ import { trackEvent } from '../utils/analytics';
 
 type Page =
     | { page: 'list' }
-    | { page: 'space'; id: string; tab?: BondTab; heart?: HeartTab }
+    | { page: 'space'; id: string; tab?: BondTab; heart?: HeartTab; pact?: PactTab }
+    | { page: 'wish'; id: string; entryId: string }
+    | { page: 'wish-edit'; id: string; entryId?: string }
+    | { page: 'promise'; id: string; entryId: string }
+    | { page: 'promise-edit'; id: string; entryId?: string; fromWishId?: string }
+    | { page: 'habit'; id: string; entryId: string }
+    | { page: 'habit-edit'; id: string; entryId?: string }
+    | { page: 'milestone-edit'; id: string; entryId?: string }
     | { page: 'diary'; id: string; date?: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean; exitOnBack?: boolean }
     | { page: 'question-new'; id: string }
@@ -206,7 +216,9 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
     if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine'
         || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit' || page.page === 'collect' || page.page === 'pick'
         || page.page === 'essay' || page.page === 'essay-write' || page.page === 'essay-edit'
-        || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit' || page.page === 'output') {
+        || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit' || page.page === 'output'
+        || page.page === 'wish' || page.page === 'wish-edit' || page.page === 'promise' || page.page === 'promise-edit'
+        || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -224,6 +236,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         const tabBar = (current: BondTab) => <HeartTabs space={s} value={current} onChange={t => setPage({ page: 'space', id: page.id, tab: t })} />;
         const toHeart = (heart: HeartTab) => setPage({ page: 'space', id: page.id, tab: 'heart', heart });
         const toHome = () => setPage({ page: 'space', id: page.id });
+        const toPact = (pact: PactTab) => setPage({ page: 'space', id: page.id, tab: 'pact', pact });
         const openNotice = (n: HeartNotice) => {
             if (n.kind === 'slip') setPage({ page: 'slip', id: s.id, entryId: n.id, from: 'home' });
             else if (n.kind === 'question') setPage({ page: 'question', id: s.id, entryId: n.id, from: 'home' });
@@ -351,7 +364,48 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onBack={() => (page.replyTo ? setPage({ page: 'slip', id: s.id, entryId: page.replyTo }) : toHeart('note'))}
                         onDone={rootId => setPage({ page: 'slip', id: s.id, entryId: rootId })} addToast={addToast} />
                 )}
-                {page.page === 'space' && page.tab !== 'moments' && !(page.tab === 'heart' && s.kind === 'persona') && (
+                {page.page === 'space' && page.tab === 'pact' && s.kind === 'persona' && (
+                    <BondPactPage space={s} tabBar={tabBar('pact')} header={<BondHeader title={s.rightName} onBack={back} />}
+                        pact={page.pact || 'wish'} onPact={toPact}
+                        onOpenWish={entryId => setPage({ page: 'wish', id: s.id, entryId })} onNewWish={() => setPage({ page: 'wish-edit', id: s.id })}
+                        onOpenPromise={entryId => setPage({ page: 'promise', id: s.id, entryId })} onNewPromise={() => setPage({ page: 'promise-edit', id: s.id })}
+                        onOpenHabit={entryId => setPage({ page: 'habit', id: s.id, entryId })} onNewHabit={() => setPage({ page: 'habit-edit', id: s.id })}
+                        onOpenMilestone={entryId => setPage({ page: 'milestone-edit', id: s.id, entryId })} onNewMilestone={() => setPage({ page: 'milestone-edit', id: s.id })} />
+                )}
+                {page.page === 'wish' && (
+                    <BondWishPage key={page.entryId} space={s} characters={chars} apiConfig={apiConfig} entryId={page.entryId} onBack={() => toPact('wish')}
+                        onEdit={() => setPage({ page: 'wish-edit', id: s.id, entryId: page.entryId })}
+                        onMakePromise={() => setPage({ page: 'promise-edit', id: s.id, fromWishId: page.entryId })}
+                        onOpenPromise={entryId => setPage({ page: 'promise', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {page.page === 'wish-edit' && (
+                    <BondWishComposePage space={s} entryId={page.entryId} addToast={addToast}
+                        onBack={() => (page.entryId ? setPage({ page: 'wish', id: s.id, entryId: page.entryId }) : toPact('wish'))}
+                        onDone={entryId => setPage({ page: 'wish', id: s.id, entryId })} />
+                )}
+                {page.page === 'promise' && (
+                    <BondPromisePage key={page.entryId} space={s} apiConfig={apiConfig} entryId={page.entryId} onBack={() => toPact('promise')}
+                        onEdit={() => setPage({ page: 'promise-edit', id: s.id, entryId: page.entryId })}
+                        onOpenWish={entryId => setPage({ page: 'wish', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {page.page === 'promise-edit' && (
+                    <BondPromiseComposePage space={s} entryId={page.entryId} fromWishId={page.fromWishId} addToast={addToast}
+                        onBack={() => (page.entryId ? setPage({ page: 'promise', id: s.id, entryId: page.entryId }) : page.fromWishId ? setPage({ page: 'wish', id: s.id, entryId: page.fromWishId }) : toPact('promise'))}
+                        onDone={entryId => setPage({ page: 'promise', id: s.id, entryId })} />
+                )}
+                {page.page === 'habit' && (
+                    <BondHabitPage key={page.entryId} space={s} apiConfig={apiConfig} entryId={page.entryId} onBack={() => toPact('habit')}
+                        onEdit={() => setPage({ page: 'habit-edit', id: s.id, entryId: page.entryId })} addToast={addToast} />
+                )}
+                {page.page === 'habit-edit' && (
+                    <BondHabitComposePage space={s} entryId={page.entryId} addToast={addToast}
+                        onBack={() => (page.entryId ? setPage({ page: 'habit', id: s.id, entryId: page.entryId }) : toPact('habit'))}
+                        onDone={entryId => setPage({ page: 'habit', id: s.id, entryId })} />
+                )}
+                {page.page === 'milestone-edit' && (
+                    <BondMilestoneEditPage key={page.entryId || 'new'} space={s} entryId={page.entryId} onBack={() => toPact('milestone')} addToast={addToast} />
+                )}
+                {page.page === 'space' && page.tab !== 'moments' && !((page.tab === 'heart' || page.tab === 'pact') && s.kind === 'persona') && (
                     <BondSpacePage key={`${s.id}-${version}`} space={s} characters={chars} events={events} apiConfig={apiConfig}
                         tabBar={tabBar('us')} onOpenItem={openItem} onOpenNotice={openNotice}
                         onBack={back}
@@ -609,7 +663,9 @@ const MemoryEditRoute: React.FC<{
 /** 分頁列：角色之間沒有心意；心意有新東西時點一個小點 */
 const HeartTabs: React.FC<{ space: ResolvedSpace; value: BondTab; onChange: (t: BondTab) => void }> = ({ space, value, onChange }) => {
     const notice = useHeartNotice(space);
-    return <BondTabs value={value} onChange={onChange} tabs={bondTabsFor(space.kind)} dots={{ heart: !!notice && value !== 'heart' }} />;
+    const entries = useBondEntries(space.id);
+    const pactDot = space.kind === 'persona' && value !== 'pact' && pactNeedsYou(entries);
+    return <BondTabs value={value} onChange={onChange} tabs={bondTabsFor(space.kind)} dots={{ heart: !!notice && value !== 'heart', pact: pactDot }} />;
 };
 
 export default BondApp;

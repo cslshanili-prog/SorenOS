@@ -6417,7 +6417,7 @@ export type BondLink =
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay' | 'question' | 'note';
+    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6447,5 +6447,91 @@ export interface BondEntry {
     slip?: BondSlip;
     /** 你讀過的時間（角色寫的隨筆、出的題用；紙條看 slip.seenAt） */
     seenAt?: number;
+    /** 約定分頁（plans/bond-batch4.md 第 1 節）：願望、共同約定、默契、里程碑、事件卡；text 是內容 */
+    wish?: BondWish;
+    promise?: BondPromise;
+    habit?: BondHabit;
+    milestone?: BondMilestone;
+    eventCard?: BondEventCard;
     updatedAt: number;
+}
+
+/** 願望（plans/bond-batch4.md 1.1，紀要 3.5）：看見不等於答應；談妥才變成共同約定 */
+export interface BondWish {
+    /** 誰的願望：'user'＝你、角色 id＝TA、'both'＝我們想一起完成的 */
+    owner: string;
+    state: 'want' | 'agreed' | 'done' | 'shelved';
+    /** 對方表示支持（不等於答應一起做） */
+    support?: { by: string; at: number; words?: string; /** 對方也想一起做（還不是約定，要另外談成） */ together?: boolean };
+    /** 談妥了：變成哪一個共同約定 */
+    promiseId?: string;
+    doneAt?: number;
+    /** 完成時連到的拾光（片刻、記憶） */
+    doneLinks?: BondLink[];
+}
+
+export type BondPromiseRepeat =
+    | { kind: 'once' }
+    | { kind: 'daily' }
+    | { kind: 'weekly'; days?: number[] }
+    | { kind: 'monthly' }
+    | { kind: 'everyNDays'; n: number }
+    | { kind: 'yearly'; date: string };
+
+/** 共同約定的完成依據（plans/bond-batch4.md 1.2；自動判定在第 4b 批） */
+export type BondTaskCheck =
+    | { kind: 'record'; record: 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'gift'; min?: number }
+    | { kind: 'manual' }
+    | { kind: 'ai'; hint: string }
+    | { kind: 'keyword'; words: string[]; both: boolean };
+
+/** 共同約定（含任務）：雙方都說好才成立 */
+export interface BondPromise {
+    repeat: BondPromiseRepeat;
+    /** 參與者（身份卡 × 角色就是你和 TA） */
+    participants: string[];
+    check: BondTaskCheck;
+    /** 計分；沒有＝單純的約定 */
+    points?: number;
+    /** 誰說好了（時間）；兩邊都有才成立 */
+    agreedBy: { user?: number; char?: number };
+    /** 對方的回應（答應、想改一下、先不要）的原話 */
+    reply?: { by: string; at: number; words: string; answer: 'yes' | 'tweak' | 'no' };
+    state: 'proposed' | 'active' | 'paused' | 'done' | 'dropped';
+    fromWishId?: string;
+    templateId?: string;
+    /** 連續天數紀念（重複的約定才有；第 4b 批算） */
+    streak?: { current: number; best: number; lastDay?: string; brokeOn?: string };
+}
+
+/** 我們的默契（plans/bond-batch4.md 1.4，紀要 6.2）：雙方都確認才算 */
+export interface BondHabit {
+    confirmedBy: { user?: number; char?: number };
+    origin: 'agreed' | 'formed';
+    /** 對方的回應（認／不認）的原話 */
+    reply?: { by: string; at: number; words: string; answer: 'yes' | 'no' };
+    examples?: BondLink[];
+    state: 'proposed' | 'active' | 'retired';
+}
+
+/** 里程碑：已經發生的關係大事（plans/bond-batch4.md 1.5）；日期在 eventDate */
+export interface BondMilestone {
+    /** 什麼事（內建清單的 id 或 'custom'） */
+    what: string;
+    /** 怎麼記下來的 */
+    via: 'manual' | 'eventCard' | 'chat' | 'memory' | 'review' | 'streak' | 'achievement';
+    /** 那時把階段改成什麼（有改才有） */
+    stageTo?: string;
+    /** 同時記成的紀念日（行事曆 CalendarEvent id） */
+    anniversaryId?: string;
+}
+
+/** 事件卡（plans/bond-batch4.md 1.5、2.2；第 4d 批） */
+export interface BondEventCard {
+    cardId: string;
+    state: 'locked' | 'unlocked' | 'playing' | 'done' | 'setAside';
+    unlockedAt?: number;
+    venue?: 'chat' | 'date';
+    startedAt?: number;
+    outcome?: { result: 'yes' | 'notYet' | 'other'; at: number; note?: string; storyId?: string };
 }
