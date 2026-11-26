@@ -43,22 +43,28 @@ export async function heartContext(space: ResolvedSpace): Promise<OutputContext>
     };
 }
 
-export async function askChar(space: ResolvedSpace, apiConfig: APIConfig, prompt: string, purpose: string, signal?: AbortSignal): Promise<string> {
+/** 這段關係叫角色寫東西時的系統提示詞與路線鎖（本機和雲端的 standing job 同一份） */
+export function charSystemOf(space: ResolvedSpace): { system: string; lock: string } {
+    const writer = space.view || space.char;
+    return { system: ContextBuilder.buildCoreContext(writer, space.user!, true), lock: bondFinalLock(space.bond, space.leftName) || '' };
+}
+
+export async function askChar(space: ResolvedSpace, apiConfig: APIConfig, prompt: string, purpose: string, signal?: AbortSignal, opts: { maxTokens?: number; system?: { system: string; lock: string } } = {}): Promise<string> {
     const writer = space.view || space.char;
     const api = resolveCharacterChatApi(writer, apiConfig);
     if (!api.baseUrl || !api.apiKey) throw new Error('還沒設定 API');
-    const lock = bondFinalLock(space.bond, space.leftName);
+    const { system, lock } = opts.system || charSystemOf(space);
     const data = await safeFetchJson(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
         body: JSON.stringify({
             model: api.model,
             messages: [
-                { role: 'system', content: ContextBuilder.buildCoreContext(writer, space.user!, true) },
+                { role: 'system', content: system },
                 { role: 'user', content: lock ? `${prompt}\n\n${lock}` : prompt },
             ],
             temperature: 0.85,
-            max_tokens: 1500,
+            max_tokens: opts.maxTokens || 1500,
         }),
         ...(signal ? { signal } : {}),
     }, 1, 120_000, { appName: '羈絆', charId: writer.id, charName: writer.name, purpose });

@@ -42,6 +42,12 @@
   面板上「今天 TA 已主動找你 N 次」讀的就是這份。推送失敗、但整批已經落進服務端收件箱的（收尾 hook 上 `outboxed` 為真），按「發出去了」記：上游重試時只補推原文，不會重新生成，而且補推那一跳不再調任何 hook。
 - **重複任務連續沒回**：self_log 上的 `recurringSends`，按任務的 `clientTaskId` 各記各的，用戶一開口就和連發計數一起清零。
 
+## 後台任務不算在這裡
+
+後台任務（`metadata.amsgKind` 標了種類的：門牌整理、日程自動生成、羈絆主動產出）不經過聊天那幾道閘，也不佔「最多同時排著幾條」「每天最多主動找幾次」：它們不是角色在私聊裡找你，任務行也擋在主動消息清單外面（`messageSubtype: 'job'`）。
+
+羈絆主動產出（角色寫日記、出題、丟紙條、寫隨筆，`plans/bond-batch3.md` 1.4、3d 實況）有自己的上限，常數在 `utils/bond/output.ts` 的 `OUTPUT_LIMITS`：每段關係一天最多 2 份、兩份隔 3 小時、所有關係加起來一天最多 6 份。本機排程照它判（`decideBondOutputs`），雲端到點也照它判（`utils/bond/outputCloudJob.ts` 的 `decideBondOutputFire`，帳記在 `amsg:job` 的 `bond-output-log`）。寫好時順手在私聊說的那一句（「同步私聊」）也不算主動消息的額度。
+
 ## 到點閘的順序（onBeforeFire）
 
 只列跟這份文檔有關的幾道，按出現的先後排。每道攔下都會寫 `last_skip`，面板用 `describeLastSkip` 照實說明原因：

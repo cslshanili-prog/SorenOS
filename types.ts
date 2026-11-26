@@ -6313,8 +6313,6 @@ export interface BondRecord {
     output?: Partial<Record<BondOutputKind, Partial<BondOutputSetting>>>;
     /** 每一種上一次產出的時間（事件觸發或保底都算，下一輪從這裡起算） */
     outputLast?: Partial<Record<BondOutputKind, number>>;
-    /** 交給雲端、還沒回來的（plans/bond-batch3.md 1.6 對帳用）：類型 → 交出去的時間 */
-    outputHandedOff?: Partial<Record<BondOutputKind, number>>;
     /** 有值得留下的事、還沒被寫進任何一份（事件觸發用） */
     outputEvents?: BondOutputEvent[];
     /** 自己加的紙條標籤 */

@@ -3,13 +3,16 @@
  * 該寫的（事件提早、區間保底，錯開、有上限）一次寫一份：日記、問答、紙條、隨筆。
  * 判斷是純函式（utils/bond/output.ts 的 decideBondOutputs）；這裡只負責組名單、叫模型、存檔、同步私聊。
  *
+ * 一份產出拆成兩步，本機和雲端（第 3d 批，components/bond/outputCloud.ts）共用：
+ * - prepareOutput：組提示詞（系統＝角色核心上下文、路線鎖、這一種的提示詞）——雲端的 standing job 就是存這份；
+ * - applyOutput：拿模型原文解析、存檔、同步私聊——雲端結果回來也走這裡。
+ *
  * - 誰能寫：角色在戲上、不是小號、這條線沒拉黑；沒自己設過開關的類型，最近 14 天私聊有說過話才算預設開。
- * - 交給雲端的（第 3d 批）一天內不重寫；寫完把這一種的起點換成現在。
+ * - 寫完把這一種的起點換成現在（雲端的 standing job 跟著重傳，到期時間往後推）。
  */
 import type { APIConfig, BondOutputKind, CharacterProfile, DiaryEntry, UserProfile } from '../../types';
 import { resolveSpace, type ResolvedSpace } from './space';
-import { askChar, heartContext, recentSlipLines, relationLineOf } from './heartRun';
-import { runEssay } from './essayRun';
+import { askChar, charSystemOf, heartContext, recentSlipLines, relationLineOf } from './heartRun';
 import { DB } from '../../utils/db';
 import { withLineFields, lineFor, lineKey, lineMsgFields } from '../../utils/chatLine';
 import { isOnStage } from '../../utils/castRole';
@@ -21,19 +24,25 @@ import { diariesOfBondSync } from '../../utils/bond/diaryRegistry';
 import { listPersonaSpaces } from '../../utils/bond/spaces';
 import { decideBondOutputs, DIARY_LENGTH_CHARS, markOutputDone, OUTPUT_KIND_LABEL, resolveOutputSetting, type OutputCandidate } from '../../utils/bond/output';
 import {
-    buildCharAskPrompt, buildDiaryPrompt, buildSlipPrompt, buildSlipReplyPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, parseSlipReplyState,
+    buildCharAskPrompt, buildSlipPrompt, buildSlipReplyPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, parseSlipReplyState,
+    buildDiaryPrompt,
 } from '../../utils/bond/outputPromptCore';
+import { BOND_OUTPUT_MAX_TOKENS, type BondOutputJobDiary } from '../../utils/bond/outputCloudJob';
 import { answerQuestion, newQuestion } from '../../utils/bond/question';
 import { deliverSlip, newSlip, setSlipState, slipReplies, slipTagOptions } from '../../utils/bond/slip';
 import { blankDiary, pageEmpty, pagePublished, putCharPage } from '../../utils/bond/diary';
-import { essayDraft } from '../../utils/bond/essay';
+import { buildEssayChoosePrompt, essayCandidates, essayDraft, essayTargetOf, parseEssay } from '../../utils/bond/essay';
 import { saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
-import { buildTimeline, memoriesForLine } from '../../utils/bond/timeline';
+import { buildTimeline, memoriesForLine, type TimelineItem } from '../../utils/bond/timeline';
+import { makeChatClock } from '../../utils/dateStoryTime';
+import { resolveCharTimeZone } from '../../utils/timezone';
 import { trackEvent } from '../../utils/analytics';
 
 const ACTIVE_MS = 14 * 86400_000;
 const HEADER = '💌 [BondOutput]';
 let running = false;
+
+export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔' } as const;
 
 export interface BondOutputDone {
     bondId: string;
@@ -44,25 +53,31 @@ export interface BondOutputDone {
     notice?: { text: string; lineKey: string };
 }
 
-async function lastMessageAt(char: CharacterProfile, personaKey: string): Promise<number> {
+/** 寫好一份（本機或雲端）：OSContext 聽這個跳提示、打未讀 */
+export const BOND_OUTPUT_DONE_EVENT = 'soren-bond-output-done';
+export function announceOutputDone(done: BondOutputDone): void {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent<BondOutputDone>(BOND_OUTPUT_DONE_EVENT, { detail: done }));
+}
+
+export async function lastMessageAt(char: CharacterProfile, personaKey: string | undefined): Promise<number> {
     const line = lineFor(char, personaKey);
     const arg = line.personaKey ? { charId: char.id, personaKey: line.personaKey } : char.id;
     const [m] = await DB.getRecentMessagesByCharId(arg as any, 1).catch(() => []);
     return m?.timestamp || 0;
 }
 
-/** 這次看哪些關係（身份卡 × 角色） */
-async function candidates(characters: CharacterProfile[], profileBase: UserProfile, now: number): Promise<OutputCandidate[]> {
+/** 這次看哪些關係（身份卡 × 角色）；雲端排任務也用同一份名單 */
+export async function outputCandidates(characters: CharacterProfile[], profileBase: UserProfile, now: number): Promise<Array<OutputCandidate & { char: CharacterProfile; personaKey: string; lastMessageAt: number }>> {
     const chars = characters.filter(c => !c.altOf).map(c => withLineFields(profileBase, c));
     const spaces = listPersonaSpaces(chars, allRegisteredBonds());
-    const out: OutputCandidate[] = [];
+    const out: Array<OutputCandidate & { char: CharacterProfile; personaKey: string; lastMessageAt: number }> = [];
     for (const sp of spaces) {
         const c = chars.find(x => x.id === sp.charId);
         if (!c) continue;
         const bond = bondOrBlank(sp.id);
         const eligible = isOnStage(c) && !isChatBlocked(c);
-        const recentlyActive = eligible ? now - (await lastMessageAt(c, sp.personaKey)) < ACTIVE_MS : false;
-        out.push({ bondId: sp.id, bond, eligible, recentlyActive });
+        const last = eligible ? await lastMessageAt(c, sp.personaKey) : 0;
+        out.push({ bondId: sp.id, bond, eligible, recentlyActive: eligible && now - last < ACTIVE_MS, char: c, personaKey: sp.personaKey, lastMessageAt: last });
     }
     return out;
 }
@@ -70,13 +85,13 @@ async function candidates(characters: CharacterProfile[], profileBase: UserProfi
 const localMinutes = (d = new Date()) => d.getHours() * 60 + d.getMinutes();
 const localDayStart = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
-/** 一次 tick：記起點、寫最多一份。回傳寫好的那份（給 OSContext 打未讀、跳提示） */
+/** 一次 tick：記起點、寫最多一份。回傳寫好的那份（也會發 BOND_OUTPUT_DONE_EVENT） */
 export async function runBondOutputTick(scope: { characters: CharacterProfile[]; userProfileBase: UserProfile; apiConfig: APIConfig }): Promise<BondOutputDone | null> {
     if (running) return null;
     running = true;
     try {
         const now = Date.now();
-        const cands = await candidates(scope.characters, scope.userProfileBase, now);
+        const cands = await outputCandidates(scope.characters, scope.userProfileBase, now);
         const decision = decideBondOutputs(cands, now, localMinutes(), localDayStart());
         for (const seed of decision.seeds) {
             await updateBond(seed.bondId, b => (b.outputLast?.[seed.kind] ? b : { ...b, outputLast: { ...(b.outputLast || {}), [seed.kind]: seed.at } }));
@@ -89,60 +104,150 @@ export async function runBondOutputTick(scope: { characters: CharacterProfile[];
         // 先記上這一份（失敗也算這一輪，免得一直重試同一份；下一輪照區間再來）
         await updateBond(next.bondId, b => markOutputDone(b, next.kind, now));
         const done = await writeOne(space, next.kind, scope.apiConfig).catch(e => { console.warn(HEADER, '沒寫成', next, e); return null; });
-        if (done) trackEvent('主动产出完成', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔' } as const)[next.kind], 来源: '本机', 触发: next.reason === 'event' ? '事件' : '保底' });
+        if (done) {
+            trackEvent('主动产出完成', { 类型: KIND_ANALYTICS[next.kind], 来源: '本机', 触发: next.reason === 'event' ? '事件' : '保底' });
+            announceOutputDone(done);
+        }
         return done;
     } finally {
         running = false;
     }
 }
 
-/** 寫一份（也給「立刻寫一份」那顆鈕用） */
-export async function writeOne(space: ResolvedSpace, kind: BondOutputKind, apiConfig: APIConfig): Promise<BondOutputDone | null> {
+// ─── 準備：組提示詞 ───────────────────────────────
+
+export interface PreparedOutput {
+    kind: BondOutputKind;
+    withNotice: boolean;
+    system: string;
+    lock: string;
+    /** 問答、紙條、隨筆：整段提示詞 */
+    prompt?: string;
+    /** 日記：提示詞除了日期和你那頁的部分（本機當場補上，雲端到點補上） */
+    diary?: BondOutputJobDiary;
+    replyTo?: string;
+    tags?: string[];
+    candidateKeys?: string[];
+    maxTokens: number;
+    purpose: string;
+}
+
+/** 這段關係的時間線（隨筆挑一件用） */
+function timelineOf(space: ResolvedSpace): TimelineItem[] {
+    return buildTimeline({
+        bond: space.bond, entries: bondEntriesOf(space.id),
+        memories: { charId: space.char.id, list: memoriesForLine(space.char.memories, space.personaKey, space.char.primaryPersonaKey) },
+    });
+}
+
+/** 組好一份（還沒叫模型）；這一種現在沒得寫（隨筆沒有可挑的事）回 null */
+export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind): Promise<PreparedOutput | null> {
     const view = space.view!;
     const setting = resolveOutputSetting(space.bond, kind);
     const withNotice = setting.syncToChat && !isChatBlocked(view);
     const entries = bondEntriesOf(space.id);
-    const ctx = await heartContext(space);
-    let raw = '';
+    const { system, lock } = charSystemOf(space);
+    const base = { kind, withNotice, system, lock, maxTokens: 1500 };
 
+    if (kind === 'essay') {
+        // 隨筆：讓 TA 自己挑一件還沒寫過的，寫成草稿（你收下才算，跟第 2 批同一條路）
+        const cands = essayCandidates(timelineOf(space), space.char.id);
+        if (!cands.length) return null;
+        const prompt = buildEssayChoosePrompt({
+            selfName: view.name, otherName: space.leftName,
+            candidates: cands.map(c => { const t = essayTargetOf(c, { includeUserNote: true, topicOwnerName: c.ref.type === 'topic' && c.ref.ownerId === space.char.id ? view.name : undefined }); return { dateText: t.dateText, label: c.kind === 'moment' ? '片刻' : '記憶', text: t.title ? `${t.title}：${t.text}` : t.text }; }),
+        });
+        return { ...base, prompt, candidateKeys: cands.map(c => c.key), maxTokens: BOND_OUTPUT_MAX_TOKENS, purpose: '角色隨筆' };
+    }
+
+    const ctx = await heartContext(space);
     if (kind === 'diary') {
         const diaries = diariesOfBondSync(space.id);
         const today = diaries.find(d => d.date === space.todayKey);
-        if (today && !pageEmpty(today.charPage)) return null; // 今天已經寫過了
         const recent = [...diaries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 2)
             .map(d => `- ${d.date}：${[pagePublished(d.userPage) ? `${space.leftName}：${d.userPage.text.slice(0, 160)}` : '', pagePublished(d.charPage) ? `你：${d.charPage!.text.slice(0, 160)}` : ''].filter(Boolean).join('；')}`)
             .filter(l => !l.endsWith('：')).join('\n');
-        raw = await askChar(space, apiConfig, buildDiaryPrompt({
-            ...ctx, date: space.todayKey,
-            userPage: today && pagePublished(today.userPage) ? today.userPage.text : undefined,
-            recentDiaries: recent, chars: DIARY_LENGTH_CHARS[setting.length], style: setting.style, withNotice,
-        }), '日記');
+        const clock = makeChatClock(view);
+        return {
+            ...base, purpose: '日記',
+            diary: {
+                base: { ...ctx, recentDiaries: recent, chars: DIARY_LENGTH_CHARS[setting.length], style: setting.style, withNotice },
+                dateTz: resolveCharTimeZone(view) ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+                dateOffsetMs: clock ? clock.now - Date.now() : 0,
+                today: space.todayKey,
+                userPageToday: today && pagePublished(today.userPage) ? today.userPage.text : undefined,
+                writtenToday: !!today && !pageEmpty(today.charPage),
+            },
+        };
+    }
+    if (kind === 'question') {
+        return {
+            ...base, purpose: '拾光問答',
+            prompt: buildCharAskPrompt({
+                ...ctx, relationLine: relationLineOf(space), length: setting.length, withNotice,
+                askedBefore: entries.filter(e => e.kind === 'question' && e.status === 'published').map(e => e.question!.prompt),
+            }),
+        };
+    }
+    // 紙條：你丟來、TA 還沒回的那張先回；沒有就自己丟一張
+    const pending = entries
+        .filter(e => e.kind === 'note' && e.status === 'published' && e.author === 'user' && !e.slip?.replyTo)
+        .filter(e => !slipReplies(entries, e.id).some(r => r.author !== 'user'))
+        .sort((a, b) => (b.slip?.deliveredAt || 0) - (a.slip?.deliveredAt || 0))[0];
+    if (pending) {
+        return {
+            ...base, purpose: '心靈角落', replyTo: pending.id,
+            prompt: buildSlipReplyPrompt({
+                ...ctx, length: setting.length, withNotice, canMarkState: true,
+                slip: { fromName: space.leftName, text: pending.text, tags: pending.slip?.tags || [] },
+                thread: slipReplies(entries, pending.id).map(e => ({ fromName: e.author === 'user' ? space.leftName : view.name, text: e.text })),
+            }),
+        };
+    }
+    const tags = slipTagOptions(space.bond.noteTags);
+    return {
+        ...base, purpose: '心靈角落', tags,
+        prompt: buildSlipPrompt({ ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), length: setting.length, withNotice }),
+    };
+}
+
+// ─── 收下：解析、存檔、同步私聊 ─────────────────────
+
+export interface ApplyMeta {
+    /** 日記那天（雲端到點算的；本機就是這段關係的今天） */
+    dateKey?: string;
+    replyTo?: string;
+    tags?: string[];
+    candidateKeys?: string[];
+}
+
+/**
+ * 模型原文 → 存進去。寫不成拋錯；這一份已經沒必要了（那天的日記寫過了、那張紙條回過了）回 null。
+ */
+export async function applyOutput(space: ResolvedSpace, kind: BondOutputKind, raw: string, meta: ApplyMeta): Promise<BondOutputDone | null> {
+    const view = space.view!;
+    const setting = resolveOutputSetting(space.bond, kind);
+    const withNotice = setting.syncToChat && !isChatBlocked(view);
+    const entries = bondEntriesOf(space.id);
+
+    if (kind === 'diary') {
+        const date = meta.dateKey || space.todayKey;
+        const existing = diariesOfBondSync(space.id).find(d => d.date === date);
+        if (existing && !pageEmpty(existing.charPage)) return null;
         const parsed = parseDiary(raw);
         if (!parsed) throw new Error('日記沒寫出來');
-        const base: DiaryEntry = today || blankDiary({ charId: space.char.id, bondId: space.id, date: space.todayKey });
+        const base: DiaryEntry = existing || blankDiary({ charId: space.char.id, bondId: space.id, date });
         await DB.saveDiary(putCharPage(base, { text: parsed.text, paperStyle: 'plain', stickers: [] }, 'ai_scheduled'));
         trackEvent('写羁绊日记', { 谁: '角色', 方式: '主动' });
     } else if (kind === 'question') {
-        raw = await askChar(space, apiConfig, buildCharAskPrompt({
-            ...ctx, relationLine: relationLineOf(space), length: setting.length, withNotice,
-            askedBefore: entries.filter(e => e.kind === 'question' && e.status === 'published').map(e => e.question!.prompt),
-        }), '拾光問答');
         const out = parseCharAsk(raw);
         if (!out) throw new Error('沒出成題');
         await saveBondEntry(answerQuestion(newQuestion({ bondId: space.id, openedBy: space.char.id, prompt: out.question, origin: 'char', topic: out.topic }), 'char', { text: out.answer, state: 'sealed' }));
         trackEvent('拾光问答', { 动作: '出题', 来源: '角色出' });
     } else if (kind === 'note') {
-        // 你丟來、TA 還沒回的那張先回；沒有就自己丟一張
-        const pending = entries
-            .filter(e => e.kind === 'note' && e.status === 'published' && e.author === 'user' && !e.slip?.replyTo)
-            .filter(e => !slipReplies(entries, e.id).some(r => r.author !== 'user'))
-            .sort((a, b) => (b.slip?.deliveredAt || 0) - (a.slip?.deliveredAt || 0))[0];
-        if (pending) {
-            raw = await askChar(space, apiConfig, buildSlipReplyPrompt({
-                ...ctx, length: setting.length, withNotice, canMarkState: true,
-                slip: { fromName: space.leftName, text: pending.text, tags: pending.slip?.tags || [] },
-                thread: slipReplies(entries, pending.id).map(e => ({ fromName: e.author === 'user' ? space.leftName : view.name, text: e.text })),
-            }), '心靈角落');
+        if (meta.replyTo) {
+            const pending = entries.find(e => e.id === meta.replyTo);
+            if (!pending || slipReplies(entries, pending.id).some(r => r.author !== 'user')) return null;
             const out = parseSlip(raw, []);
             if (!out) throw new Error('沒回成紙條');
             const state = parseSlipReplyState(raw);
@@ -151,23 +256,17 @@ export async function writeOne(space: ResolvedSpace, kind: BondOutputKind, apiCo
                 ...(state ? [setSlipState(pending, state)] : []),
             ]);
         } else {
-            const tags = slipTagOptions(space.bond.noteTags);
-            raw = await askChar(space, apiConfig, buildSlipPrompt({
-                ...ctx, tags, relationLine: relationLineOf(space), recentSlips: recentSlipLines(space, entries), length: setting.length, withNotice,
-            }), '心靈角落');
-            const out = parseSlip(raw, tags);
+            const out = parseSlip(raw, meta.tags || slipTagOptions(space.bond.noteTags));
             if (!out) throw new Error('沒寫成紙條');
             await saveBondEntry(deliverSlip(newSlip({ bondId: space.id, author: space.char.id, text: out.text, tags: out.tags })));
         }
         trackEvent('投递心灵纸条', { 谁: '角色', 方式: '主动' });
     } else {
-        // 隨筆：讓 TA 自己挑一件還沒寫過的，寫成草稿（你收下才算，跟第 2 批同一條路）
-        const items = buildTimeline({
-            bond: space.bond, entries,
-            memories: { charId: space.char.id, list: memoriesForLine(space.char.memories, space.personaKey, space.char.primaryPersonaKey) },
-        });
-        const out = await runEssay({ space, characters: [space.char], items, entries, apiConfig, writerId: space.char.id, mode: 'choose' });
-        await saveBondEntry(essayDraft({ bondId: space.id, writerId: space.char.id, item: out.item, parsed: out.parsed }));
+        const parsed = parseEssay(raw, 'choose');
+        const key = parsed?.pick ? meta.candidateKeys?.[parsed.pick - 1] : undefined;
+        const item = key ? timelineOf(space).find(it => it.key === key) : undefined;
+        if (!parsed || !item) throw new Error('這次沒挑出來');
+        await saveBondEntry(essayDraft({ bondId: space.id, writerId: space.char.id, item, parsed }));
     }
 
     const notice = withNotice ? parseNotice(raw) : '';
@@ -179,4 +278,20 @@ export async function writeOne(space: ResolvedSpace, kind: BondOutputKind, apiCo
     }
     console.info(HEADER, `${view.name} 寫了${OUTPUT_KIND_LABEL[kind]}`);
     return { bondId: space.id, kind, charId: space.char.id, charName: view.name, notice: noticeOut };
+}
+
+/** 寫一份（本機：組、叫模型、收下；也給「現在寫一份」那顆鈕用） */
+export async function writeOne(space: ResolvedSpace, kind: BondOutputKind, apiConfig: APIConfig): Promise<BondOutputDone | null> {
+    const prep = await prepareOutput(space, kind);
+    if (!prep) {
+        if (kind === 'essay') throw new Error('沒有還沒寫過的事可以挑了');
+        return null;
+    }
+    let prompt = prep.prompt || '';
+    if (prep.diary) {
+        if (prep.diary.writtenToday) return null; // 今天已經寫過了
+        prompt = buildDiaryPrompt({ ...prep.diary.base, date: prep.diary.today, userPage: prep.diary.userPageToday });
+    }
+    const raw = await askChar(space, apiConfig, prompt, prep.purpose, undefined, { maxTokens: prep.maxTokens, system: { system: prep.system, lock: prep.lock } });
+    return applyOutput(space, kind, raw, { dateKey: prep.diary?.today, replyTo: prep.replyTo, tags: prep.tags, candidateKeys: prep.candidateKeys });
 }

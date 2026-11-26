@@ -32,8 +32,6 @@ export function resolveOutputSetting(bond: Pick<BondRecord, 'output'> | undefine
 // ─── 排程判斷（plans/bond-batch3.md 1.5）：純函式，有測試 ───
 
 const DAY = 86400_000;
-/** 交給雲端多久沒回來就換本機補 */
-export const HANDOFF_STALE_MS = DAY;
 
 /** 哪些事件會讓哪一種提早寫 */
 export const EVENT_KINDS: Record<BondOutputKind, Array<import('../../types').BondOutputEvent['kind']>> = {
@@ -97,7 +95,7 @@ export interface OutputDecision {
 /**
  * 該不該寫、寫哪個（plans/bond-batch3.md 1.4、1.5）：
  * - 有對應的事件、而且離上一次已過區間下限的一半 → 提早；沒事件就到區間裡挑的那天才寫；
- * - 投遞時段外、暫停中、交給雲端還沒回來（一天內）的不排；
+ * - 投遞時段外、暫停中的不排；
  * - 每段關係一天最多 2 份、兩份隔 3 小時；全部一天最多 6 份。
  * nowMinutes＝你裝置上現在是一天裡第幾分鐘；dayStart＝你裝置上今天 0 點。
  */
@@ -120,8 +118,6 @@ export function decideBondOutputs(cands: OutputCandidate[], now: number, nowMinu
             const on = own && typeof own.enabled === 'boolean' ? own.enabled : setting.enabled && c.recentlyActive;
             if (!on) continue;
             if (setting.pausedUntil && setting.pausedUntil > now) continue;
-            const handed = c.bond.outputHandedOff?.[kind];
-            if (handed && now - handed < HANDOFF_STALE_MS) continue;
             const last = c.bond.outputLast?.[kind];
             if (!last) {
                 seeds.push({ bondId: c.bondId, kind, at: now - Math.floor((setting.everyDays[0] * DAY) / 2) });
@@ -155,9 +151,24 @@ export function withOutputEvent(bond: BondRecord, ev: import('../../types').Bond
     return { ...bond, outputEvents: [...keep, ev].slice(-30) };
 }
 
-/** 寫完一份：這一種的起點換成現在、清掉交給雲端的標記 */
+/** 寫完一份：這一種的起點換成現在 */
 export function markOutputDone(bond: BondRecord, kind: BondOutputKind, at: number): BondRecord {
-    const handed = { ...(bond.outputHandedOff || {}) };
-    delete handed[kind];
-    return { ...bond, outputLast: { ...(bond.outputLast || {}), [kind]: at }, outputHandedOff: handed };
+    return { ...bond, outputLast: { ...(bond.outputLast || {}), [kind]: at } };
+}
+
+/**
+ * 這一種下一次最早什麼時候該寫（給雲端的 standing job；第 3d 批）：跟 decideBondOutputs 同一套——
+ * 有對應的事件就是「事件之後、而且過了區間下限的一半」，沒有就是區間裡挑的那天；還沒有起點回 null。
+ * 投遞時段、暫停、上限不在這裡算（雲端到點時自己看）。
+ */
+export function nextDueAt(bond: Pick<BondRecord, 'id' | 'output' | 'outputLast' | 'outputEvents'>, kind: BondOutputKind): number | null {
+    const last = bond.outputLast?.[kind];
+    if (!last) return null;
+    const setting = resolveOutputSetting(bond, kind);
+    const halfMin = last + (setting.everyDays[0] * DAY) / 2;
+    const events = (bond.outputEvents || []).filter(e => e.at > last && EVENT_KINDS[kind].includes(e.kind)).map(e => e.at);
+    const byEvent = events.length ? Math.max(halfMin, Math.min(...events)) : null;
+    const byInterval = intervalDueAt(bond, kind);
+    if (byEvent === null) return byInterval;
+    return byInterval === null ? byEvent : Math.min(byEvent, byInterval);
 }

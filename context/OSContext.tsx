@@ -124,7 +124,8 @@ import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBon
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
-import { runBondOutputTick } from '../components/bond/outputRun';
+import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
+import { markBondOutputCloudDirty, syncBondOutputCloud } from '../components/bond/outputCloud';
 import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
 import { extractBondInvite } from '../utils/bond/invite';
@@ -2604,28 +2605,45 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [characters, userProfileBase, apiConfig, groups, realtimeConfig]);
-  // 羈絆的主動產出（plans/bond-batch3.md 1.6）：頁面開著每 5 分鐘看一次，該寫的寫一份（日記、問答、紙條、隨筆）
+  // 羈絆的主動產出（plans/bond-batch3.md 1.6）：頁面開著每 5 分鐘看一次，該寫的寫一份（日記、問答、紙條、隨筆）；
+  // 開了主動消息 2.0 的線順手跟雲端對帳（第 3d 批：App 關著由雲端寫，components/bond/outputCloud.ts）
   useEffect(() => {
+    const scope = () => ({ characters, userProfileBase, apiConfig });
     const tick = () => {
       if (isBackupRunning()) return;
-      void runBondOutputTick({ characters, userProfileBase, apiConfig }).then(done => {
-        if (!done) return;
-        const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
-        if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
-        if (done.notice) {
-          setLastMsgTimestamp(Date.now());
-          const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === done.charId;
-          if (!viewing) setUnreadMessages(prev => ({ ...prev, [done.notice!.lineKey]: (prev[done.notice!.lineKey] || 0) + 1 }));
-        }
-      }).catch(() => {});
+      void runBondOutputTick(scope())
+        .catch(() => null)
+        .then(() => syncBondOutputCloud(scope()))
+        .catch(e => console.warn('💌 [BondOutput:雲端] 對帳失敗', e));
     };
-    const first = window.setTimeout(tick, 45_000);
+    // 開機先等一下：補收的雲端結果先落地，本機才不會重寫一份
+    const first = window.setTimeout(tick, 90_000);
     const timer = window.setInterval(tick, 5 * 60_000);
-    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+      else if (!isBackupRunning()) void syncBondOutputCloud(scope(), { leaving: true }).catch(() => {});
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [characters, userProfileBase, apiConfig]);
+  // 寫好一份（本機或雲端收件）：跳提示、私聊那句打未讀
+  useEffect(() => {
+    const onDone = (e: Event) => {
+      const done = (e as CustomEvent<BondOutputDone>).detail;
+      if (!done) return;
+      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
+      if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
+      if (done.notice) {
+        setLastMsgTimestamp(Date.now());
+        const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === done.charId;
+        if (!viewing) setUnreadMessages(prev => ({ ...prev, [done.notice!.lineKey]: (prev[done.notice!.lineKey] || 0) + 1 }));
+      }
+    };
+    window.addEventListener(BOND_OUTPUT_DONE_EVENT, onDone);
+    return () => window.removeEventListener(BOND_OUTPUT_DONE_EVENT, onDone);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 每日總結寫好了（記憶多了一筆）：記成那條線的事件，日記、紙條、問答可以提早寫（plans/bond-batch3.md 1.5）
   const memoryCountRef = useRef<Map<string, Set<string>> | null>(null);
   useEffect(() => {
@@ -2702,6 +2720,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       const onBondChange = (e: Event) => {
           const ids = (e as CustomEvent<BondChangeDetail>).detail?.ids || [];
+          markBondOutputCloudDirty(ids);
           const touched = new Set<string>();
           for (const id of ids) {
               const parsed = parseBondId(id);

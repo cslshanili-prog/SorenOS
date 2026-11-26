@@ -13,6 +13,7 @@
 > | 門牌整理 | 提示詞/解析/合併抽進零依賴葉子 `utils/memoryPalace/roomPlateCore.ts`，瀏覽器和 worker 共用；雲端那條路在 `roomPlateCloud.ts`，worker 側在 `worker/amsg/src/plateFire.ts` |
 > | 憑據 | credRefs 加了 `memory` 一檔（記憶宮殿副 API）。沒配副 API 就不上雲，不回落到主 API |
 > | 日程自動生成（2026-11-17） | 第二個調用點，而且是第一條**循環**的後台任務（`scheduleBackgroundJob` 多了 `recurring`）：standing job 不刪、客戶端每天刷；提示詞本體抽成零依賴葉子 `utils/schedulePromptCore.ts`；契約 `utils/amsgScheduleJob.ts`、worker `scheduleFire.ts`、落地 `utils/scheduleGenerateResultApply.ts`；憑據用情緒那一行。見 `plans/calendar.md` 第 7 節第 5 批 |
+> | 羈絆主動產出（2026-11-26） | 第三個調用點：角色在羈絆的心意裡主動寫日記、出題、丟紙條、寫隨筆。一段關係一份 standing job（`bond-output:<bondId>`），每種類型一條每天到點的循環任務，worker 到點自己判斷到期沒（多數日子不叫 LLM）；契約 `utils/bond/outputCloudJob.ts`（提示詞本體 `utils/bond/outputPromptCore.ts`）、worker `bondOutputFire.ts`、客戶端 `components/bond/outputCloud.ts`；憑據用這條線的主動消息那一行；雲端自己記帳放 `amsg:job` 的 `bond-output-log`（worker 用 `writeState` 寫）。**後加的種類**：`config-check` 多報 `backgroundJobKinds`，客戶端用 `probeBackgroundJobKind` 認，不認得就只在本機跑。見 `plans/bond-batch3.md` 3d 實況 |
 >
 > 三件上游基建其實 **2.6.0-next.21 就帶了**（next.22 是「不彈通知的 push 只落收件箱」那條行為變更，對 SullyOS 零影響——error push 是繞過庫直發的，reasoning / tool_request 在 amsg2 鏈路上本來就不發）。
 >

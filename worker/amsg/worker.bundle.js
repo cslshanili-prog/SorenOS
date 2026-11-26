@@ -42,8 +42,8 @@ function concatBytes(...chunks) {
   }
   return out;
 }
-function utf8(str) {
-  return TEXT_ENCODER.encode(String(str));
+function utf8(str2) {
+  return TEXT_ENCODER.encode(String(str2));
 }
 function utf8Decode(buf) {
   return TEXT_DECODER.decode(toUint8(buf));
@@ -7629,7 +7629,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-11-15";
+var AMSG_BUNDLE_VERSION = "2026-11-26";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -9066,10 +9066,310 @@ var scheduleGenerateHandler = {
   }
 };
 
+// utils/bond/outputPromptCore.ts
+var GROUND_RULES = (c) => `- \u53E3\u543B\u3001\u7BC7\u5E45\u7167\u4F60\u7684\u500B\u6027\uFF1A\u8A71\u5C11\u5C31\u77ED\uFF0C\u5634\u786C\u5C31\u5634\u786C\uFF0C\u76F4\u63A5\u5C31\u76F4\u63A5\uFF1B\u4F46\u4E0D\u8981\u56E0\u70BA\u500B\u6027\u5C31\u4EC0\u9EBC\u90FD\u4E0D\u8AAA\u3002
+- \u53EA\u4F9D\u64DA\u771F\u7684\u767C\u751F\u904E\u7684\u4E8B\uFF08\u4E0B\u9762\u7684\u7E3D\u7D50\u548C\u804A\u5929\uFF09\uFF1B\u4EBA\u8A2D\u88E1\u7684\u559C\u597D\u3001\u60F3\u50CF\u4E0D\u80FD\u7576\u6210\u4F60\u548C${c.otherName}\u4E00\u8D77\u505A\u904E\u7684\u4E8B\uFF1B\u4E0D\u8981\u7DE8\u9020\u6C92\u767C\u751F\u904E\u7684\u5C0D\u8A71\u6216\u7D93\u6B77\u3002
+- \u6C92\u6709\u65B0\u7684\u4E92\u52D5\u4E5F\u6C92\u95DC\u4FC2\uFF1A\u53EF\u4EE5\u56DE\u671B\u4EE5\u524D\u7684\u7247\u6BB5\u3001\u63A5\u8457\u6C92\u8AAA\u5B8C\u7684\u8A71\u984C\u3001\u6216\u5F9E\u4F60\u81EA\u5DF1\u7684\u751F\u6D3B\u548C\u500B\u6027\u51FA\u767C\uFF1B\u4E0D\u8981\u628A\u540C\u4E00\u4EF6\u4E8B\u63DB\u500B\u8AAA\u6CD5\u518D\u8B1B\u4E00\u6B21\u3002`;
+var recentBlock = (c) => [
+  c.recentSummaries ? `\u3010\u6700\u8FD1\u767C\u751F\u7684\u4E8B\uFF08\u6BCF\u65E5\u7E3D\u7D50\uFF09\u3011
+${c.recentSummaries}` : "",
+  c.recentChat ? `\u3010\u6700\u8FD1\u7684\u804A\u5929\u3011
+${c.recentChat}` : ""
+].filter(Boolean).join("\n\n") || "\uFF08\u6700\u8FD1\u6C92\u6709\u7279\u5225\u8A18\u4E0B\u7684\u4E8B\uFF09";
+var NOTICE_FIELD_HINT = (what, otherName) => `\u53E6\u5916\u5BEB\u4E00\u53E5\u9806\u624B\u50B3\u5230\u79C1\u804A\u7D66${otherName}\u7684\u8A71\uFF08notice\uFF09\uFF1A\u7167\u4F60\u7684\u53E3\u543B\u63D0\u4E00\u4E0B\u4F60${what}\uFF0C\u50CF\u5E73\u5E38\u50B3\u8A0A\u606F\u90A3\u6A23\uFF0C\u4E0D\u8981\u628A\u5167\u5BB9\u518D\u8B1B\u4E00\u904D\u3002`;
+function buildDiaryPrompt(input) {
+  return `\u4F60\u548C${input.otherName}\u6709\u4E00\u672C\u4EA4\u63DB\u65E5\u8A18\uFF0C\u96D9\u65B9\u90FD\u80FD\u5BEB\u3001\u5BEB\u7D66\u5C0D\u65B9\u770B\u3002\u73FE\u5728\u662F ${input.date}\uFF0C\u8ACB\u4EE5\u300C${input.selfName}\u300D\u7684\u8EAB\u4EFD\u5BEB\u4F60\u9019\u4E00\u9801\u3002
+${input.userPage ? `
+\u3010${input.otherName}\u9019\u5929\u5BEB\u7684\u3011
+${input.userPage}
+\uFF08\u4F60\u53EF\u4EE5\u56DE\u61C9\u9019\u7BC7\uFF0C\u4E5F\u53EF\u4EE5\u53EA\u5BEB\u4F60\u81EA\u5DF1\u7684\u4E00\u5929\uFF09
+` : ""}
+${recentBlock(input)}
+${input.recentDiaries ? `
+\u3010\u6700\u8FD1\u7684\u65E5\u8A18\u3011
+${input.recentDiaries}
+` : ""}
+${GROUND_RULES(input)}
+- \u65E5\u8A18\u662F\u6BD4\u8F03\u5B8C\u6574\u7684\u8868\u9054\u3001\u5BEB\u7D66${input.otherName}\u770B\u7684\uFF1A\u53EF\u4EE5\u63A5\u8457\u4E0A\u4E00\u7BC7\u6C92\u8AC7\u5B8C\u7684\u4E8B\uFF0C\u4E5F\u53EF\u4EE5\u5206\u4EAB\u4F60\u81EA\u5DF1\u7368\u7ACB\u65BC\u5C0D\u65B9\u7684\u751F\u6D3B\uFF08\u7167\u4F60\u7684\u4EBA\u8A2D\u548C\u65E2\u6709\u80CC\u666F\uFF0C\u4E0D\u8981\u6191\u7A7A\u5EFA\u7ACB\u91CD\u5927\u7684\u5171\u540C\u7D93\u6B77\uFF09\u3002\u4E0D\u7528\u9010\u65E5\u91CD\u8FF0\u3002
+- \u7BC7\u5E45\u5927\u7D04 ${input.chars[0]}\uFF5E${input.chars[1]} \u5B57\uFF1B\u8A71\u5C11\u53EF\u4EE5\u77ED\u4E00\u9EDE\uFF0C\u4F46\u8981\u50CF\u4E00\u7BC7\u65E5\u8A18\u3002${input.style?.trim() ? `
+- \u6587\u98A8\uFF1A${input.style.trim()}\uFF08\u4ECD\u4EE5\u4F60\u7684\u500B\u6027\u512A\u5148\uFF09\u3002` : ""}
+${input.withNotice ? `- ${NOTICE_FIELD_HINT("\u5BEB\u4E86\u65E5\u8A18", input.otherName)}
+` : ""}
+\u53EA\u8F38\u51FA JSON\uFF0C\u4E0D\u8981\u5176\u4ED6\u6587\u5B57\uFF1A${input.withNotice ? '{"text":"\u65E5\u8A18\u6B63\u6587","notice":"\u79C1\u804A\u90A3\u53E5"}' : '{"text":"\u65E5\u8A18\u6B63\u6587"}'}`;
+}
+function parseJsonObject(raw) {
+  const s = String(raw || "").replace(/```(?:json)?/gi, "").trim();
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const v = JSON.parse(s.slice(start, end + 1));
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+var str = (v) => typeof v === "string" ? v.trim() : "";
+var TOPICS = ["habit", "memory", "choice", "relationship", "daily", "custom"];
+function parseCharAsk(raw) {
+  const o = parseJsonObject(raw);
+  if (!o) return null;
+  const question = str(o.question);
+  const answer = str(o.answer);
+  if (!question || !answer) return null;
+  const topic = TOPICS.includes(o.topic) ? o.topic : "custom";
+  return { question, topic, answer };
+}
+function parseSlip(raw, allowedTags) {
+  const o = parseJsonObject(raw);
+  if (!o) {
+    const t = String(raw || "").trim().replace(/^["「『]|["」』]$/g, "").trim();
+    return t ? { text: t, tags: [] } : null;
+  }
+  const text = str(o.text);
+  if (!text) return null;
+  const tags = (Array.isArray(o.tags) ? o.tags : []).map(str).filter((t) => allowedTags.includes(t)).slice(0, 3);
+  return { text, tags };
+}
+function parseNotice(raw) {
+  const o = parseJsonObject(raw);
+  return o ? str(o.notice).slice(0, 200) : "";
+}
+function parseDiary(raw) {
+  const o = parseJsonObject(raw);
+  if (o) {
+    const t2 = str(o.text);
+    return t2 ? { text: t2 } : null;
+  }
+  const t = String(raw || "").trim();
+  return t && !t.startsWith("{") ? { text: t } : null;
+}
+
+// utils/bond/outputCloudJob.ts
+var BOND_OUTPUT_KIND = "bond-output";
+var BOND_OUTPUT_RESULT_KIND = "bond-output";
+var bondOutputJobKey = (bondId) => `bond-output:${bondId}`;
+var parseBondOutputJobId = (raw) => {
+  if (typeof raw !== "string") return null;
+  const m = /^bond-output\|(diary|question|note|essay)\|(.+)$/.exec(raw);
+  return m ? { kind: m[1], bondId: m[2] } : null;
+};
+var BOND_OUTPUT_LOG_KEY = "bond-output-log";
+var BOND_OUTPUT_LLM_TIMEOUT_MS = 15e4;
+var DAY = 864e5;
+var isObj = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+function parseBondOutputJob(raw) {
+  let obj = raw;
+  if (typeof raw === "string") {
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  if (!isObj(obj) || obj.v !== 1) return null;
+  if (typeof obj.bondId !== "string" || !obj.bondId || typeof obj.charId !== "string" || !obj.charId) return null;
+  if (typeof obj.system !== "string" || typeof obj.tzId !== "string" || !obj.tzId) return null;
+  if (!isObj(obj.kinds) || !isObj(obj.limits)) return null;
+  return obj;
+}
+function zonedParts(tzId, ms) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tzId,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date(ms));
+  const map = {};
+  for (const p of parts) map[p.type] = p.value;
+  return { dateKey: `${map.year}-${map.month}-${map.day}`, minutes: Number(map.hour) * 60 + Number(map.minute) };
+}
+var minutesOf = (hm) => {
+  const [h, m] = hm.split(":").map(Number);
+  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+};
+function inOutputWindow(window2, nowMinutes) {
+  if (!window2) return true;
+  const from = minutesOf(window2.from);
+  const to = minutesOf(window2.to);
+  if (from === to) return true;
+  return from < to ? nowMinutes >= from && nowMinutes <= to : nowMinutes >= from || nowMinutes <= to;
+}
+function parseBondOutputLog(raw) {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw);
+    if (!isObj(o) || typeof o.day !== "string") return null;
+    return {
+      day: o.day,
+      total: typeof o.total === "number" ? o.total : 0,
+      bonds: isObj(o.bonds) ? o.bonds : {},
+      kinds: isObj(o.kinds) ? o.kinds : {}
+    };
+  } catch {
+    return null;
+  }
+}
+function recordBondOutput(log, day, bondId, kind, at) {
+  const sameDay = log && log.day === day;
+  const kinds = {};
+  for (const [k, t] of Object.entries(log?.kinds || {})) if (at - t < 14 * DAY) kinds[k] = t;
+  kinds[`${bondId}|${kind}`] = at;
+  const bonds = sameDay ? { ...log.bonds } : {};
+  const prev = bonds[bondId];
+  bonds[bondId] = { n: (prev?.n || 0) + 1, last: at };
+  return { day, total: (sameDay ? log.total : 0) + 1, bonds, kinds };
+}
+function decideBondOutputFire(job, kind, taskUuid, nowMs, log) {
+  const k = job.kinds[kind];
+  if (!k) return { ok: false, reason: "kind-off" };
+  if (k.taskUuid && taskUuid && k.taskUuid !== taskUuid) return { ok: false, reason: "stale-task" };
+  if (k.pausedUntil && k.pausedUntil > nowMs) return { ok: false, reason: "paused" };
+  if (k.dueAt === null || nowMs < k.dueAt) return { ok: false, reason: "not-due" };
+  const { dateKey: day, minutes } = zonedParts(job.tzId, nowMs);
+  if (!inOutputWindow(k.window, minutes)) return { ok: false, reason: "out-of-window" };
+  let dateKey = day;
+  if (kind === "diary") {
+    if (!k.diary) return { ok: false, reason: "no-diary-input" };
+    dateKey = zonedParts(k.diary.dateTz, nowMs + (k.diary.dateOffsetMs || 0)).dateKey;
+    if (k.diary.writtenToday && dateKey === k.diary.today) return { ok: false, reason: "diary-written" };
+  } else if (!k.prompt) {
+    return { ok: false, reason: "no-prompt" };
+  }
+  const cloudLast = log?.kinds[`${job.bondId}|${kind}`];
+  if (cloudLast && cloudLast > job.refreshedAt && nowMs - cloudLast < (k.everyDays[0] || 1) * DAY) return { ok: false, reason: "cloud-wrote-recently" };
+  const today = log && log.day === day ? log : null;
+  if (today) {
+    if (today.total >= job.limits.allPerDay) return { ok: false, reason: "all-cap" };
+    const b = today.bonds[job.bondId];
+    if (b && b.n >= job.limits.perBondPerDay) return { ok: false, reason: "bond-cap" };
+  }
+  const lastAny = log?.bonds[job.bondId]?.last;
+  if (lastAny && nowMs - lastAny < job.limits.minGapMs) return { ok: false, reason: "gap" };
+  return { ok: true, day, dateKey };
+}
+function buildBondOutputMessages(job, kind, dateKey) {
+  const k = job.kinds[kind];
+  if (!k) return null;
+  let prompt = k.prompt || "";
+  if (kind === "diary") {
+    if (!k.diary) return null;
+    prompt = buildDiaryPrompt({ ...k.diary.base, date: dateKey, userPage: dateKey === k.diary.today ? k.diary.userPageToday : void 0 });
+  }
+  if (!prompt) return null;
+  return [
+    { role: "system", content: job.system },
+    { role: "user", content: job.lock ? `${prompt}
+
+${job.lock}` : prompt }
+  ];
+}
+function bondOutputLooksValid(kind, raw, tags = []) {
+  if (!raw.trim()) return false;
+  if (kind === "diary") return !!parseDiary(raw);
+  if (kind === "question") return !!parseCharAsk(raw);
+  if (kind === "note") return !!parseSlip(raw, tags);
+  return /"text"\s*:/.test(raw);
+}
+function buildBondOutputResult(args) {
+  return { resultKind: BOND_OUTPUT_RESULT_KIND, v: 1, ...args };
+}
+
+// worker/amsg/src/bondOutputFire.ts
+var readValue = async (rows, key) => {
+  const row = rows.find((r) => r.key === key);
+  if (!row?.value) return null;
+  return unpackStateValue(row.value);
+};
+var bondOutputHandler = {
+  async beforeFire({ ctx, taskMeta }) {
+    const ref = parseBondOutputJobId(taskMeta[AMSG_JOB_ID_KEY]);
+    if (!ref) throw new Error(`\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA\u4EFB\u52D9\u7684 metadata \u88E1\u6C92\u6709\u770B\u5F97\u61C2\u7684 ${AMSG_JOB_ID_KEY}`);
+    const rows = await ctx.readState(AMSG_JOB_NAMESPACE);
+    let json;
+    try {
+      json = await readValue(rows, bondOutputJobKey(ref.bondId));
+    } catch (error) {
+      throw new Error(`\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} \u7684\u8F38\u5165\u89E3\u58D3\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09\uFF1A${String(error)}`);
+    }
+    if (!json) {
+      return { skip: true, reason: `\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} \u7684\u8F38\u5165\u5DF2\u4E0D\u5728\uFF08\u5DF2\u95DC\u6216\u5BA2\u6236\u7AEF\u592A\u4E45\u6C92\u4E0A\u7DDA\uFF09` };
+    }
+    const job = parseBondOutputJob(json);
+    if (!job) throw new Error(`\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} \u7684\u8F38\u5165\u89E3\u6790\u5931\u6557\uFF08\u6578\u64DA\u640D\u58DE\uFF09`);
+    if (job.bondId !== ref.bondId) throw new Error(`\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} \u7684\u8F38\u5165 bondId \u5C0D\u4E0D\u4E0A`);
+    let log = null;
+    try {
+      log = parseBondOutputLog(await readValue(rows, BOND_OUTPUT_LOG_KEY));
+    } catch {
+      log = null;
+    }
+    const taskUuid = typeof ctx.task.uuid === "string" ? ctx.task.uuid : null;
+    const decision = decideBondOutputFire(job, ref.kind, taskUuid, ctx.now.getTime(), log);
+    if (!decision.ok) return { skip: true, reason: `\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} ${ref.kind}\uFF1A${decision.reason}` };
+    const messages = buildBondOutputMessages(job, ref.kind, decision.dateKey);
+    if (!messages) return { skip: true, reason: `\u7F88\u7D46\u4E3B\u52D5\u7522\u51FA ${ref.bondId} ${ref.kind}\uFF1A\u8F38\u5165\u88E1\u6C92\u6709\u9019\u4E00\u7A2E\u7684\u63D0\u793A\u8A5E` };
+    return {
+      messages,
+      totalTimeoutMs: BOND_OUTPUT_LLM_TIMEOUT_MS,
+      state: { job, kind: ref.kind, day: decision.day, dateKey: decision.dateKey, log }
+    };
+  },
+  async llmOutput({ ctx, state }) {
+    const { job, kind, day, dateKey, log } = state;
+    const raw = (ctx.llmOutputText || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+    const k = job.kinds[kind];
+    if (!bondOutputLooksValid(kind, raw, k?.tags || [])) {
+      console.warn("[amsg:bond-output] LLM \u6C92\u5BEB\u51FA\u80FD\u7528\u7684\u5167\u5BB9\uFF0C\u9019\u6B21\u4E0D\u9001", job.bondId, kind);
+      logSkipDiagnostic({ sessionId: ctx.sessionId, reason: "bond-output-empty-generation", iteration: ctx.iteration, llmResponse: ctx.llmResponse, llmOutputText: ctx.llmOutputText });
+      return { decision: "skip-push", reason: "bond-output-empty-generation" };
+    }
+    if (typeof ctx.emitResult !== "function") {
+      console.warn("[amsg:bond-output] \u9019\u53F0 worker \u4E0D\u652F\u6301 emitResult\uFF0C\u9001\u4E0D\u56DE\u53BB", job.bondId);
+      return { decision: "skip-push", reason: "bond-output-emit-result-unsupported" };
+    }
+    const notice = k?.withNotice ? parseNotice(raw) : "";
+    const now = Date.now();
+    try {
+      await ctx.emitResult({
+        ...buildBondOutputResult({
+          bondId: job.bondId,
+          charId: job.charId,
+          kind,
+          dateKey,
+          raw,
+          jobRefreshedAt: job.refreshedAt,
+          generatedAt: now,
+          ...k?.replyTo ? { replyTo: k.replyTo } : {},
+          ...k?.tags?.length ? { tags: k.tags } : {},
+          ...k?.candidateKeys?.length ? { candidateKeys: k.candidateKeys } : {}
+        }),
+        notification: notice ? { title: job.charName, body: notice } : { show: false }
+      });
+    } catch (error) {
+      console.warn("[amsg:bond-output] \u7D50\u679C\u9001\u4E0D\u9032\u6536\u4EF6\u7BB1", job.bondId, error);
+      return { decision: "skip-push", reason: "bond-output-emit-result-failed" };
+    }
+    if (typeof ctx.writeState === "function") {
+      try {
+        const next = recordBondOutput(log, day, job.bondId, kind, now);
+        await ctx.writeState(AMSG_JOB_NAMESPACE, [{ key: BOND_OUTPUT_LOG_KEY, value: JSON.stringify(next), updatedAt: now }]);
+      } catch (error) {
+        console.warn("[amsg:bond-output] \u5E33\u6C92\u8A18\u4E0A\uFF08\u4E0B\u6B21\u53EF\u80FD\u591A\u5BEB\u4E00\u4EFD\uFF0C\u5BA2\u6236\u7AEF\u6703\u4E1F\u6389\u91CD\u8907\u7684\uFF09", error);
+      }
+    }
+    console.log("[amsg:bond-output] \u5DF2\u9001\u9032\u6536\u4EF6\u7BB1", { bondId: job.bondId, kind, dateKey, notice: !!notice });
+    return { decision: "skip-push", reason: "bond-output-result-emitted" };
+  }
+};
+
 // worker/amsg/src/fireKinds.ts
 var FIRE_KIND_HANDLERS = Object.assign(
   /* @__PURE__ */ Object.create(null),
-  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler, [SCHEDULE_GENERATE_KIND]: scheduleGenerateHandler }
+  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler, [SCHEDULE_GENERATE_KIND]: scheduleGenerateHandler, [BOND_OUTPUT_KIND]: bondOutputHandler }
 );
 var KIND_FIRE_SCRATCH_KEY = "kindFire";
 var putKindFireStash = (scratch, kind, state) => {
@@ -10118,14 +10418,14 @@ function holidayCountryName(code) {
 var memory = /* @__PURE__ */ new Map();
 var inFlight = /* @__PURE__ */ new Map();
 var retryAfter = /* @__PURE__ */ new Map();
-var DAY = 864e5;
+var DAY2 = 864e5;
 var cleanName = (name) => typeof name === "string" ? name.replace(/[\r\n\x00-\x1f]/g, " ").slice(0, 80).trim() : "";
 var validDate = (date) => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date);
 var TW_MAKEUP_OFF = "\u88DC\u5047";
 var TW_MAKEUP_WORK = "\u88DC\u884C\u4E0A\u73ED";
 function nameTaiwanMakeupDays(days) {
   const named = days.filter((d) => d.off && d.name !== TW_MAKEUP_OFF);
-  const dayIndex = (date) => Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) / DAY;
+  const dayIndex = (date) => Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) / DAY2;
   return days.map((d) => {
     if (!d.off || d.name !== TW_MAKEUP_OFF) return d;
     let best;
@@ -10224,7 +10524,7 @@ async function loadHolidayCalendar(country, year, cache, now = Date.now()) {
     } catch {
     }
   }
-  if (saved && now >= saved.fetchedAt && now - saved.fetchedAt < DAY) return saved;
+  if (saved && now >= saved.fetchedAt && now - saved.fetchedAt < DAY2) return saved;
   if ((retryAfter.get(key) || 0) > now) return saved || null;
   const existing = inFlight.get(key);
   if (existing) return existing;
@@ -16572,6 +16872,9 @@ var src_default = {
           // 正常，而門牌永遠不更新。報的是**這份代碼有沒有**，不是版本號：自更新永遠由
           // 舊代碼執行，版本號對上了不代表新邏輯真的在跑。
           backgroundJobs: true,
+          // 這份代碼認得哪幾種後台任務（後加的種類靠它判斷：認得 backgroundJobs 的老 bundle 不一定認得新的那種，
+          // 例如羈絆主動產出 bond-output）。老 bundle 沒有這個字段。
+          backgroundJobKinds: Object.keys(FIRE_KIND_HANDLERS),
           // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
           newsFeeds: true,
           // 有沒有 POST /deepl-translate（聊天翻譯用 DeepL 時的轉發）。

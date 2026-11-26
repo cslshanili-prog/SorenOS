@@ -199,7 +199,7 @@ describe('心意進提示詞（知情範圍）', () => {
     });
 });
 
-import { decideBondOutputs, inWindow, intervalDueAt, markOutputDone, withOutputEvent } from './output';
+import { decideBondOutputs, inWindow, intervalDueAt, markOutputDone, nextDueAt, withOutputEvent } from './output';
 
 describe('主動產出排程', () => {
     const DAY = 86400_000;
@@ -249,13 +249,23 @@ describe('主動產出排程', () => {
         const many = Array.from({ length: 8 }, (_, i) => bond(`c${i}::p`, { outputLast: { diary: old + i, question: now - DAY, note: now - DAY, essay: now - DAY } }));
         expect(decideBondOutputs(many.map(b => cand(b)), now, at22, dayStart).due).toHaveLength(6 - 0 - 0);
     });
-    it('交給雲端一天內不排；寫完換起點', () => {
-        const old = now - 30 * DAY;
-        const b = bond('a::p', { outputLast: { diary: old, question: now - DAY, note: now - DAY, essay: now - DAY }, outputHandedOff: { diary: now - 3600_000 } });
-        expect(decideBondOutputs([cand(b)], now, at22, dayStart).due).toEqual([]);
+    it('寫完換起點；下一次最早什麼時候（事件提早、區間保底）', () => {
+        const last = now - 2 * DAY;
+        const b = bond('a::p', { outputLast: { diary: last } });
         const done = markOutputDone(b, 'diary', now);
         expect(done.outputLast!.diary).toBe(now);
-        expect(done.outputHandedOff!.diary).toBeUndefined();
+        const interval = nextDueAt(b, 'diary')!;
+        expect(interval).toBeGreaterThanOrEqual(last + DAY);
+        expect(interval).toBeLessThanOrEqual(last + 3 * DAY);
+        // 事件在區間下限一半之前：等到一半；之後：就是事件那時
+        const early = bond('a::p', { outputLast: { diary: last }, outputEvents: [{ kind: 'daily_summary', at: last + 3600_000 }] });
+        expect(nextDueAt(early, 'diary')).toBe(Math.min(last + DAY / 2, interval));
+        const late = bond('a::p', { outputLast: { diary: last }, outputEvents: [{ kind: 'daily_summary', at: last + DAY }] });
+        expect(nextDueAt(late, 'diary')).toBe(Math.min(last + DAY, interval));
+        // 不對應這一種的事件不算
+        const other = bond('a::p', { outputLast: { question: last }, outputEvents: [{ kind: 'date_end', at: last + DAY }] });
+        expect(nextDueAt(other, 'question')).toBe(intervalDueAt(other, 'question'));
+        expect(nextDueAt(bond('a::p'), 'diary')).toBeNull();
     });
     it('跨午夜的時段', () => {
         expect(inWindow({ from: '22:00', to: '02:00' }, 23 * 60)).toBe(true);

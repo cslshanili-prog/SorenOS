@@ -9,7 +9,8 @@ import type { APIConfig, BondOutputKind, BondOutputSetting } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { writeOne } from './outputRun';
-import { DEFAULT_OUTPUT, DIARY_LENGTH_CHARS, intervalDueAt, markOutputDone, OUTPUT_KIND_LABEL, OUTPUT_KINDS, OUTPUT_LIMITS, resolveOutputSetting } from '../../utils/bond/output';
+import { bondOutputCloudKinds } from './outputCloud';
+import { DEFAULT_OUTPUT, DIARY_LENGTH_CHARS, markOutputDone, nextDueAt, OUTPUT_KIND_LABEL, OUTPUT_KINDS, OUTPUT_LIMITS, resolveOutputSetting } from '../../utils/bond/output';
 import { updateBond } from '../../utils/bond/store';
 import { trackEvent } from '../../utils/analytics';
 
@@ -41,6 +42,7 @@ export const BondOutputSettingsPage: React.FC<{
     const [bond, setBond] = useState(space.bond);
     const [busy, setBusy] = useState<BondOutputKind | null>(null);
     const name = space.rightName;
+    const cloudKinds = bondOutputCloudKinds(space.id);
 
     const patch = async (kind: BondOutputKind, p: Partial<BondOutputSetting>, action?: '开' | '关' | '暂停' | '改区间') => {
         const next = await updateBond(space.id, b => ({ ...b, output: { ...(b.output || {}), [kind]: { ...(b.output?.[kind] || {}), ...p } } }));
@@ -128,7 +130,10 @@ export const BondOutputSettingsPage: React.FC<{
                                         )}
                                     </Row>
                                     <div className="flex items-center justify-between gap-3">
-                                        <span className="text-[11.5px] text-[var(--bond-muted)]">下一次：{paused ? '暫停中' : whenText(intervalDueAt(bond, kind))}</span>
+                                        <span className="text-[11.5px] text-[var(--bond-muted)]">
+                                            下一次：{paused ? '暫停中' : whenText(nextDueAt(bond, kind))}
+                                            {cloudKinds.includes(kind) && <><br />App 關著時由雲端寫</>}
+                                        </span>
                                         <button type="button" className="bond-btn" disabled={!!busy} onClick={() => tryNow(kind)}>
                                             <Feather size={14} />{busy === kind ? '寫著…' : '現在寫一份'}
                                         </button>
@@ -140,6 +145,7 @@ export const BondOutputSettingsPage: React.FC<{
                 })}
                 <p className="text-[11px] leading-relaxed text-[var(--bond-muted)] pb-6">
                     同步私聊只管要不要另外傳一則訊息，不管{name}記不記得：寫好的日記、出的題、丟的紙條，{name}本來就知道。
+                    App 開著時在這台裝置上寫；這條線開了主動消息 2.0、Worker 也是新版的話，App 關著時由雲端到點寫，同一份不會寫兩次。
                 </p>
             </div>
         </div>

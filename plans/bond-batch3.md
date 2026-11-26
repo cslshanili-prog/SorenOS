@@ -24,11 +24,20 @@
 
 >
 > **實況（2026-11-26）：3c 做完。**
-> - 排程判斷在 `utils/bond/output.ts` 的 `decideBondOutputs`（純函式，測試：第一次只記起點、預設只開最近 14 天有聊過的、時段、暫停、事件提早、區間保底、一段一輪一份、隔 3 小時、一段一天 2 份、全部一天 6 份、交給雲端一天內不排）；區間裡挑哪一天用 bondId＋類型＋上次時間算，每次 tick 算出來一樣。
+> - 排程判斷在 `utils/bond/output.ts` 的 `decideBondOutputs`（純函式，測試：第一次只記起點、預設只開最近 14 天有聊過的、時段、暫停、事件提早、區間保底、一段一輪一份、隔 3 小時、一段一天 2 份、全部一天 6 份）；區間裡挑哪一天用 bondId＋類型＋上次時間算，每次 tick 算出來一樣。
 > - 本機的跑法在 `components/bond/outputRun.ts`（OSContext 每 5 分鐘一次、切回前台也看；一次寫一份，先記「寫過了」再寫，失敗不會一直重試同一份）。四種：日記（今天已經有 TA 那頁就不寫）、問答（出題並封存答案）、紙條（你丟來還沒回的先回，回的時候 TA 可以順手標狀態；沒有就自己丟一張）、隨筆（讓 TA 挑一件寫成草稿，你收下才算）。
 > - 「同步私聊」那句跟內容一起生成（JSON 的 `notice`），存成那條線的一則角色訊息（`metadata.source: 'bond-output'`），不在聊天裡就打未讀；日記的預設是開、紙條和隨筆預設關。
 > - 事件：每日總結（OSContext 看到記憶多了一筆，照那筆的身份卡記在那段）、你收存的片刻、你投遞的紙條、你送出的題（`saveBondEntries` 裡記）。見面結束會寫每日總結，所以沒另外接 `date_end`。
 > - 設定頁 `components/bond/BondOutputSettingsPage.tsx`（心意分頁右上的齒輪）；每種下面有「現在寫一份」，不用等排程。
+
+>
+> **實況（2026-11-26）：3d 做完。** 跟設計稿不同的地方：
+> - 一份產出拆兩步，本機和雲端共用（`components/bond/outputRun.ts`）：`prepareOutput` 組提示詞（系統＝角色核心上下文、路線鎖、這一種的提示詞；日記留著日期和你那頁不填），`applyOutput` 拿模型原文解析、存檔、同步私聊。雲端的 standing job 存的就是 `prepareOutput` 的產物，所以兩條路提示詞一字不差。
+> - 契約在零依賴的 `utils/bond/outputCloudJob.ts`（有測試）：job `bond-output:<bondId>` 一段關係一份；**每一種開著的類型一條每天到點的任務**（不是一段一條），時間用 bondId＋類型挑在那一種的投遞時段裡（`bondOutputFireTime`，沒設時段在 10～22 點），照你的裝置時區；job 裡記著現在認的任務 uuid，舊任務到點看到對不上就跳過。worker 側 `worker/amsg/src/bondOutputFire.ts`：照 `decideBondOutputFire` 判斷（到期、時段、暫停、日記那天寫過沒、雲端自己的帳），大多數日子安靜跳過、不叫 LLM；該寫就把原文 `emitResult` 送回，私聊那句當通知文字（沒有就不彈）。
+> - **對帳沒用「交給雲端」標記**（`outputHandedOff` 拿掉了）：本機寫完會改 `outputLast`、打髒、重傳 job（到期時間跟著往後推，`utils/bond/output.ts` 的 `nextDueAt`），雲端到點看到還沒到期就跳過；結果回來時，這一種在 job 快照之後本機寫過（`outputLast > jobRefreshedAt`）就丟掉。頁面關著好幾天：雲端自己記帳（`amsg:job` 的 `bond-output-log`：一天幾份、兩份隔多久、同一種隔區間下限），job 在 `amsg:job` 只活 3 天，客戶端沒上線刷新就自然停。開機第一次本機 tick 延到 90 秒，讓補收回來的雲端結果先落地。
+> - 能不能交（`components/bond/outputCloud.ts` 的 `bondOutputCloudGate`）：這條線開了主動消息 2.0、主動消息那組 API 配得齊（憑據行用這條線的雲端 id）、這台 worker 認得 `bond-output`。「認不認得」不看版本號：`GET /config-check` 多報一個 `backgroundJobKinds`（註冊表裡有哪幾種），`ActiveMsgClient.probeBackgroundJobKind` 照它判斷；老 bundle 沒這個欄位就只在本機跑。bundle 版本號跳到 2026-11-26。
+> - 什麼時候重傳 job：這段關係改了（`BOND_CHANGE_EVENT`：寫了一份、你丟紙條、改設定、日記存了…）、聊天有新訊息兩小時以上、一天沒刷、頁面要藏起來（有新訊息就傳）。帳（哪段、哪種、哪條任務、幾點）記在 localStorage `soren_bond_output_cloud_v1`，關係沒了、類型關了、時段改了就取消重排。
+> - 收件在 `applyBondOutputResult`（`utils/amsgResults.ts` 分派 `bond-output`）：先重讀三個登記表再對帳，收下後記起點、發 `BOND_OUTPUT_DONE_EVENT`（OSContext 跳提示、打未讀，本機寫的也走這個事件）；埋點「主动产出完成」的來源是「云端」。
 
 ## 0. 範圍
 
@@ -222,7 +231,7 @@ interface BondOutputSetting {
 
 - **本機**：OSContext 每 5 分鐘的 tick 多一個「羈絆產出」，純判斷 `decideBondOutputs(spaces, now)`（有測試）挑出到期的，一次跑一份、錯開；App 打開時補跑到期還沒寫的。
 - **雲端**：開了主動消息 2.0 的角色，每段關係上傳一份 standing job（`amsg:job` 的 `bond-output:<bondId>`：人設上下文、這段關係的羈絆段、最近的總結、設定、下一次各類型的到期時間），worker 在 `fireKinds.ts` 多一個 `amsgKind: 'bond-output'`，到點生成、`ctx.emitResult` 送回，客戶端收件後落庫（日記寫 `diaries`、其他寫 `bond_entries`）；同步私聊那句走現成的主動消息收件路（推播照舊）。提示詞本體放零依賴的 `utils/bond/outputPromptCore.ts`，本機和 worker 同一份。
-- **對帳**：本機和雲端不會重複寫同一份：客戶端排雲端時記 `outputLast` 的「已交給雲端」標記，雲端結果回來或過期（超過 1 天沒回）才換本機補。Worker 還沒更新的（不認得 `bond-output`），客戶端看版本號退回本機。
+- **對帳**：本機和雲端不會重複寫同一份（實際做法見文首 3d 實況：沒有用「交給雲端」標記，靠重傳 job 推到期時間＋結果回來時比 `outputLast`）。Worker 還沒更新的（不認得 `bond-output`），客戶端看 `config-check` 報的任務種類退回本機。
 
 ## 2. 提示詞：誰知道什麼
 
