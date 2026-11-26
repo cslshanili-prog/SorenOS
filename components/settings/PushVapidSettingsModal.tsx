@@ -120,7 +120,7 @@ export const PushVapidSettingsModal: React.FC<PushVapidSettingsModalProps> = ({ 
     : '';
 
   return (
-    <Modal
+    <Modal size="large"
       isOpen={open}
       title="推送憑據 (VAPID)"
       onClose={onClose}

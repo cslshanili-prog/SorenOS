@@ -24,7 +24,7 @@ const ErrorLogModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     };
 
     return (
-        <Modal
+        <Modal size="large"
             isOpen={isOpen}
             title="錯誤記錄"
             onClose={onClose}

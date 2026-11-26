@@ -153,7 +153,7 @@ const AmsgCloudDataModal: React.FC<Props> = ({ isOpen, onClose, characters, addT
 
   return (
     <>
-      <Modal
+      <Modal size="large"
         isOpen={isOpen}
         title="雲端數據"
         onClose={onClose}

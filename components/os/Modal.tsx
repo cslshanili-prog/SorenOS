@@ -6,6 +6,8 @@ interface ModalProps {
     onClose: () => void;
     children: React.ReactNode;
     footer?: React.ReactNode;
+    /** large：系統設置用的大一號（邊距收窄、內容區不卡 60vh，最高到可視區），Liora 2026-11-26 */
+    size?: 'default' | 'large';
 }
 
 /**
@@ -14,7 +16,8 @@ interface ModalProps {
  * 內容區也因為沒超出自己的上限而滑不動，只能收鍵盤才看得到剛打的字。
  * 卡片最高到可視區為止，標題和底部按鈕固定，中間內容區自己捲；鍵盤升起後把正在輸入的欄位捲進來。
  */
-const Modal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer }) => {
+const Modal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer, size = 'default' }) => {
+    const large = size === 'large';
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -41,16 +44,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, title, onClose, children, footer 
 
     return (
         <div
-            className="sully-modal-overlay fixed inset-x-0 top-0 z-[100] flex items-center justify-center p-6 animate-fade-in"
+            className={`sully-modal-overlay fixed inset-x-0 top-0 z-[100] flex items-center justify-center animate-fade-in ${large ? 'px-3 pb-3 pt-[calc(var(--safe-top,0px)+0.75rem)]' : 'p-6'}`}
             style={{ height: 'var(--app-height, 100%)' }}
             onClick={e => e.stopPropagation()}
         >
             <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-            <div ref={cardRef} className="relative w-full max-w-sm max-h-full flex flex-col bg-white rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden animate-slide-up">
+            <div ref={cardRef} className={`relative w-full max-h-full flex flex-col bg-white shadow-2xl border border-white/20 overflow-hidden animate-slide-up ${large ? 'max-w-xl rounded-[2rem]' : 'max-w-sm rounded-[2.5rem]'}`}>
                 <div className="px-6 pt-6 pb-2 shrink-0">
                     <h3 className="text-lg font-bold text-slate-800 text-center">{title}</h3>
                 </div>
-                <div className="px-6 py-4 max-h-[60vh] min-h-0 shrink overflow-y-auto overscroll-contain no-scrollbar">
+                <div className={`px-6 py-4 min-h-0 shrink overflow-y-auto overscroll-contain no-scrollbar ${large ? 'flex-1' : 'max-h-[60vh]'}`}>
                     {children}
                 </div>
                 {footer ? (

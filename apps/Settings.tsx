@@ -2780,25 +2780,6 @@ const Settings: React.FC = () => {
             <TranslationApiSettings apiConfig={apiConfig} updateApiConfig={updateApiConfig} apiPresets={apiPresets} />
             </>}
             </SettingsTabs>
-            {/* API 調用記錄入口 — 點開看最近 5 天各 App / 角色 / 用途的調用明細 */}
-            <button
-            type="button"
-            onClick={() => setShowApiCallLog(true)}
-            className="w-full mt-5 bg-slate-50/80 rounded-2xl p-4 border border-slate-200/70 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
-        >
-            <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
-                </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-semibold text-slate-600 tracking-wider">API 調用記錄</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">最近 5 天：時間 · 哪個 API · 哪個 App · 哪個角色 · 用途</p>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-300 shrink-0">
-                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
-            </svg>
-        </button>
         </SettingsSection>
 
         {/* API 中心（plans/api-center-failover.md）：四個副槽集中在這裡填，角色級留著當覆蓋（朋友圈槽反過來蓋過角色） */}
@@ -2816,11 +2797,30 @@ const Settings: React.FC = () => {
             <ApiCenterPanel />
         </SettingsSection>
 
-        {/* 錯誤記錄入口 — 頂端紅膠囊的歷史，本機留 7 天（utils/systemLogStore.ts） */}
-        <button
+        {/* 記錄：API 調用記錄＋錯誤記錄收在一張，不用展開就看得到（Liora 2026-11-26） */}
+        <section className="bg-[#fffefe] rounded-3xl p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)] border border-slate-200/80 divide-y divide-slate-100">
+            <button
+            type="button"
+            onClick={() => setShowApiCallLog(true)}
+            className="w-full flex items-center gap-3 rounded-2xl p-3 active:bg-slate-50 active:scale-[0.99] transition-transform text-left"
+        >
+            <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-semibold text-slate-600 tracking-wider">API 調用記錄</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">最近 5 天：時間 · 哪個 API · 哪個 App · 哪個角色 · 用途</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-slate-300 shrink-0">
+                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
+            </svg>
+        </button>
+            <button
             type="button"
             onClick={() => setShowErrorLog(true)}
-            className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+            className="w-full flex items-center gap-3 rounded-2xl p-3 active:bg-slate-50 active:scale-[0.99] transition-transform text-left"
         >
             <div className="p-2 bg-rose-100/60 rounded-xl text-rose-500 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -2835,6 +2835,7 @@ const Settings: React.FC = () => {
                 <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
             </svg>
         </button>
+        </section>
 
         {/* 語音與寫歌：非 LLM 類 API，不跟預設切換；分語音、寫歌兩頁 */}
         <SettingsSection
@@ -3593,7 +3594,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* 主動消息 Push 加速 · 啟用前確認 */}
-      <Modal
+      <Modal size="large"
           isOpen={showPpConfirm}
           title="啟用 Push 加速？"
           onClose={() => setShowPpConfirm(false)}
@@ -3650,7 +3651,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* Cloud Config Modal */}
-      <Modal isOpen={showCloudModal} title="雲端備份配置" onClose={() => setShowCloudModal(false)}>
+      <Modal size="large" isOpen={showCloudModal} title="雲端備份配置" onClose={() => setShowCloudModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
                   <p className="text-[10px] text-rose-700 leading-relaxed">
@@ -3709,7 +3710,7 @@ const Settings: React.FC = () => {
 
       {/* GitHub Backup Modal — minimum-input flow: paste a token, we figure
           out owner via /user and auto-create a private 'sully-backup' repo. */}
-      <Modal isOpen={showGithubModal} title="GitHub 備份" onClose={() => setShowGithubModal(false)}>
+      <Modal size="large" isOpen={showGithubModal} title="GitHub 備份" onClose={() => setShowGithubModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                   <p className="text-[11px] text-slate-700 leading-relaxed">
@@ -3849,7 +3850,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* Cloud Restore Modal */}
-      <Modal isOpen={showCloudRestoreModal} title="從雲端恢復" onClose={() => setShowCloudRestoreModal(false)}>
+      <Modal size="large" isOpen={showCloudRestoreModal} title="從雲端恢復" onClose={() => setShowCloudRestoreModal(false)}>
           <div className="space-y-2 p-1">
               {cloudBackupListState === 'loading' ? (
                   <div className="text-center py-8"><p className="text-[11px] text-slate-400">正在加載雲端備份列表...</p></div>
@@ -3863,7 +3864,7 @@ const Settings: React.FC = () => {
               ) : (
                   <>
                       <p className="text-[10px] text-slate-400 mb-2">選擇要恢復的備份文件:</p>
-                      <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                      <div className="space-y-2">
                           {cloudBackupFiles.map((file, i) => file.status === 'incomplete' ? (
                               <div key={file.href || i} className="w-full p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-left">
                                   <div className="flex items-start justify-between gap-2">
@@ -3899,7 +3900,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 模型選擇 Modal */}
-      <Modal isOpen={showModelModal} title="選擇模型" onClose={() => setShowModelModal(false)}>
+      <Modal size="large" isOpen={showModelModal} title="選擇模型" onClose={() => setShowModelModal(false)}>
         {(() => {
             const { filtered, commonPrefix } = modelPickerView;
             return (
@@ -3979,7 +3980,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 識圖 API 使用獨立模型列表，避免覆蓋主 API 的模型選擇。 */}
-      <Modal isOpen={showVisionModelModal} title="選擇識圖模型" onClose={() => setShowVisionModelModal(false)}>
+      <Modal size="large" isOpen={showVisionModelModal} title="選擇識圖模型" onClose={() => setShowVisionModelModal(false)}>
         {(() => {
             const { filtered, commonPrefix } = visionModelPickerView;
             return (
@@ -4071,7 +4072,7 @@ const Settings: React.FC = () => {
       <ErrorLogModal isOpen={showErrorLog} onClose={() => setShowErrorLog(false)} />
 
       {/* Preset Name Modal */}
-      <Modal isOpen={showPresetModal} title="新建預設" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">新建</button>}>
+      <Modal size="large" isOpen={showPresetModal} title="新建預設" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">新建</button>}>
           <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase">預設名稱 (例如: DeepSeek)</label>
               <input value={newPresetName} onChange={e => setNewPresetName(e.target.value)} className="w-full bg-slate-100 rounded-xl px-4 py-3 text-sm focus:outline-primary" autoFocus placeholder="Name..." />
@@ -4080,7 +4081,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 編輯預設：只改這條預設本身；正在用它的話，當前配置一併跟著走 */}
-      <Modal
+      <Modal size="large"
           isOpen={!!editingPresetId}
           title="編輯預設"
           onClose={() => setEditingPresetId(null)}
@@ -4159,7 +4160,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 強制導出 Modal */}
-      <Modal isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} footer={
+      <Modal size="large" isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} footer={
           <div className="flex gap-2 w-full">
                <button onClick={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">關閉</button>
           </div>
@@ -4184,13 +4185,13 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 實時感知配置 Modal */}
-      <Modal
+      <Modal size="large"
           isOpen={showRealtimeModal}
           title="實時感知配置"
           onClose={() => setShowRealtimeModal(false)}
           footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
       >
-          <div className="space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
+          <div className="space-y-5">
               <UserHolidaySettings value={rtUserHolidays} onChange={setRtUserHolidays} />
               {/* 天氣配置 */}
               <div className="bg-emerald-50/50 p-4 rounded-2xl space-y-3">
@@ -4651,7 +4652,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 通用 MCP 管理（從實時感知裡獨立出來） */}
-      <Modal isOpen={showMcpModal} title="MCP" onClose={() => { setShowMcpModal(false); flushMcpToolConfigSync(); }}>
+      <Modal size="large" isOpen={showMcpModal} title="MCP" onClose={() => { setShowMcpModal(false); flushMcpToolConfigSync(); }}>
           <div className="space-y-4">
               <McpConnectionConsole addToast={addToast} onMcpConfigChanged={() => {
                   // MCP 配置變更只需重傳 tool_config：提示詞塊與 tools 數組由 worker 在 fire 時
@@ -4665,7 +4666,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* MCP 幫助 Modal —— 面向完全不懂 MCP 的用戶，講清用途與部署方式 */}
-      <Modal isOpen={showMcpHelp} title="MCP 是什麼？" onClose={() => setShowMcpHelp(false)}>
+      <Modal size="large" isOpen={showMcpHelp} title="MCP 是什麼？" onClose={() => setShowMcpHelp(false)}>
           <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
               <div className="bg-violet-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-violet-700">MCP 工具服務器</p>
@@ -4718,7 +4719,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 確認重置 Modal */}
-      <Modal
+      <Modal size="large"
           isOpen={showResetConfirm}
           title="系統警告"
           onClose={() => setShowResetConfirm(false)}
@@ -4741,7 +4742,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 雲端沒清乾淨：本地還一個字節都沒動，讓用戶決定 */}
-      <Modal
+      <Modal size="large"
           isOpen={!!resetCloudFailure}
           title="雲端還沒清乾淨"
           onClose={() => setResetCloudFailure(null)}

@@ -112,7 +112,7 @@ const ApiCallLogModal: React.FC<ApiCallLogModalProps> = ({ isOpen, onClose }) =>
     }, []);
 
     return (
-        <Modal
+        <Modal size="large"
             isOpen={isOpen}
             title="API 調用記錄"
             onClose={onClose}
