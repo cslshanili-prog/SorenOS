@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // 角色關掉「時間感知強化」後，日程塊曾經照舊寫著「當前時段：22:00 你正在睡覺」——
 // 精確鐘點從這條縫裡漏了出去，而擋住它正是那個開關存在的意義。
@@ -37,7 +37,23 @@ const buildVolatile = async (timeAwarenessEnabled: boolean | undefined) => {
     return parts.volatileState;
 };
 
+// 「當前時段」是照真實的現在挑的：不把時間釘住，23:30 之後跑這個檔，當前時段就換成「看劇」，
+// 下面寫死「睡覺」的斷言跟著變紅。
+// 用本地時間的建構子釘——測試角色沒開自定義時區、跟著設備走，所以不管跑測試的機器在哪個時區，
+// 角色那邊都是 2026-08-19（對上 mock 日程的日期）的正午，穩穩落在「睡覺」那段裡。
+const FIXED_NOW = new Date(2026, 7, 19, 12, 0, 0);
+
 describe('日程塊的鐘點跟著「時間感知」開關走', () => {
+    beforeEach(() => {
+        // 只假 Date：buildSystemPromptParts 裡有真的 setTimeout（等節假日的逾時），計時器一起假會卡住
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(FIXED_NOW);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it('開著（默認）時照常報時段', async () => {
         const volatile = await buildVolatile(undefined);
         expect(volatile).toContain('當前時段：00:00 你正在睡覺');
