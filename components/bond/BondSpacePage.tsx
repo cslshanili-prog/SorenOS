@@ -15,6 +15,10 @@ import { generateOurNow } from '../../utils/bond/ourNow';
 import { loadPairMessages } from '../../utils/pairChatRun';
 import { pairTranscript } from '../../utils/pairLine';
 import { trackEvent } from '../../utils/analytics';
+import { useSpaceTimeline } from './useSpaceTimeline';
+import { itemHeadline } from './BondMomentsPage';
+import { pickRecentItem } from '../../utils/bond/timeline';
+import { formatEventDate } from '../../utils/bond/eventDate';
 
 const formatDay = (key: string) => {
     const [y, m, d] = key.split('-');
@@ -31,8 +35,15 @@ export const BondSpacePage: React.FC<{
     onOpenDays: () => void;
     onEditMine: () => void;
     onAddAnniversary: () => void;
+    /** 分頁列（我們／拾光） */
+    tabBar?: React.ReactNode;
+    /** 首頁「最近拾光」點了去那一件 */
+    onOpenItem?: (key: string) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, addToast }) => {
+    // 最近拾光（plans/bond-batch2.md 第 7 節）：收藏的優先，沒有就最新的；什麼都沒有時不顯示這塊
+    const { items: timelineItems } = useSpaceTimeline(space, characters);
+    const recent = useMemo(() => pickRecentItem(timelineItems), [timelineItems]);
     const [bond, setBond] = useState(space.bond);
     const [busy, setBusy] = useState<string | null>(null);
     const isPair = space.kind === 'pair';
@@ -104,8 +115,9 @@ export const BondSpacePage: React.FC<{
 
     return (
         <div className="absolute inset-0 flex flex-col bond-root">
-            <BondHeader title={isPair ? '他們' : '我們'} onBack={onBack}
+            <BondHeader title={isPair ? `${space.leftName} & ${space.rightName}` : space.rightName} onBack={onBack}
                 right={<button type="button" onClick={onOpenRoute} className="bond-note px-2 py-1">路線</button>} />
+            {tabBar}
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 {/* 關係主視覺 */}
                 <section className="px-6 pt-8 pb-7 text-center border-b bond-hair">
@@ -188,6 +200,16 @@ export const BondSpacePage: React.FC<{
                         )}
                         <button type="button" className="mt-2 text-[12px] text-[var(--bond-accent)]" onClick={onAddAnniversary}>到行事曆加一個 ›</button>
                     </section>
+
+                    {recent && onOpenItem && (
+                        <section>
+                            <SectionLabel>最 近 拾 光</SectionLabel>
+                            <button type="button" onClick={() => onOpenItem(recent.key)} className="w-full text-left">
+                                <div className="text-[11px] text-[var(--bond-muted)]">{formatEventDate(recent.eventDate)}{recent.favorite ? ' · 收藏' : ''}</div>
+                                <div className="bond-serif mt-1 text-[14.5px] leading-relaxed">{itemHeadline(recent, 90)}</div>
+                            </button>
+                        </section>
+                    )}
 
                     {/* 關係概覽：親近與信任（讀現成的量表／好感），角色 × 角色雙方怎麼看對方 */}
                     {(meters.length > 0 || isPair) && (

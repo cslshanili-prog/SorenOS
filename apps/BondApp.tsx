@@ -1,13 +1,17 @@
 /**
  * 羈絆（plans/bond.md、plans/bond-batch1.md）：一段關係的專屬空間。
  * 第 1 批：空間清單（我和 TA／他們之間）、「我們」首頁、路線設定、天數、此刻的我們、建立空間。
- * 拾光、心意、約定、珍藏四個分頁從第 2 批起陸續出現（還沒做的不顯示）。
+ * 第 2 批：拾光分頁（時間線、片刻、記憶的編輯刪除，plans/bond-batch2.md）。心意、約定、珍藏之後陸續出現（還沒做的不顯示）。
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import { useOS } from '../context/OSContext';
 import { AppID, type BondRecord, type CalendarEvent, type CharacterProfile } from '../types';
-import { AvatarPair, BondAvatar, BondHeader, BondStyle, SectionLabel } from '../components/bond/bondUi';
+import { AvatarPair, BondAvatar, BondHeader, BondStyle, BondTabs, SectionLabel, type BondTab } from '../components/bond/bondUi';
+import { BondMomentsPage } from '../components/bond/BondMomentsPage';
+import { BondItemPage } from '../components/bond/BondItemPage';
+import { BondMemoryEditor, BondMomentEditor } from '../components/bond/BondMomentEditor';
+import { useSpaceTimeline } from '../components/bond/useSpaceTimeline';
 import { BondSpacePage } from '../components/bond/BondSpacePage';
 import { BondRoutePage } from '../components/bond/BondRoutePage';
 import { BondDaysPage } from '../components/bond/BondDaysPage';
@@ -28,14 +32,17 @@ import { trackEvent } from '../utils/analytics';
 
 type Page =
     | { page: 'list' }
-    | { page: 'space'; id: string }
+    | { page: 'space'; id: string; tab?: BondTab }
+    | { page: 'item'; id: string; key: string }
+    | { page: 'moment-edit'; id: string; entryId?: string; key?: string }
+    | { page: 'memory-edit'; id: string; memoryId: string; key: string }
     | { page: 'route'; id: string; from: 'space' | 'list' }
     | { page: 'days'; id: string }
     | { page: 'mine'; id: string }
     | { page: 'create' };
 
 const BondApp: React.FC = () => {
-    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine } = useOS();
+    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine, updateCharacter, memoryPalaceConfig, remoteVectorConfig } = useOS();
     const [page, setPage] = useState<Page>(() => {
         // 先 peek、掛上後才 consume（跟行事曆同一招：開發模式重掛或 Suspense 重來時字條不會先被吃掉）
         const launch = bondLaunch.peek();
@@ -64,7 +71,8 @@ const BondApp: React.FC = () => {
 
     const back = () => setPage({ page: 'list' });
 
-    if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine') {
+    if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine'
+        || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -76,11 +84,35 @@ const BondApp: React.FC = () => {
             );
         }
         const toSpace = () => setPage({ page: 'space', id: page.id });
+        const toMoments = () => setPage({ page: 'space', id: page.id, tab: 'moments' });
+        const openItem = (key: string) => setPage({ page: 'item', id: page.id, key });
+        const tabBar = (current: BondTab) => <BondTabs value={current} onChange={t => setPage({ page: 'space', id: page.id, tab: t })} />;
         return (
             <div className="h-full w-full relative bond-root overflow-hidden">
                 <BondStyle />
-                {page.page === 'space' && (
+                {page.page === 'space' && page.tab === 'moments' && (
+                    <BondMomentsPage space={s} characters={chars} tabBar={tabBar('moments')} onBack={back}
+                        onOpenItem={openItem} onNewMoment={() => setPage({ page: 'moment-edit', id: s.id })} />
+                )}
+                {page.page === 'item' && (
+                    <BondItemPage space={s} itemKey={page.key} characters={chars} onBack={toMoments}
+                        onEditMoment={entryId => setPage({ page: 'moment-edit', id: s.id, entryId, key: page.key })}
+                        onEditMemory={memoryId => setPage({ page: 'memory-edit', id: s.id, memoryId, key: page.key })}
+                        updateCharacter={updateCharacter} addToast={addToast} />
+                )}
+                {page.page === 'moment-edit' && (
+                    <BondMomentEditor space={s} entryId={page.entryId}
+                        onBack={page.key ? () => openItem(page.key!) : toMoments}
+                        onSaved={entry => openItem(`e:${entry.id}`)} addToast={addToast} />
+                )}
+                {page.page === 'memory-edit' && (
+                    <MemoryEditRoute space={s} chars={chars} memoryId={page.memoryId} itemKey={page.key}
+                        embedding={memoryPalaceConfig.embedding} remote={remoteVectorConfig}
+                        updateCharacter={updateCharacter} onBack={() => openItem(page.key)} addToast={addToast} />
+                )}
+                {page.page === 'space' && page.tab !== 'moments' && (
                     <BondSpacePage key={`${s.id}-${version}`} space={s} characters={chars} events={events} apiConfig={apiConfig}
+                        tabBar={tabBar('us')} onOpenItem={openItem}
                         onBack={back}
                         onOpenRoute={() => setPage({ page: 'route', id: s.id, from: 'space' })}
                         onOpenDays={() => setPage({ page: 'days', id: s.id })}
@@ -305,6 +337,32 @@ const CreateSpacePage: React.FC<{
             </div>
         </div>
     );
+};
+
+/** 編輯記憶：正文用時間線上那一列（有宮殿關聯時是宮殿最新正文），存走神經鏈接同一條路 */
+const MemoryEditRoute: React.FC<{
+    space: ResolvedSpace;
+    chars: CharacterProfile[];
+    memoryId: string;
+    itemKey: string;
+    embedding: React.ComponentProps<typeof BondMemoryEditor>['embedding'];
+    remote: React.ComponentProps<typeof BondMemoryEditor>['remote'];
+    updateCharacter: React.ComponentProps<typeof BondMemoryEditor>['updateCharacter'];
+    onBack: () => void;
+    addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
+}> = ({ space, chars, memoryId, itemKey, embedding, remote, updateCharacter, onBack, addToast }) => {
+    const { items, char } = useSpaceTimeline(space, chars);
+    const item = items.find(i => i.key === itemKey);
+    if (!char || !item) {
+        return (
+            <div className="absolute inset-0 flex flex-col bond-root">
+                <BondHeader title="編輯記憶" onBack={onBack} />
+                <div className="flex-1 grid place-items-center text-[13px] text-[var(--bond-muted)]">這筆記憶已經不在了。</div>
+            </div>
+        );
+    }
+    return <BondMemoryEditor key={memoryId} char={char} memoryId={memoryId} currentText={item.text} embedding={embedding} remote={remote}
+        updateCharacter={updateCharacter} onBack={onBack} addToast={addToast} />;
 };
 
 export default BondApp;
