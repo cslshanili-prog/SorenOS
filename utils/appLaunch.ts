@@ -24,7 +24,9 @@ const oneShot = <T>() => {
 export const calendarLaunch = oneShot<{ tab: 'theirs' }>();
 export const memoryPalaceLaunch = oneShot<{ charId: string }>();
 /** 羈絆：直接進某段關係的空間（plans/bond-batch1.md 3.1）；page 'route' 是直接開路線設定頁 */
-export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'moments' | 'collect'; collect?: BondCollectRequest; itemKey?: string; essayId?: string }>();
+export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'moments' | 'collect'; collect?: BondCollectRequest; itemKey?: string; essayId?: string;
+    /** 心意（第 3 批）：直接開哪一格、哪一題、哪張紙條、哪天的日記 */
+    heart?: 'diary' | 'question' | 'note'; questionId?: string; slipId?: string; diaryDate?: string }>();
 /**
  * 從羈絆跳回當時那則訊息（plans/bond-batch2.md 6.1）：私聊收到就載入那則附近、捲過去閃一下。
  * 線不是現在的身份時，呼叫端先切身份（setActivePersonaId）再開聊天。

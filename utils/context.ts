@@ -49,6 +49,7 @@ import { withGlobalWorldbooks } from './globalWorldbooks';
 
 import { bondForChar, bondForPair } from './bond/registry';
 import { bondPromptBlock, pairRouteNote } from './bond/prompt';
+import { diariesOfBondSync } from './bond/diaryRegistry';
 import { bondEntriesOf } from './bond/entryRegistry';
 import { bondIdForChar } from './bond/model';
 /**
@@ -361,6 +362,8 @@ export const ContextBuilder = {
         sections.bond = bondPromptBlock({
             bond: bondForChar(char), selfName: char.name, otherName: user.name,
             entries: bondEntriesOf(bondIdForChar(char)), selfId: char.id,
+            // 第 3 批：發布的日記（問答、紙條從 entries 挑，照知情範圍）
+            diaries: diariesOfBondSync(bondIdForChar(char)),
         });
 
         // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）

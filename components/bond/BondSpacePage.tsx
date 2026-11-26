@@ -6,6 +6,7 @@ import React, { useMemo, useState } from 'react';
 import { CaretRight, PencilSimple, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, CalendarEvent, CharacterProfile } from '../../types';
 import { AvatarPair, BondHeader, SectionLabel } from './bondUi';
+import { useHeartNotice, type HeartNotice } from './BondHeartPage';
 import type { ResolvedSpace } from './space';
 import { ROUTE_LABEL, routeLabel, stageLabel, suggestBond } from '../../utils/bond/routes';
 import { applyRouteChange } from '../../utils/bond/model';
@@ -39,8 +40,11 @@ export const BondSpacePage: React.FC<{
     tabBar?: React.ReactNode;
     /** 首頁「最近拾光」點了去那一件 */
     onOpenItem?: (key: string) => void;
+    /** 首頁「最近值得留意的一件事」點了去那一則（plans/bond-batch3.md 3.3） */
+    onOpenNotice?: (n: HeartNotice) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, addToast }) => {
+    const notice = useHeartNotice(space);
     // 最近拾光（plans/bond-batch2.md 第 7 節）：收藏的優先，沒有就最新的；什麼都沒有時不顯示這塊
     const { items: timelineItems } = useSpaceTimeline(space, characters);
     const recent = useMemo(() => pickRecentItem(timelineItems), [timelineItems]);
@@ -186,6 +190,16 @@ export const BondSpacePage: React.FC<{
                             </div>
                         </div>
                     </section>
+
+                    {notice && onOpenNotice && (
+                        <section>
+                            <SectionLabel>最 近 值 得 留 意</SectionLabel>
+                            <button type="button" onClick={() => onOpenNotice(notice)} className="w-full text-left rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3">
+                                <div className="text-[11px] text-[var(--bond-accent)]">{notice.label}</div>
+                                <div className="bond-serif mt-1 text-[14.5px] leading-relaxed line-clamp-2">{notice.text}</div>
+                            </button>
+                        </section>
+                    )}
 
                     {/* 下一個紀念日 */}
                     <section>

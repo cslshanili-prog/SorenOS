@@ -6,8 +6,9 @@
 import type { BondEntry } from '../../types';
 import { DB } from '../db';
 import { parseBondId } from './model';
-import { allRegisteredBondEntries, dropBondEntriesFromRegistry, putBondEntriesInRegistry, setBondEntryRegistry } from './entryRegistry';
-import { BOND_CHANGE_EVENT, type BondChangeDetail } from './store';
+import { allRegisteredBondEntries, bondEntryById, dropBondEntriesFromRegistry, putBondEntriesInRegistry, setBondEntryRegistry } from './entryRegistry';
+import { BOND_CHANGE_EVENT, updateBond, type BondChangeDetail } from './store';
+import { withOutputEvent } from './output';
 
 function announce(bondIds: string[]): void {
     const ids = [...new Set(bondIds.filter(Boolean))];
@@ -15,7 +16,7 @@ function announce(bondIds: string[]): void {
     window.dispatchEvent(new CustomEvent<BondChangeDetail>(BOND_CHANGE_EVENT, { detail: { ids } }));
 }
 
-export const newBondEntryId = (): string => `be-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+export { newBondEntryId } from './ids';
 
 /** 讀全部並更新登記表（開機、還原備份後） */
 export async function refreshBondEntryRegistry(): Promise<BondEntry[]> {
@@ -29,8 +30,16 @@ export async function saveBondEntries(entries: BondEntry[]): Promise<BondEntry[]
     if (!entries.length) return [];
     const now = Date.now();
     const next = entries.map(e => ({ ...e, updatedAt: now }));
+    // 主動產出的事件（plans/bond-batch3.md 1.5）：你剛收存的片刻、剛投遞的紙條、剛送出的題，讓角色提早寫一份
+    const events = next.flatMap(e => {
+        const prev = bondEntryById(e.id);
+        if (e.author !== 'user' || e.status !== 'published' || prev?.status === 'published') return [];
+        const kind = e.kind === 'moment' ? 'moment' as const : e.kind === 'note' ? 'note_received' as const : e.kind === 'question' ? 'question_received' as const : null;
+        return kind ? [{ bondId: e.bondId, ev: { kind, at: now, ref: e.id } }] : [];
+    });
     await DB.saveBondEntries(next);
     putBondEntriesInRegistry(next);
+    for (const { bondId, ev } of events) await updateBond(bondId, b => withOutputEvent(b, ev)).catch(() => {});
     announce(next.map(e => e.bondId));
     return next;
 }

@@ -124,15 +124,19 @@ export function buildEssayChoosePrompt(input: {
     otherName: string;
     candidates: Array<{ dateText: string; label: string; text: string }>;
     hint?: string;
+    /** 主動產出設定的篇幅、文風（羈絆第 3 批；沒給就照個性） */
+    chars?: [number, number];
+    style?: string;
 }): string {
-    const { selfName, otherName, candidates, hint } = input;
+    const { selfName, otherName, candidates, hint, chars, style } = input;
+    const extra = `${chars ? `\n- 篇幅大約 ${chars[0]}～${chars[1]} 字（話少的話可以短一點）。` : ''}${style?.trim() ? `\n- 文風：${style.trim()}（仍以你的個性優先）。` : ''}`;
     const list = candidates.map((c, i) => `#${i + 1}（${c.dateText}・${c.label}）${clip(c.text.replace(/\s+/g, ' '), 160)}`).join('\n');
     return `請你以「${selfName}」的身份，從下面你和${otherName}之間的事裡，挑一件你現在最想寫點什麼的，寫一篇隨筆。
 
 【可以挑的事】
 ${list}
 ${hint?.trim() ? `\n【${otherName}想請你寫的方向】\n${hint.trim()}\n` : ''}
-${RULES(selfName, otherName)}
+${RULES(selfName, otherName)}${extra}
 
 只輸出 JSON，不要其他文字：{"pick":挑的編號,"title":"幾個字的標題，可以留空","text":"隨筆正文"}`;
 }

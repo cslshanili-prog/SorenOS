@@ -18,6 +18,7 @@
 import { PLATE_CONSOLIDATE_RESULT_KIND } from './amsgPlateJob';
 import { SCHEDULE_CHANGE_RESULT_KIND } from './amsgScheduleResult';
 import { SCHEDULE_GENERATE_RESULT_KIND } from './amsgScheduleJob';
+import { BOND_OUTPUT_RESULT_KIND } from './bond/outputCloudJob';
 
 const HEADER = '[amsg2:result]';
 
@@ -118,6 +119,10 @@ const dispatchOne = async (payload: unknown, context?: AmsgResultContext): Promi
       case SCHEDULE_GENERATE_RESULT_KIND: {
         const { applyScheduleGenerateResult } = await import('./scheduleGenerateResultApply');
         return await applyScheduleGenerateResult(payload, context);
+      }
+      case BOND_OUTPUT_RESULT_KIND: {
+        const { applyBondOutputResult } = await import('../components/bond/outputCloud');
+        return await applyBondOutputResult(payload, context);
       }
       default:
         // 認不出來的多半是**前端比 worker 舊**：worker 可以脫開前端單獨更新（fork 的

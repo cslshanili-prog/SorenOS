@@ -19,6 +19,10 @@ import { trackEvent } from '../utils/analytics';
 import JournalAppearanceButton, { JournalAppearanceStyle } from '../components/journal/JournalAppearanceEditor';
 import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
 import { resolveUserProfileForChar } from '../utils/userPersona';
+import type { UserProfile } from '../types';
+import { lineMsgFields } from '../utils/chatLine';
+import { diaryInBond, markCharPageSeen, pageEmpty, pagePublished, publishUserPage, putCharPage, touchUserPage } from '../utils/bond/diary';
+import { outputMaxTokens } from '../utils/bond/outputPromptCore';
 
 import { withApiCallMeta } from '../utils/apiCallLog';
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
@@ -70,7 +74,33 @@ const getLocalDateStr = () => {
     return `${year}-${month}-${day}`;
 };
 
-const JournalApp: React.FC = () => {
+/**
+ * 嵌在羈絆「心意」裡（plans/bond-batch3.md 1.1、第 4 節）：交換日記搬進羈絆後，桌面圖示改開羈絆，
+ * 日記頁本身（信紙、貼紙、外觀主題、歸檔）還是這一份。嵌入時只列這段關係的日記，返回回羈絆。
+ */
+export interface JournalEmbed {
+    /** 這條線看到的角色卡（lineView） */
+    char: CharacterProfile;
+    /** 這條線上的你 */
+    user: UserProfile;
+    bondId: string;
+    /** 這個角色主線那張卡的空間（舊日記沒有 bondId，算在這裡） */
+    mainBondId: string;
+    /** 這段關係的「今天」（故事時間） */
+    today: string;
+    /** 一打開就停在哪一本 */
+    initialDate?: string;
+    /** 日記設定：同步私聊、篇幅、文風（羈絆的主動產出設定） */
+    syncToChat: boolean;
+    /** 篇幅：大約幾字到幾字 */
+    chars: [number, number];
+    style?: string;
+    onBack: () => void;
+    /** 帶去聊聊（發布了的頁才能帶；羈絆第 3 批） */
+    onBringToChat?: (entry: DiaryEntry, side: 'user' | 'char') => void;
+}
+
+const JournalApp: React.FC<{ embed?: JournalEmbed }> = ({ embed }) => {
     const { closeApp, characters, activeCharacterId, apiConfig, addToast, userProfile: globalUserProfile, userProfileBase, updateCharacter, memoryPalaceConfig, characterGroups, theme } = useOS();
     // 預覽草稿只活在當前 JournalApp 會話裡，不寫 theme/localStorage。狀態放在
     // App 頂層，才能在選擇頁、列表頁與書寫頁之間切換時繼續預覽同一套 CSS。
@@ -89,10 +119,12 @@ const JournalApp: React.FC = () => {
         onCancelPreview: () => setPreviewJournalAppearance(undefined),
     };
 
-    const [mode, setMode] = useState<'select' | 'calendar' | 'write'>('select');
-    const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(null);
-    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts
-    const userProfile = useMemo(() => (selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [selectedChar, userProfileBase, globalUserProfile]);
+    const [mode, setMode] = useState<'select' | 'calendar' | 'write'>(embed ? 'calendar' : 'select');
+    const [selectedChar, setSelectedChar] = useState<CharacterProfile | null>(embed ? embed.char : null);
+    // 身份照這個角色的綁定走（角色自己指定 > 世界預設 > 全域默認），見 utils/userPersona.ts；嵌在羈絆時就是那條線上的你
+    const userProfile = useMemo(() => (embed ? embed.user : selectedChar ? resolveUserProfileForChar(userProfileBase, selectedChar) : globalUserProfile), [embed, selectedChar, userProfileBase, globalUserProfile]);
+    const todayStr = () => embed?.today || getLocalDateStr();
+    const [showCharOriginal, setShowCharOriginal] = useState(false);
     const [journalGroupId, setJournalGroupId] = useState<string>(GROUP_FILTER_ALL); // 選日記本頁的分組篩選
     const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
     const [currentEntry, setCurrentEntry] = useState<DiaryEntry | null>(null);
@@ -138,6 +170,13 @@ const JournalApp: React.FC = () => {
     // --- Data Loading ---
 
     useEffect(() => {
+        if (embed) {
+            setSelectedChar(embed.char);
+            setMode('calendar');
+            void loadDiaries(embed.char.id).then(list => { if (embed.initialDate) openEntryFrom(list, embed.initialDate); });
+            DB.getJournalStickers().then(setCustomStickers);
+            return;
+        }
         if (characters.length > 0 && activeCharacterId) {
             const initial = characters.find(c => c.id === activeCharacterId);
             if (initial) {
@@ -150,9 +189,12 @@ const JournalApp: React.FC = () => {
         DB.getJournalStickers().then(setCustomStickers);
     }, [activeCharacterId]);
 
-    const loadDiaries = async (charId: string) => {
-        const list = await DB.getDiariesByCharId(charId);
-        setDiaries(list.sort((a, b) => b.date.localeCompare(a.date)));
+    const loadDiaries = async (charId: string): Promise<DiaryEntry[]> => {
+        const all = await DB.getDiariesByCharId(charId);
+        // 嵌在羈絆裡只列這段關係的（舊日記沒有 bondId，算主線那張卡）
+        const list = (embed ? all.filter(d => diaryInBond(d, embed.bondId, embed.mainBondId)) : all).sort((a, b) => b.date.localeCompare(a.date));
+        setDiaries(list);
+        return list;
     };
 
     const handleCharSelect = (char: CharacterProfile) => {
@@ -161,10 +203,15 @@ const JournalApp: React.FC = () => {
         loadDiaries(char.id);
     };
 
-    const openEntry = (date: string) => {
-        const existing = diaries.find(d => d.date === date);
+    const openEntry = (date: string) => openEntryFrom(diaries, date);
+    const openEntryFrom = (list: DiaryEntry[], date: string) => {
+        const existing = list.find(d => d.date === date);
+        setShowCharOriginal(false);
         if (existing) {
-            setCurrentEntry(existing);
+            // 打開就算讀過角色那頁（首頁「新日記」用）
+            const seen = markCharPageSeen(existing);
+            if (seen !== existing) void DB.saveDiary(seen);
+            setCurrentEntry(seen);
             // Default to char tab if they replied
             setActiveTab(existing.charPage ? 'char' : 'user');
         } else {
@@ -172,8 +219,10 @@ const JournalApp: React.FC = () => {
             setCurrentEntry({
                 id: `diary-${Date.now()}`,
                 charId: selectedChar!.id,
+                ...(embed ? { bondId: embed.bondId } : {}),
                 date: date,
-                userPage: { text: '', paperStyle: 'grid', stickers: [] },
+                // writtenAt 標成新的一頁：沒有它的頁會被當成舊資料（有字就算已發布，utils/bond/diary.ts）
+                userPage: { text: '', paperStyle: 'grid', stickers: [], writtenAt: Date.now() },
                 timestamp: Date.now(),
                 isArchived: false,
                 autoSync: true,
@@ -300,7 +349,8 @@ const JournalApp: React.FC = () => {
             }
         }
         const newId = await DB.saveMessage({
-            charId: char.id,
+            // 照這條線落（嵌在羈絆時 char 是那條線的視圖，非主線帶 personaKey）
+            ...lineMsgFields(char),
             role: 'system',
             type: 'score_card',
             content: JSON.stringify(cardData),
@@ -309,17 +359,27 @@ const JournalApp: React.FC = () => {
         return { ...entry, chatCardMessageId: newId };
     };
 
-    const saveEntry = async (options: { silent?: boolean } = {}) => {
+    const saveEntry = async (options: { silent?: boolean; publish?: boolean } = {}) => {
         if (!currentEntry || !selectedChar) return;
+        // 你那頁：存＝更新寫下時間（還沒發布就還是草稿）；發布＝角色從此知道這頁
+        // 角色那頁被你改了字：第一次改把原文留著（plans/bond-batch3.md 1.1）
+        const stored = diaries.find(d => d.id === currentEntry.id);
+        let base = currentEntry;
+        if (stored?.charPage && base.charPage && stored.charPage.text !== base.charPage.text) {
+            base = { ...base, charPage: { ...base.charPage, originalText: stored.charPage.originalText ?? stored.charPage.text, revisedAt: Date.now() } };
+        }
+        if (!pageEmpty(base.userPage) && (!stored || stored.userPage.text !== base.userPage.text || options.publish)) base = touchUserPage(base);
+        if (options.publish && !pageEmpty(base.userPage)) base = publishUserPage(base);
         // 若該日記已經在聊天裡有卡片（char 回覆過 + 自動發送過），保存時同步更新卡片
-        let toSave = currentEntry;
+        let toSave = base;
         if (currentEntry.chatCardMessageId && currentEntry.charPage) {
             toSave = await syncDiaryCardToChat(currentEntry, selectedChar);
         }
         await DB.saveDiary(toSave);
         if (toSave !== currentEntry) setCurrentEntry(toSave);
         await loadDiaries(toSave.charId);
-        if (!options.silent) addToast('日記已保存', 'success');
+        if (options.publish) trackEvent('写羁绊日记', { 谁: '我', 方式: '自己写' });
+        if (!options.silent) addToast(options.publish ? `發布了，${selectedChar.name} 看得到這頁` : (embed && !pagePublished(toSave.userPage) ? '存成草稿了（還沒發布，TA 看不到）' : '日記已保存'), 'success');
     };
 
     const handleDeleteDiary = async () => {
@@ -441,12 +501,14 @@ const JournalApp: React.FC = () => {
             addToast('配置錯誤或內容為空', 'error');
             return;
         }
-        if (!currentEntry.userPage.text.trim()) {
+        // 嵌在羈絆裡：你還沒寫也能請 TA 先寫（雙方都能先動筆，紀要 3.3）
+        const userWrote = !!currentEntry.userPage.text.trim();
+        if (!userWrote && !embed) {
             addToast('請先寫下今天的日記', 'info');
             return;
         }
 
-        const isRewrite = Boolean(currentEntry.charPage);
+        const isRewrite = Boolean(currentEntry.charPage && !pageEmpty(currentEntry.charPage));
         setIsThinking(true);
         addToast(isRewrite ? `正在請 ${selectedChar.name} 重新寫這篇日記…` : `正在請 ${selectedChar.name} 寫交換日記…`, 'info');
         trackEvent(isRewrite ? '重新生成角色日记' : '邀请角色交换日记');
@@ -454,8 +516,9 @@ const JournalApp: React.FC = () => {
         try {
             // 生成前仍要把用戶頁草稿落庫，但這是重寫流程的內部步驟，不能冒充用戶
             // 主動點了“保存”。舊代碼在這裡直接 saveEntry()，於是循環按鈕先彈“日記已保存”。
-            await saveEntry({ silent: true });
-            await injectMemoryPalace(selectedChar, undefined, currentEntry.userPage.text);
+            // 請 TA 回你這頁＝把這頁給 TA 看，算發布
+            await saveEntry({ silent: true, publish: userWrote });
+            await injectMemoryPalace(selectedChar, undefined, currentEntry.userPage.text || currentEntry.date);
             let systemPrompt = ContextBuilder.buildCoreContext(selectedChar, userProfile);
 
             const styleOptions = PAPER_STYLES.map(p => p.id).join(', ');
@@ -486,11 +549,16 @@ ${recentContext}
 [RECENT LOGS END]
 
 ### 任務
-1. 閱讀用戶今天的日記 (${currentEntry.date})。
+${userWrote ? `1. 閱讀用戶今天的日記 (${currentEntry.date})。
 2. 以你的角色口吻寫一篇**回覆日記**。
-   - 首先結合上文的聊天記錄，回應用戶的內容。
+   - 首先結合上文的聊天記錄，回應用戶的內容。` : `1. 用戶這天 (${currentEntry.date}) 還沒寫，你先寫你的這一頁，寫給用戶看。
+2. 以你的角色口吻寫一篇日記。
+   - 結合上文的聊天記錄，可以接著上一篇沒談完的事，不用逐日重述。`}
    - 最重要的是分享你的生活，此條為必須項**務必說至少一件用戶不知道的，你今天做的事情，儘量與用戶無關！用戶希望看到角色完全獨立的一面**。
-   - 語言風格在符合設定的基礎上，應該更加書面化和詩意，不過一切以角色性格優先。
+   - 語言風格在符合設定的基礎上，應該更加書面化和詩意，不過一切以角色性格優先。${embed ? `
+   - 篇幅大約 ${embed.chars[0]}～${embed.chars[1]} 字；話少的角色可以短一點，但要像是寫給對方看的一篇完整日記。${embed.style?.trim() ? `
+   - 文風：${embed.style.trim()}（仍以角色性格優先）。` : ''}
+   - 只寫真的發生過的事；人設裡的喜好不能寫成你們一起做過的事，不要編造沒發生過的共同經歷。` : ''}
 3. 選擇適合你心情的信紙和貼紙。
 
 ### 關於貼紙 (Stickers)
@@ -515,9 +583,11 @@ Structure:
                     model: apiConfig.model,
                     messages: [
                         { role: 'system', content: systemPrompt },
-                        { role: 'user', content: `Users Diary:\n${currentEntry.userPage.text}` }
+                        { role: 'user', content: userWrote ? `Users Diary:\n${currentEntry.userPage.text}` : `（用戶這天還沒寫日記，請你先寫你的這一頁。）` }
                     ],
-                    temperature: 0.85
+                    temperature: 0.85,
+                    // 羈絆裡照設定的篇幅留輸出上限（篇幅填得長時才不會被截斷）；原本的交換日記不設
+                    ...(embed ? { max_tokens: outputMaxTokens(embed.chars) } : {}),
                 })
             }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '交換日記' }));
 
@@ -551,15 +621,23 @@ Structure:
                 stickers: charStickers
             };
 
-            const updatedEntry = { ...currentEntry, charPage };
+            // 角色那頁寫完就發布；重寫時第一版留在 originalText（utils/bond/diary.ts）
+            const latest = (await DB.getDiariesByCharId(selectedChar.id)).find(d => d.id === currentEntry.id) || currentEntry;
+            const written = putCharPage({ ...currentEntry, userPage: latest.userPage }, charPage, 'ai');
+            // 你就在這頁上等 TA 寫，寫好就算讀過了（不在首頁再提醒一次）
+            const updatedEntry = written.charPage ? { ...written, charPage: { ...written.charPage, seenAt: Date.now() } } : written;
             // 自動發送 / 同步到聊天：char 有回覆 → 卡片落地到對應角色的聊天歷史。
             // 重交換（同一日記重新讓 char 寫回復）會複用已有 chatCardMessageId 走更新而不是再創建一條。
-            const synced = await syncDiaryCardToChat(updatedEntry, selectedChar);
+            // 嵌在羈絆時照這段關係的「同步私聊」設定；關著就只留在羈絆（發布了照樣算 TA 知道）
+            const synced = embed && !embed.syncToChat && !updatedEntry.chatCardMessageId ? updatedEntry : await syncDiaryCardToChat(updatedEntry, selectedChar);
             setCurrentEntry(synced);
             await DB.saveDiary(synced);
             await loadDiaries(selectedChar.id);
             setActiveTab('char');
-            addToast(isRewrite ? '角色日記已重新寫好 · 已同步到聊天' : '對方已回覆 · 已同步到聊天', 'success');
+            setShowCharOriginal(false);
+            if (embed) trackEvent('写羁绊日记', { 谁: '角色', 方式: '请TA回' });
+            const syncedNote = synced.chatCardMessageId ? ' · 已同步到聊天' : '';
+            addToast(isRewrite ? `角色日記已重新寫好${syncedNote}` : userWrote ? `對方已回覆${syncedNote}` : `${selectedChar.name} 先寫好了${syncedNote}`, 'success');
 
         } catch (e: any) {
             addToast(`${isRewrite ? '重新寫日記' : '交換日記'}失敗: ${e.message}`, 'error');
@@ -730,7 +808,7 @@ ${charPart}
                 <div className="sully-journal-page-content flex-1 p-6 relative z-10 flex flex-col">
                     <div className="sully-journal-page-meta flex justify-between items-center mb-4 pb-2 border-b border-black/5 shrink-0">
                         <span className={`sully-journal-page-title text-xs font-bold uppercase tracking-widest opacity-50 ${style.text}`}>
-                            {side === 'user' ? 'MY DIARY' : 'REPLY'}
+                            {side === 'user' ? 'MY DIARY' : 'REPLY'}{embed && side === 'user' && !pageEmpty(page) && !pagePublished(page) ? ' · 草稿' : ''}{side === 'char' && showCharOriginal ? ' · 原本的版本' : ''}
                         </span>
                         <span className={`sully-journal-page-date text-[10px] opacity-40 font-mono ${style.text}`}>
                             {currentEntry?.date}
@@ -738,11 +816,11 @@ ${charPart}
                     </div>
 
                     <textarea 
-                        value={page.text}
-                        onChange={e => updatePage({ text: e.target.value }, side)}
+                        value={side === 'char' && showCharOriginal ? (page.originalText ?? page.text) : page.text}
+                        onChange={e => { if (!(side === 'char' && showCharOriginal)) updatePage({ text: e.target.value }, side); }}
                         placeholder={side === 'user' ? "記錄今天發生的事情..." : "等待回覆..."}
                         className={`sully-journal-textarea flex-1 w-full bg-transparent resize-none outline-none leading-loose text-[16px] font-normal ${style.text} placeholder:opacity-30 no-scrollbar`}
-                        readOnly={isThinking} 
+ readOnly={isThinking || (side === 'char' && showCharOriginal)} 
                     />
                 </div>
 
@@ -811,12 +889,14 @@ ${charPart}
                 </div>
             ) : (
                 <>
-                    <p className="text-sm">寫完日記後，點擊下方按鈕<br/>邀請 {selectedChar?.name} 交換日記。</p>
+                    <p className="text-sm">{embed && !currentEntry?.userPage.text.trim()
+                        ? <>這一頁還空著。你可以先寫，<br/>也可以請 {selectedChar?.name} 先寫。</>
+                        : <>寫完日記後，點擊下方按鈕<br/>邀請 {selectedChar?.name} 交換日記。</>}</p>
                     <button
                         onClick={handleExchange}
                         className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold rounded-full shadow-[0_0_20px_rgba(245,158,11,0.3)] active:scale-95 transition-all mt-2"
                     >
-                        查看 TA 的今日
+                        {embed ? (currentEntry?.userPage.text.trim() ? `請 ${selectedChar?.name} 回這一頁` : `請 ${selectedChar?.name} 先寫`) : '查看 TA 的今日'}
                     </button>
                 </>
             )}
@@ -1006,7 +1086,7 @@ ${charPart}
                 <JournalThemeArtwork preset={effectiveJournalPreset} scene="calendar" />
                 <div className="sully-journal-calendar-hero pb-6 px-6 bg-amber-500 shadow-lg shrink-0 rounded-b-[2rem] z-20" style={{ paddingTop: 'max(3rem, var(--safe-top))' }}>
                     <div className="flex justify-between items-start mb-4">
-                         <button onClick={() => setMode('select')} aria-label="返回日記本選擇" className="sully-journal-back text-white/80 hover:text-white transition-colors">
+                         <button onClick={() => (embed ? embed.onBack() : setMode('select'))} aria-label={embed ? '返回羈絆' : '返回日記本選擇'} className="sully-journal-back text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" /></svg>
                          </button>
                          <JournalAppearanceButton tone="dark" compact {...journalAppearanceButtonProps} />
@@ -1018,7 +1098,7 @@ ${charPart}
                 </div>
 
                 <div className="sully-journal-calendar-list flex-1 overflow-y-auto p-5 pb-20 no-scrollbar">
-                    <button onClick={() => openEntry(getLocalDateStr())} className="sully-journal-new-entry w-full py-5 mb-8 border-2 border-dashed border-amber-200 rounded-2xl text-amber-500 font-bold flex items-center justify-center gap-2 hover:bg-amber-50 active:scale-95 transition-all">
+                    <button onClick={() => openEntry(todayStr())} className="sully-journal-new-entry w-full py-5 mb-8 border-2 border-dashed border-amber-200 rounded-2xl text-amber-500 font-bold flex items-center justify-center gap-2 hover:bg-amber-50 active:scale-95 transition-all">
                         <span className="text-xl">+</span> 寫今天的日記
                     </button>
                     
@@ -1031,11 +1111,13 @@ ${charPart}
                                     <span className="text-xl font-bold leading-none">{d.date.split('-')[2]}</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <p className="sully-journal-entry-text text-sm text-slate-700 truncate font-medium">{d.userPage.text || '(空)'}</p>
+                                    <p className="sully-journal-entry-text text-sm text-slate-700 truncate font-medium">{d.userPage.text || d.charPage?.text || '(空)'}</p>
                                     <div className="flex justify-between items-center mt-1">
                                         <p className="sully-journal-entry-year text-xs text-slate-400 font-mono">{d.date.split('-')[0]}</p>
                                         <div className="sully-journal-entry-badges flex gap-2">
-                                            {d.charPage && <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[9px] font-bold">已回覆</span>}
+                                            {embed && !pageEmpty(d.userPage) && !pagePublished(d.userPage) && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[9px] font-bold">草稿</span>}
+                                            {d.charPage && !pageEmpty(d.charPage) && <span className="px-2 py-0.5 bg-green-100 text-green-600 rounded-full text-[9px] font-bold">{pageEmpty(d.userPage) ? `${selectedChar.name} 先寫了` : '已回覆'}</span>}
+                                            {embed && d.charPage?.publishedAt && !d.charPage.seenAt && <span className="px-2 py-0.5 bg-rose-100 text-rose-500 rounded-full text-[9px] font-bold">新</span>}
                                             {d.chatCardMessageId && <span className="px-2 py-0.5 bg-emerald-50 text-emerald-500 rounded-full text-[9px] font-bold">同步聊天</span>}
                                             {d.isArchived && <span className="px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full text-[9px] font-bold">已歸檔</span>}
                                         </div>
@@ -1144,9 +1226,24 @@ ${charPart}
                                 )}
                             </button>
                         )}
+                        {embed?.onBringToChat && currentEntry && (activeTab === 'user' ? pagePublished(currentEntry.userPage) : pagePublished(currentEntry.charPage)) && (
+                            <button onClick={() => embed.onBringToChat!(currentEntry, activeTab)} className="px-3 py-1.5 bg-white/10 rounded-full text-[11px] font-bold hover:bg-white/20 active:scale-95 transition-transform">
+                                帶去聊聊
+                            </button>
+                        )}
+                        {activeTab === 'char' && currentEntry?.charPage?.originalText && (
+                            <button onClick={() => setShowCharOriginal(v => !v)} className="px-3 py-1.5 bg-white/10 rounded-full text-[11px] font-bold hover:bg-white/20 active:scale-95 transition-transform">
+                                {showCharOriginal ? '看現在的' : '看原本的版本'}
+                            </button>
+                        )}
                         <button onClick={() => { saveEntry(); trackEvent('保存日记'); }} className="px-4 py-1.5 bg-white/10 rounded-full text-xs font-bold hover:bg-white/20 active:scale-95 transition-transform">
-                            保存
+                            {embed && activeTab === 'user' && currentEntry && !pagePublished(currentEntry.userPage) ? '存草稿' : '保存'}
                         </button>
+                        {embed && activeTab === 'user' && currentEntry && !pageEmpty(currentEntry.userPage) && !pagePublished(currentEntry.userPage) && (
+                            <button onClick={() => saveEntry({ publish: true })} className="px-4 py-1.5 bg-amber-500 text-white rounded-full text-xs font-bold hover:bg-amber-400 active:scale-95 transition-transform">
+                                發布
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

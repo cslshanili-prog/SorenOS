@@ -463,7 +463,7 @@ const ensureWorkerReady = async () => {
  * 「這台 worker 認不認識後台任務」的探測結果（見 probeBackgroundJobSupport）。
  * 只在內存裡存，換 workerUrl 自然作廢——用戶中途換後端時不該拿舊結論當數。
  */
-let backgroundJobProbe: { workerUrl: string; supported: boolean; at: number } | null = null;
+let backgroundJobProbe: { workerUrl: string; supported: boolean; at: number; kinds?: string[] | null } | null = null;
 
 /**
  * 存量答案是「不支持」時，最多隔這麼久就再問一遍。
@@ -2678,12 +2678,32 @@ export const ActiveMsgClient = {
         return 'unknown';
       }
       const supported = body?.data?.backgroundJobs === true;
-      backgroundJobProbe = { workerUrl: config.workerUrl, supported, at: Date.now() };
+      const kinds = Array.isArray(body?.data?.backgroundJobKinds)
+        ? (body.data.backgroundJobKinds as unknown[]).filter((k): k is string => typeof k === 'string')
+        : null;
+      backgroundJobProbe = { workerUrl: config.workerUrl, supported, at: Date.now(), kinds };
       return supported ? 'supported' : 'unsupported';
     } catch (error) {
       console.warn(`${ACTIVE_MSG_RUNTIME_HEADER} 後台任務能力探測沒發出去，不記緩存`, error);
       return 'unknown';
     }
+  },
+
+  /**
+   * 這台 worker 認不認得某一種後台任務（後加的種類用；羈絆主動產出 bond-output 是第一個）。
+   * 認得後台任務、卻沒報 `backgroundJobKinds` 的是加這個字段之前的 bundle——那時候還沒有後加的種類，當不認得。
+   */
+  async probeBackgroundJobKind(kind: string): Promise<BackgroundJobProbeOutcome> {
+    let base = await this.probeBackgroundJobSupportDetailed();
+    if (base !== 'supported') return base;
+    // 「認得後台任務」那份緩存不過期；不認得這一種的話隔一陣子重問一次（worker 可能在這個會話裡更新了）
+    if (!backgroundJobProbe?.kinds?.includes(kind) && Date.now() - (backgroundJobProbe?.at || 0) >= BACKGROUND_JOB_UNSUPPORTED_RECHECK_MS) {
+      backgroundJobProbe = null;
+      base = await this.probeBackgroundJobSupportDetailed();
+      if (base !== 'supported') return base;
+    }
+    const kinds = backgroundJobProbe?.kinds;
+    return Array.isArray(kinds) && kinds.includes(kind) ? 'supported' : 'unsupported';
   },
 
   /** 只問「能不能交」的那一版：問不到當不能交。要區分「問不到」用上面那個。 */

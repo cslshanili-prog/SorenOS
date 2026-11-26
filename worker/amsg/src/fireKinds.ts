@@ -19,6 +19,8 @@ import { PLATE_CONSOLIDATE_KIND } from '../../../utils/amsgPlateJob';
 import { plateConsolidateHandler } from './plateFire';
 import { SCHEDULE_GENERATE_KIND } from '../../../utils/amsgScheduleJob';
 import { scheduleGenerateHandler } from './scheduleFire';
+import { BOND_OUTPUT_KIND } from '../../../utils/bond/outputCloudJob';
+import { bondOutputHandler } from './bondOutputFire';
 
 /** client_state 的寫入口（value 傳 null 即刪除該 key）。 */
 export type KindWriteState = (
@@ -109,7 +111,7 @@ export interface FireKindHandler {
  */
 export const FIRE_KIND_HANDLERS: Record<string, FireKindHandler> = Object.assign(
   Object.create(null) as Record<string, FireKindHandler>,
-  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler, [SCHEDULE_GENERATE_KIND]: scheduleGenerateHandler },
+  { [PLATE_CONSOLIDATE_KIND]: plateConsolidateHandler, [SCHEDULE_GENERATE_KIND]: scheduleGenerateHandler, [BOND_OUTPUT_KIND]: bondOutputHandler },
 );
 
 /** 掛在 scratch 上跨 hook 傳遞的鍵。 */

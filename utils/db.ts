@@ -1,4 +1,5 @@
 import { toMountedWorldbook } from './worldbook';
+import { dropDiaryFromRegistry, putDiaryInRegistry } from './bond/diaryRegistry';
 import { lineViewPersonaKey } from './userPersona';
 import { parseLineScheduleId } from './chatLine';
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
@@ -2192,16 +2193,39 @@ export const DB = {
       });
   },
 
+  getAllDiaries: async (): Promise<DiaryEntry[]> => {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+          const request = db.transaction(STORE_DIARIES, 'readonly').objectStore(STORE_DIARIES).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+
+  /** 存一本日記；順手更新羈絆的日記登記表（發布的頁會進提示詞，plans/bond-batch3.md 第 2 節） */
   saveDiary: async (diary: DiaryEntry): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_DIARIES, 'readwrite');
       transaction.objectStore(STORE_DIARIES).put(diary);
+      putDiaryInRegistry(diary);
+  },
+
+  /** 只寫庫、不發改動事件（開機補 bondId 用） */
+  saveDiaryQuiet: async (diary: DiaryEntry): Promise<void> => {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+          const transaction = db.transaction(STORE_DIARIES, 'readwrite');
+          transaction.objectStore(STORE_DIARIES).put(diary);
+          transaction.oncomplete = () => resolve();
+          transaction.onerror = () => reject(transaction.error);
+      });
   },
 
   deleteDiary: async (id: string): Promise<void> => {
       const db = await openDB();
       const transaction = db.transaction(STORE_DIARIES, 'readwrite');
       transaction.objectStore(STORE_DIARIES).delete(id);
+      dropDiaryFromRegistry(id);
   },
 
   getAllTasks: async (): Promise<Task[]> => {

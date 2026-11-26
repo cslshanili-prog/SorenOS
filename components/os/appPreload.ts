@@ -37,7 +37,7 @@ const importers: Partial<Record<AppID, () => Promise<unknown>>> = {
   [AppID.Gallery]: () => import('../../apps/Gallery'),
   [AppID.Date]: () => import('../../apps/DateApp'),
   [AppID.User]: () => import('../../apps/UserApp'),
-  [AppID.Journal]: () => import('../../apps/JournalApp'),
+  [AppID.Journal]: () => import('../../apps/BondApp'),
   [AppID.Schedule]: () => import('../../apps/CalendarApp'), // 時光契約退役，舊 id 導到行事曆
   [AppID.Calendar]: () => import('../../apps/CalendarApp'),
   [AppID.Room]: () => import('../../apps/RoomApp'),

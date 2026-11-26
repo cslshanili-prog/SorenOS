@@ -6,10 +6,11 @@
  *   `[從羈絆帶來：〈片刻〉標題——摘要] 你說的話`，角色看得懂你在說哪件事，怎麼接隨角色。
  * - 氣泡上方顯示那張小卡，點了回到羈絆的那件事（BOND_REF_OPEN_EVENT，由私聊頁接手開 App）。
  */
-import type { BondEntry, Message } from '../../types';
+import type { BondEntry, DiaryEntry, Message } from '../../types';
+import { lastRound, visibleAnswer } from './question';
 import type { TimelineItem } from './timeline';
 
-export type BondRefKind = 'moment' | 'memory' | 'essay';
+export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note';
 
 export interface BondRefMeta {
     bondId: string;
@@ -18,15 +19,21 @@ export interface BondRefMeta {
     itemKey?: string;
     /** 隨筆 id */
     essayId?: string;
+    /** 日記那天（第 3 批） */
+    diaryDate?: string;
+    /** 問答那一題 */
+    questionId?: string;
+    /** 紙條那一張（一串最上面那張） */
+    slipId?: string;
     title?: string;
     excerpt: string;
-    /** 隨筆是誰寫的 */
+    /** 隨筆、日記那頁、紙條是誰寫的 */
     authorName?: string;
 }
 
 export const BOND_REF_OPEN_EVENT = 'soren-open-bond-ref';
 
-export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = { moment: '片刻', memory: '記憶', essay: '隨筆' };
+export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = { moment: '片刻', memory: '記憶', essay: '隨筆', diary: '日記', question: '問答', note: '紙條' };
 
 const EXCERPT_MAX = 80;
 
@@ -41,7 +48,7 @@ export const bondRefOf = (m: Pick<Message, 'role' | 'type' | 'metadata'> | null 
 /** `[從羈絆帶來：〈片刻〉標題——摘要]` */
 export function bondRefPrefix(ref: BondRefMeta): string {
     const label = BOND_REF_KIND_LABEL[ref.kind];
-    const who = ref.kind === 'essay' && ref.authorName ? `（${ref.authorName}寫的）` : '';
+    const who = (ref.kind === 'essay' || ref.kind === 'diary' || ref.kind === 'note') && ref.authorName ? `（${ref.authorName}${ref.kind === 'note' ? '丟的' : '寫的'}）` : '';
     const title = oneLine(ref.title);
     const excerpt = oneLine(ref.excerpt);
     const body = title && excerpt && title !== excerpt ? `${title}——${excerpt}` : (title || excerpt);
@@ -76,4 +83,32 @@ export function bondRefFromEssay(bondId: string, essay: BondEntry, authorName?: 
         excerpt: clip(oneLine(essay.text), EXCERPT_MAX),
         ...(authorName ? { authorName } : {}),
     };
+}
+
+/** 日記的一頁（發布了的才能帶） */
+export function bondRefFromDiary(bondId: string, d: DiaryEntry, side: 'user' | 'char', authorName: string): BondRefMeta | null {
+    const page = side === 'user' ? d.userPage : d.charPage;
+    const text = oneLine(page?.text);
+    if (!text) return null;
+    const md = `${Number(d.date.slice(5, 7))} 月 ${Number(d.date.slice(8, 10))} 日`;
+    return { bondId, kind: 'diary', diaryDate: d.date, title: md, excerpt: clip(text, EXCERPT_MAX), authorName };
+}
+
+/** 一題問答（最近一次揭曉的那輪；還沒揭曉的不能帶，帶了等於偷看） */
+export function bondRefFromQuestion(bondId: string, e: BondEntry, names: { user: string; char: string }): BondRefMeta | null {
+    const r = lastRound(e.question);
+    const rounds = (e.question?.rounds || []).filter(x => x.revealedAt);
+    const shown = r?.revealedAt ? r : rounds[rounds.length - 1];
+    if (!e.question || !shown) return null;
+    const mine = visibleAnswer(shown, 'user', 'user');
+    const theirs = visibleAnswer(shown, 'char', 'user');
+    const ans = (a: typeof mine) => (!a || a.state === 'skipped' ? '（跳過）' : `「${clip(oneLine(a.text), 40)}」`);
+    return { bondId, kind: 'question', questionId: e.id, title: `「${clip(oneLine(e.question.prompt), 40)}」`, excerpt: `${names.user}答${ans(mine)}；${names.char}答${ans(theirs)}` };
+}
+
+/** 一張紙條（投遞了的） */
+export function bondRefFromSlip(bondId: string, e: BondEntry, rootId: string, authorName: string): BondRefMeta | null {
+    if (e.kind !== 'note' || e.status !== 'published' || !oneLine(e.text)) return null;
+    const tags = (e.slip?.tags || []).slice(0, 2).join('、');
+    return { bondId, kind: 'note', slipId: rootId, ...(tags ? { title: tags } : {}), excerpt: clip(oneLine(e.text), EXCERPT_MAX), authorName };
 }

@@ -3358,6 +3358,9 @@ export default {
           // 正常，而門牌永遠不更新。報的是**這份代碼有沒有**，不是版本號：自更新永遠由
           // 舊代碼執行，版本號對上了不代表新邏輯真的在跑。
           backgroundJobs: true,
+          // 這份代碼認得哪幾種後台任務（後加的種類靠它判斷：認得 backgroundJobs 的老 bundle 不一定認得新的那種，
+          // 例如羈絆主動產出 bond-output）。老 bundle 沒有這個字段。
+          backgroundJobKinds: Object.keys(FIRE_KIND_HANDLERS),
           // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
           newsFeeds: true,
           // 有沒有 POST /deepl-translate（聊天翻譯用 DeepL 時的轉發）。

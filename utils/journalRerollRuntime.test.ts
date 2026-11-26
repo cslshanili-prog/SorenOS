@@ -9,12 +9,16 @@ describe('Journal character-page rewrite feedback', () => {
     const archiveStart = source.indexOf('const handleArchiveDiary = async', exchangeStart);
     const exchangeSource = source.slice(exchangeStart, archiveStart);
 
-    expect(source).toContain("const saveEntry = async (options: { silent?: boolean } = {})");
-    expect(source).toContain("if (!options.silent) addToast('日記已保存', 'success')");
-    expect(exchangeSource).toContain('await saveEntry({ silent: true })');
+    // 羈絆第 3 批：saveEntry 多了 publish（你那頁按發布）；靜默存草稿的約定不變
+    expect(source).toContain("const saveEntry = async (options: { silent?: boolean; publish?: boolean } = {})");
+    expect(source).toContain("if (!options.silent) addToast(");
+    expect(source).toContain("'日記已保存'");
+    expect(exchangeSource).toContain('await saveEntry({ silent: true, publish: userWrote })');
     expect(exchangeSource).not.toContain('saveEntry();');
     expect(exchangeSource).toContain('正在請 ${selectedChar.name} 重新寫這篇日記');
-    expect(exchangeSource).toContain('角色日記已重新寫好 · 已同步到聊天');
+    // 同步私聊照羈絆的日記設定，所以「已同步到聊天」只在真的同步了才接上
+    expect(exchangeSource).toContain('角色日記已重新寫好${syncedNote}');
+    expect(exchangeSource).toContain("' · 已同步到聊天'");
     expect(exchangeSource).toContain("'重新寫日記' : '交換日記'");
     expect(source).toContain('data-testid="journal-rewrite-character-page"');
     expect(source).toContain('aria-label="重新寫角色日記"');

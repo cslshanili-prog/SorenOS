@@ -120,9 +120,13 @@ const AMSG_IDENTITY_LABELS_RESYNC_LS_KEY = 'amsg2_identity_labels_resync_v1';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
-import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
-import { parseBondId } from '../utils/bond/model';
+import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBond, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
+import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
+import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
+import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
+import { markBondOutputCloudDirty, syncBondOutputCloud } from '../components/bond/outputCloud';
+import { withOutputEvent } from '../utils/bond/output';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
 import { extractBondInvite } from '../utils/bond/invite';
 import { globalAmsgApi } from '../utils/apiCenter';
@@ -2557,6 +2561,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
   useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); }, []);
+  // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
+  const diaryRegistryLoadedRef = useRef(false);
+  useEffect(() => {
+    if (diaryRegistryLoadedRef.current || !characters.length) return;
+    diaryRegistryLoadedRef.current = true;
+    void refreshDiaryRegistry(characters);
+  }, [characters]);
   // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
   // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；
   // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。
@@ -2594,6 +2605,65 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     document.addEventListener('visibilitychange', onVisible);
     return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [characters, userProfileBase, apiConfig, groups, realtimeConfig]);
+  // 羈絆的主動產出（plans/bond-batch3.md 1.6）：頁面開著每 5 分鐘看一次，該寫的寫一份（日記、問答、紙條、隨筆）；
+  // 開了主動消息 2.0 的線順手跟雲端對帳（第 3d 批：App 關著由雲端寫，components/bond/outputCloud.ts）
+  useEffect(() => {
+    const scope = () => ({ characters, userProfileBase, apiConfig });
+    const tick = () => {
+      if (isBackupRunning()) return;
+      void runBondOutputTick(scope())
+        .catch(() => null)
+        .then(() => syncBondOutputCloud(scope()))
+        .catch(e => console.warn('💌 [BondOutput:雲端] 對帳失敗', e));
+    };
+    // 開機先等一下：補收的雲端結果先落地，本機才不會重寫一份
+    const first = window.setTimeout(tick, 90_000);
+    const timer = window.setInterval(tick, 5 * 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') tick();
+      else if (!isBackupRunning()) void syncBondOutputCloud(scope(), { leaving: true }).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characters, userProfileBase, apiConfig]);
+  // 寫好一份（本機或雲端收件）：跳提示、私聊那句打未讀
+  useEffect(() => {
+    const onDone = (e: Event) => {
+      const done = (e as CustomEvent<BondOutputDone>).detail;
+      if (!done) return;
+      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）' }[done.kind];
+      if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
+      if (done.notice) {
+        setLastMsgTimestamp(Date.now());
+        const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === done.charId;
+        if (!viewing) setUnreadMessages(prev => ({ ...prev, [done.notice!.lineKey]: (prev[done.notice!.lineKey] || 0) + 1 }));
+      }
+    };
+    window.addEventListener(BOND_OUTPUT_DONE_EVENT, onDone);
+    return () => window.removeEventListener(BOND_OUTPUT_DONE_EVENT, onDone);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // 每日總結寫好了（記憶多了一筆）：記成那條線的事件，日記、紙條、問答可以提早寫（plans/bond-batch3.md 1.5）
+  const memoryCountRef = useRef<Map<string, Set<string>> | null>(null);
+  useEffect(() => {
+    if (!characters.length) return;
+    const prev = memoryCountRef.current;
+    const next = new Map<string, Set<string>>();
+    for (const c of characters) next.set(c.id, new Set((c.memories || []).map(m => m.id)));
+    memoryCountRef.current = next;
+    if (!prev) return; // 開機那一次只記下來
+    const now = Date.now();
+    for (const c of characters) {
+      const before = prev.get(c.id);
+      if (!before || c.altOf) continue;
+      const added = (c.memories || []).filter(m => !before.has(m.id));
+      const keys = new Set(added.map(m => m.personaKey || c.primaryPersonaKey).filter((k): k is string => !!k));
+      for (const key of keys) {
+        void updateBond(personaBondId(c.id, key), b => withOutputEvent(b, { kind: 'daily_summary', at: now })).catch(() => {});
+      }
+    }
+  }, [characters]);
   // 關係線的雲端 id 名冊：上傳 tool_config 時把 MCP「只給哪些角色」展開到每條線（utils/amsgCloudLine.ts）
   useEffect(() => {
     setCloudLineRegistry(characters);
@@ -2650,6 +2720,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
       const onBondChange = (e: Event) => {
           const ids = (e as CustomEvent<BondChangeDetail>).detail?.ids || [];
+          markBondOutputCloudDirty(ids);
           const touched = new Set<string>();
           for (const id of ids) {
               const parsed = parseBondId(id);
