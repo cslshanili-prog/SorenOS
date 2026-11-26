@@ -31,6 +31,8 @@ import { incrementDigestRound, runCognitiveDigestion } from '../utils/memoryPala
 import { RealtimeContextManager } from '../utils/realtimeContext';
 import { buildCallPromptParts, currentVoiceActingGuide, type CallMode } from '../utils/callPrompt';
 import { assembleCallPreset, buildCallPresetSlots, loadCallPresetDoc } from '../utils/callPresetSession';
+import { bondForChar } from '../utils/bond/registry';
+import { bondFinalLock } from '../utils/bond/prompt';
 import { DB } from '../utils/db';
 import { ChatPrompts } from '../utils/chatPrompts';
 import { Message, ChatTheme, AppID, type CharacterProfile } from '../types';
@@ -1912,7 +1914,11 @@ ${sentencePlan}`;
       ? injectWorldbookDepthEntries(attachSnapshotToLatestUserMessage(messages, userCameraSnapshot), depthEntries)
       : textOnlyMessages;
     // 選了自訂預設：照預設組（快照那一輪多帶快照說明）；沒選照舊「一則 system＋通話記錄」
-    const composeMessages = (nextMessages: any[], nextSystemPrompt: string): any[] => {
+    // 羈絆的關係底線（友情、親情）：貼在最後，預設蓋不掉（plans/bond-batch1.md 2.2）
+    const bondLock = selectedChar ? bondFinalLock(bondForChar(selectedChar), userName) : '';
+    const withBondLock = (list: any[]): any[] => (bondLock ? [...list, { role: 'system', content: bondLock }] : list);
+    const composeMessages = (nextMessages: any[], nextSystemPrompt: string): any[] => withBondLock(composeMessagesInner(nextMessages, nextSystemPrompt));
+    const composeMessagesInner = (nextMessages: any[], nextSystemPrompt: string): any[] => {
       if (!callPreset || !core || !selectedChar) return [{ role: 'system', content: nextSystemPrompt }, ...nextMessages];
       const withSnapshot = nextSystemPrompt !== baseSystemPrompt;
       const slots = buildCallPresetSlots({

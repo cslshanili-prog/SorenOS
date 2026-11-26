@@ -120,6 +120,10 @@ const AMSG_IDENTITY_LABELS_RESYNC_LS_KEY = 'amsg2_identity_labels_resync_v1';
 import { loadMusicPlaybackSnapshot } from './MusicContext';
 import { setCharNameRegistry, setWorldRegistry } from '../utils/charNameRegistry';
 import { refreshTripRegistry } from '../utils/trips';
+import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
+import { parseBondId } from '../utils/bond/model';
+import { relationshipChangeBlocked } from '../utils/bond/guard';
+import { extractBondInvite } from '../utils/bond/invite';
 import { globalAmsgApi } from '../utils/apiCenter';
 import { syncAmsgLlmCredentials } from '../utils/amsgStateSync';
 import {
@@ -2550,6 +2554,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   }, [characterGroups]);
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
+  // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
+  useEffect(() => { void refreshBondRegistry(); }, []);
   // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
   // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；
   // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。
@@ -2638,6 +2644,30 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   groupsRef.current = groups;
   const realtimeConfigRef = useRef(realtimeConfig);
   realtimeConfigRef.current = realtimeConfig;
+
+  // 羈絆改了（路線、階段、此刻的我們都進提示詞）：相關角色的雲端上下文重傳（plans/bond-batch1.md 2.2）
+  useEffect(() => {
+      const onBondChange = (e: Event) => {
+          const ids = (e as CustomEvent<BondChangeDetail>).detail?.ids || [];
+          const touched = new Set<string>();
+          for (const id of ids) {
+              const parsed = parseBondId(id);
+              if (!parsed) continue;
+              touched.add(parsed.charId);
+              if (parsed.kind === 'pair') touched.add(parsed.otherCharId);
+          }
+          const chars = charactersRef.current.filter(c => touched.has(c.id));
+          if (!chars.length) return;
+          markAmsgStateDirtyForAll({
+              characters: chars,
+              userProfileBase: userProfileBaseRef.current,
+              groups: groupsRef.current,
+              realtimeConfig: realtimeConfigRef.current,
+          });
+      };
+      window.addEventListener(BOND_CHANGE_EVENT, onBondChange);
+      return () => window.removeEventListener(BOND_CHANGE_EVENT, onBondChange);
+  }, []);
   const memoryPalaceConfigRef = useRef(memoryPalaceConfig);
   memoryPalaceConfigRef.current = memoryPalaceConfig;
 
@@ -2960,12 +2990,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               aiContent = aiContent.replace(/\s*\[(?:聊天|通[话話]|[约約][会會])\]\s*/g, '\n').trim();
 
               aiContent = normalizeProactiveAiContent(aiContent);
+              // 羈絆邀請標籤：這條路不出卡，剝掉別讓它變成字（plans/bond-batch1.md 3.5）
+              aiContent = extractBondInvite(aiContent).cleanedText;
 
               // 聊天設定的兩個動作標籤：這條背景路徑不經過 applyAssistantPostProcessing，在 sanitize 之前自己消化
               const relChange = extractRelationshipChange(aiContent);
               aiContent = relChange.cleanedText;
               if (relChange.relationship && char.allowCharChangeRelationship
-                  && relChange.relationship !== (char.charViewRelationship?.trim() || '')) {
+                  && relChange.relationship !== (char.charViewRelationship?.trim() || '')
+                  && !relationshipChangeBlocked(char, relChange.relationship)) {
                   await DB.saveMessage({ ...lineFields, role: 'system', type: 'text', content: `[系統: ${char.name} 把你們的關係改成了「${relChange.relationship}」]` });
                   updateLineRef.current(char, { charViewRelationship: relChange.relationship });
               }
@@ -4412,6 +4445,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     }
     // 跟 ta 有關的角色私聊線一起刪（關係線第 6 批）；另一個角色已經整理進記憶的照留
     try {
+        // 羈絆空間：身份卡 × 他、他 × 任何角色（plans/bond.md）
+        await deleteBondsOfChar(id).catch(e => console.warn('[deleteCharacter] 羈絆空間刪除失敗', e));
         for (const pairId of await DB.getPairLineIds()) {
             if (parsePairLineId(pairId)?.includes(id)) await DB.clearMessages(pairId);
         }
@@ -4727,6 +4762,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               })),
           } : {}),
       }));
+      // 這張卡的羈絆空間一起刪（plans/bond.md）
+      await deleteBondsOfPersona(id).catch(e => console.warn('[deleteUserPersona] 羈絆空間刪除失敗', e));
       if (goneLinks.size) {
           for (const c of charactersRef.current) {
               if (!Object.keys(c.altKnowledge || {}).some(k => goneLinks.has(k))) continue;
@@ -5210,7 +5247,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               'worlds', 'world_episodes',
               // 生活記錄（檔案 App：生理期/藥盒/鍛鍊 + 藥盒計劃 + 設置；記帳走 bank_transactions）
               // 導入端 importFullData 已支持恢復，這裡必須同步登記，否則備份不含生活記錄。
-              'life_records', 'med_plans', 'life_record_settings'
+              'life_records', 'med_plans', 'life_record_settings',
+              // 羈絆空間（plans/bond.md）
+              'bonds',
           ];
 
           if (mode === 'full') {
@@ -5596,6 +5635,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               life_records: 'lifeRecords',
               med_plans: 'medPlans',
               life_record_settings: 'lifeRecordSettings',
+              bonds: 'bonds',
           };
           const prewrittenStores: BackupManifest['stores'] = {};
           // 整合／媒體分批寫的表：純文字那張對照表再加 assets（純文字不帶 assets，所以那邊沒列）
@@ -5875,6 +5915,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 家園 —— 鍵名須與 importFullData 讀取的字段（data.worlds / data.worldEpisodes）對齊
                   case 'worlds': backupData.worlds = processedData; break;
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
+                  case 'bonds': backupData.bonds = processedData; break;
               }
 
               await new Promise(resolve => setTimeout(resolve, 10));

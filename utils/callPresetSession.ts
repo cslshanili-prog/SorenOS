@@ -110,7 +110,7 @@ export const buildCallPresetSlots = (input: {
         worldInfoAfter: join(c.worldview, c.worldbookAfterCharacter, c.worldbookAuthorsNoteTop, c.worldbookAuthorsNoteBottom),
         dialogueExamples: join(c.worldbookBeforeExamples, c.dialogueExamples, c.signatureLines, c.worldbookAfterExamples),
         personaDescription: c.userProfile,
-        soren: join(c.impression, c.relations, c.triggeredLines, input.fixedLine),
+        soren: join(c.impression, c.bond, c.relations, c.triggeredLines, input.fixedLine),
         memory: join(c.roomPlates, c.memoryBank, c.memoryPalace),
         emotion: c.emotionBuff,
         time: join(c.timeAwareness, s.time),

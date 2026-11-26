@@ -19,8 +19,11 @@ export function castRelationLines(args: {
     userName: string;
     /** 跟「你」的那條只在主線上算（寫的是主線那張卡；別條線上的你是另一個人）。不給＝算 */
     includeUser?: boolean;
+    /** 跟某個角色的羈絆路線補一句（友情、親情線；plans/bond-batch1.md 2.2）。沒有就不加 */
+    routeNoteOf?: (id: string) => string | undefined;
 }): string[] {
-    const { char, others, nameOf, aliasesOf, userName, includeUser = true } = args;
+    const { char, others, nameOf, aliasesOf, userName, includeUser = true, routeNoteOf } = args;
+    const withRoute = (id: string, line: string) => { const note = routeNoteOf?.(id); return note ? `${line}（${note}）` : line; };
     const tag = (id: string, name: string) => {
         const aliases = (aliasesOf?.(id) || []).filter(a => a && a !== name);
         return aliases.length ? `「${name}」（又叫 ${aliases.join('、')}）` : `「${name}」`;
@@ -34,14 +37,14 @@ export function castRelationLines(args: {
         const name = nameOf(r.targetId);
         if (!name) continue;
         seen.add(r.targetId);
-        lines.push(`跟${tag(r.targetId, name)}：${desc}`);
+        lines.push(withRoute(r.targetId, `跟${tag(r.targetId, name)}：${desc}`));
     }
     for (const o of others) {
         if (o.id === char.id) continue;
         for (const r of o.relationships) {
             const desc = r.description?.trim();
             if (r.targetId !== char.id || !desc) continue;
-            lines.push(seen.has(o.id) ? `（「${o.name}」那邊記的是：${desc}）` : `${tag(o.id, o.name)}跟你：${desc}`);
+            lines.push(seen.has(o.id) ? `（「${o.name}」那邊記的是：${desc}）` : withRoute(o.id, `${tag(o.id, o.name)}跟你：${desc}`));
         }
     }
     return lines.slice(0, CAST_RELATION_LIMIT);

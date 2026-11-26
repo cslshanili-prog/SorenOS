@@ -115,6 +115,8 @@ import type { AmsgEmotionEvalSpec } from '../worker/amsg/src/emotionEval';
 import { listRecallableMonths } from './agenticTools';
 import { ChatPrompts } from './chatPrompts';
 import { loadChatPresetDoc, renderChatPresetSystemText } from './chatPresetSession';
+import { bondForChar } from './bond/registry';
+import { bondFinalLock } from './bond/prompt';
 import { buildSpeakingRulesPrompt, resolveChatLanguage } from './chatLanguage';
 import { nowInTimeZone, resolveCharTimeZone, tzAwarenessNote } from './timezone';
 import { DB } from './db';
@@ -821,7 +823,7 @@ export const buildFirePack = async (
     // 資料庫的照片清單照帶（utils/libraryPrompt.ts）：角色到點也能傳一張現成的
     { forFirePack: true, libraryPhotos: true },
   );
-  const systemPrompt = templateStub ? ''
+  const systemPromptBody = templateStub ? ''
     : chatPreset && promptParts ? renderChatPresetSystemText({ doc: chatPreset, parts: promptParts, char, userName: userProfile.name || '' })
     : await ChatPrompts.buildSystemPrompt(
       char,
@@ -837,6 +839,9 @@ export const buildFirePack = async (
       undefined,
       { forFirePack: true, libraryPhotos: true },
     );
+  // 羈絆的關係底線（友情、親情）貼在角色系統設定最後，預設蓋不掉（plans/bond-batch1.md 2.2）
+  const bondLock = templateStub ? '' : bondFinalLock(bondForChar(char), userProfile.name || '用戶');
+  const systemPrompt = bondLock ? `${systemPromptBody}\n\n${bondLock}` : systemPromptBody;
   const recentTranscript = templateStub ? '' : ChatPrompts.buildMessageHistory(
     recentMessages,
     Math.max(1, recentMessages.length),

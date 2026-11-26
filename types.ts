@@ -40,6 +40,7 @@ export enum AppID {
   CharCreatorDev = 'char_creator_dev', // 捏臉系統開發模式 — 僅開發模式可見，向捏人器指定類目追加自定義部件
   WorldHome = 'world_home', // 家園 — 同世界觀多角色共同生活的大世界（觀測驅動演繹，每角色獨立 LLM 調用 + NPC 世界引擎）
   ChatHub = 'chat_hub', // Chat 主頁 — 消息/聯繫人/動態/主頁四欄導航殼，取代原本直接開 Chat 的入口
+  Bond = 'bond', // 羈絆 — 一段關係的專屬空間（plans/bond.md）
   Calendar = 'calendar', // 行事曆 — 身份卡和角色的日程、待辦、旅行一個 App 看全（plans/calendar.md）；取代時光契約
 }
 
@@ -5392,7 +5393,7 @@ export interface GameSession {
     lastPlayedAt: number;
 }
 
-export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card' | 'mall_order' | 'date_invite' | 'char_call' | 'photo_pending' | 'library_file' | 'persona_card';
+export type MessageType = 'text' | 'image' | 'emoji' | 'voice' | 'collaboration_file' | 'interaction' | 'transfer' | 'system' | 'social_card' | 'chat_forward' | 'xhs_card' | 'score_card' | 'music_card' | 'mcd_card' | 'luckin_card' | 'html_card' | 'news_card' | 'vr_card' | 'trpg_card' | 'novel_card' | 'world_card' | 'sim_card' | 'phone_card' | 'webpage_card' | 'theater_card' | 'room_card' | 'life_card' | 'group_topic_card' | 'mall_order' | 'date_invite' | 'char_call' | 'photo_pending' | 'library_file' | 'persona_card' | 'bond_invite';
 
 export interface Message {
     id: number;
@@ -5509,6 +5510,8 @@ export interface FullBackupData {
     calendarEvents?: CalendarEvent[];
     /** 行事曆的旅行（plans/calendar.md 第 4 批） */
     trips?: Trip[];
+    /** 羈絆空間（plans/bond.md） */
+    bonds?: BondRecord[];
     roomTodos?: RoomTodo[]; 
     roomNotes?: RoomNote[];
     socialPosts?: SocialPost[]; 
@@ -6204,4 +6207,79 @@ export interface AssistantSession {
   updatedAt: number;
   /** 從「請 Sore 幫忙」捷徑開的：在改哪裡（每輪都帶給 Sore，utils/assistant/handoff.ts） */
   entry?: { location: string; target: string; label: string };
+}
+
+// ─── 羈絆（plans/bond.md、plans/bond-batch1.md）───
+
+/** 關係路線：沒有＝未指定（不是第四條路線） */
+export type BondRoute = 'romance' | 'friendship' | 'family';
+
+/** 一次路線／階段的改動 */
+export interface BondRouteChange {
+    at: number;
+    /** 故事日期 YYYY-MM-DD（這條線的故事時間） */
+    storyDay: string;
+    /** fix＝建立時選錯、修正；turn＝關係真的變了，從這天起生效 */
+    kind: 'fix' | 'turn';
+    from: { route?: BondRoute; stage: string; label?: string };
+    to: { route?: BondRoute; stage: string; label?: string };
+    note?: string;
+}
+
+/** 天數的一個起點（「相識」不存這裡，讀聊天設定的 acquaintanceStartDate） */
+export interface BondDayStart {
+    id: string;
+    /** 'together'＝交往、'married'＝結婚，或自訂 */
+    kind: 'together' | 'married' | 'custom';
+    label?: string;
+    /** YYYY-MM-DD；沒填＝還沒填 */
+    date?: string;
+}
+
+export interface BondDays {
+    /** 首頁主要顯示哪個：'met'（相識）或某個起點 id */
+    primary: string;
+    extra: BondDayStart[];
+}
+
+/** 此刻的我們（角色寫）／我眼中的我們（你寫）；角色 × 角色是雙方各一段 */
+export interface BondOurNow {
+    char?: { text: string; at: number };
+    user?: { text: string; at: number };
+    /** pair：另一位角色寫的 */
+    other?: { text: string; at: number };
+}
+
+export interface BondRecord {
+    /** 身份卡 × 角色：lineKey(line)；角色 × 角色：pairLineId(a, b) */
+    id: string;
+    kind: 'persona' | 'pair';
+    /** persona：角色；pair：字典序小的那位 */
+    charId: string;
+    /** persona：哪張身份卡 */
+    personaKey?: string;
+    /** pair：另一位 */
+    otherCharId?: string;
+    route?: BondRoute;
+    /** 內建階段 id（utils/bond/routes.ts），或 'custom' */
+    stage: string;
+    /**
+     * 自訂階段名；親情線是稱謂：
+     * persona＝角色是你的什麼（「哥哥」＝角色是你的哥哥）；pair＝charId 那位是 otherCharId 的什麼。
+     */
+    stageLabel?: string;
+    /** pair 親情線：otherCharId 那位是 charId 的什麼 */
+    stageLabelOther?: string;
+    openedAt: number;
+    openedBy: 'auto' | 'user' | 'char';
+    routeLog: BondRouteChange[];
+    days: BondDays;
+    ourNow?: BondOurNow;
+    /** 建議路線按了「不是」 */
+    suggestionDismissed?: boolean;
+    /** 角色邀請建立：先不要（這條線不再教 BOND_INVITE） */
+    inviteDeclinedAt?: number;
+    /** pair：私聊整理時自動留日記（預設開，plans/bond.md 0.3） */
+    pairAutoDiary?: boolean;
+    updatedAt: number;
 }

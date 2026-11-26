@@ -25,6 +25,7 @@ import { formatStatCount } from './videoParser';
 import { formatSARModuleEventsForContext } from './vrWorld/sarModuleRuntime';
 import { mirrorSceneNote, mirrorWriterLabel } from './storyMirrorMeta';
 
+import { formatBondInviteRecord } from './bond/invite';
 /**
  * 總結器只在輸入確實含 SAR 雙軌記錄時收到這段硬邊界；普通聊天/總結提示詞保持原樣。
  */
@@ -149,6 +150,7 @@ export function normalizeMessageContent(
 
     if (type === 'date_invite') return formatDateInviteRecord(msg.metadata?.dateInvite);
     if (type === 'persona_card') return formatPersonaRevealRecord(msg.metadata?.personaReveal);
+    if (type === 'bond_invite') return formatBondInviteRecord(msg.metadata?.bondInvite);
     if (type === 'char_call') return formatCharCallRecord(msg.metadata?.charCall);
     if (type === 'photo_pending') return '[照片傳送中]';
     // 從資料庫發進來的文件（utils/libraryShare.ts）：跟私聊歷史同一行

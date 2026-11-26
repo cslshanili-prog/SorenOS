@@ -29,7 +29,7 @@ export interface StoryActorBlockInput {
     /** 核心人設那一大段 */
     buildCore: (view: CharacterProfile, profile: UserProfile, recalled: string) => string;
     /** 某條線的印象與長期記憶（給「你也認識在場的某某」那段） */
-    lineSections: (view: CharacterProfile, profile: UserProfile) => { impression: string; memoryBank: string };
+    lineSections: (view: CharacterProfile, profile: UserProfile) => { impression: string; bond?: string; memoryBank: string };
 }
 
 export async function buildStoryActorBlock(input: StoryActorBlockInput): Promise<string> {
@@ -59,7 +59,7 @@ export async function buildStoryActorBlock(input: StoryActorBlockInput): Promise
         const lineProfile = resolveUserProfileForChar(input.profileBase, lineActor);
         const sections = input.lineSections(lineActor, lineProfile);
         // 這條線沒有記憶時那段只是一句佔位，不放
-        const about = [sections.impression, sections.memoryBank.includes('暫無特定記憶') ? '' : sections.memoryBank]
+        const about = [sections.impression, sections.bond || '', sections.memoryBank.includes('暫無特定記憶') ? '' : sections.memoryBank]
             .join('').trim().split('\n').filter(Boolean).map(line => `  ${line}`).join('\n');
         extras.push({ name: lineProfile.name, about });
         const lineRecent = await input.loadRecent(lineActor).catch(() => [] as Message[]);

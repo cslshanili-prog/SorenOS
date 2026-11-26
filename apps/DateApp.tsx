@@ -79,6 +79,8 @@ import {
 } from '../utils/dateHistory';
 import { BUILTIN_PRESET, sceneDefault } from '../utils/presetBinding';
 
+import { bondForChar } from '../utils/bond/registry';
+import { bondFinalLock } from '../utils/bond/prompt';
 /** 上次自己選的開場方式（赴約那次臨時用的「我走過去」不算）。 */
 const loadRememberedOpening = (): DateOpeningMode => {
     try { return localStorage.getItem('soren-date-opening-mode-v1') === 'invite' ? 'invite' : 'approach'; }
@@ -376,6 +378,9 @@ const DateApp: React.FC = () => {
         const chatApi = char ? resolveCharacterChatApi(char, apiConfig) : apiConfig;
         const stream = apiConfig.stream ?? false;
         setLiveReply(null);
+        // 羈絆的關係底線（友情、親情）：貼在最後，預設蓋不掉（plans/bond-batch1.md 2.2）
+        const bondLock = char ? bondFinalLock(bondForChar(char), resolveUserProfileForChar(userProfileBase, char).name) : '';
+        if (bondLock) messages = [...messages, { role: 'system', content: bondLock } as ApiMessage];
         try {
             const data = await safeFetchJson(`${chatApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
                 method: 'POST',

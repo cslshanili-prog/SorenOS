@@ -169,6 +169,8 @@ import ChatBubblePickerPage from '../components/chat/ChatBubblePickerPage';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../utils/decorationTemplateStore';
 
 import { withApiCallMeta } from '../utils/apiCallLog';
+import { resolveBondInvite } from '../utils/bond/inviteActions';
+import { appReturn, bondLaunch } from '../utils/appLaunch';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -1966,6 +1968,19 @@ const Chat: React.FC = () => {
         await resolveSuspicionCard({ msg, raw, profileBase: userProfileBase, action, updateCharacter: updateCharacterRaw });
         await reloadMessages(visibleCountRef.current);
     }, [char, characters, userProfileBase, updateCharacterRaw, reloadMessages]);
+
+    // 羈絆邀請卡上按「好／先不要」（utils/bond/inviteActions.ts）：好了就直接去路線設定，讓你選路線
+    const handleResolveBondInvite = useCallback(async (msg: Message, action: 'accepted' | 'declined') => {
+        if (!char) return;
+        const bondId = await resolveBondInvite(msg, action);
+        await reloadMessages(visibleCountRef.current);
+        trackEvent('角色邀请建立羁绊', { 结果: action === 'accepted' ? '接受' : '先不要' });
+        if (action === 'accepted' && bondId) {
+            bondLaunch.request({ bondId, page: 'route' });
+            appReturn.set(AppID.Bond, () => openApp(AppID.Chat));
+            openApp(AppID.Bond);
+        }
+    }, [char, reloadMessages, openApp]);
 
     // 未接／拒接的來電卡上按「回撥」：照一般流程打回去（這次是用戶打的，角色照平常接）。
     const handleCallBack = useCallback((msg: Message) => {
@@ -4698,6 +4713,7 @@ const Chat: React.FC = () => {
                             onResolveLifeRecord={handleResolveLifeRecord}
                             onResolveDateInvite={handleResolveDateInvite}
                             onResolvePersonaReveal={handleResolvePersonaReveal}
+                            onResolveBondInvite={handleResolveBondInvite}
                             onCallBack={handleCallBack}
                             onRetryPhoto={handleRetryPhoto}
                             onOpenCollaborationFile={handleOpenCollaborationFile}

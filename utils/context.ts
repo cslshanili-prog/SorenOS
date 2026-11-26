@@ -47,6 +47,8 @@ import { buildSARModulePrompt } from './vrWorld/sarModuleRuntime';
 import { getCachedUserHolidayReminder, type UserHolidayConfig } from './userHolidays';
 import { withGlobalWorldbooks } from './globalWorldbooks';
 
+import { bondForChar, bondForPair } from './bond/registry';
+import { bondPromptBlock, pairRouteNote } from './bond/prompt';
 /**
  * 「互動對象 (User)」塊的唯一拼裝口徑，私聊/群聊共用——名字/設定/備註永遠顯示（備註留空顯示"無"），
  * 性別、補充設定選填，留空就不佔提示詞篇幅。補充設定是舊的「自定義設定」「其他補充」合起來的一行（utils/personaSetting.ts）。
@@ -81,6 +83,8 @@ export interface CoreContextSections {
     worldbookAfterExamples: string;
     userProfile: string;
     impression: string;
+    /** 你和這條線上的你的羈絆：路線、階段、鎖定、此刻的我們（plans/bond-batch1.md 2.1；沒設時空字串） */
+    bond: string;
     /** 你身邊的人（關係清單，雙向；utils/castRelations.ts） */
     relations: string;
     roomPlates: string;
@@ -97,7 +101,7 @@ export interface CoreContextSections {
 export const CORE_SECTION_ORDER: Array<keyof CoreContextSections> = [
     'worldbookBeforeCharacter', 'header', 'identity', 'timeAwareness', 'selfInsights', 'worldview',
     'worldbookAfterCharacter', 'worldbookBeforeExamples', 'dialogueExamples', 'signatureLines', 'worldbookAfterExamples',
-    'userProfile', 'impression', 'relations', 'roomPlates', 'memoryBank', 'memoryPalace', 'emotionBuff',
+    'userProfile', 'impression', 'bond', 'relations', 'roomPlates', 'memoryBank', 'memoryPalace', 'emotionBuff',
     'worldbookAuthorsNoteTop', 'worldbookAuthorsNoteBottom', 'antiFiller', 'triggeredLines',
 ];
 
@@ -350,6 +354,9 @@ export const ContextBuilder = {
             sections.impression = impression;
         }
 
+        // 4-1. 羈絆：這條線上的你跟角色是什麼路線（plans/bond-batch1.md）。沒空間、全預設時是空字串
+        sections.bond = bondPromptBlock({ bond: bondForChar(char), selfName: char.name, otherName: user.name });
+
         // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）
         const viewKey = lineViewPersonaKey(char);
         sections.relations = formatCastRelationsBlock({
@@ -357,6 +364,7 @@ export const ContextBuilder = {
             aliasesOf: id => charAliases(getRegisteredCharacter<CharacterProfile>(id)),
             // 跟「你」的關係寫的是主線那張卡：別條線上的你是另一個人，不帶
             includeUser: !viewKey || viewKey === char.primaryPersonaKey,
+            routeNoteOf: id => pairRouteNote(bondForPair(char.id, id)?.route),
         });
 
         // 4b. 底色認知（記憶宮殿門牌）— 常駐語義層
