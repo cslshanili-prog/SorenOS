@@ -4,13 +4,12 @@ import { buildFriendGraph } from './momentsPool';
 import { buildMomentsContextForChar, MOMENTS_CONTEXT_MAX_POSTS, MOMENTS_CONTEXT_WINDOW_MS } from './momentsContext';
 
 const chars = [{ id: 'a', name: '小雨' }, { id: 'b', name: '阿澤' }];
-const npcs = [{ id: 'n1', name: '房東', relationships: [] }];
-const graph = buildFriendGraph(chars, npcs);
+const graph = buildFriendGraph(chars);
 const post = (id: string, authorId: string, createdAt: number, patch: Partial<MomentPost> = {}): MomentPost => ({
     id, author: { kind: authorId === 'user' ? 'user' : 'character', id: authorId, name: authorId }, content: `內容${id}`,
     images: [], visibility: { mode: 'friends' }, likes: [], comments: [], createdAt, source: 'manual', ...patch,
 });
-const base = { characters: chars, npcs, graph, userName: '小安' };
+const base = { characters: chars, graph, userName: '小安' };
 
 describe('私聊裡的最近的朋友圈', () => {
     it('沒有看得到的最近貼文：空字串', () => {

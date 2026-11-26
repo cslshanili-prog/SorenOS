@@ -1,4 +1,4 @@
-import type { CharacterProfile, GroupProfile, MomentPost, NPCProfile, PhoneContact, UserProfile } from '../types';
+import type { CharacterProfile, GroupProfile, MomentPost, PhoneContact, UserProfile } from '../types';
 import { DB } from './db';
 import { actorDisplayName, buildFriendGraph, momentFeedFor, visibleComments, visibleLikes, type FriendGraph } from './momentsPool';
 import { buildPersonaKnowledge } from './momentsPersona';
@@ -8,14 +8,13 @@ import { distinctPersonaNote } from './personaSpeaker';
  * 私聊 prompt 的「最近的朋友圈」（路線圖第 6 項第二批）：角色看得到的最近幾篇，加上它自己在上面的互動，
  * 讓角色聊天時接得上「你昨天發的那張照片」。放在易變段；主動消息雲端打包（fire_pack）不帶。
  *
- * chatPrompts 位於 utils 層、拿不到 OSContext 的角色／NPC 清單（朋友關係要用），
+ * chatPrompts 位於 utils 層、拿不到 OSContext 的角色清單（朋友關係要用），
  * 由 OSContext 在清單變化時登記到這裡——跟 utils/charNameRegistry.ts 同一個做法。
  */
 
-type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock' | 'groupId'> & { phoneState?: { contacts?: PhoneContact[] } };
-type GraphNpc = Pick<NPCProfile, 'id' | 'name' | 'relationships' | 'knownPersonaId'>;
+type GraphChar = Pick<CharacterProfile, 'id' | 'name' | 'chatBlock' | 'groupId' | 'relationships' | 'altOf' | 'altUserFriend'> & { phoneState?: { contacts?: PhoneContact[] } };
 
-let registered: { characters: GraphChar[]; npcs: GraphNpc[]; graph: FriendGraph } | null = null;
+let registered: { characters: GraphChar[]; graph: FriendGraph } | null = null;
 let lastInputs: Parameters<typeof setMomentsGraphInputs> | null = null;
 
 /** 劇情的同場名單變了（utils/storySceneRegistry.ts）：照上次登記的資料把好友關係重算一次 */
@@ -25,14 +24,15 @@ export function refreshMomentsGraph(): void {
 
 export function setMomentsGraphInputs(
     characters: GraphChar[],
-    npcs: GraphNpc[],
     personas?: { profileBase: UserProfile; groups: Array<Pick<GroupProfile, 'id' | 'members'>> },
 ): void {
-    lastInputs = [characters, npcs, personas];
-    const slimChars = characters.map(c => ({ id: c.id, name: c.name, groupId: c.groupId, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts } }));
-    const slimNpcs = npcs.map(n => ({ id: n.id, name: n.name, relationships: n.relationships, knownPersonaId: n.knownPersonaId }));
-    const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups, slimNpcs) : undefined;
-    registered = { characters: slimChars, npcs: slimNpcs, graph: buildFriendGraph(slimChars, slimNpcs, knowledge) };
+    lastInputs = [characters, personas];
+    const slimChars = characters.map(c => ({
+        id: c.id, name: c.name, groupId: c.groupId, chatBlock: c.chatBlock, phoneState: { contacts: c.phoneState?.contacts },
+        relationships: c.relationships, altOf: c.altOf, altUserFriend: c.altUserFriend,
+    }));
+    const knowledge = personas ? buildPersonaKnowledge(personas.profileBase, slimChars, personas.groups) : undefined;
+    registered = { characters: slimChars, graph: buildFriendGraph(slimChars, knowledge) };
 }
 
 export const MOMENTS_CONTEXT_WINDOW_MS = 3 * 24 * 3600_000;
@@ -49,12 +49,11 @@ export function buildMomentsContextForChar(params: {
     charId: string;
     posts: MomentPost[];
     characters: GraphChar[];
-    npcs: GraphNpc[];
     graph: FriendGraph;
     userName: string;
     now: number;
 }): string {
-    const { charId, posts, characters, npcs, graph, userName, now } = params;
+    const { charId, posts, characters, graph, userName, now } = params;
     const recent = momentFeedFor(charId, posts, graph)
         .filter(p => now - p.createdAt <= MOMENTS_CONTEXT_WINDOW_MS)
         .slice(0, MOMENTS_CONTEXT_MAX_POSTS);
@@ -63,7 +62,7 @@ export function buildMomentsContextForChar(params: {
     const otherPersonaNames: string[] = [];
     const nameOf = (actor: MomentPost['author']) => {
         if (actor.id === charId) return '你';
-        const name = actorDisplayName(actor, characters, npcs, userName, graph);
+        const name = actorDisplayName(actor, characters, userName, graph);
         if (actor.kind === 'user' && graph.personaRelation && graph.personaRelation(charId, actor.personaKey) !== 'main') otherPersonaNames.push(name);
         return name;
     };

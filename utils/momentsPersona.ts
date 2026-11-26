@@ -1,6 +1,6 @@
 import type { CharacterProfile, GroupProfile, MomentPost, UserProfile } from '../types';
 import type { PersonaKnowledge } from './momentsPool';
-import { personaKeyForChar, personaKeyForNpc, personaNameForKey, type NpcPersonaRef } from './userPersona';
+import { personaKeyForChar, personaNameForKey } from './userPersona';
 import { presentPersonaKeys } from './groupChat/presence';
 import { storyPresentPersonaKeys } from './storyPresence';
 import { getStoryScenes, type StoryScene } from './storySceneRegistry';
@@ -10,13 +10,12 @@ import { getStoryScenes, type StoryScene } from './storySceneRegistry';
  * - 角色的主身份＝它私聊那條線綁的身份卡（personaKeyForChar）。
  * - 見過的身份＝它所在的群的群身份，跟主身份不同的那些（群友，不是朋友）；
  *   在劇情裡同場過的身份卡也算（utils/storySceneRegistry.ts，面具和你演的角色不算）。
- * - NPC 的主身份：手動指定的「認識的身份」，沒指定就從它關係清單裡的角色推（personaKeyForNpc）。
+ * 舊 NPC 已經搬成配角（角色），主身份照角色那套算；NPC 搬家時「認識的身份」已經寫成配角的主線那張卡。
  */
 export function buildPersonaKnowledge(
     profileBase: UserProfile,
     characters: Array<Pick<CharacterProfile, 'id' | 'groupId'> & { knownPersonaKeys?: string[]; primaryPersonaKey?: string }>,
     groups: Array<Pick<GroupProfile, 'id' | 'members'>>,
-    npcs: NpcPersonaRef[] = [],
     /** 劇情裡誰跟誰同場過；不給就用登記表裡的 */
     stories: StoryScene[] = getStoryScenes(),
 ): PersonaKnowledge {
@@ -27,7 +26,6 @@ export function buildPersonaKnowledge(
         main.set(c.id, personaKeyForChar(profileBase, c));
         if (c.knownPersonaKeys && c.knownPersonaKeys.length > 1) known.set(c.id, new Set(c.knownPersonaKeys));
     }
-    for (const n of npcs) if (!main.has(n.id)) main.set(n.id, personaKeyForNpc(profileBase, n, characters));
 
     const seen = new Map<string, Set<string>>();
     for (const g of groups) {

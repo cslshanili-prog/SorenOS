@@ -6,6 +6,7 @@ import TokenImg from '../components/os/TokenImg';
 import type { CalendarEvent, CharacterProfile, DailySchedule, Participant, ScheduleSlot, Trip } from '../types';
 import { DB } from '../utils/db';
 import { isAltChar } from '../utils/charAlt';
+import { isSupporting } from '../utils/castRole';
 import { isScheduleFeatureOn } from '../utils/scheduleGenerator';
 import { charSchedulePerson, personaScheduleId, personaSchedulePerson, type SchedulePerson } from '../utils/schedulePerson';
 import { REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
@@ -46,7 +47,8 @@ const RECENT_LIMIT = 6;
 const readRecent = (): Participant[] => {
     try {
         const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]');
-        return Array.isArray(v) ? v.filter((p: any) => p && (p.kind === 'char' || p.kind === 'npc') && typeof p.id === 'string') : [];
+        // 舊的 'npc'：NPC 搬成配角時 id 照舊，當成角色
+        return Array.isArray(v) ? v.filter((p: any) => p && (p.kind === 'char' || p.kind === 'npc') && typeof p.id === 'string').map((p: Participant) => charParticipant(p.id)) : [];
     } catch { return []; }
 };
 const pushRecent = (list: Participant[], p: Participant): Participant[] => {
@@ -74,7 +76,7 @@ const stateBadge = (state: 'past' | 'now' | 'future') =>
 const KIND_EMOJI: Record<CalendarEvent['kind'], string> = { event: '📌', todo: '☐', anniversary: '🎂' };
 
 const CalendarApp: React.FC = () => {
-    const { closeApp, characters, npcs, activeCharacterId, userProfileBase, apiConfig, groups, realtimeConfig, addToast, updateCharacter, updateUserProfile, updateUserPersona } = useOS();
+    const { closeApp, characters, activeCharacterId, userProfileBase, apiConfig, groups, realtimeConfig, addToast, updateCharacter, updateUserProfile, updateUserPersona } = useOS();
     // 從角色名片「行事曆」進來：直接看這個角色（utils/appLaunch.ts；看的人照 activeCharacterId）
     const [tab, setTab] = useState<Tab>(() => calendarLaunch.peek()?.tab || 'month');
     useEffect(() => { calendarLaunch.consume(); }, []);
@@ -92,7 +94,7 @@ const CalendarApp: React.FC = () => {
     const scheduleChars = useMemo(() => visibleChars.filter(c => isScheduleFeatureOn(c)), [visibleChars]);
     // 「TA 的」看誰：角色或配角；最近看過的放頭像列，其他從全螢幕選人頁找
     const [recent, setRecent] = useState<Participant[]>(readRecent);
-    const exists = useCallback((p: Participant) => p.kind === 'char' ? visibleChars.some(c => c.id === p.id) : p.kind === 'npc' && npcs.some(n => n.id === p.id), [visibleChars, npcs]);
+    const exists = useCallback((p: Participant) => p.kind !== 'persona' && visibleChars.some(c => c.id === p.id), [visibleChars]);
     const [who, setWhoRaw] = useState<Participant | null>(() => {
         if (activeCharacterId && visibleChars.some(c => c.id === activeCharacterId)) return charParticipant(activeCharacterId);
         const r = readRecent().find(exists);
@@ -101,8 +103,7 @@ const CalendarApp: React.FC = () => {
     const setWho = (p: Participant) => { setWhoRaw(p); setRecent(prev => pushRecent(prev, p)); };
     const [picking, setPicking] = useState(false);
     const [pickingDay, setPickingDay] = useState(false);
-    const whoChar = who?.kind === 'char' ? visibleChars.find(c => c.id === who.id) || null : null;
-    const whoNpc = who?.kind === 'npc' ? npcs.find(n => n.id === who.id) || null : null;
+    const whoChar = who && who.kind !== 'persona' ? visibleChars.find(c => c.id === who.id) || null : null;
 
     // 約定層（時光契約的待辦、紀念日第一次打開就搬進來）
     const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -125,14 +126,13 @@ const CalendarApp: React.FC = () => {
     // 參與者的名字和頭像（身份卡、角色、配角）
     const viewOf = useCallback((p: Participant): ParticipantView => {
         if (p.kind === 'persona') { const o = personas.find(x => x.key === p.id); return { participant: p, name: o?.name || '你', avatar: o?.avatar || '' }; }
-        if (p.kind === 'char') { const c = characters.find(x => x.id === p.id); return { participant: p, name: c?.name || '角色', avatar: c?.avatar || '' }; }
-        const n = npcs.find(x => x.id === p.id); return { participant: p, name: n?.name || '配角', avatar: n?.avatar || '' };
-    }, [personas, characters, npcs]);
+        // 'char'，或舊資料的 'npc'（搬成配角後 id 照舊）
+        const c = characters.find(x => x.id === p.id); return { participant: p, name: c?.name || '角色', avatar: c?.avatar || '' };
+    }, [personas, characters]);
     const participantChoices = useMemo<ParticipantView[]>(() => [
         ...personas.map(p => viewOf(personaParticipant(p.key))),
         ...characters.filter(c => !isAltChar(c)).map(c => viewOf(charParticipant(c.id))),
-        ...npcs.map(n => viewOf({ kind: 'npc', id: n.id })),
-    ], [personas, characters, npcs, viewOf]);
+    ], [personas, characters, viewOf]);
 
     // 月份裡每個角色有哪幾天的日程（打點＋今日交會點）；key = `${charId}_${date}`
     const [monthSchedules, setMonthSchedules] = useState<Map<string, DailySchedule>>(new Map());
@@ -506,15 +506,15 @@ const CalendarApp: React.FC = () => {
 
     // ── TA 的 ──
     const renderTheirs = () => {
-        const person = whoChar || whoNpc;
+        const person = whoChar;
         if (!who || !person) {
             return <div className="px-6 py-16 text-center text-[13px] text-slate-400 leading-relaxed">還沒有角色。<br />到神經鏈接建一個，再回來。</div>;
         }
-        const hasSchedule = !!whoChar && isScheduleFeatureOn(whoChar);
-        const tz = tzOn(who, resolveCharBaseTimeZone(whoChar || { groupId: whoNpc?.groupId }), dayKey);
+        const hasSchedule = isScheduleFeatureOn(person);
+        const tz = tzOn(who, resolveCharBaseTimeZone(person), dayKey);
         const trip = tripOn(trips, who, dayKey);
         const timeline = resolveCharCalendar(person);
-        const schedule = whoChar && hasSchedule ? scheduleOf(whoChar, dayKey) : null;
+        const schedule = hasSchedule ? scheduleOf(person, dayKey) : null;
         const ranges = schedule ? slotRanges(schedule.slots) : [];
         const nowSlot = schedule ? currentActivity(dayKey, schedule.slots, tz, nowMs) : undefined;
         const hisDay = sortByTime(eventsOn(eventsInvolving(events, who), dayKey)).filter(e => e.kind !== 'todo');
@@ -535,20 +535,20 @@ const CalendarApp: React.FC = () => {
                     <button onClick={() => setPicking(true)} aria-label="找別人" className="shrink-0 h-11 w-11 rounded-full bg-white/80 border-2 border-dashed border-pink-200 grid place-items-center text-pink-400">
                         <DotsThree size={22} weight="bold" />
                     </button>
-                    <span className="text-[11px] text-slate-400 shrink-0">{visibleChars.length + npcs.length} 人</span>
+                    <span className="text-[11px] text-slate-400 shrink-0">{visibleChars.length} 人</span>
                 </div>
                 <section className="rounded-[1.75rem] bg-white/85 border border-white p-4 flex items-center gap-3 shadow-sm">
                     <button onClick={() => setPicking(true)} aria-label="換一個人看" className="shrink-0"><Avatar src={person.avatar} size={56} /></button>
                     <div className="min-w-0 flex-1">
-                        <div className="text-[18px] font-black text-slate-800 truncate">{person.name}{whoNpc && <span className="ml-1.5 align-middle rounded-full bg-violet-50 px-1.5 text-[10px] font-bold text-violet-500">配角</span>}</div>
+                        <div className="text-[18px] font-black text-slate-800 truncate">{person.name}{isSupporting(person) && <span className="ml-1.5 align-middle rounded-full bg-violet-50 px-1.5 text-[10px] font-bold text-violet-500">配角</span>}</div>
                         <div className="text-[12px] text-slate-500 truncate">
-                            {whoNpc ? '配角沒有日程，只有約好的事和待辦' : !hasSchedule ? '沒開日程功能' : dayKey === todayKey && nowSlot ? `${nowSlot.emoji || ''} ${nowSlot.activity}` : schedule ? '這天有日程' : '這天還沒排'}
+                            {!hasSchedule ? '沒開日程功能' : dayKey === todayKey && nowSlot ? `${nowSlot.emoji || ''} ${nowSlot.activity}` : schedule ? '這天有日程' : '這天還沒排'}
                         </div>
                         {trip && <div className="text-[11px] font-bold text-teal-600">{tripLabel(trip, dayKey)}</div>}
                         <div className="text-[11px] text-slate-400">{timeline ? '架空曆法' : tz ? tzLabel(tz) : '跟設備時間'}</div>
                     </div>
-                    {whoChar && hasSchedule && (
-                        <button onClick={() => setGenerating(charSchedulePerson(whoChar))} aria-label="生成日程"
+                    {hasSchedule && (
+                        <button onClick={() => setGenerating(charSchedulePerson(person))} aria-label="生成日程"
                             className="h-11 w-11 rounded-full bg-white grid place-items-center text-pink-500 shadow-md">
                             <Sparkle size={20} weight="fill" />
                         </button>
@@ -561,15 +561,13 @@ const CalendarApp: React.FC = () => {
                         {hisDay.map(e => renderEventRow(e, { tz }))}
                     </section>
                 )}
-                {whoNpc ? (
-                    hisDay.length === 0 && <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">這天沒有約好的事。配角沒有日程表，右下角 ＋ 可以替 TA 加一條。</div>
-                ) : !hasSchedule ? (
+                {!hasSchedule ? (
                     <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">這個角色沒開日程功能：神經鏈接 → 角色的「日程／情緒」打開，就能生成 TA 的一天。</div>
                 ) : !schedule ? (
                     <div className="rounded-[1.75rem] bg-white/70 border border-white p-6 text-center text-[13px] text-slate-400 leading-relaxed">
                         這天沒有日程。右上角 ✦ 生成今天或這週的。
                     </div>
-                ) : renderTimeline(schedule, tz, () => whoChar && void deleteDay(whoChar.id, dayKey))}
+                ) : renderTimeline(schedule, tz, () => void deleteDay(person.id, dayKey))}
                 {renderTrips(who)}
                 {renderTodos(who, `${person.name} 的待辦`)}
             </div>
@@ -620,7 +618,6 @@ const CalendarApp: React.FC = () => {
             {picking && (
                 <PersonPickerPage
                     characters={visibleChars}
-                    npcs={npcs}
                     worlds={groups}
                     selected={who || undefined}
                     recent={recent.filter(exists)}

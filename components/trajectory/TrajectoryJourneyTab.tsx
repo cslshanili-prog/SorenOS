@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CaretLeft, CheckCircle, Circle, MapPin, PaperPlaneTilt, Plus, Trash, X } from '@phosphor-icons/react';
-import type { CharacterProfile, NPCProfile, TrajectoryJourneyEntry } from '../../types';
+import type { CharacterProfile, TrajectoryJourneyEntry } from '../../types';
 import { buildTrajectoryJourneyPrompt, createTrajectoryJourneyEntry } from '../../utils/trajectory';
 import { ContextBuilder } from '../../utils/context';
 import { safeResponseJson, extractContent } from '../../utils/safeApi';
@@ -10,7 +10,6 @@ import { DB } from '../../utils/db';
 interface Props {
     char: CharacterProfile;
     characters: CharacterProfile[];
-    npcs: NPCProfile[];
     entries: TrajectoryJourneyEntry[];
     onCommit: (next: TrajectoryJourneyEntry[]) => void;
     apiConfig: { baseUrl: string; apiKey: string; model: string } | null | undefined;
@@ -24,7 +23,7 @@ const formatDate = (ts: number): string => {
     return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries, onCommit, apiConfig, addToast }) => {
+const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, entries, onCommit, apiConfig, addToast }) => {
     const [view, setView] = useState<'list' | 'new'>('list');
     const [detailEntry, setDetailEntry] = useState<TrajectoryJourneyEntry | null>(null);
     const [kind, setKind] = useState<'日常' | '事件'>('日常');
@@ -38,10 +37,10 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
 
     useEffect(() => { setConfirmDeleteOpen(false); }, [detailEntry?.id]);
 
-    const pool: Participant[] = [
-        ...characters.filter(c => c.id !== char.id).map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '', charId: c.id })),
-        ...npcs.map(n => ({ key: `npc:${n.id}`, name: n.name, description: n.description?.trim().slice(0, 60) || '' })),
-    ];
+    // 配角也是角色，跟主角一起列；小號是同一個人的另一張卡，不列
+    const pool: Participant[] = characters
+        .filter(c => c.id !== char.id && !c.altOf)
+        .map(c => ({ key: `char:${c.id}`, name: c.name, description: c.worldview?.trim().slice(0, 60) || '', charId: c.id }));
 
     const toggleParticipant = (key: string) => {
         setSelectedKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -98,8 +97,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
     // 是否同步進私聊留給生成完之後由用戶自己決定（詳情面板裡的按鈕），生成本身不帶副作用。
     // 同一條記錄同時發給「見面對象」裡所有真實角色自己的私聊——不然角色A有這段記憶、
     // 一起出現的角色B/C卻沒有，後面聊起來會對不上（"我們昨天不是約好了"／"我們哪有約"）。
-    // 內容原樣複用（third-person 敘事本來就中立），不用另外分視角改寫。NPC 沒有自己的
-    // 私聊，跳過。
+    // 內容原樣複用（third-person 敘事本來就中立），不用另外分視角改寫。
     const handleSyncToChat = async (entry: TrajectoryJourneyEntry) => {
         setSyncingToChat(true);
         try {
@@ -167,7 +165,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, npcs, entries
                     <div>
                         <div className="text-[10px] tracking-widest text-white/40 mb-1.5">見面人物（可多選）</div>
                         {pool.length === 0 ? (
-                            <div className="text-[11px] text-white/35">還沒有其他角色或 NPC 可以選</div>
+                            <div className="text-[11px] text-white/35">還沒有其他角色可以選</div>
                         ) : (
                             <div className="flex flex-wrap gap-2">
                                 {pool.map(p => {

@@ -14,8 +14,11 @@ import { DB } from './db';
 import { REAL_IDENTITY_PERSONA_ID } from './userPersona';
 import { todoTitleMatches } from './todoTagParse';
 
+/** 舊資料的 'npc'：NPC 搬成配角時 id 照舊，當成那個角色 */
+const participantKind = (p: Participant): Participant['kind'] => p.kind === 'npc' ? 'char' : p.kind;
+
 export const sameParticipant = (a: Participant | null | undefined, b: Participant | null | undefined): boolean =>
-    !!a && !!b && a.kind === b.kind && a.id === b.id;
+    !!a && !!b && participantKind(a) === participantKind(b) && a.id === b.id;
 
 export const personaParticipant = (personaKey: string | undefined): Participant => ({ kind: 'persona', id: personaKey || REAL_IDENTITY_PERSONA_ID });
 export const charParticipant = (charId: string): Participant => ({ kind: 'char', id: charId });

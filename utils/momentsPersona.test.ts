@@ -19,7 +19,7 @@ const chars = [{ id: 'A', name: 'A', groupId: 'fog' }, { id: 'B', name: 'B' }, {
 // 群 g1：A、B 都在，群身份是阿澈 → A 見過阿澈
 const groups = [{ id: 'g1', members: ['A', 'B'] }];
 const knowledge = buildPersonaKnowledge(base, chars, groups);
-const graph = buildFriendGraph(chars, [], knowledge);
+const graph = buildFriendGraph(chars, knowledge);
 
 const post = (personaKey: string | undefined, mode: 'friends' | 'public' = 'friends'): MomentPost => ({
     id: 'p', author: { kind: 'user', id: USER_ID, name: 'x', ...(personaKey ? { personaKey } : {}) },
@@ -53,7 +53,7 @@ describe('朋友圈可見範圍', () => {
         expect(canViewMoment('C', post(undefined), graph)).toBe(true);
     });
     it('沒帶身份資料的好友圖：跟以前一樣', () => {
-        const plain = buildFriendGraph(chars, []);
+        const plain = buildFriendGraph(chars);
         expect(canViewMoment('B', post('p-xing'), plain)).toBe(true);
     });
     it('用別的身份留的言：只有作者看得到', () => {
@@ -65,8 +65,8 @@ describe('朋友圈可見範圍', () => {
         expect(visibleComments('C', charPost, graph)).toHaveLength(0);
     });
     it('名字：有身份鍵用那張卡的名字，舊資料用看的人認識的名字', () => {
-        expect(actorDisplayName(post('p-che').author, chars, [], '小星', graph)).toBe('阿澈');
-        expect(actorDisplayName(post(undefined).author, chars, [], '小星', graph)).toBe('小星');
+        expect(actorDisplayName(post('p-che').author, chars, '小星', graph)).toBe('阿澈');
+        expect(actorDisplayName(post(undefined).author, chars, '小星', graph)).toBe('小星');
     });
 });
 
@@ -90,23 +90,10 @@ describe('私聊注入的最近的朋友圈', () => {
             { ...post('p-che', 'public'), id: 'x1', createdAt: now - 10 },
             { ...post('p-che'), id: 'x2', content: '朋友可見的', createdAt: now - 20 },
         ];
-        const text = buildMomentsContextForChar({ charId: 'A', posts, characters: chars, npcs: [], graph, userName: '小星', now });
+        const text = buildMomentsContextForChar({ charId: 'A', posts, characters: chars, graph, userName: '小星', now });
         expect(text).toContain('阿澈發的');
         expect(text).not.toContain('朋友可見的');
         expect(text).toContain('跟你私下聊天的「小星」是不同的人');
-    });
-});
-
-describe('NPC 認識的身份（2c）', () => {
-    it('沒指定：從關係清單推；有指定：用指定的', () => {
-        const k = buildPersonaKnowledge(base, chars, groups, [
-            { id: 'n1', relationships: [{ targetId: 'A' }] },
-            { id: 'n2', relationships: [{ targetId: 'A' }], knownPersonaId: 'p-che' },
-            { id: 'n3', relationships: [] },
-        ]);
-        expect(k.mainKeyOf('n1')).toBe('p-xing');
-        expect(k.mainKeyOf('n2')).toBe('p-che');
-        expect(k.mainKeyOf('n3')).toBe(REAL_IDENTITY_PERSONA_ID);
     });
 });
 

@@ -47,7 +47,7 @@ const formatTimestamp = (ts: number): string => {
 const HINT_EN = '生成這張照片時用的描述（英文也可以直接改中文）。生成時還會自動加上：專屬生圖設定的人物特徵、畫風，帶參考圖時再加一段鎖臉要求。';
 
 const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, apiConfig, imageGenConfig, addToast }) => {
-    const { characters, npcs, userProfileBase, groups, updateCharacter, apiConfig: osApiConfig } = useOS();
+    const { characters, userProfileBase, groups, updateCharacter, apiConfig: osApiConfig } = useOS();
     const [liking, setLiking] = useState(false);
     const [commenting, setCommenting] = useState(false);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -67,8 +67,8 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     }, [reload]);
     // 同一世界裡不同身份卡是不同的人：TA 只把它認識的那張當成你，其他身份用各自的名字
     const graph = useMemo(
-        () => buildFriendGraph(characters, npcs, buildPersonaKnowledge(userProfileBase, characters, groups, npcs)),
-        [characters, npcs, userProfileBase, groups],
+        () => buildFriendGraph(characters, buildPersonaKnowledge(userProfileBase, characters, groups)),
+        [characters, userProfileBase, groups],
     );
     const posts = useMemo(() => momentFeedFor(char.id, pool, graph), [pool, char.id, graph]);
     const ownPosts = useMemo(() => posts.filter(p => p.author.id === char.id), [posts, char.id]);
@@ -76,11 +76,11 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const setDetailPost = (post: MomentPost | null) => { setDetailId(post?.id || null); setEditingPost(null); setEditingComment(null); setEditingPhotoPrompt(false); };
     const knownUser = useMemo(() => resolveUserProfileForChar(userProfileBase, char), [userProfileBase, char]);
     const userName = knownUser.name || '用戶';
-    const nameOf = (actor: MomentActor) => actorDisplayName(actor, characters, npcs, userName, graph);
+    const nameOf = (actor: MomentActor) => actorDisplayName(actor, characters, userName, graph);
     const avatarOf = (actor: MomentActor): string | undefined => {
         if (actor.kind === 'user') return actor.personaKey ? personaAvatarForKey(userProfileBase, actor.personaKey) : knownUser.avatar;
-        if (actor.kind === 'npc') return npcs.find(n => n.id === actor.id)?.avatar;
-        if (actor.kind === 'character') return characters.find(c => c.id === actor.id)?.avatar;
+        // 舊資料裡 kind 是 'npc' 的：NPC 搬成配角時 id 照舊
+        if (actor.kind === 'character' || actor.kind === 'npc') return characters.find(c => c.id === actor.id)?.avatar;
         return undefined;
     };
     const [regeneratingPhoto, setRegeneratingPhoto] = useState(false);
@@ -230,7 +230,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     const handleCharComment = async (post: MomentPost) => {
         setCommenting(true);
         try {
-            const ok = await commentAsCharacter({ char, post, userName, apiConfig: osApiConfig, characters, npcs, graph });
+            const ok = await commentAsCharacter({ char, post, userName, apiConfig: osApiConfig, characters, graph });
             if (!ok) addToast(`${char.name} 這次沒想到要說什麼`, 'info');
             else trackEvent('查手机让角色留言朋友圈');
         } catch (e) {

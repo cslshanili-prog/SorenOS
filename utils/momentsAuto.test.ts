@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { MomentPost, NPCProfile } from '../types';
+import type { MomentPost } from '../types';
 import { buildFriendGraph } from './momentsPool';
 import {
     buildBatchCommentPrompt, dropJobsForPost, enqueueJobs, firstPostDueAt, JOB_STALE_MS, nextPostDueAt, parseBatchComments,
@@ -9,8 +9,9 @@ import {
 const H = 3600_000;
 const settings = {
     minPostIntervalHours: 48, maxPostIntervalHours: 72, likeProbability: 75, commentProbability: 40,
-    npcLikeProbability: 75, npcCommentProbability: 20,
-    firstCommentDelaySec: 120, commentIntervalSec: 60, npcInteractionDelayMin: 30, replyToNpcDelaySec: 3,
+    supportingMinPostIntervalHours: 96, supportingMaxPostIntervalHours: 168,
+    supportingLikeProbability: 75, supportingCommentProbability: 20,
+    firstCommentDelaySec: 120, commentIntervalSec: 60, supportingInteractionDelayMin: 30, replyToSupportingDelaySec: 3,
 };
 
 describe('發文排程', () => {
@@ -31,21 +32,26 @@ describe('發文排程', () => {
         expect(schedule.c).toBe(100 + 2 * 60_000);
         expect(due).toEqual(['b', 'a']);
     });
+
+    it('照人給間隔：配角和主角各用自己那組', () => {
+        const intervalOf = (id: string) => ({ minPostIntervalHours: id === 'lead' ? 1 : 96 });
+        const { schedule } = reconcilePostSchedule({}, ['lead', 'side'], 0, intervalOf, () => 1);
+        expect(schedule.lead).toBe(H);
+        expect(schedule.side).toBe(6 * H);
+    });
 });
 
 describe('看到新貼文的反應', () => {
-    const graph = buildFriendGraph([{ id: 'a' }, { id: 'b' }], [
-        { id: 'n1', relationships: [{ id: 'r', targetId: 'user', description: '' }] },
-        { id: 'n2', relationships: [] },
-    ] as Pick<NPCProfile, 'id' | 'relationships'>[]);
+    // n1、n2 是配角；n2 是小號、你沒加它：看不到你「朋友可見」的貼文
+    const graph = buildFriendGraph([{ id: 'a' }, { id: 'b' }, { id: 'n1' }, { id: 'n2', altOf: 'a' }]);
     const userPost = { id: 'p1', author: { kind: 'user' as const, id: 'user', name: '我' }, visibility: { mode: 'friends' as const } };
     const candidates = [
         { id: 'a', kind: 'character' as const }, { id: 'b', kind: 'character' as const },
-        { id: 'n1', kind: 'npc' as const }, { id: 'n2', kind: 'npc' as const },
+        { id: 'n1', kind: 'supporting' as const }, { id: 'n2', kind: 'supporting' as const },
     ];
 
-    it('機率 100%：看得到的都按讚、角色一批留言、NPC 晚一批；看不到的（n2）不在內', () => {
-        const jobs = planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 100, npcLikeProbability: 100, npcCommentProbability: 100 }, now: 0, random: () => 0.5 });
+    it('機率 100%：看得到的都按讚、主角一批留言、配角晚一批；看不到的（n2）不在內', () => {
+        const jobs = planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 100, supportingLikeProbability: 100, supportingCommentProbability: 100 }, now: 0, random: () => 0.5 });
         const likes = jobs.filter(j => j.type === 'like').map(j => (j as any).actorId);
         expect(likes).toEqual(['a', 'b', 'n1']);
         const batches = jobs.filter(j => j.type === 'commentBatch') as any[];
@@ -55,16 +61,16 @@ describe('看到新貼文的反應', () => {
     });
 
     it('機率 0：什麼都不做；作者自己不會對自己的貼文反應', () => {
-        expect(planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 0, commentProbability: 0, npcLikeProbability: 0, npcCommentProbability: 0 }, now: 0 })).toEqual([]);
+        expect(planReactions({ post: userPost, graph, candidates, settings: { ...settings, likeProbability: 0, commentProbability: 0, supportingLikeProbability: 0, supportingCommentProbability: 0 }, now: 0 })).toEqual([]);
         const charPost = { id: 'p2', author: { kind: 'character' as const, id: 'a', name: 'a' }, visibility: { mode: 'public' as const } };
         const jobs = planReactions({ post: charPost, graph, candidates, settings: { ...settings, likeProbability: 100, commentProbability: 0 }, now: 0, random: () => 0 });
         expect(jobs.map(j => (j as any).actorId)).not.toContain('a');
     });
 
-    it('角色和 NPC 各用自己那組機率', () => {
+    it('主角和配角各用自己那組機率', () => {
         const jobs = planReactions({
             post: userPost, graph, candidates, now: 0, random: () => 0.5,
-            settings: { ...settings, likeProbability: 0, commentProbability: 100, npcLikeProbability: 100, npcCommentProbability: 0 },
+            settings: { ...settings, likeProbability: 0, commentProbability: 100, supportingLikeProbability: 100, supportingCommentProbability: 0 },
         });
         expect(jobs.filter(j => j.type === 'like').map(j => (j as any).actorId)).toEqual(['n1']);
         expect((jobs.filter(j => j.type === 'commentBatch') as any[]).map(b => b.actorIds)).toEqual([['a', 'b']]);

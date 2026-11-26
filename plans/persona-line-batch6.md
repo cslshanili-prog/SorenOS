@@ -118,6 +118,7 @@ role: 'assistant'
   - 劇情劇場的客串 NPC 併進演員（配角跟主角一樣有記憶）。
   - 家園、彼方熟悉度裡的「NPC」是它們自己生成的鎮民和固定人物，跟神經鏈接的 NPC 無關，沒動。
   - 搬完 `npcs` 清單是空的，NPC 專用的那些路徑（群聊 NPC 檔案塊、NPC 記憶整理、NPC 客串、查手機虛構 NPC 綁定）自然沒事做；程式本身等正式開放、拿掉預覽開關那次一起刪，預覽關著的人還在用。
+  - **2026-11-26 拿掉了那些 NPC 專用路徑**（`plans/npc-cleanup.md`）：舊 NPC 分頁、NPC 編輯頁、群聊 NPC 成員、NPC 輕量記憶、劇情客串 NPC、查手機綁 NPC、行事曆／軌跡選 NPC；群聊客串改吃配角（`utils/groupGuestLine.ts`），朋友圈配角自己一組設定。搬家（`npcMigration*`）和舊資料讀取留著。
   - 順手做了第 6 節的「你身邊的人」：`utils/castRelations.ts`，核心上下文多一段 `relations`（自己的關係清單＋別人記到你的），名字表（`charNameRegistry`）多記一份關係清單；見面預設也帶。
 - **6e AI 批量生成配角 — 已做**（第 6 節）：生成、預覽、建立、關係與通訊錄、頭像（「你身邊的人」在 6b 就做了）。
   - 純邏輯在 `utils/castGenerate.ts`（提示詞、兩層容錯解析、草稿轉配角、兩邊通訊錄），打 API 的在 `utils/castGenerateRun.ts`（全局 API，一次生成），頁面是 `components/character/CastGeneratorPage.tsx`，入口在神經鏈接「配角」頁頂端。

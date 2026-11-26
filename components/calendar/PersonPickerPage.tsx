@@ -1,10 +1,9 @@
 import { charSubtitle } from '../../utils/charIdentity';
 import React, { useMemo, useState } from 'react';
 import { CaretDown, CaretLeft, CaretRight, MagnifyingGlass, X } from '@phosphor-icons/react';
-import type { CharacterGroup, CharacterProfile, NPCProfile, Participant } from '../../types';
+import type { CharacterGroup, CharacterProfile, Participant } from '../../types';
 import { sortCharacterGroups } from '../character/CharacterGroupFilter';
 import { groupForSwitcher, matchesSearch } from '../../utils/worldSections';
-import { includesAnyScript } from '../../utils/scriptKey';
 import { isScheduleFeatureOn } from '../../utils/scheduleGenerator';
 import TokenImg from '../os/TokenImg';
 
@@ -15,7 +14,6 @@ import TokenImg from '../os/TokenImg';
 
 export interface PersonPickerPageProps {
     characters: CharacterProfile[];
-    npcs: NPCProfile[];
     worlds: CharacterGroup[];
     selected?: Participant;
     recent: Participant[];
@@ -26,17 +24,16 @@ export interface PersonPickerPageProps {
 type Filter = 'all' | 'lead' | 'supporting';
 const FILTERS: Array<{ id: Filter; label: string }> = [{ id: 'all', label: '全部' }, { id: 'lead', label: '主角' }, { id: 'supporting', label: '配角' }];
 
-const norm = (s: string | undefined) => (s || '').toLowerCase().replace(/\s+/g, '');
-const same = (a: Participant | undefined, b: Participant) => !!a && a.kind === b.kind && a.id === b.id;
+const same = (a: Participant | undefined, b: Participant) => !!a && a.kind !== 'persona' && b.kind !== 'persona' && a.id === b.id;
 
-const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, worlds, selected, recent, onPick, onClose }) => {
+const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, worlds, selected, recent, onPick, onClose }) => {
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState<Filter>('all');
     const sortedWorlds = useMemo(() => sortCharacterGroups(worlds), [worlds]);
     const searching = query.trim().length > 0 || filter !== 'all';
 
     const [open, setOpen] = useState<Set<string>>(() => {
-        const cur = selected?.kind === 'char' ? characters.find(c => c.id === selected.id) : selected?.kind === 'npc' ? npcs.find(n => n.id === selected.id) : undefined;
+        const cur = selected && selected.kind !== 'persona' ? characters.find(c => c.id === selected.id) : undefined;
         const w = cur?.groupId && worlds.some(x => x.id === cur.groupId) ? cur.groupId : 'none';
         return new Set([`w:${w}`]);
     });
@@ -47,19 +44,8 @@ const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, w
         if (filter === 'supporting' && c.castRole !== 'supporting') return false;
         return matchesSearch(c, query, worlds);
     }), [characters, filter, query, worlds]);
-    const npcList = useMemo(() => {
-        if (filter === 'lead') return [] as NPCProfile[];
-        const q = norm(query);
-        return npcs.filter(n => !q || [n.name, n.description, worlds.find(w => w.id === n.groupId)?.name].some(f => { const v = norm(f); return !!v && includesAnyScript(v, q); }));
-    }, [npcs, filter, query, worlds]);
     const tree = useMemo(() => groupForSwitcher(chars, sortedWorlds), [chars, sortedWorlds]);
-    const known = new Set(worlds.map(w => w.id));
-    const npcsOf = (worldId: string | undefined) => npcList.filter(n => (worldId ? n.groupId === worldId : !n.groupId || !known.has(n.groupId)));
-    // 只有配角、沒有角色的世界也要列出來
-    const npcOnlyWorlds = sortedWorlds.filter(w => !tree.some(t => t.world?.id === w.id) && npcsOf(w.id).length > 0);
-    const npcOnlyNone = !tree.some(t => !t.world) && npcsOf(undefined).length > 0;
-
-    const nameOf = (p: Participant) => p.kind === 'char' ? characters.find(c => c.id === p.id) : npcs.find(n => n.id === p.id);
+    const nameOf = (p: Participant) => p.kind === 'persona' ? undefined : characters.find(c => c.id === p.id);
 
     const row = (p: Participant, name: string, avatar: string, extra?: React.ReactNode, sub?: string) => (
         <button key={`${p.kind}_${p.id}`} type="button" onClick={() => onPick(p)}
@@ -79,19 +65,17 @@ const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, w
         {c.castRole === 'supporting' && <span className="shrink-0 rounded-full bg-slate-100 px-1.5 text-[10px] text-slate-400">配角</span>}
         {!isScheduleFeatureOn(c) && <span className="shrink-0 rounded-full bg-amber-50 px-1.5 text-[10px] text-amber-500">沒開日程</span>}
     </>, charSubtitle(c));
-    const npcRow = (n: NPCProfile) => row({ kind: 'npc', id: n.id }, n.name, n.avatar, <span className="shrink-0 rounded-full bg-violet-50 px-1.5 text-[10px] text-violet-500">配角</span>, n.description);
 
     const worldBlock = (worldId: string | undefined, name: string, charSections: Array<{ sectionName?: string; chars: CharacterProfile[] }>, count: number) => {
         const key = `w:${worldId || 'none'}`;
         const wOpen = searching || open.has(key);
-        const npcHere = npcsOf(worldId);
         const hasSections = charSections.some(s => s.sectionName !== undefined);
         return (
             <section key={key} className="rounded-3xl bg-white/85 border border-white overflow-hidden shadow-sm">
                 <button type="button" onClick={() => toggle(key)} disabled={searching} aria-expanded={wOpen} className="w-full flex items-center gap-2 px-4 py-3.5 text-left">
                     {wOpen ? <CaretDown size={14} className="text-pink-400" /> : <CaretRight size={14} className="text-pink-400" />}
                     <span className="truncate text-[15px] font-bold text-slate-700">{name}</span>
-                    <span className="shrink-0 text-[12px] text-slate-400">{count + npcHere.length} 人</span>
+                    <span className="shrink-0 text-[12px] text-slate-400">{count} 人</span>
                 </button>
                 {wOpen && (
                     <div className="px-2 pb-3 space-y-1">
@@ -110,12 +94,6 @@ const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, w
                                 </div>
                             );
                         })}
-                        {npcHere.length > 0 && (
-                            <div>
-                                {(hasSections || charSections.length > 0) && <div className="px-3 pt-2 pb-1 text-[11px] font-bold text-slate-400">配角 {npcHere.length}</div>}
-                                <div className={`space-y-1 ${hasSections ? 'pl-3' : ''}`}>{npcHere.map(npcRow)}</div>
-                            </div>
-                        )}
                     </div>
                 )}
             </section>
@@ -161,10 +139,8 @@ const PersonPickerPage: React.FC<PersonPickerPageProps> = ({ characters, npcs, w
                         </div>
                     </section>
                 )}
-                {tree.length === 0 && npcOnlyWorlds.length === 0 && !npcOnlyNone && <p className="py-10 text-center text-[13px] text-slate-400">{searching ? '找不到符合的人' : '還沒有角色'}</p>}
+                {tree.length === 0 && <p className="py-10 text-center text-[13px] text-slate-400">{searching ? '找不到符合的人' : '還沒有角色'}</p>}
                 {tree.map(w => worldBlock(w.world?.id, w.world?.name || '沒有世界', w.sections.map(s => ({ sectionName: w.world?.sections?.length ? (s.section?.name || '其他') : undefined, chars: s.chars })), w.count))}
-                {npcOnlyWorlds.map(w => worldBlock(w.id, w.name, [], 0))}
-                {npcOnlyNone && worldBlock(undefined, '沒有世界', [], 0)}
             </div>
         </div>
     );

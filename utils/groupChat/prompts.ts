@@ -7,7 +7,6 @@ import { stickerNameFromUrl } from '../messageFormat';
 import { isBlobRef } from '../blobRef';
 import { packetHistoryLine } from './redpacket';
 import { formatRelativeAge } from './relativeTime';
-import { buildNpcDirectorNote } from './npcMembers';
 
 interface EmojiItem { name: string; url: string; categoryId?: string }
 
@@ -89,7 +88,7 @@ function formatGapDuration(ms: number): string {
  */
 export function buildGroupHistoryBlock(
     msgs: Message[],
-    /** 名字查詢表：角色 + 群裡的 NPC（只用到 id / name） */
+    /** 名字查詢表：群成員（只用到 id / name） */
     characters: Array<{ id: string; name: string }>,
     emojis: EmojiItem[],
     userName: string = '用戶',
@@ -314,7 +313,7 @@ export function buildDirectorInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
     options?: {
-        userLurking?: boolean; roundBubbles?: number; allowMemberLeave?: boolean; npcNames?: string[]; plotDirection?: string; presentUsers?: string[];
+        userLurking?: boolean; roundBubbles?: number; allowMemberLeave?: boolean; plotDirection?: string; presentUsers?: string[];
         /** 私下找人那段（utils/sideMessage.ts 的 buildGroupSideMessageNote）；空＝這個群不私下找人 */
         sideNote?: string;
     },
@@ -345,7 +344,7 @@ ${GROUP_STYLE_QUALITY}#### 五、互動結構
 
 #### 六、私下找人
 ${options?.sideNote?.trim() ? options.sideNote.trim() : '- 這個群不私下找人：不要寫 PRIVATE、DM。'}
-${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${buildNpcDirectorNote(options?.npcNames || [])}
+${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}
 #### 七、只寫台詞，不寫思考
 - content 裡只放角色真的會發在群裡的話。**不要**輸出思考過程、分析、\`<thinking>\` 之類的標籤，也不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白——要想就在心裡想完，直接寫結果。
 - 也不要寫成報告：不要 markdown 標題（# …）、粗體小標（**時間認知**：…）、發言策略清單、「---」分隔線，更不要先寫分析再寫「最終發言／最終輸出」。第一行就是角色要發的第一句話。
@@ -381,29 +380,22 @@ export function buildRoundRobinInstruction(
     history: GroupHistoryBlock,
     emojiContextStr: string,
     options?: {
-        userLurking?: boolean; allowMemberLeave?: boolean; asNpc?: boolean; plotDirection?: string; presentUsers?: string[];
+        userLurking?: boolean; allowMemberLeave?: boolean; plotDirection?: string; presentUsers?: string[];
         /** 這位成員的私下找人那段（utils/sideMessage.ts 的 buildSideMessagePrompt）；空＝不用 */
         sideNote?: string;
         /** 出場表上這一拍的安排（utils/groupChat/beatPlan.ts）；空＝沒排（退回的出場表） */
         beatIntent?: string;
     },
 ): string {
-    const asNpc = !!options?.asNpc;
     const intent = options?.beatIntent?.trim();
     const beatNote = intent
         ? `\n這一拍的安排（幕後，不要照抄、也不要提到「安排」）：${intent}。跟你的性格或關係不合就照你自己的來，也可以 \`[[SKIP]]\`。\n`
         : '';
-    const privateRule = asNpc
-        ? `4. **私聊**: 你是 NPC，沒有和用戶的一對一私聊——不要用 PRIVATE。`
-        : options?.sideNote?.trim()
+    const privateRule = options?.sideNote?.trim()
             ? `4. **私下找人**: 見最後「私下找人」那段；默認不用，群裡的話照常在群裡說。`
             : `4. **私下找人**: 這個群不用，不要寫 PRIVATE、DM。`;
-    const userRule = asNpc
-        ? `5. **你和用戶的關係**：以你 NPC 成員檔案裡寫的為準；沒寫就是普通群友，不要自己編出親密關係或共同回憶。你記得的事（檔案裡的記憶）要前後一致。`
-        : `5. **U 還是 U**：群聊裡的用戶，就是你在私聊、記憶和印象裡認識的同一個人。檢查 [私聊空窗期] 與互動時間線，延續已經建立的關係、承諾、熟悉感和相處方式；公開場合可以換一種表達，但不能因進入群聊就重置關係。如果你和用戶剛私聊過，哪怕群裡很久沒人說話，也**嚴禁**說"好久不見"或表現出疏離感。`;
-    const qualityRule = asNpc
-        ? `6. 你是配角：可以帶話題、推劇情、接別人的話，但不要搶主角們的戲。把名字遮住也能從語氣認出這句話是你說的。`
-        : `6. 對話質量沿用你的私聊標準：拒絕套路化反應；想表達在乎就提一個只有你們之間才有的具體細節，而不是空泛的關心句；把名字遮住也能從語氣認出這句話是你說的；情緒要有層次。`;
+    const userRule = `5. **U 還是 U**：群聊裡的用戶，就是你在私聊、記憶和印象裡認識的同一個人。檢查 [私聊空窗期] 與互動時間線，延續已經建立的關係、承諾、熟悉感和相處方式；公開場合可以換一種表達，但不能因進入群聊就重置關係。如果你和用戶剛私聊過，哪怕群裡很久沒人說話，也**嚴禁**說"好久不見"或表現出疏離感。`;
+    const qualityRule = `6. 對話質量沿用你的私聊標準：拒絕套路化反應；想表達在乎就提一個只有你們之間才有的具體細節，而不是空泛的關心句；把名字遮住也能從語氣認出這句話是你說的；情緒要有層次。`;
     return `### 【本輪任務：以「${memberName}」的身份在群裡發言】
 當前場景：大家正在群裡聊天。
 最近聊天記錄（截至此刻，末尾可能已包含本輪先發言成員的最新消息）：
@@ -421,5 +413,5 @@ ${qualityRule}
 7. 角色之間可以互相接話、起鬨，不必每句都對著用戶說；也允許你只回應群裡另一位成員剛說的話。但不要因為前面的人採用了某種態度，就自動複製同一種對 U 的態度——按你自己和 U 的關係反應。接著記錄最後那幾句說，像真人群聊你一句我一句；後面還會有人接話，你不用把話說完、也不用替大家總結。別只是把用戶的話原樣再回一遍，說你自己的角度。
 8. 引用回覆（可選）：想針對記錄裡某條具體發言回覆時，在你的內容開頭加 \`[[QUOTE: 原話片段]]\`（片段取原話開頭幾個字即可）。偶爾用，別每條都引用。
 9. **只寫台詞，不寫思考**：直接輸出你要在群裡發的話，第一行就是你要發的第一句。不要輸出思考過程、分析、\`<thinking>\` 之類的標籤，不要寫「讓我看看現在的狀況」「用戶剛才說了…我應該…」這種旁白，也不要寫成報告（# 標題、**粗體小標**、發言策略清單、「---」、先分析再寫「最終發言／最終輸出」）。記錄裡如果有人這樣寫過，那是系統出錯漏出來的，不要模仿。
-10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave && !asNpc ? buildLeaveGroupNote() : ''}${!asNpc && options?.sideNote?.trim() ? `\n${options.sideNote.trim()}` : ''}`;
+10. 紅包（可選）：記錄裡有「拼手氣紅包…還剩 n 份可搶」且你想搶時，單獨一行輸出 \`[[GRAB_PACKET]]\` 並配一句真實反應；看到發給自己的專屬紅包，用 \`[[GRAB_PACKET]]\` 收下或 \`[[RETURN_PACKET]]\` 退回並說明原因。你也可以主動發：拼手氣 \`[[SEND_PACKET: lucky:總額:份數:祝福語]]\`，專屬 \`[[SEND_PACKET: direct:對方名字:金額:祝福語]]\`。搶不搶由你的性格決定，金額別離譜。${options?.allowMemberLeave ? buildLeaveGroupNote() : ''}${options?.sideNote?.trim() ? `\n${options.sideNote.trim()}` : ''}`;
 }

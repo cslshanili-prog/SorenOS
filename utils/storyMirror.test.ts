@@ -133,7 +133,7 @@ describe('朋友圈「見過的身份」算上劇情', () => {
         expect(storyPresentPersonaKeys({ presence: [{ type: 'user' }, { type: 'persona', key: 'elder' }, { type: 'custom', id: 'm' }, { type: 'persona', key: 'gone' }] }, base)).toEqual(['sis', 'elder']);
         const chars = [{ id: 'c1', primaryPersonaKey: 'sis' }, { id: 'c2', primaryPersonaKey: 'elder' }, { id: 'c3', primaryPersonaKey: 'guest' }] as any;
         const profile = { ...base, perCharacterPersonaIds: { c1: 'sis', c2: 'elder', c3: 'guest' } } as UserProfile;
-        const knowledge = buildPersonaKnowledge(profile, chars, [], [], [
+        const knowledge = buildPersonaKnowledge(profile, chars, [], [
             { id: 's1', characterIds: ['c1', 'c2'], presence: [{ type: 'persona', key: 'sis' }, { type: 'persona', key: 'elder' }] },
             { id: 's2', characterIds: ['c3'], presence: [] },
         ]);

@@ -111,11 +111,10 @@ export interface GenerateScheduleOptions {
 /** 這個人那邊的今天 */
 export const personTodayKey = (person: Pick<SchedulePerson, 'timezone'>, base = new Date()): string => getLocalDateKey(nowInTimeZone(person.timezone, base));
 
-/** 所有能當參與者的人：角色（藏小號）、配角、身份卡 */
+/** 所有能當參與者的人：角色（主角、配角，藏小號）、身份卡 */
 export async function loadNamedParticipants(profileBase?: UserProfile | null): Promise<NamedParticipant[]> {
-    const [chars, npcs, profile] = await Promise.all([
+    const [chars, profile] = await Promise.all([
         DB.getAllCharacters().catch(() => [] as CharacterProfile[]),
-        DB.getAllNPCs().catch(() => []),
         profileBase ? Promise.resolve(profileBase) : DB.getUserProfile().catch(() => null),
     ]);
     const out: NamedParticipant[] = [];
@@ -125,7 +124,6 @@ export async function loadNamedParticipants(profileBase?: UserProfile | null): P
         for (const p of profile.personas || []) out.push({ participant: { kind: 'persona', id: p.id }, name: p.name, ...withAliases(p.id) });
     }
     for (const c of chars) if (!isAltChar(c)) { const aliases = charAliases(c); out.push({ participant: { kind: 'char', id: c.id }, name: c.name, ...(aliases.length ? { aliases } : {}) }); }
-    for (const n of npcs) out.push({ participant: { kind: 'npc', id: n.id }, name: n.name });
     return out;
 }
 

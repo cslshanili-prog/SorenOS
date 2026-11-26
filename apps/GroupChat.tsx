@@ -15,9 +15,9 @@ import { isSameLocalDay } from '../utils/chatListTime';
 import { createPortal } from 'react-dom';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
-import { AppID, Message, GroupProfile, CharacterProfile, NPCProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
+import { AppID, Message, GroupProfile, CharacterProfile, MessageType, ChatTheme, BubbleStyle, EmojiCategory } from '../types';
 import { safeResponseJson } from '../utils/safeApi';
-import { castAsGuestProfile, generateNpcGroupGuestLine, groupGuestCandidates } from '../utils/npcGroupGuestLine';
+import { generateGroupGuestLine, groupGuestCandidates } from '../utils/groupGuestLine';
 import Modal from '../components/os/Modal';
 import { ContextBuilder } from '../utils/context';
 import { injectMemoryPalace } from '../utils/memoryPalace/pipeline';
@@ -33,7 +33,7 @@ import { GroupPacketMeta, PacketReceiptMeta, ClaimResult, claimPacket, claimantP
 import { messageLogText } from '../utils/groupChat/format';
 import { trackEvent } from '../utils/analytics';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
-import { globalPersonaKey, groupPersonaSource, personaAliasesForKey, personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaKeyForGroup, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
+import { globalPersonaKey, groupPersonaSource, personaAliasesForKey, personaAvatarForKey, personaKeyForChar, personaKeyForGroup, personaNameForKey, profileForPersonaKey, REAL_IDENTITY_PERSONA_ID, resolveUserProfileForChar } from '../utils/userPersona';
 import { markAmsgStateDirty, type AmsgDirtyReason } from '../utils/amsgStateSync';
 import { buildMemberTimeline, DEFAULT_MEMBER_TIMELINE_CAP } from '../utils/groupChat/timeline';
 import { distinctGroupPersonaSection, groupMessagePersonaKey, groupPersonaMismatches, makeUserLineLabeler } from '../utils/groupChat/memberPersona';
@@ -48,12 +48,9 @@ import { assembleGroupPreset, loadGroupPresetDoc } from '../utils/groupPresetSes
 import GroupPresetSelect from '../components/chat/GroupPresetSelect';
 import { stripLeakedReasoning } from '../utils/reasoningLeak';
 import { dispatchMemberActions } from '../utils/groupChat/dispatch';
-import { activeGroupNpcs, buildNpcMemberBlock, buildSpeakerDirectory, groupNpcs } from '../utils/groupChat/npcMembers';
-import { resolveNpcApi } from '../utils/npcMemory';
 import { resolveCharacterChatApi } from '../utils/characterApi';
 import { MONEY_SYMBOL } from '../utils/realBalance';
 import { buildBeatPlanPrompt, fallbackBeatPlan, maxBeatsFor, memberBrief, parseBeatPlan, resolveBeatPlanApi, type Beat, type BeatMember } from '../utils/groupChat/beatPlan';
-import { refreshNpcMemoryFromGroups } from '../utils/npcMemoryRuntime';
 import { completeGroupChatWithMcp } from '../utils/groupChat/mcp';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 // 群聊輸入區/表情面板已改用共享 ChatInputArea（其表情網格自帶 useIncrementalReveal 增量渲染），
@@ -188,7 +185,7 @@ const GroupMessageItem = React.memo(({
 }: {
     msg: Message,
     isUser: boolean,
-    char?: CharacterProfile | NPCProfile,
+    char?: CharacterProfile,
     userAvatar: string,
     onImageClick: (url: string) => void,
     selectionMode: boolean,
@@ -212,7 +209,7 @@ const GroupMessageItem = React.memo(({
     showTimestamp?: 'always' | 'hover' | 'never',
     /** 聊天語言：先寫再翻沒翻成時「點一下再翻」 */
     onRetryTranslation?: (msg: Message) => void,
-    /** 點成員頭像開角色名片（plans/character-card.md）；只有真角色（不是舊 NPC）才給 */
+    /** 點成員頭像開角色名片（plans/character-card.md） */
     onOpenCharacterCard?: (charId: string) => void,
 }) => {
     // 聊天語言（plans/chat-language.md 第 4 批）：雙語訊息預設顯示原文，點「翻譯」切換；成員開了展開就上下都顯示
@@ -566,7 +563,7 @@ const GroupMessageItem = React.memo(({
 // --- Main Component ---
 
 const GroupChat: React.FC = () => {
-    const { closeApp, openApp, setActiveCharacterId, memoryPalaceConfig, groups, createGroup, updateGroup, deleteGroup, characters, npcs, updateNPC, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
+    const { closeApp, openApp, setActiveCharacterId, memoryPalaceConfig, groups, createGroup, updateGroup, deleteGroup, characters, apiConfig, addToast, userProfile, userProfileBase, updateUserProfile, virtualTime, characterGroups, theme: osTheme, customThemes, addCustomTheme, openGroupChat, realtimeConfig, pendingGroupChatId, consumePendingGroupChat, personaLinesEnabled, updateCharacter } = useOS();
     const [view, setView] = useState<'list' | 'chat'>('list');
     const chatImportRef = useRef<PhoneChatImportHandle>(null);
     // 從 Chat 主頁深鏈進某個群時記一下"返回鍵該回哪"；本群列表內部正常點進/退出都不涉及它，
@@ -667,10 +664,8 @@ const GroupChat: React.FC = () => {
     // 公共成盒異步完成時使用最新角色名與成員資料，避免長回覆期間閉包數據過期。
     const charactersRef = useRef(characters);
     charactersRef.current = characters;
-    const npcsRef = useRef(npcs);
-    npcsRef.current = npcs;
-    // 名字查詢表：角色 + NPC。群歷史、時間線、引用都靠它把 charId 變成名字（NPC 說的話不能變成「未知」）
-    const speakers = useMemo(() => buildSpeakerDirectory(characters, npcs), [characters, npcs]);
+    // 名字查詢表：群歷史、時間線、引用都靠它把 charId 變成名字（舊 NPC 搬成配角時 id 照舊，照角色找）
+    const speakers = characters;
 
     // 同理 ref 出最新 messages：派發循環裡逐條落庫時要按"當前窗口大小"刷新，
     // 閉包裡的 messages 是觸發那一刻的舊值，長度會越算越小
@@ -755,19 +750,17 @@ const GroupChat: React.FC = () => {
     const [packetTargetId, setPacketTargetId] = useState<string>('');
     const [packetNote, setPacketNote] = useState('');
     const [selectedPacketId, setSelectedPacketId] = useState<number | null>(null);
-    // NPC 客串：不是正式群成員，手動觸發插一句話（不進輪詢/記憶宮殿）
-    const [showNpcGuestModal, setShowNpcGuestModal] = useState(false);
-    const [npcGuestId, setNpcGuestId] = useState('');
-    const [npcGuestHint, setNpcGuestHint] = useState('');
-    const [npcGuestGenerating, setNpcGuestGenerating] = useState(false);
+    // 配角客串：不是正式群成員，手動觸發插一句話（不進輪詢/記憶宮殿）
+    const [showGuestModal, setShowGuestModal] = useState(false);
+    const [guestId, setGuestId] = useState('');
+    const [guestHint, setGuestHint] = useState('');
+    const [guestGenerating, setGuestGenerating] = useState(false);
     // 群設置裡的成員管理：展開/收起"添加成員"候選列表
     const [showAddMemberPicker, setShowAddMemberPicker] = useState(false);
-    const [showAddNpcPicker, setShowAddNpcPicker] = useState(false);
     // 旁觀底部欄：代誰發言（空 = 還沒選）、劇情方向（只管下一輪，按 ▶ 後清掉）
     const [puppetId, setPuppetId] = useState('');
     const [plotDirection, setPlotDirection] = useState('');
     const [showPlotDirection, setShowPlotDirection] = useState(false);
-    const npcMemoryLockRef = useRef(false);
 
     // Refs
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -1088,25 +1081,6 @@ const GroupChat: React.FC = () => {
         trackEvent('群聊移除成员');
     };
 
-    // NPC 成員：放在 npcMemberIds（不進 members），加入/移除即時生效，沒有人數下限
-    const handleAddGroupNpc = async (npcId: string) => {
-        if (!activeGroup || activeGroup.npcMemberIds?.includes(npcId)) return;
-        const npcMemberIds = [...(activeGroup.npcMemberIds || []), npcId];
-        await updateGroup(activeGroup.id, { npcMemberIds });
-        setActiveGroup({ ...activeGroup, npcMemberIds });
-        trackEvent('群聊添加NPC成员');
-    };
-
-    const handleRemoveGroupNpc = async (npcId: string) => {
-        if (!activeGroup) return;
-        const updates: Partial<GroupProfile> = { npcMemberIds: (activeGroup.npcMemberIds || []).filter(id => id !== npcId) };
-        if (activeGroup.mutedMemberIds?.includes(npcId)) updates.mutedMemberIds = activeGroup.mutedMemberIds.filter(id => id !== npcId);
-        if (puppetId === npcId) setPuppetId('');
-        await updateGroup(activeGroup.id, updates);
-        setActiveGroup({ ...activeGroup, ...updates });
-        trackEvent('群聊移除NPC成员');
-    };
-
     // 群主：純標記/人設頭銜，不帶任何權限，即時生效——跟成員增減、隱身圍觀模式同一種即時保存風格。
     // 值可以是某位成員，也可以是 'user'（自己當群主）；再點一次同一個人 = 取消群主。
     const handleSetGroupOwner = async (ownerId: string | undefined) => {
@@ -1329,47 +1303,44 @@ const GroupChat: React.FC = () => {
         (id: string) => {
             const key = claimantPersonaKey(id, groupPersonaKey);
             if (key) return personaNameForKey(userProfileBase, key);
-            return characters.find(c => c.id === id)?.name || npcs.find(n => n.id === id)?.name || '成員';
+            return characters.find(c => c.id === id)?.name || '成員';
         },
-        [characters, npcs, groupPersonaKey, userProfileBase],
+        [characters, groupPersonaKey, userProfileBase],
     );
     /** 你發的訊息（紅包）是哪張卡的名字 */
     const userMsgName = (m: Pick<Message, 'metadata'>) => personaNameForKey(userProfileBase, groupMessagePersonaKey(m, groupPersonaKey));
 
     // 配角客串：不是正式群成員，手動觸發才插一句話，不進輪詢/記憶宮殿/成員時間線。
-    // NPC 搬成配角之後人選改讀配角（在戲上、不是小號、不在群裡），還沒搬家的舊 NPC 也列著。
-    const guestCandidates = useMemo(() => groupGuestCandidates(characters, npcs, activeGroup), [characters, npcs, activeGroup]);
-    const handleNpcGuestLine = async () => {
+    // 人選：在戲上、不是小號、不在群裡的配角（utils/groupGuestLine.ts）
+    const guestCandidates = useMemo(() => groupGuestCandidates(characters, activeGroup), [characters, activeGroup]);
+    const handleGuestLine = async () => {
         if (!activeGroup) return;
-        const picked = guestCandidates.find(g => g.id === npcGuestId);
-        if (!picked) { addToast('請選一位配角', 'error'); return; }
-        const npc = picked.kind === 'cast' ? castAsGuestProfile(picked.char) : picked.npc;
-        const guestApi = picked.kind === 'cast'
-            ? resolveCharacterChatApi(picked.char, apiConfig)
-            : (picked.npc.chatApi?.baseUrl ? picked.npc.chatApi : apiConfig);
+        const guest = guestCandidates.find(g => g.id === guestId);
+        if (!guest) { addToast('請選一位配角', 'error'); return; }
+        const guestApi = resolveCharacterChatApi(guest, apiConfig);
         if (!guestApi.apiKey) { addToast('請先配置 API', 'error'); return; }
-        setNpcGuestGenerating(true);
+        setGuestGenerating(true);
         try {
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id));
             const recentTranscript = messages.slice(-12)
                 .map(m => `${nameOf(m.charId)}: ${messageLogText(m, url => stickerNameFromUrl(emojis, url))}`)
                 .join('\n');
-            const line = await generateNpcGroupGuestLine({
-                npc, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
-                knownUserName: picked.kind === 'cast' ? castKnownUserName(picked.char) : npcKnownUserName(picked.npc),
-                recentTranscript, hint: npcGuestHint.trim() || undefined, api: guestApi as any,
+            const line = await generateGroupGuestLine({
+                guest, groupName: activeGroup.name, members: groupMembers, userName: groupUserProfile.name,
+                knownUserName: guestKnownUserName(guest),
+                recentTranscript, hint: guestHint.trim() || undefined, api: guestApi as any,
             });
-            if (!line.trim()) { addToast(`${npc.name}沒接上話`, 'error'); return; }
-            await DB.saveMessage({ charId: npc.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
+            if (!line.trim()) { addToast(`${guest.name}沒接上話`, 'error'); return; }
+            await DB.saveMessage({ charId: guest.id, groupId: activeGroup.id, role: 'assistant', type: 'text', content: line.trim() });
             await refreshMessages(activeGroup.id);
-            setShowNpcGuestModal(false);
-            setNpcGuestId(''); setNpcGuestHint('');
-            trackEvent('群聊 NPC 客串一句');
+            setShowGuestModal(false);
+            setGuestId(''); setGuestHint('');
+            trackEvent('群聊配角客串一句');
         } catch (e) {
             console.error(e);
             addToast('生成失敗，請重試', 'error');
         } finally {
-            setNpcGuestGenerating(false);
+            setGuestGenerating(false);
         }
     };
 
@@ -1709,57 +1680,10 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 `;
     };
 
-    // NPC 成員的檔案塊（設定 / 關係 / 世界書 / 輕量記憶），見 utils/groupChat/npcMembers.ts
-    // NPC 認識的那個你（手動指定，或從它的關係清單推）；跟群身份同一張卡就回群裡的名字
-    const npcKnownUserName = (npc: NPCProfile) => {
-        const key = personaKeyForNpc(userProfileBase, npc, characters);
-        return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
-    };
     // 配角客串時它認識的那個你（跟角色同一套：照它自己認識的卡）
-    const castKnownUserName = (char: CharacterProfile) => {
+    const guestKnownUserName = (char: CharacterProfile) => {
         const key = personaKeyForChar(userProfileBase, char);
         return key === groupPersonaKey ? groupUserProfile.name : personaNameForKey(userProfileBase, key);
-    };
-    // NPC 眼中「群裡的你」：它認識的那張在場就是那張，否則第一張在場的（跟角色同一套：認識的才是那個人）
-    const npcSceneUserName = (npc: NPCProfile) => {
-        const key = personaKeyForNpc(userProfileBase, npc, characters);
-        return presentKeys.includes(key) ? personaNameForKey(userProfileBase, key) : groupUserProfile.name;
-    };
-
-    const buildNpcBlockFor = (npc: NPCProfile, currentMsgs: Message[], roundSpeakers: Array<{ id: string; name: string }>): string => {
-        const liveGroupMsgs = currentMsgs.filter(m => m.id > (activeGroup?.archivedThroughMessageId || 0));
-        return buildNpcMemberBlock({
-            npc,
-            userName: npcSceneUserName(npc),
-            others: roundSpeakers.filter(sp => sp.id !== npc.id),
-            scanMessages: liveGroupMsgs.slice(-20).map(m => ({ role: m.role, content: typeof m.content === 'string' ? m.content : '' })),
-            userLurking: lurking,
-            knownUserName: npcKnownUserName(npc),
-        });
-    };
-
-    // 每輪生成完：群裡的 NPC 攢夠新消息就整理一次記憶（背景跑，不擋聊天；同時只跑一個）
-    const refreshNpcGroupMemories = async (group: GroupProfile) => {
-        if (npcMemoryLockRef.current || !(group.npcMemberIds || []).length) return;
-        npcMemoryLockRef.current = true;
-        try {
-            for (const npc of groupNpcs(group, npcsRef.current)) {
-                await refreshNpcMemoryFromGroups({
-                    npc,
-                    groups: [group],
-                    nameOf: id => speakers.find(sp => sp.id === id)?.name || '群友',
-                    userName: groupUserProfile.name,
-                    profileBase: userProfileBase,
-                    characters: charactersRef.current,
-                    api: resolveNpcApi(npc, apiConfig),
-                    save: patch => updateNPC(npc.id, patch),
-                });
-            }
-        } catch (e) {
-            console.warn('[GroupChat] NPC 記憶整理失敗', e);
-        } finally {
-            npcMemoryLockRef.current = false;
-        }
     };
 
     // [[QUOTE: 片段]] 解析：從新到舊找 content 包含片段的文本消息，
@@ -1873,7 +1797,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 batchPlan.messages.filter(m => !(m.role === 'user' && m.metadata?.offstage) && !m.metadata?.userOnly),
                 charactersRef.current,
                 groupUserProfile.name,
-                groupNpcs(groupForArchive, npcsRef.current),
                 m => personaNameForKey(userProfileBase, groupMessagePersonaKey(m, groupPersonaKey)),
                 buildKnownPeopleSummaryNote(membersKnownPeople(
                     charactersRef.current.filter(c => groupForArchive.members.includes(c.id)), userProfileBase,
@@ -2031,9 +1954,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const currentMsgs = filterLurkMsgs(rawMsgs);
             // 1. Prepare Group Context（被禁言的成員不參與——不進上下文，也不佔 memberIds 名額）
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
-            // NPC 成員（group.npcMemberIds）：一份輕量檔案塊，跟角色們一起被導演調度
-            const npcMembers = activeGroupNpcs(activeGroup, npcs);
-            const roundSpeakers = [...groupMembers, ...npcMembers];
             const { header, sharedScene } = buildGroupSystemHeader(currentMsgs, groupMembers);
 
             let context = header;
@@ -2042,9 +1962,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // 2. Inject Member Context (Strict Isolation via ContextBuilder)
             for (const member of groupMembers) {
                 memberBlocks += await buildMemberBlock(member, currentMsgs, sharedScene);
-            }
-            for (const npc of npcMembers) {
-                memberBlocks += buildNpcBlockFor(npc, currentMsgs, roundSpeakers);
             }
             // 成員各自私下認識不同的人：列出誰認識誰，提到時要讓人聽得出是誰（不然大家都說「他」）
             memberBlocks += buildKnownPeopleNote(membersKnownPeople(groupMembers, userProfileBase));
@@ -2068,7 +1985,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const htmlPromptExt = activeGroup.htmlModeEnabled
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
-            const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, roundBubbles: groupRoundBubbles(activeGroup), allowMemberLeave: !!activeGroup.allowMemberLeave, npcNames: npcMembers.map(n => n.name), plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
+            const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, roundBubbles: groupRoundBubbles(activeGroup), allowMemberLeave: !!activeGroup.allowMemberLeave, plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
             const prompt = `${context}\n\n${directorInstruction}${htmlPromptExt}\n`;
             // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，兩段文風聽預設的，導演格式鎖最後
             const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
@@ -2076,7 +1993,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 ? assembleGroupPreset({
                     doc: groupPreset, mode: 'director', scene: header, members: memberBlocks,
                     task: buildUserMessageContent(`${withoutGroupStyle(directorInstruction)}${htmlPromptExt}\n`, history),
-                    memberNames: roundSpeakers.map(m => m.name), userName: groupUserProfile.name,
+                    memberNames: groupMembers.map(m => m.name), userName: groupUserProfile.name,
                 })
                 : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
@@ -2126,9 +2043,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             await dispatchMemberActions(actions, {
                 maxBubblesPerAction: MAX_BUBBLES_PER_TURN,
                 groupId: activeGroup.id,
-                memberIds: roundSpeakers.map(c => c.id),
+                memberIds: groupMembers.map(c => c.id),
                 characters: speakers,
-                npcIds: new Set(npcMembers.map(n => n.id)),
                 emojis,
                 categories,
                 refresh: () => refreshMessages(activeGroup.id),
@@ -2159,7 +2075,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // 中途報錯 / 用戶點停也照打：已經落庫的那幾條同樣進了成員的私聊背景
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
-            void refreshNpcGroupMemories(activeGroup);
         }
     };
 
@@ -2187,14 +2102,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // 被禁言的成員直接不進這份名單——各自發言模式是每人各發起一次 API 調用，不在名單裡就是
             // 連調用都不發起，比"生成了再丟棄"更省 token。
             const groupMembers = characters.filter(c => activeGroup.members.includes(c.id) && !activeGroup.mutedMemberIds?.includes(c.id));
-            // NPC 成員跟角色們一起隨機分波，用 NPC 自己配的 API（沒配就用群聊這組）
-            const npcMembers = activeGroupNpcs(activeGroup, npcs);
-            const roundSpeakers = [...groupMembers, ...npcMembers];
-            const npcIds = new Set(npcMembers.map(n => n.id));
-            const turns: Array<{ kind: 'char'; member: CharacterProfile } | { kind: 'npc'; member: NPCProfile }> = [
-                ...groupMembers.map(member => ({ kind: 'char' as const, member })),
-                ...npcMembers.map(member => ({ kind: 'npc' as const, member })),
-            ];
+            const turns: Array<{ member: CharacterProfile }> = groupMembers.map(member => ({ member }));
             let roundMsgs = [...currentMsgs];
             // 同一實例複用一整輪——見 makeMemberLeaveHandler 上面的註釋
             const memberLeaveHandler = activeGroup.allowMemberLeave ? makeMemberLeaveHandler(activeGroup) : undefined;
@@ -2233,10 +2141,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const memberBlockOf = async (turn: typeof turns[number]): Promise<string> => {
                 const cached = memberBlockCache.get(turn.member.id);
                 if (cached !== undefined) return cached;
-                const block = (turn.kind === 'char'
-                    ? await buildMemberBlock(turn.member, first.promptMsgs, sharedScene)
-                    : buildNpcBlockFor(turn.member, first.promptMsgs, roundSpeakers))
-                    + knownPeopleNote;
+                const block = await buildMemberBlock(turn.member, first.promptMsgs, sharedScene) + knownPeopleNote;
                 memberBlockCache.set(turn.member.id, block);
                 return block;
             };
@@ -2245,9 +2150,9 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const beatMembers: BeatMember[] = turns.map(t => ({
                 id: t.member.id,
                 name: t.member.name,
-                ...(t.kind === 'char' && charAliases(t.member).length ? { aliases: charAliases(t.member) } : {}),
-                brief: t.kind === 'char' ? memberBrief(t.member) : memberBrief({ description: t.member.description }),
-                supporting: t.kind === 'npc' || t.member.castRole === 'supporting',
+                ...(charAliases(t.member).length ? { aliases: charAliases(t.member) } : {}),
+                brief: memberBrief(t.member),
+                supporting: t.member.castRole === 'supporting',
             }));
             const maxBeats = maxBeatsFor(groupRoundBubbles(activeGroup), turns.length);
             let beats: Beat[] | null = null;
@@ -2293,7 +2198,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 try {
                     const { history } = beatIndex === 0 ? first : await prepareHistory();
                     const memberBlock = await memberBlockOf(turn);
-                    const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, asNpc: turn.kind === 'npc', plotDirection, presentUsers: presentUserNames, beatIntent: beat.intent, sideNote: turn.kind === 'char' ? buildSideMessagePrompt({ targets: sideTargetsFor(turn.member as CharacterProfile), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) : '' });
+                    const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, plotDirection, presentUsers: presentUserNames, beatIntent: beat.intent, sideNote: buildSideMessagePrompt({ targets: sideTargetsFor(turn.member), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
                     const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
                     const roundMessages = groupPreset
                         ? assembleGroupPreset({
@@ -2303,8 +2208,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         })
                         : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
 
-                    // 每個人用自己的模型：角色走聊天設定的「對話模型」，NPC 走 NPC 自己配的，沒配就是全域
-                    const turnApi = turn.kind === 'npc' ? resolveNpcApi(turn.member, apiConfig) : resolveCharacterChatApi(turn.member, apiConfig);
+                    // 每個人用自己的模型：聊天設定的「對話模型」，沒配就是全域
+                    const turnApi = resolveCharacterChatApi(turn.member, apiConfig);
                     const data = await completeGroupChatWithMcp({
                         url: `${turnApi.baseUrl.replace(/\/+$/, '')}/chat/completions`,
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${turnApi.apiKey}` },
@@ -2350,9 +2255,8 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     await dispatchMemberActions([{ charId: member.id, content }], {
                         maxBubblesPerAction: MAX_BUBBLES_PER_TURN,
                         groupId: activeGroup.id,
-                        memberIds: roundSpeakers.map(c => c.id),
+                        memberIds: groupMembers.map(c => c.id),
                         characters: speakers,
-                        npcIds,
                         emojis,
                         categories,
                         refresh: () => refreshMessages(activeGroup.id),
@@ -2391,7 +2295,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // 同導演模式：跑到一半被打斷也要打髒，已發言成員的話已經落庫了
             markGroupMembersDirty(activeGroup.members);
             runGroupTopicArchive();
-            void refreshNpcGroupMemories(activeGroup);
         }
     };
 
@@ -2472,7 +2375,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                                 <div className="font-bold text-slate-700 truncate text-base">{g.name}</div>
                                 <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3"><path d="M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" /></svg>
-                                    {g.members.length} 成員{g.npcMemberIds?.length ? ` · ${g.npcMemberIds.length} NPC` : ''}{presentPersonaKeys(userProfileBase, g, characters, personaLinesEnabled).length === 0 ? ' · 旁觀中' : ''}
+                                    {g.members.length} 成員{presentPersonaKeys(userProfileBase, g, characters, personaLinesEnabled).length === 0 ? ' · 旁觀中' : ''}
                                 </div>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-300"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
@@ -2631,7 +2534,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 memoryPalaceStatusText={groupPalaceStatus}
                 lastTokenUsage={lastTokenUsage}
                 tokenBreakdown={tokenBreakdown}
-                statusText={`${activeGroup?.members.length ?? 0} 成員${activeGroup?.npcMemberIds?.length ? ` · ${activeGroup.npcMemberIds.length} NPC` : ''}${lurking ? ' · 旁觀中' : ''}`}
+                statusText={`${activeGroup?.members.length ?? 0} 成員${lurking ? ' · 旁觀中' : ''}`}
                 extraAction={{
                     label: '群組設置',
                     icon: <GearSix className="w-5 h-5" weight="bold" />,
@@ -2688,7 +2591,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         );
                     }
                     const isUser = m.role === 'user';
-                    const char = characters.find(c => c.id === m.charId) || npcs.find(n => n.id === m.charId);
+                    const char = characters.find(c => c.id === m.charId);
                     const prevMessage = i > 0 ? displayMessages[i - 1] : null;
                     const nextMessage = i < displayMessages.length - 1 ? displayMessages[i + 1] : null;
                     const messageGroupGapMs = 30 * 60 * 1000;
@@ -2768,10 +2671,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         <span className="shrink-0 text-[10px] font-bold text-violet-500">旁觀中</span>
                         <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                             {(() => {
-                                const pool = [
-                                    ...characters.filter(c => activeGroup.members.includes(c.id)),
-                                    ...groupNpcs(activeGroup, npcs),
-                                ];
+                                const pool = characters.filter(c => activeGroup.members.includes(c.id));
                                 return pool.map(p => {
                                     const on = puppetId === p.id;
                                     return (
@@ -2882,7 +2782,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                             <span className="text-xs font-bold">紅包</span>
                         </button>
 
-                        <button onClick={() => { setShowNpcGuestModal(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
+                        <button onClick={() => { setShowGuestModal(true); setShowPanel('none'); }} className="flex flex-col items-center gap-2 active:scale-95 transition-transform text-slate-600">
                             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm border bg-teal-50 text-teal-500 border-teal-100">
                                 <MaskHappy className="w-6 h-6" weight="bold" />
                             </div>
@@ -3138,56 +3038,6 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         )}
                         <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">加人/移除即時生效；移除不會刪掉 ta 說過的歷史消息，只是之後不再參與生成。群主只是頭銜標記，不帶權限。禁言的角色仍在群裡，只是暫時不參與生成，隨時可以取消。</p>
                     </div>
-
-                    {/* NPC 成員：舊的 NPC 表（搬成配角之前）。搬完就沒有了，配角直接在上面的成員裡加，所以沒有舊 NPC 時整塊不顯示 */}
-                    {(npcs.length > 0 || (activeGroup && groupNpcs(activeGroup, npcs).length > 0)) && (
-                    <div className="pt-2 border-t border-slate-100">
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">NPC 成員 ({activeGroup ? groupNpcs(activeGroup, npcs).length : 0})</label>
-                            <button onClick={() => setShowAddNpcPicker(v => !v)} className="text-[10px] text-teal-600 font-bold">
-                                {showAddNpcPicker ? '收起' : '+ 加入 NPC'}
-                            </button>
-                        </div>
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto no-scrollbar">
-                            {activeGroup && groupNpcs(activeGroup, npcs).map(n => {
-                                const isMuted = !!activeGroup.mutedMemberIds?.includes(n.id);
-                                return (
-                                    <div key={n.id} className={`flex items-center gap-2 border rounded-xl px-3 py-2 ${isMuted ? 'bg-slate-100 border-slate-200 opacity-60' : 'bg-teal-50/60 border-teal-100'}`}>
-                                        <TokenImg value={n.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">
-                                            {n.name}
-                                            <span className="ml-1 text-[9px] font-bold text-teal-500">NPC</span>
-                                            {isMuted && <span className="ml-1 text-[9px] font-bold text-rose-400">已禁言</span>}
-                                        </span>
-                                        <button
-                                            onClick={() => handleToggleMemberMute(n.id)}
-                                            title={isMuted ? '取消禁言' : '禁言（這段時間不參與生成，可隨時解除）'}
-                                            className="p-1 shrink-0"
-                                        >
-                                            <SpeakerSlash size={15} weight={isMuted ? 'fill' : 'regular'} className={isMuted ? 'text-rose-500' : 'text-slate-300'} />
-                                        </button>
-                                        <button onClick={() => handleRemoveGroupNpc(n.id)} className="text-[10px] font-bold text-rose-500 shrink-0">移除</button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {showAddNpcPicker && (
-                            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto no-scrollbar border-t border-slate-100 pt-2">
-                                {npcs.filter(n => !(activeGroup?.npcMemberIds || []).includes(n.id)).length === 0 ? (
-                                    <p className="text-[11px] text-slate-400 px-1 py-2">{npcs.length === 0 ? '還沒有 NPC——先去「神經鏈接」→「NPC」分頁建一個。' : '所有 NPC 都已經在群裡了。'}</p>
-                                ) : npcs.filter(n => !(activeGroup?.npcMemberIds || []).includes(n.id)).map(n => (
-                                    <button key={n.id} onClick={() => handleAddGroupNpc(n.id)}
-                                        className="w-full flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-left active:scale-[0.99] transition-all">
-                                        <TokenImg value={n.avatar} className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                                        <span className="text-xs font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
-                                        <span className="text-[10px] font-bold text-teal-600">+ 加入</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        <p className="text-[9px] text-slate-400 mt-1.5 leading-tight">NPC 是推劇情的配角：跟角色們一起輪流說話，但沒有跟你的私聊，也不會收到話題盒卡片。群裡攢了一段新對話後，NPC 會自動把這段整理進自己的記憶（在 NPC 編輯頁可以看、可以改）。</p>
-                    </div>
-                    )}
 
                     {/* 隱身圍觀模式：用戶消息不進 AI 的群歷史，角色以為群裡只有彼此（預覽開著時併進「在場的身份」） */}
                     {!personaLinesEnabled && (
@@ -3588,24 +3438,24 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
 
             {/* Transfer Modal — 紅包 2.0：拼手氣 / 專屬 */}
             {/* 配角客串：不是正式群成員，手動觸發插一句話（人選見 groupGuestCandidates） */}
-            <Modal isOpen={showNpcGuestModal} title="配角客串" onClose={() => setShowNpcGuestModal(false)}
+            <Modal isOpen={showGuestModal} title="配角客串" onClose={() => setShowGuestModal(false)}
                 footer={guestCandidates.length > 0
-                    ? <button onClick={handleNpcGuestLine} disabled={npcGuestGenerating || !npcGuestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{npcGuestGenerating ? '生成中…' : '插一句話'}</button>
-                    : <button onClick={() => setShowNpcGuestModal(false)} className="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">知道了</button>}>
+                    ? <button onClick={handleGuestLine} disabled={guestGenerating || !guestId} className="w-full py-3 bg-teal-500 text-white font-bold rounded-2xl disabled:opacity-50">{guestGenerating ? '生成中…' : '插一句話'}</button>
+                    : <button onClick={() => setShowGuestModal(false)} className="w-full py-3 bg-slate-100 text-slate-500 font-bold rounded-2xl">知道了</button>}>
                 <div className="space-y-4">
                     {guestCandidates.length > 0 ? (
                         <>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">選一位配角</label>
-                                <select value={npcGuestId} onChange={e => setNpcGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                                <select value={guestId} onChange={e => setGuestId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
                                     <option value="">— 選一位配角 —</option>
-                                    {guestCandidates.map(g => <option key={g.id} value={g.id}>{g.name}{g.kind === 'npc' ? '（舊 NPC）' : ''}</option>)}
+                                    {guestCandidates.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                                 </select>
                                 <p className="text-[9px] text-slate-400 mt-1">TA 不是這個群的成員，只插這一句話，不會被拉進後續輪詢。想讓 TA 常駐就在群組設置把 TA 加進來。</p>
                             </div>
                             <div>
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">這次客串的方向提示（可選）</label>
-                                <textarea value={npcGuestHint} onChange={e => setNpcGuestHint(e.target.value)} placeholder="不填就讓 TA 自己接話"
+                                <textarea value={guestHint} onChange={e => setGuestHint(e.target.value)} placeholder="不填就讓 TA 自己接話"
                                     rows={3}
                                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm resize-y" />
                             </div>

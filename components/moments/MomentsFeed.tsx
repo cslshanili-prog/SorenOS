@@ -42,7 +42,7 @@ interface Props {
 }
 
 const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
-    const { characters, npcs, userProfile, userProfileBase, groups, apiConfig, addToast, updateCharacter } = useOS();
+    const { characters, userProfile, userProfileBase, groups, apiConfig, addToast, updateCharacter } = useOS();
     const viewerId = USER_ID;
     const [posts, setPosts] = useState<MomentPost[] | null>(null);
     const [composer, setComposer] = useState<{ editing?: MomentPost } | null>(null);
@@ -65,10 +65,10 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
     }, [reload]);
 
     const knowledge = useMemo(
-        () => buildPersonaKnowledge(userProfileBase, characters, groups, npcs),
-        [userProfileBase, characters, groups, npcs],
+        () => buildPersonaKnowledge(userProfileBase, characters, groups),
+        [userProfileBase, characters, groups],
     );
-    const graph = useMemo(() => buildFriendGraph(characters, npcs, knowledge), [characters, npcs, knowledge]);
+    const graph = useMemo(() => buildFriendGraph(characters, knowledge), [characters, knowledge]);
     const feed = useMemo(() => (posts ? momentFeedFor(viewerId, posts, graph) : null), [posts, viewerId, graph]);
     const userName = userProfile.name || '我';
     const globalKey = globalPersonaKey(userProfileBase);
@@ -78,17 +78,17 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
     const personaTagOf = (actor: MomentActor): string | null =>
         actor.kind === 'user' && actor.personaKey && actor.personaKey !== globalKey ? personaName(actor.personaKey) : null;
     const nameOf = (actor: MomentActor) => {
-        if (actor.id !== USER_ID) return actorDisplayName(actor, characters, npcs, userName);
+        if (actor.id !== USER_ID) return actorDisplayName(actor, characters, userName);
         const tag = personaTagOf(actor);
         return tag ? `我（${tag}）` : '我';
     };
     const avatarOf = (actor: MomentActor): string | undefined => {
         if (actor.kind === 'user') return actor.personaKey ? personaAvatarForKey(userProfileBase, actor.personaKey) : userProfile.avatar;
-        if (actor.kind === 'npc') return npcs.find(n => n.id === actor.id)?.avatar;
-        if (actor.kind === 'character') return characters.find(c => c.id === actor.id)?.avatar;
+        // 舊資料裡 kind 是 'npc' 的：NPC 搬成配角時 id 照舊
+        if (actor.kind === 'character' || actor.kind === 'npc') return characters.find(c => c.id === actor.id)?.avatar;
         return undefined;
     };
-    const actorAs = (key: string) => actorFor(USER_ID, characters, npcs, personaName(key), key)!;
+    const actorAs = (key: string) => actorFor(USER_ID, characters, personaName(key), key)!;
     const optionsFor = (post: MomentPost) => interactionPersonaOptions(post, knowledge, globalKey);
 
     const handleLike = async (post: MomentPost) => {
@@ -122,7 +122,7 @@ const MomentsFeed: React.FC<Props> = ({ onBack, emptyHint }) => {
             if (char) {
                 const fresh = await DB.getMomentPost(post.id);
                 void replyAsAuthor({
-                    char, post: fresh || post, userComment: comment, apiConfig, characters, npcs, graph,
+                    char, post: fresh || post, userComment: comment, apiConfig, characters, graph,
                     userName: resolveUserProfileForChar(userProfileBase, char).name || userName,
                     delayMs: 3000 + Math.random() * 5000,
                 });
@@ -482,7 +482,7 @@ const MomentComposer: React.FC<{
     personaLabel: (key: string) => { name: string; avatar: string };
     onPost: (content: string, images: string[], visibility: MomentVisibility, personaKey: string) => Promise<void>;
 }> = ({ isOpen, editing, personaOptions, personaLabel, onClose, onPost }) => {
-    const { characters, npcs, addToast } = useOS();
+    const { characters, addToast } = useOS();
     const [content, setContent] = useState('');
     const [images, setImages] = useState<string[]>([]);
     const [mode, setMode] = useState<MomentVisibility['mode']>('friends');
@@ -517,8 +517,7 @@ const MomentComposer: React.FC<{
 
     const canPost = (content.trim() || images.length > 0) && (mode !== 'custom' || allow.length > 0) && !posting;
     const people = [
-        ...characters.map(c => ({ id: c.id, name: c.name, avatar: c.avatar, npc: false })),
-        ...npcs.map(n => ({ id: n.id, name: n.name, avatar: n.avatar, npc: true })),
+        ...characters.filter(c => !c.altOf).map(c => ({ id: c.id, name: c.name, avatar: c.avatar, supporting: c.castRole === 'supporting' })),
     ];
 
     return (
@@ -571,7 +570,7 @@ const MomentComposer: React.FC<{
                         ))}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
-                        {mode === 'friends' ? '所有角色，以及關係清單裡有你的 NPC。' : mode === 'public' ? '所有角色和 NPC 都看得到。' : '只有下面勾選的人看得到。'}
+                        {mode === 'friends' ? '所有角色（主角和配角）。' : mode === 'public' ? '所有角色都看得到。' : '只有下面勾選的人看得到。'}
                     </p>
                     {mode === 'custom' && (
                         <div className="mt-2 max-h-48 overflow-y-auto no-scrollbar space-y-1">
@@ -581,7 +580,7 @@ const MomentComposer: React.FC<{
                                     <button key={p.id} onClick={() => setAllow(prev => on ? prev.filter(x => x !== p.id) : [...prev, p.id])}
                                         className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left ${on ? 'bg-violet-50 border-violet-200' : 'bg-white border-slate-100'}`}>
                                         <TokenImg value={p.avatar} className="w-7 h-7 rounded-full object-cover bg-slate-100" alt="" />
-                                        <span className="flex-1 text-xs font-bold text-slate-700 truncate">{p.name}{p.npc && <span className="ml-1 text-[9px] text-teal-500">NPC</span>}</span>
+                                        <span className="flex-1 text-xs font-bold text-slate-700 truncate">{p.name}{p.supporting && <span className="ml-1 text-[9px] text-teal-500">配角</span>}</span>
                                         <span className={`w-4 h-4 rounded border ${on ? 'bg-violet-500 border-violet-500' : 'border-slate-300'}`} />
                                     </button>
                                 );

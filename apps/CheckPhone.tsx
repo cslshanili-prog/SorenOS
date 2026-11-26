@@ -5,7 +5,7 @@ import ExpandableTextarea from '../components/common/ExpandableTextarea';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { testChatModel } from '../utils/apiConnectionTest';
-import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, NPCProfile, Message } from '../types';
+import { CharacterProfile, PhoneEvidence, PhoneCustomApp, PhoneContact, PhoneSimLog, ConvTopic, AiSession, AiServiceKind, TavernCard, APIConfig, Message } from '../types';
 import { ContextBuilder } from '../utils/context';
 import Modal from '../components/os/Modal';
 import TokenImg from '../components/os/TokenImg';
@@ -27,7 +27,7 @@ import { resolveCustomAppRecordHtml, composeCustomAppCardHtml, buildCustomAppHtm
 import HtmlCard from '../components/chat/HtmlCard';
 import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } from '../components/character/CharacterGroupFilter';
 import { getCheckPhoneApi, resolveCheckPhoneApi, setCheckPhoneApi } from '../utils/checkPhoneApi';
-import { personaAvatarForKey, personaKeyForChar, personaKeyForNpc, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
+import { personaAvatarForKey, personaKeyForChar, personaNameForKey, resolveUserProfileForChar } from '../utils/userPersona';
 import { lineFor, lineMsgFields, linePersonaKey, lineView } from '../utils/chatLine';
 import LinePersonaPicker from '../components/user/LinePersonaPicker';
 import { ensureRealBalanceState } from '../utils/realBalance';
@@ -43,7 +43,6 @@ import {
     Robot, Brain, MaskHappy, Question, PaintBrush, CreditCard, MapTrifold, Stack
 } from '@phosphor-icons/react';
 import { includesAnyScript } from '../utils/scriptKey';
-import { rememberNpcPhoneChat } from '../utils/npcMemoryRuntime';
 import { syncButtonLabel, upsertChatCard } from '../utils/chatCardSync';
 import { resolveBriefPersona } from '../utils/briefPersona';
 
@@ -276,7 +275,7 @@ const HomeCard: React.FC<{
 );
 
 const CheckPhone: React.FC = () => {
-    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, npcs, updateNPC, activeLineFor, personaLinesEnabled } = useOS();
+    const { closeApp, characters, activeCharacterId, updateCharacter, apiConfig, apiPresets, addToast, userProfile, userProfileBase, characterGroups, activeLineFor, personaLinesEnabled } = useOS();
     const [view, setView] = useState<'select' | 'phone'>('select');
     // activeAppId: 'home' | 'chat_detail' | 'app_id'
     const [activeAppId, setActiveAppId] = useState<string>('home');
@@ -354,8 +353,6 @@ const CheckPhone: React.FC = () => {
     const [showContactModal, setShowContactModal] = useState(false);
     const [ncKind, setNcKind] = useState<'real' | 'npc'>('npc');
     const [ncLinkedId, setNcLinkedId] = useState('');
-    // 添加聯繫人：NPC 分頁的子模式（綁定既有 NPC / 隨機產生，機主腦補）
-    const [ncNpcMode, setNcNpcMode] = useState<'existing' | 'random'>('existing');
     const [ncRandomHint, setNcRandomHint] = useState('');
     const [ncGenerating, setNcGenerating] = useState(false);
     // 改綁定彈窗（把聯繫人改綁到正確的真實角色 / 轉為虛構）
@@ -1715,7 +1712,7 @@ ${olderText}
     // 仔細處理各種情況：清掉舊的錯綁鏡像、給新角色建鏡像、防自綁/重複綁/無變化。
     const handleRebindContact = async (
         contact: PhoneContact,
-        target: { kind: 'npc'; npcId?: string } | { kind: 'real'; charId: string },
+        target: { kind: 'npc' } | { kind: 'real'; charId: string },
     ) => {
         if (!targetChar) return;
         const isChatWith = (r: PhoneEvidence, cId: string | undefined, nm: string) =>
@@ -1726,15 +1723,10 @@ ${olderText}
         const newLinked = target.kind === 'real' ? target.charId : undefined;
 
         // 無變化的早退
-        if (target.kind === 'npc' && contact.kind === 'npc' && (target.npcId || undefined) === (contact.linkedNpcId || undefined)) {
-            addToast(target.npcId ? 'TA 已經綁定這個 NPC 了' : 'TA 已經是虛構聯繫人', 'info'); setShowRebindModal(false); return;
+        if (target.kind === 'npc' && contact.kind === 'npc' && !contact.linkedNpcId) {
+            addToast('TA 已經是虛構聯繫人', 'info'); setShowRebindModal(false); return;
         }
         if (target.kind === 'real' && contact.kind === 'real' && contact.linkedCharId === target.charId) { addToast('已經綁定 TA 了', 'info'); setShowRebindModal(false); return; }
-        let boundNpc: NPCProfile | undefined;
-        if (target.kind === 'npc' && target.npcId) {
-            boundNpc = npcs.find(n => n.id === target.npcId);
-            if (!boundNpc) { addToast('NPC 不存在', 'error'); return; }
-        }
 
         if (target.kind === 'real') {
             const d = characters.find(c => c.id === target.charId);
@@ -1795,21 +1787,8 @@ ${olderText}
                 });
             }
             addToast(`已改綁到「${d.name}」`, 'success');
-        } else if (boundNpc) {
-            // 目標=綁定到「神經鏈接 → NPC」分頁裡的某個既有 NPC：名字/頭像跟著 NPC 走，
-            // 跟綁定真實角色是同一種語義，只是指向 npcs 而不是 characters。
-            updateCharacter(targetChar.id, (cur) => ({
-                phoneState: {
-                    ...cur.phoneState,
-                    records: cur.phoneState?.records || [],
-                    contacts: (cur.phoneState?.contacts || []).map(c => c.id === contact.id
-                        ? { ...c, kind: 'npc' as const, linkedCharId: undefined, linkedNpcId: boundNpc!.id, name: boundNpc!.name, avatar: boundNpc!.avatar }
-                        : c),
-                },
-            }));
-            addToast(`已綁定到 NPC「${boundNpc.name}」`, 'success');
         } else {
-            // 目標=純虛構（不綁定任何既有 NPC）：去掉真實綁定/NPC 綁定與頭像，對話/備註/瞭解/好感都留著
+            // 目標=純虛構：去掉真實綁定（和舊資料的 NPC 綁定）與頭像，對話/備註/瞭解/好感都留著
             updateCharacter(targetChar.id, (cur) => ({
                 phoneState: {
                     ...cur.phoneState,
@@ -1825,10 +1804,10 @@ ${olderText}
 
     const closeAddContactModal = () => {
         setShowContactModal(false);
-        setNcKind('npc'); setNcLinkedId(''); setNcNpcMode('existing'); setNcRandomHint('');
+        setNcKind('npc'); setNcLinkedId(''); setNcRandomHint('');
     };
 
-    // NPC 分頁選「隨機產生」：不綁定任何既有 NPC 檔案，讓 AI 現編一個純虛構路人
+    // NPC 分頁：讓 AI 現編一個純虛構路人（配角是真角色，走「真實角色」分頁綁定）
     // （名字 + 一句關係設定），設定寫進 note——note 是「已確立事實」，之後聊天會嚴格遵守。
     const handleCreateRandomNpcContact = async () => {
         if (!targetChar || !effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
@@ -1860,21 +1839,10 @@ ${olderText}
 
     const handleCreateContact = () => {
         if (!targetChar) return;
-        if (ncKind === 'npc' && ncNpcMode === 'random') { handleCreateRandomNpcContact(); return; }
-        let name: string;
-        let linkedCharId: string | undefined;
-        let linkedNpcId: string | undefined;
-        let avatar: string | undefined;
-        if (ncKind === 'real') {
-            const rc = characters.find(c => c.id === ncLinkedId);
-            if (!rc) { addToast('請選擇要綁定的真實角色', 'error'); return; }
-            name = rc.name; linkedCharId = rc.id;
-        } else {
-            const npc = npcs.find(n => n.id === ncLinkedId);
-            if (!npc) { addToast('請選擇一個 NPC', 'error'); return; }
-            name = npc.name; linkedNpcId = npc.id; avatar = npc.avatar;
-        }
-        mutateContacts(cs => upsertContact(cs, { name, kind: ncKind, linkedCharId, linkedNpcId, avatar, affinity: 0, status: 'friend' }));
+        if (ncKind === 'npc') { handleCreateRandomNpcContact(); return; }
+        const rc = characters.find(c => c.id === ncLinkedId);
+        if (!rc) { addToast('請選擇要綁定的真實角色', 'error'); return; }
+        mutateContacts(cs => upsertContact(cs, { name: rc.name, kind: 'real', linkedCharId: rc.id, affinity: 0, status: 'friend' }));
         closeAddContactModal();
         addToast('已添加聯繫人', 'success');
         trackEvent('手动添加一位联系人', { contactKind: ncKind });
@@ -1965,49 +1933,19 @@ ${olderText}
     // replyAsContact：用戶冒充這個 NPC 說的話（「以對方身份回 TA」）——只讓機主回這一句
     const handleNpcConversation = async (contact: PhoneContact, replyAsContact?: string) => {
         if (!targetChar) return;
-        // 綁定了「神經鏈接 → NPC」分頁裡某個 NPC 的聯繫人：優先用這個 NPC 自己配的專屬 API
-        // （神經鏈接 NPC 編輯頁「AI 模型」選了「自定義」才會有），沒配就跟查手機共用設定一樣。
-        const linkedNpc = contact.linkedNpcId ? npcs.find(n => n.id === contact.linkedNpcId) : undefined;
-        const npcEffectiveApi = linkedNpc?.chatApi?.baseUrl ? linkedNpc.chatApi : effectiveApiConfig;
-        if (!npcEffectiveApi.apiKey) { addToast('請先配置 API', 'error'); return; }
+        if (!effectiveApiConfig.apiKey) { addToast('請先配置 API', 'error'); return; }
         setIsLoading(true);
         trackEvent('生成一段与联系人的对话', { contactKind: 'npc' });
         try {
             const existing = (targetChar.phoneState?.records || []).find(r => r.type === 'chat' && (r.contactId === contact.id || normName(r.title) === normName(contact.name)));
-            // 把 NPC 的人設描述和跟這個角色/用戶的關係折進 note 一起餵給引擎，讓腦補出來的對話
-            // 有據可依，不再是純憑一個名字瞎編。不改 contact.note 本身——那是用戶自己寫的備註，
-            // 落庫前保持原樣。
-            // NPC 認識的你可能不是機主認識的那一個（多身份）：那段「對用戶」的關係就標成對那張卡的人
-            const npcKnownKey = linkedNpc ? personaKeyForNpc(userProfileBase, linkedNpc, characters) : undefined;
-            const npcUserLabel = npcKnownKey && npcKnownKey !== personaKeyForChar(userProfileBase, targetChar)
-                ? `對「${personaNameForKey(userProfileBase, npcKnownKey)}」（另一個人，不是機主認識的「${checkPhoneUserProfile.name}」）`
-                : '對用戶';
-            const npcRelationshipNote = linkedNpc?.relationships
-                .filter(r => r.targetId === targetChar.id || r.targetId === 'user')
-                .map(r => r.targetId === targetChar.id ? `對「${targetChar.name}」：${r.description}` : `${npcUserLabel}：${r.description}`)
-                .join('\n');
-            // NPC 自己的輕量記憶（群聊、之前的手機私聊整理出來的），讓腦補出來的 TA 記得發生過的事
-            const npcMemoryNote = linkedNpc?.memory?.trim() ? `${linkedNpc.name}記得的事（TA 的第一人稱記憶）：\n${linkedNpc.memory.trim()}` : '';
-            const npcGrounding = linkedNpc ? [linkedNpc.description?.trim(), npcRelationshipNote, npcMemoryNote].filter(Boolean).join('\n') : '';
-            const effectiveNote = [npcGrounding, contact.note].filter(Boolean).join('\n\n') || undefined;
             const { detail, learnedNew } = await runNpcConversation({
-                host: targetChar, user: checkPhoneUserProfile, api: npcEffectiveApi as any,
-                npcName: contact.name, identity: contact.identity, note: effectiveNote,
+                host: targetChar, user: checkPhoneUserProfile, api: effectiveApiConfig as any,
+                npcName: contact.name, identity: contact.identity, note: contact.note || undefined,
                 learned: contact.learned, existingDetail: existing?.detail,
                 hostReplyTo: replyAsContact,
             });
             if (!detail.trim()) { addToast('對方沒有回應', 'error'); return; }
             const hostReplied = parseTranscript(detail).slice(-1)[0]?.isMe === true;
-            // 綁定了 NPC 的：這段新對話併進 NPC 的記憶（背景跑，不擋畫面）
-            if (linkedNpc) {
-                const prev = existing?.detail || '';
-                const fresh = prev && detail.startsWith(prev) ? detail.slice(prev.length) : detail;
-                void rememberNpcPhoneChat({
-                    npc: linkedNpc, hostName: targetChar.name, transcript: fresh.trim().slice(-3000),
-                    userName: checkPhoneUserProfile.name, api: npcEffectiveApi as any,
-                    save: patch => updateNPC(linkedNpc.id, patch),
-                });
-            }
             const now = Date.now();
             // 同步到私聊：和真人對話一致，落一張 phone_card（受 sendToChat 控制）。
             // 續寫時先刪掉上一張卡片再發新的，避免同一段對話越堆越多。
@@ -2764,7 +2702,7 @@ ${olderText}
                     onBack={() => { if (contactSelectMode) exitContactSelect(); else setActiveAppId('home'); }}
                     right={contactSelectMode
                         ? <button onClick={exitContactSelect} className="text-[12px] font-semibold text-white/80 active:scale-90 transition">取消</button>
-                        : <button onClick={() => { setNcNpcMode(npcs.length > 0 ? 'existing' : 'random'); setShowContactModal(true); }} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
+                        : <button onClick={() => setShowContactModal(true)} className="text-white/80 active:scale-90 transition"><UserPlus size={20} weight="bold" /></button>} />
                 {/* 約束開關：是否允許虛構 NPC */}
                 <div className="px-4 pt-1 pb-2 shrink-0">
                     <div className="w-full flex items-center gap-2 rounded-xl px-3 py-2 bg-white/[0.04] border border-white/[0.07]">
@@ -4148,7 +4086,6 @@ ${olderText}
                         <TrajectoryHome
                             targetChar={targetChar}
                             characters={characters}
-                            npcs={npcs}
                             onBack={() => setActiveAppId('home')}
                             updateCharacter={updateCharacter}
                             apiConfig={effectiveApiConfig}
@@ -4564,47 +4501,12 @@ ${olderText}
                             <p className="text-[9px] text-slate-400 mt-1">真人之間可發起雙向對話，對話會同步進對方的手機。</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-2">
-                                {([
-                                    { id: 'existing', name: '綁定既有 NPC', desc: '從「神經鏈接」裡選一個' },
-                                    { id: 'random', name: '隨機產生', desc: '機主腦補，AI 現編一個' },
-                                ] as const).map(opt => {
-                                    const active = ncNpcMode === opt.id;
-                                    const disabled = opt.id === 'existing' && npcs.length === 0;
-                                    return (
-                                        <button key={opt.id} type="button" disabled={disabled} onClick={() => setNcNpcMode(opt.id)}
-                                            className={`text-left rounded-xl p-2.5 border transition ${active ? 'border-transparent bg-pink-500 text-white' : 'border-slate-200 bg-slate-50 text-slate-600'} ${disabled ? 'opacity-40' : ''}`}>
-                                            <div className="text-[12px] font-bold leading-tight">{opt.name}</div>
-                                            <div className={`text-[9px] leading-tight ${active ? 'text-white/80' : 'text-slate-400'}`}>{opt.desc}</div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            {ncNpcMode === 'existing' ? (
-                                npcs.length > 0 ? (
-                                    <div>
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">綁定 NPC</label>
-                                        <select value={ncLinkedId} onChange={e => setNcLinkedId(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
-                                            <option value="">— 選擇一個 NPC —</option>
-                                            {npcs.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                                        </select>
-                                        <p className="text-[9px] text-slate-400 mt-1">對話仍是機主單方面腦補，但會參考這個 NPC 在「神經鏈接」裡設定的人設和關係。</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        還沒有 NPC——請先去「神經鏈接」→「NPC」分頁建一個，再回來綁定。
-                                    </p>
-                                )
-                            ) : (
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">簡短提示方向（可選）</label>
-                                    <input value={ncRandomHint} onChange={e => setNcRandomHint(e.target.value)}
-                                        placeholder="不填就完全隨機，比如：常來蹭飯的鄰居阿姨"
-                                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
-                                    <p className="text-[9px] text-slate-400 mt-1">不綁定任何既有 NPC 檔案，AI 會現編一個名字和身份，寫進備註當固定設定。</p>
-                                </div>
-                            )}
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">簡短提示方向（可選）</label>
+                            <input value={ncRandomHint} onChange={e => setNcRandomHint(e.target.value)}
+                                placeholder="不填就完全隨機，比如：常來蹭飯的鄰居阿姨"
+                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm" />
+                            <p className="text-[9px] text-slate-400 mt-1">機主腦補，AI 會現編一個名字和身份，寫進備註當固定設定。配角是神經鏈接裡的真角色，要綁就選「真人」。</p>
                         </div>
                     )}
                 </div>
@@ -4617,7 +4519,7 @@ ${olderText}
                         <p className="text-[11.5px] text-slate-500 leading-relaxed">
                             甄別/綁定錯了在這改。會保留這段對話、備註、瞭解和好感；改成真人會把對話同步進對方手機，原來錯綁的角色那邊會清掉。
                         </p>
-                        {/* 轉為純虛構（不綁定任何既有 NPC） */}
+                        {/* 轉為純虛構 */}
                         <button
                             onClick={() => handleRebindContact(selectedContact, { kind: 'npc' })}
                             disabled={selectedContact.kind === 'npc' && !selectedContact.linkedNpcId}
@@ -4625,7 +4527,7 @@ ${olderText}
                             <span className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 shrink-0"><User size={16} weight="bold" /></span>
                             <div className="min-w-0">
                                 <div className="text-[13px] font-bold text-slate-700">轉為純虛構聯繫人</div>
-                                <div className="text-[10px] text-slate-400">不綁定真實角色 / NPC，機主腦補{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（當前就是）' : ''}</div>
+                                <div className="text-[10px] text-slate-400">不綁定真實角色，機主腦補{selectedContact.kind === 'npc' && !selectedContact.linkedNpcId ? '（當前就是）' : ''}</div>
                             </div>
                         </button>
                         {/* 綁定到真實角色 */}
@@ -4644,28 +4546,6 @@ ${olderText}
                                             className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
                                             <TokenImg value={rc.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
                                             <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{rc.name}</span>
-                                            {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">當前綁定</span>}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        {/* 綁定到既有 NPC */}
-                        <div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1.5">綁定到 NPC</div>
-                            <div className="max-h-64 overflow-y-auto space-y-1.5 no-scrollbar">
-                                {npcs.length === 0 && (
-                                    <p className="text-[11px] text-slate-400 px-1 py-2">還沒有 NPC，請先去「神經鏈接」→「NPC」分頁建一個。</p>
-                                )}
-                                {npcs.map(n => {
-                                    const current = selectedContact.kind === 'npc' && selectedContact.linkedNpcId === n.id;
-                                    return (
-                                        <button key={n.id}
-                                            onClick={() => handleRebindContact(selectedContact, { kind: 'npc', npcId: n.id })}
-                                            disabled={current}
-                                            className={`w-full flex items-center gap-2.5 rounded-xl p-2.5 border text-left transition ${current ? 'border-pink-300 bg-pink-50' : 'border-slate-200 bg-slate-50 active:scale-[0.99]'}`}>
-                                            <TokenImg value={n.avatar} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
-                                            <span className="text-[13px] font-semibold text-slate-700 flex-1 truncate">{n.name}</span>
                                             {current && <span className="text-[10px] font-bold text-pink-500 shrink-0">當前綁定</span>}
                                         </button>
                                     );
