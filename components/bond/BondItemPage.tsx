@@ -5,11 +5,12 @@
  */
 import React, { useState } from 'react';
 import { ArrowCounterClockwise, EyeSlash, PencilSimple, Star, Trash } from '@phosphor-icons/react';
-import type { CharacterProfile, MemoryFragment } from '../../types';
+import type { BondSource, CharacterProfile, MemoryFragment } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { useSpaceTimeline } from './useSpaceTimeline';
 import { itemKindLabel } from './BondMomentsPage';
+import { BondPhotoStrip } from './BondPhotoPicker';
 import { formatEventDate } from '../../utils/bond/eventDate';
 import { dependentsOf, planRetract, type DerivationRef } from '../../utils/bond/derivation';
 import { deleteBondEntries, saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
@@ -24,9 +25,13 @@ export const BondItemPage: React.FC<{
     onBack: () => void;
     onEditMoment: (entryId: string) => void;
     onEditMemory: (memoryId: string) => void;
+    /** 點來源跳回當時那則 */
+    onOpenSource?: (source: BondSource) => void;
+    /** 記憶：在神經鏈接（記憶分頁）或記憶宮殿打開 */
+    onOpenMemory?: (charId: string, where: 'link' | 'palace') => void;
     updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, updateCharacter, addToast }) => {
+}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, onOpenSource, onOpenMemory, updateCharacter, addToast }) => {
     const { items, entries } = useSpaceTimeline(space, characters);
     const item = items.find(i => i.key === itemKey);
     const [confirming, setConfirming] = useState(false);
@@ -97,6 +102,9 @@ export const BondItemPage: React.FC<{
                     <div className="bond-note">{itemKindLabel(item, space)} · {formatEventDate(item.eventDate)}</div>
                     {entry?.title?.trim() && <h2 className="bond-serif mt-3 text-[20px] leading-snug">{entry.title}</h2>}
                     <div className={`bond-serif mt-3 whitespace-pre-wrap text-[15.5px] leading-[1.95] ${entry?.title ? 'text-[var(--bond-ink-2)]' : ''}`}>{item.text}</div>
+                    {entry && entry.sources.some(src => src.type === 'photo') && (
+                        <div className="mt-4"><BondPhotoStrip galleryIds={entry.sources.flatMap(src => (src.type === 'photo' ? [src.galleryId] : []))} /></div>
+                    )}
                     {entry?.note?.trim() && (
                         <p className="mt-5 border-l-2 border-[var(--bond-rose)] pl-3 text-[13px] leading-relaxed text-[var(--bond-ink-2)]">
                             {entry.author === 'user' ? '想留著它，因為：' : ''}{entry.note}
@@ -104,20 +112,37 @@ export const BondItemPage: React.FC<{
                     )}
                     {memory?.mood && <div className="mt-4 text-[11.5px] text-[var(--bond-muted)]">那天的心情：{memory.mood}</div>}
                     {memory?.palaceMemoryId && <div className="mt-1 text-[11px] text-[var(--bond-muted)]">這筆跟記憶宮殿連著，改了兩邊一起變。</div>}
+                    {memory && ref.type === 'memory' && onOpenMemory && (
+                        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px]">
+                            <button type="button" className="text-[var(--bond-accent)]" onClick={() => onOpenMemory(ref.charId, 'link')}>在神經鏈接打開 ›</button>
+                            {memory.palaceMemoryId && characters.find(c => c.id === ref.charId)?.memoryPalaceEnabled && (
+                                <button type="button" className="text-[var(--bond-accent)]" onClick={() => onOpenMemory(ref.charId, 'palace')}>在記憶宮殿打開 ›</button>
+                            )}
+                        </div>
+                    )}
                     {ref.type === 'topic' && <div className="mt-4 text-[11.5px] text-[var(--bond-muted)]">這是他們私下聊滿一段之後自動整理的，只能收藏或收起。</div>}
                 </article>
 
                 <div className="px-5 py-6 space-y-7">
-                    {entry && (entry.sources.length > 0 || (entry.orphanedLinks?.length || 0) > 0) && (
+                    {entry && (entry.sources.some(src => src.type !== 'photo') || (entry.orphanedLinks?.length || 0) > 0) && (
                         <section>
                             <SectionLabel>來 源</SectionLabel>
                             <ul className="space-y-2.5">
-                                {entry.sources.map((s, i) => (
-                                    <li key={i} className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
-                                        <span className="text-[var(--bond-muted)]">{SOURCE_LABEL[s.type]}</span>
-                                        {'snippet' in s && s.snippet ? <span className="block mt-0.5 whitespace-pre-wrap">「{s.snippet}」</span> : null}
-                                    </li>
-                                ))}
+                                {entry.sources.filter(src => src.type !== 'photo').map((s, i) => {
+                                    const jumpable = (s.type === 'message' || s.type === 'date') && !!onOpenSource;
+                                    const label = s.type === 'message' && s.lineId.startsWith('pair~') ? '角色私聊' : SOURCE_LABEL[s.type];
+                                    return (
+                                        <li key={i} className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="text-[var(--bond-muted)]">{label}{'at' in s && s.at ? ` · ${new Date(s.at).toLocaleDateString()}` : ''}</span>
+                                                {jumpable && (
+                                                    <button type="button" onClick={() => onOpenSource!(s)} className="shrink-0 text-[11.5px] text-[var(--bond-accent)]">回到那時 ›</button>
+                                                )}
+                                            </div>
+                                            {'snippet' in s && s.snippet ? <span className="block mt-1 whitespace-pre-wrap bond-serif">{s.snippet}</span> : null}
+                                        </li>
+                                    );
+                                })}
                                 {(entry.orphanedLinks?.length || 0) > 0 && (
                                     <li className="text-[12px] text-[var(--bond-muted)]">原本關聯的那件事已刪除。</li>
                                 )}

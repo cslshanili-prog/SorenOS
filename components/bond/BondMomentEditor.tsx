@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import type { BondEntry, BondEventDate, CharacterProfile } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import { BondDateField } from './BondDateField';
+import { BondPhotoPicker, BondPhotoStrip } from './BondPhotoPicker';
 import type { ResolvedSpace } from './space';
 import { bondEntryById } from '../../utils/bond/entryRegistry';
 import { newBondEntryId, saveBondEntry } from '../../utils/bond/entries';
@@ -25,6 +26,8 @@ export const BondMomentEditor: React.FC<{
     const [text, setText] = useState(existing?.text || '');
     const [note, setNote] = useState(existing?.note || '');
     const [date, setDate] = useState<BondEventDate>(existing?.eventDate || { precision: 'day', date: space.todayKey });
+    const [photos, setPhotos] = useState<string[]>(() => (existing?.sources || []).flatMap(s => (s.type === 'photo' ? [s.galleryId] : [])));
+    const [picking, setPicking] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const periodMissingLabel = date.precision === 'period' && !date.label.trim();
@@ -44,6 +47,8 @@ export const BondMomentEditor: React.FC<{
                 text: text.trim(),
                 note: note.trim() || undefined,
                 eventDate: date,
+                // 照片接在其他來源後面；換照片只動 photo 那幾筆
+                sources: [...base.sources.filter(src => src.type !== 'photo'), ...photos.map(galleryId => ({ type: 'photo' as const, galleryId }))],
             });
             if (!existing) trackEvent('收存拾光片刻', { 来源: '手动' });
             addToast(existing ? '改好了' : '收存好了', 'success');
@@ -77,7 +82,12 @@ export const BondMomentEditor: React.FC<{
                     <SectionLabel>什 麼 時 候</SectionLabel>
                     <BondDateField value={date} onChange={setDate} todayKey={space.todayKey} />
                 </section>
+                <section>
+                    <SectionLabel right={<button type="button" className="text-[11.5px] text-[var(--bond-accent)]" onClick={() => setPicking(true)}>{photos.length ? '換照片' : '從資料庫挑'}</button>}>照 片</SectionLabel>
+                    {photos.length ? <BondPhotoStrip galleryIds={photos} size="sm" /> : <div className="text-[12px] text-[var(--bond-muted)]">可以不放。</div>}
+                </section>
             </div>
+            {picking && <BondPhotoPicker initial={photos} onBack={() => setPicking(false)} onDone={ids => { setPhotos(ids); setPicking(false); }} />}
             <div className="shrink-0 px-5 pt-3 border-t bond-hair flex gap-2" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 12px)' }}>
                 <button type="button" className="bond-btn flex-1" onClick={onBack}>取消</button>
                 <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!canSave} onClick={save}>{saving ? '存檔中…' : '存起來'}</button>

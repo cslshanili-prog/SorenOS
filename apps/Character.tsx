@@ -154,7 +154,7 @@ const Character: React.FC = () => {
           return next;
       });
   };
-  const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : 'identity');
+  const [detailTab, setDetailTab] = useState<'identity' | 'memory' | 'impression' | 'plates' | 'chibi'>(() => launchIntent?.openChibiStudio ? 'chibi' : launchIntent?.detailTab || 'identity');
   // QQ捏人工坊（手辦櫃）全屏覆蓋層
   const [showChibiStudio, setShowChibiStudio] = useState(() => !!launchIntent?.openChibiStudio);
   const [showSpriteManager, setShowSpriteManager] = useState(false);

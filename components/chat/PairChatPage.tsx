@@ -16,8 +16,19 @@ import { deliverSideBatch } from '../../utils/sideMessageRun';
  * 角色私聊（plans/persona-line-batch6.md 第 2 節）：兩個角色之間的那條線。你只能看、按「讓他們聊一輪」、
  * 或冒充其中一個人說一句；它們不知道你看得到。不傳 pairId 就先挑兩個人。
  */
-const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pairId: initialPairId, onClose }) => {
+const PairChatPage: React.FC<{
+    pairId?: string;
+    onClose: () => void;
+    /** 從羈絆的拾光跳回來：捲到這則、閃一下（plans/bond-batch2.md 6.1） */
+    focusMessageId?: number;
+    /** 按「收存到羈絆」之後怎麼回到這頁（ChatHub 會重開這條私聊） */
+    onCollect?: (pairId: string, messageIds: number[]) => void;
+}> = ({ pairId: initialPairId, onClose, focusMessageId, onCollect }) => {
     const { characters, apiConfig, userProfileBase, updateCharacter, addToast } = useOS();
+    // 收存到羈絆：點「收存」進入挑選，點訊息勾選
+    const [collecting, setCollecting] = useState(false);
+    const [chosen, setChosen] = useState<Set<number>>(new Set());
+    const [flashId, setFlashId] = useState<number | null>(null);
     const [pairId, setPairId] = useState<string | null>(initialPairId || null);
     const [picked, setPicked] = useState<string[]>([]);
     const [msgs, setMsgs] = useState<Message[]>([]);
@@ -36,6 +47,16 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pairId]);
     useEffect(() => { void reload(); }, [reload]);
+    // 跳回某一則：訊息載好後捲過去、閃一下
+    useEffect(() => {
+        if (!focusMessageId || !msgs.some(m => m.id === focusMessageId)) return;
+        const t = window.setTimeout(() => {
+            document.getElementById(`pair-msg-${focusMessageId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setFlashId(focusMessageId);
+            window.setTimeout(() => setFlashId(null), 2200);
+        }, 120);
+        return () => window.clearTimeout(t);
+    }, [focusMessageId, msgs]);
 
     const run = async (asText?: string) => {
         if (!left || !right || busy) return;
@@ -97,6 +118,12 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
                     </div>
                 </div>
             ) : <div className="text-sm font-bold text-slate-800">讓兩個角色聊聊</div>}
+            {left && right && onCollect && msgs.length > 0 && (
+                <button type="button" onClick={() => { setCollecting(v => !v); setChosen(new Set()); }}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-[11px] font-bold border ${collecting ? 'bg-[#8c4a52] border-[#8c4a52] text-white' : 'bg-[#f6f1e9] border-[#e3d9cc] text-[#8c4a52]'}`}>
+                    {collecting ? '取消' : '收存'}
+                </button>
+            )}
         </div>
     );
 
@@ -140,7 +167,9 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
                     const isLeft = speaker !== right.id;
                     const who = charOf(speaker || '') || (isLeft ? left : right);
                     return (
-                        <div key={m.id} className={`flex items-end gap-2 ${isLeft ? '' : 'flex-row-reverse'}`}>
+                        <div key={m.id} id={`pair-msg-${m.id}`}
+                            onClick={collecting ? () => setChosen(prev => { const next = new Set(prev); if (next.has(m.id)) next.delete(m.id); else next.add(m.id); return next; }) : undefined}
+                            className={`flex items-end gap-2 rounded-2xl transition-colors ${isLeft ? '' : 'flex-row-reverse'} ${collecting ? 'cursor-pointer' : ''} ${chosen.has(m.id) || flashId === m.id ? 'bg-[#ecdcd8]/70' : ''}`}>
                             <TokenImg value={who.avatar} className="w-8 h-8 rounded-full object-cover bg-slate-100 shrink-0" alt={who.name} />
                             <div className={`max-w-[72%] ${isLeft ? '' : 'text-right'}`}>
                                 <div className="text-[10px] text-slate-400 mb-0.5">{who.name}{m.metadata?.impersonated ? ' · 你代說的' : ''}</div>
@@ -150,6 +179,14 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
                     );
                 })}
             </div>
+            {collecting ? (
+                <div className="shrink-0 bg-white border-t border-slate-100 px-4 pt-3" style={{ paddingBottom: 'calc(0.8rem + var(--safe-bottom))' }}>
+                    <div className="text-[11px] text-slate-400 mb-2">點訊息挑要收存的那幾則</div>
+                    <button type="button" disabled={chosen.size === 0}
+                        onClick={() => { if (pairId && onCollect) onCollect(pairId, [...chosen].sort((x, y) => x - y)); }}
+                        className="w-full py-2.5 rounded-2xl bg-[#8c4a52] text-white text-sm font-bold disabled:opacity-50">收存到羈絆（{chosen.size}）</button>
+                </div>
+            ) : (
             <div className="shrink-0 bg-white border-t border-slate-100 px-4 pt-3 space-y-2" style={{ paddingBottom: 'calc(0.8rem + var(--safe-bottom))' }}>
                 <button onClick={() => run()} disabled={busy}
                     className="w-full py-2.5 rounded-2xl bg-violet-500 text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-60">
@@ -175,6 +212,7 @@ const PairChatPage: React.FC<{ pairId?: string; onClose: () => void }> = ({ pair
                 )}
                 {asId && <p className="text-[9px] text-slate-400 leading-tight">你代說的會記成「{charOf(asId)?.name}」說的，TA 之後也會記得自己說過。</p>}
             </div>
+            )}
         </div>,
         document.body,
     );

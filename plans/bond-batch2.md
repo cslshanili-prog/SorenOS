@@ -10,6 +10,13 @@
 > - 角色 × 角色的話題盒（他們私下聊滿一段的整理）在時間線上只能收藏、收起，不能編輯刪除（那是查手機的資料，第 6 批再看）。
 > - 空間頁首的標題改成對方名字（角色之間是「A & B」），「我們／拾光」交給分頁列。
 > - 改記憶的那段從神經鏈接抽成 `utils/memoryArchiveEdit.ts` 兩邊共用。
+>
+> **實況（2026-11-26）：2b 做完。** 跟設計稿不同的地方：
+> - 收存頁、挑幾件都開在羈絆 App 裡（`bondLaunch` 帶 `page: 'collect'`＋`collect` 請求，`utils/bond/collect.ts` 的 `BondCollectRequest`），存完靠 `appReturn` 回到原本的私聊／見面／角色私聊；見面離開時自動掛起、回來接上。
+> - 「發生了什麼」可以不填，不填就存選到那幾則的原文（拿掉名字、接成一段）；原文快照另外記在來源上。
+> - 挑幾件只讀私聊那條線（見面的訊息不算），一次最多 120 則；「都不留」也會記水位（`lastMomentScanId`），下次從更新的挑。
+> - 跳回：私聊照那條線切身份卡再開（`chatJumpLaunch`），見面要沒有掛起中的見面才跳（`dateJumpLaunch`，開歷史、往前載到那則、捲過去閃一下），角色私聊開那兩人的頁（`pairChatLaunch`）；記憶在詳細頁有「在神經鏈接打開」（`characterLaunch` 的 `detailTab: 'memory'`），連著宮殿又開著宮殿時多一個「在記憶宮殿打開」。
+> - 片刻附照片在這批接上：全螢幕從資料庫挑（`components/bond/BondPhotoPicker.tsx`，最多 6 張、只列照片），存成 `type: 'photo'` 的來源。
 
 ## 0. 範圍
 

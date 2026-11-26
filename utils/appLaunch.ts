@@ -8,6 +8,7 @@
  * - appReturn：那個 App 按返回（OSContext.closeApp）時回到原本的聊天，而不是桌面；只認登記時的那個 App，
  *   中途跑去別的 App 就作廢
  */
+import type { BondCollectRequest } from './bond/collect';
 import type { AppID } from '../types';
 
 const oneShot = <T>() => {
@@ -22,7 +23,16 @@ const oneShot = <T>() => {
 export const calendarLaunch = oneShot<{ tab: 'theirs' }>();
 export const memoryPalaceLaunch = oneShot<{ charId: string }>();
 /** 羈絆：直接進某段關係的空間（plans/bond-batch1.md 3.1）；page 'route' 是直接開路線設定頁 */
-export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' }>();
+export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'moments' | 'collect'; collect?: BondCollectRequest; itemKey?: string }>();
+/**
+ * 從羈絆跳回當時那則訊息（plans/bond-batch2.md 6.1）：私聊收到就載入那則附近、捲過去閃一下。
+ * 線不是現在的身份時，呼叫端先切身份（setActivePersonaId）再開聊天。
+ */
+export const chatJumpLaunch = oneShot<{ charId: string; messageId: number }>();
+/** 角色私聊（訊息列表裡那頁）：打開這兩人的私聊；有 messageId 就捲到那則（收存回來、拾光跳回來都用它） */
+export const pairChatLaunch = oneShot<{ pairId: string; messageId?: number }>();
+/** 見面：開那場故事、捲到那則 */
+export const dateJumpLaunch = oneShot<{ charId: string; storyId: string; messageId: number }>();
 
 let returnSlot: { app: AppID; back: () => void } | null = null;
 

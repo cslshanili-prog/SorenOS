@@ -3,7 +3,7 @@
  * 書頁的排法：月份是頁邊小字，每件事左邊一行日期註記，右邊是標題或首句。
  */
 import React, { useMemo, useState } from 'react';
-import { Plus, Star } from '@phosphor-icons/react';
+import { Plus, Sparkle, Star } from '@phosphor-icons/react';
 import type { CharacterProfile } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -51,7 +51,9 @@ export const BondMomentsPage: React.FC<{
     onBack: () => void;
     onOpenItem: (key: string) => void;
     onNewMoment: () => void;
-}> = ({ space, characters, tabBar, onBack, onOpenItem, onNewMoment }) => {
+    /** 從最近的聊天挑幾件 */
+    onPick?: () => void;
+}> = ({ space, characters, tabBar, onBack, onOpenItem, onNewMoment, onPick }) => {
     const { items, entries } = useSpaceTimeline(space, characters);
     const [filter, setFilter] = useState<TimelineFilter>('all');
     const [showHidden, setShowHidden] = useState(false);
@@ -82,6 +84,16 @@ export const BondMomentsPage: React.FC<{
                 right={<button type="button" onClick={onNewMoment} aria-label="收存一個片刻" className="h-9 w-9 grid place-items-center rounded-full text-[var(--bond-ink-2)] active:bg-[var(--bond-paper-2)]"><Plus size={18} /></button>} />
             {tabBar}
             <div className="flex-1 overflow-y-auto no-scrollbar">
+                {onPick && (
+                    <button type="button" onClick={onPick}
+                        className="mx-5 mt-4 w-[calc(100%-2.5rem)] flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                        <span>
+                            <span className="bond-serif block text-[14px]">從最近的聊天挑幾件</span>
+                            <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">AI 先挑，你勾了才收存</span>
+                        </span>
+                        <Sparkle size={16} className="text-[var(--bond-accent)]" />
+                    </button>
+                )}
                 <div className="px-5 pt-4 pb-2 flex flex-wrap items-center gap-2">
                     {filters.map(f => (
                         <button key={f.id} type="button" className="bond-chip" aria-pressed={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</button>

@@ -6294,6 +6294,8 @@ export interface BondRecord {
      * pair 是話題盒 id）。不改記憶本身；記憶的正文、日期要改走神經鏈接同一條路。
      */
     memoryMarks?: Record<string, BondMemoryMark>;
+    /** 「從最近的聊天挑幾件」上次掃到的那則訊息 id（plans/bond-batch2.md 3.2），之後只挑更新的 */
+    lastMomentScanId?: number;
     updatedAt: number;
 }
 

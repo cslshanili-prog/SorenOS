@@ -170,7 +170,8 @@ import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../
 
 import { withApiCallMeta } from '../utils/apiCallLog';
 import { resolveBondInvite } from '../utils/bond/inviteActions';
-import { appReturn, bondLaunch } from '../utils/appLaunch';
+import { appReturn, bondLaunch, chatJumpLaunch } from '../utils/appLaunch';
+import { bondIdForChar } from '../utils/bond/model';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -3219,6 +3220,21 @@ const Chat: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeCharacterId]);
 
+    // 從羈絆的拾光跳回當時那則訊息（plans/bond-batch2.md 6.1）：線已經由羈絆那頭切好（身份），這裡只負責載入附近、捲過去閃一下
+    useEffect(() => {
+        const jump = chatJumpLaunch.peek();
+        if (!jump) return;
+        chatJumpLaunch.consume();
+        if (activeCharIdRef.current === jump.charId) {
+            const timer = window.setTimeout(() => void handleJumpToMessageInChat(jump.messageId), 250);
+            return () => window.clearTimeout(timer);
+        }
+        pendingFavoriteJumpRef.current = { charId: jump.charId, messageId: jump.messageId };
+        setActiveCharacterId(jump.charId);
+    // 只在打開聊天那一刻讀一次字條
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const handleBackToCurrent = async () => {
         setWindowedFocusMsgId(null);
         setHistoryWindowRange(null);
@@ -3462,6 +3478,23 @@ const Chat: React.FC = () => {
             console.error('Failed to rename emoji:', err);
             addToast(err?.message || '修改名稱失敗', 'error');
         }
+    };
+
+    // --- 收存到羈絆（plans/bond-batch2.md 3.1）：帶著選到的訊息去羈絆的收存頁，存好或返回都回到這裡 ---
+    const handleCollectToBond = (messageIds: number[]) => {
+        if (!char || !messageIds.length) return;
+        const bondId = bondIdForChar(char);
+        bondLaunch.request({
+            bondId, page: 'collect',
+            collect: { kind: 'chat', bondId, lineId: lineKey(lineOf(char)), charId: char.id, messageIds: [...messageIds].sort((x, y) => x - y) },
+        });
+        const backTo = char.id;
+        appReturn.set(AppID.Bond, () => { setActiveCharacterId(backTo); openApp(AppID.Chat); });
+        setModalType('none');
+        setSelectedMessage(null);
+        setSelectionMode(false);
+        setSelectedMsgIds(new Set());
+        openApp(AppID.Bond);
     };
 
     // --- Batch Selection ---
@@ -4345,7 +4378,7 @@ const Chat: React.FC = () => {
                 onOpenChatExport={() => setShowChatExport(true)}
                 onOpenChatImport={() => { const ln = lineOf(char); chatImportRef.current?.open({ kind: 'private', charId: char.id, ...(ln.personaKey ? { personaKey: ln.personaKey } : {}) }); }} onArchive={handleFullArchive}
                 onCreatePrompt={createNewPrompt} onEditPrompt={editSelectedPrompt} onSavePrompt={handleSavePrompt} onDeletePrompt={handleDeletePrompt}
-                onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode}
+                onSetHistoryStart={handleSetHistoryStart} onRestoreAdaptiveContext={restoreAdaptiveContext} onJumpToMessageInChat={handleJumpToMessageInChat} onEnterSelectionMode={handleEnterSelectionMode} onCollectToBond={selectedMessage ? () => handleCollectToBond([selectedMessage.id]) : undefined}
                 onReplyMessage={handleReplyMessage} onEditMessageStart={() => { if (selectedMessage) { setEditContent(selectedMessage.content); setModalType('edit-message'); } }}
                 onConfirmEditMessage={confirmEditMessage} onDeleteMessage={handleDeleteMessage} onCopyMessage={handleCopyMessage}
                 messageFavorited={!!(selectedMessage && contentFavoriteIds.has(contentFavoriteIdForMessage(selectedMessage)))}
@@ -4936,6 +4969,7 @@ const Chat: React.FC = () => {
                     onInputFocusChange={setIsInputFocused}
                     onDeleteSelected={handleBatchDelete}
                     onForwardSelected={handleForwardSelected}
+                    onCollectSelected={() => handleCollectToBond([...selectedMsgIds])}
                     selectedCount={selectedMsgIds.size + Array.from(selectedThinkingMsgIds).filter(id => !selectedMsgIds.has(id)).length}
                     emojis={filteredEmojis}
                     emojiSuggestionsEnabled={inputPreferences.emojiSuggestions}

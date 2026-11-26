@@ -5,11 +5,13 @@ import { resolveCharacterChatApi } from '../utils/characterApi';
 import { loadCharacterContextMessages } from '../utils/chatContextRange';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { knowsPersona, lineArgOf, lineMsgFields, lineView, lineViewPersonaKey } from '../utils/chatLine';
+import { knowsPersona, lineArgOf, lineKey, lineMsgFields, lineOf, lineView, lineViewPersonaKey } from '../utils/chatLine';
+import { bondIdForChar } from '../utils/bond/model';
 import LinePersonaPicker from '../components/user/LinePersonaPicker';
 import { useOS } from '../context/OSContext';
 import { DB } from '../utils/db';
 import { CharacterProfile, Message, DateState, AppID } from '../types';
+import { appReturn, bondLaunch, dateJumpLaunch } from '../utils/appLaunch';
 import { DatePrompts, buildDateOpeningInstruction, type DateOpeningMode, type DateMeetup, ApiMessage } from '../utils/datePrompts';
 import { buildMeetingPresetPayload } from '../utils/meetingPresetSession';
 import { extractObservation, hasObservation, isObserveActive } from '../utils/dateObserve';
@@ -177,6 +179,8 @@ const DateApp: React.FC = () => {
     // History State
     const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
     const [historyView, setHistoryView] = useState<DateHistoryView>('encounter');
+    /** 從羈絆的拾光跳回來要捲到的那則（plans/bond-batch2.md 6.1） */
+    const [historyFocusId, setHistoryFocusId] = useState<number | null>(null);
     const [historyStories, setHistoryStories] = useState<DateStory[]>([]);
     const stChatImportRef = useRef<StChatImportHandle>(null);
     const [historySortOrder, setHistorySortOrder] = useState<DateHistorySortOrder>('newest');
@@ -604,6 +608,21 @@ const DateApp: React.FC = () => {
         void resumeSuspended(target, suspended.cameFromChat);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    /**
+     * 收存到羈絆（plans/bond-batch2.md 3.1）：掛起這場見面、帶著選到的那幾則去羈絆的收存頁，
+     * 存好或取消都回到見面（重開時照掛起接回）。
+     */
+    const handleCollectToBond = (messageIds: number[]) => {
+        if (!char || !activeStory || !messageIds.length) return;
+        const bondId = bondIdForChar(char);
+        bondLaunch.request({
+            bondId, page: 'collect',
+            collect: { kind: 'date', bondId, lineId: lineKey(lineOf(char)), charId: char.id, storyId: activeStory.id, messageIds: [...messageIds].sort((x, y) => x - y) },
+        });
+        appReturn.set(AppID.Bond, () => { setActiveCharacterId(char.id); openApp(AppID.Date); });
+        openApp(AppID.Bond);
+    };
 
     /** 見面選單「回桌面」「去私聊」：先掛起，再走 */
     const handleQuickLeave = (target: DateQuickLeaveTarget) => {
@@ -1347,6 +1366,43 @@ const DateApp: React.FC = () => {
         trackEvent('打开见面记录');
     };
 
+    // 從羈絆的拾光跳回見面記錄的那則：見面沒有掛起中的才跳（掛起中的照舊接回那場見面）
+    useEffect(() => {
+        const jump = dateJumpLaunch.peek();
+        if (!jump) return;
+        dateJumpLaunch.consume();
+        if (dateSuspend.get()) { addToast('有一場見面還沒結束，先回到那場見面', 'info'); return; }
+        const target = characters.find(c => c.id === jump.charId);
+        if (!target) return;
+        void (async () => {
+            await openHistory(target);
+            // 那則比較舊的話，往前多讀幾批直到讀到它（最多 20 批）
+            let limit = DATE_HISTORY_MESSAGE_LIMIT;
+            for (let i = 0; i < 20; i++) {
+                const msgs = await DB.getRecentMessagesByCharIdAndSource(lineArgOf(target), 'date', limit);
+                if (msgs.some(m => m.id === jump.messageId) || msgs.length < limit) {
+                    setHistoryMessages(msgs);
+                    setHistoryLoadLimit(limit);
+                    setHistoryReachedEnd(msgs.length < limit);
+                    break;
+                }
+                limit += DATE_HISTORY_MESSAGE_LIMIT;
+            }
+            setHistoryView('story');
+            setHistoryFocusId(jump.messageId);
+        })();
+        // 只在打開那一刻讀一次字條
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    useEffect(() => {
+        if (historyFocusId === null || mode !== 'history') return;
+        const t = window.setTimeout(() => {
+            document.getElementById(`date-hist-${historyFocusId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 200);
+        const clear = window.setTimeout(() => setHistoryFocusId(null), 3200);
+        return () => { window.clearTimeout(t); window.clearTimeout(clear); };
+    }, [historyFocusId, mode, historyMessages]);
+
     const handleLoadMoreHistory = async () => {
         if (!char || historyBusy || historyReachedEnd) return;
         const nextLimit = historyLoadLimit + DATE_HISTORY_MESSAGE_LIMIT;
@@ -1740,7 +1796,8 @@ const DateApp: React.FC = () => {
                                     return (
                                         <div
                                             key={m.id}
-                                            className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} select-none`}
+                                            id={`date-hist-${m.id}`}
+                                            className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'} select-none rounded-xl transition-colors ${historyFocusId === m.id ? 'bg-rose-50' : ''}`}
                                             onTouchStart={(e) => handleHistoryLongPressStart(m, e)}
                                             onTouchEnd={handleHistoryLongPressEnd}
                                             onTouchMove={handleHistoryLongPressEnd}
@@ -1924,6 +1981,7 @@ const DateApp: React.FC = () => {
                     emotion={dateEmotionState(char, activeStory)}
                     onEmotionChange={activeStory && dateEmotionState(char, activeStory) ? patch => { void patchDateEmotion(char, activeStory.id, patch); } : undefined}
                     suppressAutoSaveRef={suppressSessionSaveRef}
+                    onCollectToBond={activeStory ? (ids => handleCollectToBond(ids)) : undefined}
                     onCaptureMoment={handleCaptureMoment}
                     capturingMoment={capturingMoment}
                 />

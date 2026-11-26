@@ -11,6 +11,7 @@ import { messageLogText } from '../utils/groupChat/format';
 import { formatChatListTimestamp } from '../utils/chatListTime';
 import { isSupporting } from '../utils/castRole';
 import { chatReturnTarget } from '../utils/chatReturnTarget';
+import { appReturn, bondLaunch, pairChatLaunch } from '../utils/appLaunch';
 import { trackEvent } from '../utils/analytics';
 import { knowsPersona, lineArgOf, lineFor, lineKey, lineView } from '../utils/chatLine';
 import AddFriendPage from '../components/chat/AddFriendPage';
@@ -112,7 +113,9 @@ const ChatHub: React.FC = () => {
     const [rows, setRows] = useState<ChatRow[] | null>(null);
     const [msgFilter, setMsgFilter] = useState<'all' | 'private' | 'group' | 'pair'>('all');
     // 角色私聊（關係線第 6 批 6c）：'new' = 先挑兩個人；線 id = 打開那條線
-    const [pairOpen, setPairOpen] = useState<string | null>(null);
+    const [pairOpen, setPairOpen] = useState<string | null>(() => pairChatLaunch.peek()?.pairId || null);
+    const [pairFocusId] = useState<number | undefined>(() => pairChatLaunch.peek()?.messageId);
+    useEffect(() => { pairChatLaunch.consume(); }, []);
     const [rowsVersion, setRowsVersion] = useState(0);
     const [msgQuery, setMsgQuery] = useState('');
 
@@ -262,6 +265,15 @@ const ChatHub: React.FC = () => {
             {pairOpen && (
                 <PairChatPage
                     pairId={pairOpen === 'new' ? undefined : pairOpen}
+                    focusMessageId={pairFocusId}
+                    onCollect={(pid, ids) => {
+                        // 收存到羈絆（plans/bond-batch2.md 3.1）：存好或取消都回這頁
+                        const pair = parsePairLineId(pid);
+                        if (!pair) return;
+                        bondLaunch.request({ bondId: pid, page: 'collect', collect: { kind: 'pair', bondId: pid, lineId: pid, charId: pair[0], messageIds: ids } });
+                        appReturn.set(AppID.Bond, () => { pairChatLaunch.request({ pairId: pid }); openApp(AppID.ChatHub); });
+                        openApp(AppID.Bond);
+                    }}
                     onClose={() => { setPairOpen(null); setRowsVersion(v => v + 1); }}
                 />
             )}
