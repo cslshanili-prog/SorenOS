@@ -1027,6 +1027,46 @@ const PersonaSuspectCard: React.FC<{
     );
 };
 
+/** 羈絆 · 角色邀請你建一個你們的空間（utils/bond/invite.ts）：按「好／先不要」 */
+const BondInviteCard: React.FC<{
+    m: Message;
+    charName: string;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+    onResolveBondInvite?: (m: Message, action: 'accepted' | 'declined') => void;
+}> = ({ m, charName, commonLayout, selectionMode, onResolveBondInvite }) => {
+    const meta = m.metadata?.bondInvite || {};
+    const status: 'pending' | 'accepted' | 'declined' = meta.status === 'accepted' || meta.status === 'declined' ? meta.status : 'pending';
+    const canResolve = status === 'pending' && !!onResolveBondInvite && !selectionMode;
+    return commonLayout(
+        <div className="sully-bond-invite w-64 rounded-2xl overflow-hidden border border-[#e6dccf] bg-[#fbf7f0] shadow-sm" style={{ fontFamily: "'Noto Serif TC', 'Songti TC', serif" }}>
+            <div className="px-4 pt-3.5 pb-3">
+                <div className="text-[10px] tracking-[0.25em] text-[#a1887f]">羈 絆</div>
+                <div className="mt-1 text-[13px] text-[#4a4340] leading-relaxed">{charName} 想跟你建一個只屬於你們的空間</div>
+                {meta.text && (
+                    <div className="mt-2 border-l-2 border-[#c9a9a6] pl-2.5 text-[12px] text-[#6b5e57] leading-relaxed">{meta.text}</div>
+                )}
+                {status === 'accepted' ? (
+                    <div className="mt-2.5 text-[11px] text-[#8c4a52]">你答應了</div>
+                ) : status === 'declined' ? (
+                    <div className="mt-2.5 text-[11px] text-[#a1958c]">你說先不要</div>
+                ) : canResolve ? (
+                    <div className="mt-3 flex gap-2" style={{ fontFamily: 'var(--app-font)' }}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onResolveBondInvite?.(m, 'accepted'); }}
+                            className="flex-1 py-1.5 rounded-lg bg-[#8c4a52] text-[#fbf7f0] text-[11px] font-bold active:scale-95 transition-transform">
+                            好
+                        </button>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onResolveBondInvite?.(m, 'declined'); }}
+                            className="flex-1 py-1.5 rounded-lg border border-[#e6dccf] text-[#6b5e57] text-[11px] font-bold active:scale-95 transition-transform">
+                            先不要
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+        </div>
+    );
+};
+
 const DateInviteCard: React.FC<{
     m: Message;
     charName: string;
@@ -1613,6 +1653,8 @@ interface MessageItemProps {
     onResolveDateInvite?: (m: Message, action: 'accepted' | 'declined') => void;
     /** 小號：角色起疑的卡上按「承認／否認」（utils/personaRevealActions.ts） */
     onResolvePersonaReveal?: (m: Message, action: 'admitted' | 'denied') => void;
+    /** 羈絆邀請卡上按「好／先不要」（utils/bond/inviteActions.ts） */
+    onResolveBondInvite?: (m: Message, action: 'accepted' | 'declined') => void;
     onCallBack?: (m: Message) => void;
     onRetryPhoto?: (m: Message) => void;
     /** 打開協同文件櫃裡的原始 Blob；消息本身只保存 assetId 引用。 */
@@ -1671,6 +1713,7 @@ const MessageItem = React.memo(({
     onResolveLifeRecord,
     onResolveDateInvite,
     onResolvePersonaReveal,
+    onResolveBondInvite,
     onCallBack,
     onRetryPhoto,
     onOpenCollaborationFile,
@@ -3543,6 +3586,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'persona_card') {
         return <PersonaSuspectCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolvePersonaReveal={onResolvePersonaReveal} />;
+    }
+
+    if (m.type === 'bond_invite') {
+        return <BondInviteCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolveBondInvite={onResolveBondInvite} />;
     }
 
     if (m.type === 'date_invite') {

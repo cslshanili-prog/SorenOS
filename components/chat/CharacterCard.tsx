@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Brain, CalendarBlank, ChatCircleDots, GearSix, UserCircle, X } from '@phosphor-icons/react';
+import { Brain, CalendarBlank, ChatCircleDots, GearSix, Infinity as InfinityIcon, UserCircle, X } from '@phosphor-icons/react';
 import { AppID, type CharacterProfile, type DailySchedule } from '../../types';
 import { useOS } from '../../context/OSContext';
 import TokenImg from '../os/TokenImg';
@@ -21,7 +21,8 @@ import { getCurrentScheduleSlotIndex } from '../../utils/scheduleTime';
 import { resolveCharTimeZone, tzShortLabel } from '../../utils/timezone';
 import { sectionOf } from '../../utils/worldSections';
 import { characterLaunch } from '../../utils/characterLaunch';
-import { appReturn, calendarLaunch, memoryPalaceLaunch } from '../../utils/appLaunch';
+import { appReturn, bondLaunch, calendarLaunch, memoryPalaceLaunch } from '../../utils/appLaunch';
+import { bondIdForChar } from '../../utils/bond/model';
 import { trackEvent } from '../../utils/analytics';
 
 type Tab = 'now' | 'today';
@@ -109,6 +110,8 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ char, from, onClose, onCh
     const openCharacter = () => goApp(AppID.Character, () => characterLaunch.request({ charId: char.id, backToCaller: true }));
     const openCalendar = () => goApp(AppID.Calendar, () => calendarLaunch.request({ tab: 'theirs' }));
     const openPalace = () => goApp(AppID.MemoryPalace, () => memoryPalaceLaunch.request({ charId: char.id }));
+    // 羈絆：私聊點開的是這條線的空間（char 是線的視圖），群聊是主線那張卡（plans/bond-batch1.md 3.1）
+    const openBond = () => goApp(AppID.Bond, () => bondLaunch.request({ bondId: bondIdForChar(char) }));
 
     const actions = useMemo(() => {
         const list: Array<{ key: string; label: string; icon: React.ReactNode; onClick: () => void }> = [
@@ -118,6 +121,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({ char, from, onClose, onCh
         if (from === 'group' && onPrivateChat) list.push({ key: 'private', label: '去私聊', icon: <ChatCircleDots size={18} />, onClick: () => { onClose(); onPrivateChat(); } });
         list.push({ key: 'calendar', label: '行事曆', icon: <CalendarBlank size={18} />, onClick: openCalendar });
         list.push({ key: 'palace', label: '記憶宮殿', icon: <Brain size={18} />, onClick: openPalace });
+        if (!char.altOf) list.push({ key: 'bond', label: '羈絆', icon: <InfinityIcon size={18} />, onClick: openBond });
         return list;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, onChatSettings, onPrivateChat, char.id]);

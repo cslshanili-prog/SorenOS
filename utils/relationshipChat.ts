@@ -16,6 +16,8 @@ import { safeResponseJson } from './safeApi';
 import { crossPersonaNote } from './personaSpeaker';
 
 import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
+import { bondForPair } from './bond/registry';
+import { bondFinalLock, bondPromptBlock } from './bond/prompt';
 export interface MiniApiConfig {
     baseUrl: string;
     apiKey: string;
@@ -289,6 +291,8 @@ async function buildSpeakerContext(
     speaker: CharacterProfile,
     user: UserProfile,
     otherName: string,
+    /** 對方是角色時：他們兩人之間的羈絆（plans/bond-batch1.md 2.2） */
+    otherId?: string,
 ): Promise<string> {
     try {
         if (speaker.memoryPalaceEnabled) {
@@ -301,7 +305,12 @@ async function buildSpeakerContext(
     // 讓角色在和聯繫人對話時，也意識到「距離上次和用戶聯繫多久了」（統一走 buildCoreContext）
     // 關係線：speaker 可能是線視圖，讀那條線的最後一則
     const lastInteractionTs = await lastUserInteractionTs(lineArgOf(speaker));
-    return ContextBuilder.buildCoreContext(speaker, user, true, undefined, undefined, { lastInteractionTs });
+    const core = ContextBuilder.buildCoreContext(speaker, user, true, undefined, undefined, { lastInteractionTs });
+    if (!otherId) return core;
+    const pairBond = bondForPair(speaker.id, otherId);
+    const block = bondPromptBlock({ bond: pairBond, selfName: speaker.name, otherName, selfIsCharId: pairBond ? pairBond.charId === speaker.id : undefined });
+    const lock = bondFinalLock(pairBond, otherName);
+    return `${core}${block ? `\n${block}` : ''}${lock ? `\n${lock}\n` : ''}`;
 }
 
 /** 取該角色與用戶最後一次互動的時間戳（最近一條消息）。失敗/無消息返回 undefined。 */
@@ -410,8 +419,8 @@ export async function runRealConversation(
     const replyTo = p.aReplyTo?.trim() || '';
     const rounds = replyTo ? 1 : Math.max(1, Math.min(8, p.rounds ?? 1));
 
-    const ctxA = await buildSpeakerContext(a, user, b.name);
-    const ctxB = await buildSpeakerContext(b, userB, a.name);
+    const ctxA = await buildSpeakerContext(a, user, b.name, b.id);
+    const ctxB = await buildSpeakerContext(b, userB, a.name, a.id);
     const recentA = await recentContextText(a, a.name, user.name);
     const recentB = await recentContextText(b, b.name, userB.name);
 

@@ -4,6 +4,7 @@
  *
  * - calendarLaunch：行事曆直接停在「TA 的」，看的人用 activeCharacterId（呼叫的人先設好）
  * - memoryPalaceLaunch：記憶宮殿直接進這個角色的宮殿，不停在選人頁
+ * - bondLaunch：羈絆直接進某段關係的空間（可直接開路線設定頁）
  * - appReturn：那個 App 按返回（OSContext.closeApp）時回到原本的聊天，而不是桌面；只認登記時的那個 App，
  *   中途跑去別的 App 就作廢
  */
@@ -20,6 +21,8 @@ const oneShot = <T>() => {
 
 export const calendarLaunch = oneShot<{ tab: 'theirs' }>();
 export const memoryPalaceLaunch = oneShot<{ charId: string }>();
+/** 羈絆：直接進某段關係的空間（plans/bond-batch1.md 3.1）；page 'route' 是直接開路線設定頁 */
+export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' }>();
 
 let returnSlot: { app: AppID; back: () => void } | null = null;
 

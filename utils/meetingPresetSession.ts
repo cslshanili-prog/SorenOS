@@ -103,7 +103,7 @@ export const buildMeetingPresetPayload = async (input: {
         length: lengthGlobals.mapped ? '' : buildLengthLine(char),
         voice: char.dateVoiceEnabled ? (getVoicePromptOverride('dateVoice') ?? DATE_VOICE_GUIDE) : '',
         // 聊天語言（plans/chat-language.md 第 4 批）：台詞用說話語言、括號附譯文；{{char}} 交給巨集展開
-        soren: join(sections.impression, sections.relations, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines, buildDateLanguageRule(char.chatLanguage)),
+        soren: join(sections.impression, sections.bond, sections.relations, buildBlockedMeetingNote(char, userName), ContextBuilder.buildSARModuleContext(char, userProfile, 'date'), fixedLines, buildDateLanguageRule(char.chatLanguage)),
     };
 
     // 世界書「聊天記錄指定深度」：跟內建模式一樣插進對話

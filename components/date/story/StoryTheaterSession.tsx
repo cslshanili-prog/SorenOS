@@ -1,4 +1,6 @@
 import type { ApiCallMeta } from '../../../utils/apiCallLog';
+import { sceneBondNote } from '../../../utils/bond/scene';
+import { personaNameForKey } from '../../../utils/userPersona';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
 import { buildStoryKnownPeopleNote } from '../../../utils/storyActorView';
@@ -503,10 +505,16 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
 
     const callCompletion = useCallback(async (payload: Array<{ role: string; content: string }>, settings?: Partial<StoryGenerationSettings>, onPromptTokens?: (tokens: number) => void): Promise<string> => {
         const generationSettings = prepareStoryGenerationSettings(settings, entry.omitSamplingParams === true);
+        // 羈絆的關係底線：在場的角色跟在場的你、角色跟角色之間的友情／親情線，貼在最後（plans/bond-batch1.md 2.2）
+        const bondNote = sceneBondNote({
+            chars: actors.map(a => ({ id: a.id, name: a.name })),
+            users: present.flatMap(item => item.personaKey ? [{ key: item.personaKey, name: personaNameForKey(userProfileBase, item.personaKey) }] : []),
+        });
+        const messages = bondNote ? [...payload, { role: 'system', content: bondNote }] : payload;
         const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
-            body: JSON.stringify({ model: apiConfig.model, messages: payload, stream: false, ...generationSettings }),
+            body: JSON.stringify({ model: apiConfig.model, messages, stream: false, ...generationSettings }),
             __sullyMeta: { appId: 'date', appName: '見面', charId: actors.length === 1 ? actors[0].id : undefined, charName: sceneActorNames.join('、') || undefined, purpose: '劇情見面生成' },
         } as RequestInit & { __sullyMeta: ApiCallMeta });
         const data = await safeResponseJson(response);
@@ -516,7 +524,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const content = extractContent(data).trim();
         if (!content) throw new Error(describeEmptyStoryCompletion(data));
         return content;
-    }, [actors, apiConfig, entry.omitSamplingParams, sceneActorNames]);
+    }, [actors, apiConfig, entry.omitSamplingParams, present, sceneActorNames, userProfileBase]);
 
     /**
      * 存中央那則，並鏡像進演員的私聊紀錄（只有寫進角色記憶的劇情）。

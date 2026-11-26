@@ -71,6 +71,9 @@ import { consumeSARChatSurfaceChunk, type SARModuleSurfaceMeta } from './vrWorld
 import { stripLeakedSourceTags } from './sanitize';
 import { includesAnyScript } from './scriptKey';
 
+import { relationshipChangeBlocked } from './bond/guard';
+import { canInviteBond, extractBondInvite } from './bond/invite';
+import { bondIdForChar } from './bond/model';
 // ─── 模塊內輔助 ──────────────────────────────────────────────────────────────
 
 /**
@@ -810,7 +813,7 @@ export async function applyAssistantPostProcessing(
     let lastAppliedRelationship = char.charViewRelationship?.trim() || '';
     const consumeRelationshipChange = async (content: string): Promise<string> => {
         const { cleanedText, relationship } = extractRelationshipChange(content);
-        if (relationship && char.allowCharChangeRelationship && relationship !== lastAppliedRelationship) {
+        if (relationship && char.allowCharChangeRelationship && relationship !== lastAppliedRelationship && !relationshipChangeBlocked(char, relationship)) {
             lastAppliedRelationship = relationship;
             await persistMessage({
                 ...lineMsgFields(char), role: 'system', type: 'text',
@@ -912,6 +915,14 @@ export async function applyAssistantPostProcessing(
         return r.cleanedText;
     };
 
+    // 角色邀請建立羈絆空間（plans/bond-batch1.md 3.5）：標籤一律剝掉；這條線還沒有空間紀錄才收，一輪一次
+    let pendingBondInvite: string | null = null;
+    const consumeBondInvite = (content: string): string => {
+        const { cleanedText, invite } = extractBondInvite(content);
+        if (invite !== null && pendingBondInvite === null && canInviteBond(char)) pendingBondInvite = invite;
+        return cleanedText;
+    };
+
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
         const { cleanedText, block } = extractBlockUser(content);
@@ -932,6 +943,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeSuspicion(aiContent);
     aiContent = consumeAltTags(aiContent);
     aiContent = consumeSide(aiContent);
+    aiContent = consumeBondInvite(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2429,6 +2441,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeSuspicion(aiContent);
     aiContent = consumeAltTags(aiContent);
     aiContent = consumeSide(aiContent);
+    aiContent = consumeBondInvite(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2574,6 +2587,16 @@ export async function applyAssistantPostProcessing(
             ...lineMsgFields(char), role: 'assistant', type: 'persona_card',
             content: `${char.name} 問你是不是其實就是「${meta.guessName}」${meta.reason ? `：${meta.reason}` : ''}`,
             metadata: { ...(mcdInheritMeta || {}), personaReveal: meta },
+        } as Parameters<typeof DB.saveMessage>[0]);
+        setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
+    }
+
+    // 羈絆邀請卡（按「好／先不要」在 Chat.tsx，utils/bond/inviteActions.ts）
+    if (pendingBondInvite !== null) {
+        await persistMessage({
+            ...lineMsgFields(char), role: 'assistant', type: 'bond_invite',
+            content: `${char.name} 想跟你建一個羈絆空間${pendingBondInvite ? `：${pendingBondInvite}` : ''}`,
+            metadata: { ...(mcdInheritMeta || {}), bondInvite: { text: pendingBondInvite, status: 'pending', bondId: bondIdForChar(char) } },
         } as Parameters<typeof DB.saveMessage>[0]);
         setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
     }

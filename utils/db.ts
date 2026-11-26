@@ -3,7 +3,7 @@ import { lineViewPersonaKey } from './userPersona';
 import { parseLineScheduleId } from './chatLine';
 import { orderWorldEpisodes } from './worldHome/episodeOrder';
 import type { MeetingPresetRecord } from './meetingPreset/types';
-import type { AssistantSession, DateStory, DateSummaryPreset } from '../types';
+import type { AssistantSession, BondRecord, DateStory, DateSummaryPreset } from '../types';
 
 
 
@@ -43,7 +43,7 @@ const DB_NAME = 'AetherOS_Data';
 // v74：單一貼文池 moment_posts（朋友圈，用戶/角色/NPC 共用一個池子，見 plans/moments-pool-design.md）。
 // v75：購物中心訂單 mall_orders（配送狀態照付款時間算，不存，見 plans/mall-redesign.md）。
 // v81：行事曆的約定層 calendar_events（待辦、紀念日、約好的事；時光契約的 tasks／anniversaries 搬進來，見 plans/calendar.md）。
-const DB_VERSION = 82;
+const DB_VERSION = 83;
 
 const STORE_CHARACTERS = 'characters';
 const STORE_CHAR_GROUPS = 'character_groups'; // 角色分組定義（角色通過 groupId 指向；與群聊 groups 無關）
@@ -63,6 +63,7 @@ const STORE_TASKS = 'tasks';
 const STORE_ANNIVERSARIES = 'anniversaries';
 const STORE_CALENDAR_EVENTS = 'calendar_events'; // v81：行事曆的約定層（plans/calendar.md）
 const STORE_TRIPS = 'trips'; // v82：行事曆的旅行（plans/calendar.md 第 4 批）
+const STORE_BONDS = 'bonds'; // v83：羈絆空間（plans/bond.md）
 const STORE_ROOM_TODOS = 'room_todos'; 
 const STORE_ROOM_NOTES = 'room_notes'; 
 const STORE_GROUPS = 'groups'; 
@@ -332,6 +333,11 @@ export const openDB = (): Promise<IDBDatabase> => {
       createStore(STORE_ANNIVERSARIES, { keyPath: 'id' });
       createStore(STORE_CALENDAR_EVENTS, { keyPath: 'id' }); // v81
       createStore(STORE_TRIPS, { keyPath: 'id' }); // v82
+      if (!db.objectStoreNames.contains(STORE_BONDS)) { // v83
+          const bondStore = db.createObjectStore(STORE_BONDS, { keyPath: 'id' });
+          bondStore.createIndex('charId', 'charId', { unique: false });
+          bondStore.createIndex('otherCharId', 'otherCharId', { unique: false });
+      }
 
       if (!db.objectStoreNames.contains(STORE_ROOM_TODOS)) {
           db.createObjectStore(STORE_ROOM_TODOS, { keyPath: 'id' });
@@ -2281,6 +2287,37 @@ export const DB = {
       db.transaction(STORE_TRIPS, 'readwrite').objectStore(STORE_TRIPS).delete(id);
   },
 
+  // ─── 羈絆（plans/bond.md）───
+  getAllBonds: async (): Promise<BondRecord[]> => {
+      const db = await openDB();
+      if (!db.objectStoreNames.contains(STORE_BONDS)) return [];
+      return new Promise((resolve, reject) => {
+          const request = db.transaction(STORE_BONDS, 'readonly').objectStore(STORE_BONDS).getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => reject(request.error);
+      });
+  },
+  saveBond: async (bond: BondRecord): Promise<void> => {
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction(STORE_BONDS, 'readwrite');
+          tx.objectStore(STORE_BONDS).put(bond);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  },
+  deleteBonds: async (ids: string[]): Promise<void> => {
+      if (!ids.length) return;
+      const db = await openDB();
+      await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction(STORE_BONDS, 'readwrite');
+          const store = tx.objectStore(STORE_BONDS);
+          for (const id of ids) store.delete(id);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+      });
+  },
+
   getRoomTodo: async (charId: string, date: string): Promise<RoomTodo | null> => {
       const db = await openDB();
       const id = `${charId}_${date}`;
@@ -4038,7 +4075,7 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, calendarEvents, trips, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets] = await Promise.all([
+      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, calendarEvents, trips, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets, bonds, mallCategories, mallProducts, mallOrders] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
           getAllFromStore(STORE_NPCS),
@@ -4099,6 +4136,10 @@ export const DB = {
           getAllFromStore(STORE_MEETING_PRESETS),
           getAllFromStore(STORE_DATE_STORIES),
           getAllFromStore(STORE_DATE_SUMMARY_PRESETS),
+          getAllFromStore(STORE_BONDS),
+          getAllFromStore(STORE_MALL_CATEGORIES),
+          getAllFromStore(STORE_MALL_PRODUCTS),
+          getAllFromStore(STORE_MALL_ORDERS),
       ]);
 
       const userProfile = userProfiles.length > 0 ? {
@@ -4132,6 +4173,10 @@ export const DB = {
           meetingPresets,
           dateStories,
           dateSummaryPresets,
+          bonds,
+          mallCategories,
+          mallProducts,
+          mallOrders,
           hotNewsSnapshots,
           vrNovels,
           vrAnnotations,
@@ -4247,6 +4292,10 @@ export const DB = {
           data.anniversaries !== undefined,
           data.calendarEvents !== undefined,
           data.trips !== undefined,
+          data.bonds !== undefined,
+          data.mallCategories !== undefined,
+          data.mallProducts !== undefined,
+          data.mallOrders !== undefined,
           data.roomTodos !== undefined,
           data.roomNotes !== undefined,
           data.groups !== undefined,
@@ -4548,6 +4597,23 @@ export const DB = {
           await clearAndAdd(STORE_TRIPS, data.trips, '旅行', false);
           data.trips = undefined as any;
       }, data.trips?.length || 0);
+      await runSection('羈絆', data.bonds !== undefined, async () => {
+          await clearAndAdd(STORE_BONDS, data.bonds, '羈絆', false);
+          data.bonds = undefined as any;
+      }, data.bonds?.length || 0);
+      // 購物中心：三張一起（訂單的商品是下單當下的快照，不靠商品表；分類跟商品照 id 對）
+      await runSection('購物中心分類', data.mallCategories !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_CATEGORIES, data.mallCategories, '購物中心分類', false);
+          data.mallCategories = undefined as any;
+      }, data.mallCategories?.length || 0);
+      await runSection('購物中心商品', data.mallProducts !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_PRODUCTS, data.mallProducts, '購物中心商品', false);
+          data.mallProducts = undefined as any;
+      }, data.mallProducts?.length || 0);
+      await runSection('購物中心訂單', data.mallOrders !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_ORDERS, data.mallOrders, '購物中心訂單', false);
+          data.mallOrders = undefined as any;
+      }, data.mallOrders?.length || 0);
       await runSection('房間待辦', data.roomTodos !== undefined, async () => {
           await clearAndAdd(STORE_ROOM_TODOS, data.roomTodos, '房間待辦', false);
           data.roomTodos = undefined as any;

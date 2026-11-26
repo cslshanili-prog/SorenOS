@@ -10,6 +10,18 @@ import { addMomentComment } from './momentsStore';
 import { MOMENTS_VOICE_RULE } from './momentsVoice';
 
 import { withApiCallMeta } from './apiCallLog';
+import { bondNoteFor, type BondCounterpart } from './bond/scene';
+
+/** 羈絆的關係底線（友情、親情）：貼文、留言裡出現的你或角色，跟這個角色是友情／親情線的（plans/bond-batch1.md 2.2） */
+function bondTail(char: CharacterProfile, actors: MomentPost['author'][], nameOf: (c: { actor: MomentPost['author'] }) => string): string {
+    const others: BondCounterpart[] = actors.flatMap((a): BondCounterpart[] => {
+        if (a.kind === 'user') return [{ kind: 'user', key: a.personaKey, name: nameOf({ actor: a }) }];
+        if (a.kind === 'character' && a.id) return [{ kind: 'char', id: a.id, name: nameOf({ actor: a }) }];
+        return [];
+    });
+    const note = bondNoteFor(char, others);
+    return note ? `\n\n${note}` : '';
+}
 /** 作者決定不回這則留言時輸出的標記。 */
 export const MOMENT_SKIP_TOKEN = '[[SKIP]]';
 export const isMomentSkip = (text: string): boolean => /\[\[\s*SKIP\s*\]\]/i.test(text);
@@ -94,7 +106,7 @@ export async function replyAsAuthor(params: {
     const prompt = buildAuthorReplyPrompt({
         authorName: char.name, userName: commenterName, post, thread, userComment: userComment.content, replyingToName,
         personaNote: personaNote(), commenterRelation: relationOf(userComment.actor),
-    });
+    }) + bondTail(char, [userComment.actor, ...(replyTarget ? [replyTarget.actor] : [])], nameOf);
     try {
         if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
         const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
@@ -196,7 +208,7 @@ export async function commentAsCharacter(params: {
                 { role: 'user', content: buildCharCommentPrompt({
                     charName: char.name, authorName, post, thread, personaNote: personaNote(),
                     strangerRule: [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!characters.find(c => c.id === id)?.altOf) ? ALT_RECOGNITION_RULE : undefined,
-                }) },
+                }) + bondTail(char, [post.author], nameOf) },
             ],
             temperature: 0.9,
         }),

@@ -46,6 +46,8 @@ import { getSARModuleRuntimePlan } from './vrWorld/sarModuleRuntime';
 import { withGlobalWorldbooks } from './globalWorldbooks';
 import { assembleChatPreset, buildChatPresetSlots, loadChatPresetDoc } from './chatPresetSession';
 
+import { bondForChar } from './bond/registry';
+import { bondFinalLock } from './bond/prompt';
 export { cleanApiMessages, flattenImageContentParts } from './promptMessageCleanup';
 
 export interface UserListeningContext {
@@ -527,6 +529,10 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
             selectSARUserSurfaceTargets(input.historyMsgs, char.id, sarModulePlan.user),
         ) });
     }
+
+    // 羈絆的關係底線（友情、親情）：放在整串最後，自訂預設蓋不掉（plans/bond-batch1.md 2.2）
+    const bondLock = bondFinalLock(bondForChar(char), userProfile?.name || '用戶');
+    if (bondLock) fullMessages.push({ role: 'system', content: bondLock });
 
     // Dev 開關：多條 system 合併成開頭一條，A/B 對照中轉適配層對多 system 的計量行為。
     let finalMessages = fullMessages;

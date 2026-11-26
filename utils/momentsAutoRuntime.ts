@@ -26,6 +26,7 @@ import { replyAsAuthor } from './momentsReply';
 import { characterVoice, relationToAuthor } from './momentsVoice';
 
 import { withApiCallMeta } from './apiCallLog';
+import { sceneBondNote } from './bond/scene';
 /**
  * 朋友圈第二批的執行層：OSContext 在 App 開著時每分鐘調一次 runMomentsAutomation，
  * 新貼文發出來時調 scheduleReactionsForPost。純邏輯在 utils/momentsAuto.ts。
@@ -157,7 +158,16 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         // 你發的貼文：提示詞裡的「用戶」就是發文的那個身份
         const promptUserName = post.author.kind === 'user' ? authorName : userName;
         const altInvolved = [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!ctx.characters.find(c => c.id === id)?.altOf);
-        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName, strangerRule: altInvolved ? ALT_RECOGNITION_RULE : undefined });
+        // 羈絆的關係底線：留言的角色跟發文的你／發文的角色是友情、親情線的（plans/bond-batch1.md 2.2）
+        const bondNote = sceneBondNote({
+            chars: [
+                ...commenters.filter(c => c.name).map(c => ({ id: c.id, name: c.name })),
+                ...(post.author.kind === 'character' && post.author.id && !commenters.some(c => c.id === post.author.id) ? [{ id: post.author.id, name: authorName }] : []),
+            ],
+            users: post.author.kind === 'user' ? [{ key: post.author.personaKey || '', name: authorName }] : [],
+        });
+        const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName, strangerRule: altInvolved ? ALT_RECOGNITION_RULE : undefined })
+            + (bondNote ? `\n\n${bondNote}` : '');
         const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },

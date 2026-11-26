@@ -39,6 +39,7 @@ const DateApp = lazyApp(() => import('../apps/DateApp'));
 const UserApp = lazyApp(() => import('../apps/UserApp'));
 const JournalApp = lazyApp(() => import('../apps/JournalApp'));
 const CalendarApp = lazyApp(() => import('../apps/CalendarApp'));
+const BondApp = lazyApp(() => import('../apps/BondApp'));
 const RoomApp = lazyApp(() => import('../apps/RoomApp'));
 const CheckPhone = lazyApp(() => import('../apps/CheckPhone'));
 const StudyApp = lazyApp(() => import('../apps/StudyApp'));
@@ -71,7 +72,7 @@ const SpecialMomentsApp = lazyApp(() => import('./ValentineEvent').then(m => ({ 
 // 高頻 App 在前；低端設備/省流量/2G 由 shouldUseIdleAppPreload 整體跳過。
 const APP_IDLE_PRELOAD_ORDER: PreloadableLazy[] = [
   ChatHub, Chat, Character, Settings, Appearance, GroupChat, RoomApp, CheckPhone,
-  JournalApp, CalendarApp, MomentsApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
+  JournalApp, CalendarApp, BondApp, MomentsApp, MusicApp, CallApp, Gallery, DateApp, UserApp,
   StudyApp, GameApp, NovelApp, BankApp, MallApp, WorldbookApp, PresetApp, AssistantApp, MemoryPalaceApp,
   VRWorldApp, WorldHomeApp, SongwritingApp, GuidebookApp, FAQApp, HotNewsApp,
   XhsStockApp, XhsFreeRoamApp, BrowserApp, VoiceDesignerApp, ThemeMaker, QQBridge,
@@ -88,7 +89,7 @@ const APP_BY_ID: Partial<Record<AppID, PreloadableLazy>> = {
   [AppID.Settings]: Settings, [AppID.Character]: Character, [AppID.Chat]: Chat, [AppID.ChatHub]: ChatHub,
   [AppID.GroupChat]: GroupChat, [AppID.ThemeMaker]: ThemeMaker, [AppID.Appearance]: Appearance,
   [AppID.Gallery]: Gallery, [AppID.Date]: DateApp, [AppID.User]: UserApp,
-  [AppID.Journal]: JournalApp, [AppID.Schedule]: CalendarApp, [AppID.Calendar]: CalendarApp, [AppID.Room]: RoomApp,
+  [AppID.Journal]: JournalApp, [AppID.Schedule]: CalendarApp, [AppID.Calendar]: CalendarApp, [AppID.Bond]: BondApp, [AppID.Room]: RoomApp,
   [AppID.CheckPhone]: CheckPhone, [AppID.Moments]: MomentsApp, [AppID.Study]: StudyApp,
   [AppID.FAQ]: FAQApp, [AppID.Game]: GameApp, [AppID.Worldbook]: WorldbookApp, [AppID.Presets]: PresetApp, [AppID.Assistant]: AssistantApp,
   [AppID.Novel]: NovelApp, [AppID.Bank]: BankApp, [AppID.Mall]: MallApp, [AppID.XhsStock]: XhsStockApp,
@@ -947,6 +948,7 @@ const PhoneShell: React.FC = () => {
       // 時光契約退役（plans/calendar.md）：舊入口一律開行事曆
       case AppID.Schedule:
       case AppID.Calendar: return <CalendarApp />;
+      case AppID.Bond: return <BondApp />;
       case AppID.Room: return <RoomApp />; 
       case AppID.CheckPhone: return <CheckPhone />;
       case AppID.Moments: return <MomentsApp />;

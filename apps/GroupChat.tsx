@@ -87,6 +87,7 @@ import {
 } from '../utils/groupChat/topicBoxes';
 
 import { withApiCallMeta } from '../utils/apiCallLog';
+import { sceneBondNote } from '../utils/bond/scene';
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 
@@ -1613,7 +1614,7 @@ ${sharedScene.text}${activeGroup ? buildGroupTopicContext(activeGroup) : ''}`;
             const profile = resolveUserProfileForChar(userProfileBase, lv);
             const sections = ContextBuilder.buildCoreSections(lv, profile, false);
             // 這條線沒有記憶時那段只是一句佔位，不放
-            const about = [sections.impression, sections.memoryBank.includes('暫無特定記憶') ? '' : sections.memoryBank]
+            const about = [sections.impression, sections.bond, sections.memoryBank.includes('暫無特定記憶') ? '' : sections.memoryBank]
                 .join('').trim().split('\n').filter(Boolean).map(x => `  ${x}`).join('\n');
             return {
                 key, name: nameOfKey(key), about,
@@ -1746,6 +1747,14 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
         })();
     };
     const presentUserNames = presentKeys.length >= 2 ? presentKeys.map(k => personaNameForKey(userProfileBase, k)) : undefined;
+    /** 羈絆的關係底線：成員跟在場的你、成員之間（沒有友情／親情線就是空字串） */
+    const groupBondNote = (members: CharacterProfile[]): string => {
+        const note = sceneBondNote({
+            chars: members.map(m => ({ id: m.id, name: m.name })),
+            users: presentKeys.map(k => ({ key: k, name: personaNameForKey(userProfileBase, k) })),
+        });
+        return note ? `${note}\n\n` : '';
+    };
 
     // 成員的 [[PRIVATE:]] 落在哪條線：它認識的在場卡；指定了名字就照名字，否則最近在群裡說話、它認識的那張。
     // 旁觀中、或在場的它一張都不認識 → 丟掉（群裡沒有它能私下說話的人）
@@ -1987,13 +1996,15 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 ? `\n\n【群聊 HTML 適配】[html]...[/html] 塊要寫在某個角色自己的 content 字符串內部；HTML 屬性一律用單引號（如 <div style='...'>），避免雙引號破壞外層 JSON。\n${buildHtmlPrompt(activeGroup.htmlModeCustomPrompt)}`
                 : '';
             const directorInstruction = buildDirectorInstruction(history, emojiContextStr, { userLurking: lurking, roundBubbles: groupRoundBubbles(activeGroup), allowMemberLeave: !!activeGroup.allowMemberLeave, plotDirection, presentUsers: presentUserNames, sideNote: buildGroupSideMessageNote({ members: charactersRef.current.filter(c => activeGroup.members.includes(c.id)).map(c => ({ name: c.name, targets: sideTargetsFor(c) })), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
-            const prompt = `${context}\n\n${directorInstruction}${htmlPromptExt}\n`;
+            // 羈絆的關係底線：在場成員跟在場的你、成員之間的友情／親情線；放進任務段開頭，跟輸出格式一起鎖在最後（plans/bond-batch1.md 2.2）
+            const bondNote = groupBondNote(groupMembers);
+            const prompt = `${context}\n\n${bondNote}${directorInstruction}${htmlPromptExt}\n`;
             // 群聊用了自訂預設（plans/preset-library.md 第 3b 批）：整份照套，兩段文風聽預設的，導演格式鎖最後
             const groupPreset = await loadGroupPresetDoc(activeGroup, userProfileBase);
             const directorMessages = groupPreset
                 ? assembleGroupPreset({
                     doc: groupPreset, mode: 'director', scene: header, members: memberBlocks,
-                    task: buildUserMessageContent(`${withoutGroupStyle(directorInstruction)}${htmlPromptExt}\n`, history),
+                    task: buildUserMessageContent(`${bondNote}${withoutGroupStyle(directorInstruction)}${htmlPromptExt}\n`, history),
                     memberNames: groupMembers.map(m => m.name), userName: groupUserProfile.name,
                 })
                 : [{ role: "user", content: buildUserMessageContent(prompt, history) }];
@@ -2201,11 +2212,12 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     const { history } = beatIndex === 0 ? first : await prepareHistory();
                     const memberBlock = await memberBlockOf(turn);
                     const roundInstruction = buildRoundRobinInstruction(member.name, history, emojiContextStr, { userLurking: lurking, allowMemberLeave: !!activeGroup.allowMemberLeave, plotDirection, presentUsers: presentUserNames, beatIntent: beat.intent, sideNote: buildSideMessagePrompt({ targets: sideTargetsFor(turn.member), allowPrivate: sidePrivateOn, allowDm: memberDmEnabled }) });
-                    const prompt = `${header}${memberBlock}\n\n${roundInstruction}${htmlPromptExt}\n`;
+                    const bondNote = groupBondNote(groupMembers);
+                    const prompt = `${header}${memberBlock}\n\n${bondNote}${roundInstruction}${htmlPromptExt}\n`;
                     const roundMessages = groupPreset
                         ? assembleGroupPreset({
                             doc: groupPreset, mode: 'roundRobin', scene: header, members: memberBlock,
-                            task: buildUserMessageContent(`${roundInstruction}${htmlPromptExt}\n`, history),
+                            task: buildUserMessageContent(`${bondNote}${roundInstruction}${htmlPromptExt}\n`, history),
                             memberNames: [member.name], userName: groupUserProfile.name,
                         })
                         : [{ role: "user", content: buildUserMessageContent(prompt, history) }];

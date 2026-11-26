@@ -137,7 +137,7 @@ export const buildChatPresetSlots = (input: {
         worldInfoAfter: join(c.worldview, c.worldbookAfterCharacter, c.worldbookAuthorsNoteTop, c.worldbookAuthorsNoteBottom),
         dialogueExamples: join(c.worldbookBeforeExamples, c.dialogueExamples, c.signatureLines, c.worldbookAfterExamples),
         personaDescription: c.userProfile,
-        chatRelation: join(s.relationship, c.impression, c.relations),
+        chatRelation: join(s.relationship, c.impression, c.bond, c.relations),
         // 私聊的記憶宮殿召回、時間、情緒、固定台詞在實時狀態裡（deferVolatile），角色塊這幾段是空的
         memory: join(c.roomPlates, c.memoryBank),
         chatLife: s.lifeContext,
