@@ -4,14 +4,16 @@
  * - 刪掉一件事時，建在它上面的隨筆要你選：一起刪，或留著、拆掉關聯（utils/bond/derivation.ts）。
  */
 import React, { useState } from 'react';
-import { ArrowCounterClockwise, EyeSlash, PencilSimple, Star, Trash } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, ChatCircleText, EyeSlash, Feather, PencilSimple, Star, Trash } from '@phosphor-icons/react';
 import type { BondSource, CharacterProfile, MemoryFragment } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { useSpaceTimeline } from './useSpaceTimeline';
+import type { TimelineItem } from '../../utils/bond/timeline';
 import { itemKindLabel } from './BondMomentsPage';
 import { BondPhotoStrip } from './BondPhotoPicker';
 import { formatEventDate } from '../../utils/bond/eventDate';
+import { essayThread } from '../../utils/bond/essay';
 import { dependentsOf, planRetract, type DerivationRef } from '../../utils/bond/derivation';
 import { deleteBondEntries, saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { updateBond } from '../../utils/bond/store';
@@ -29,9 +31,14 @@ export const BondItemPage: React.FC<{
     onOpenSource?: (source: BondSource) => void;
     /** 記憶：在神經鏈接（記憶分頁）或記憶宮殿打開 */
     onOpenMemory?: (charId: string, where: 'link' | 'palace') => void;
+    onOpenEssay?: (essayId: string) => void;
+    /** 請角色就這件事寫隨筆 */
+    onWriteEssay?: () => void;
+    /** 帶去聊聊（只有身份卡 × 角色的空間） */
+    onBringToChat?: (item: TimelineItem) => void;
     updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, onOpenSource, onOpenMemory, updateCharacter, addToast }) => {
+}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, onOpenSource, onOpenMemory, onOpenEssay, onWriteEssay, onBringToChat, updateCharacter, addToast }) => {
     const { items, entries } = useSpaceTimeline(space, characters);
     const item = items.find(i => i.key === itemKey);
     const [confirming, setConfirming] = useState(false);
@@ -150,21 +157,38 @@ export const BondItemPage: React.FC<{
                         </section>
                     )}
 
-                    {item.essays.length > 0 && (
+                    {(item.essays.length > 0 || onWriteEssay) && (
                         <section>
-                            <SectionLabel>隨 筆</SectionLabel>
-                            <div className="divide-y bond-hair border-y">
-                                {item.essays.map(e => (
-                                    <div key={e.id} className="py-3 text-[13.5px] leading-relaxed">
-                                        <span className="bond-serif">{(e.title || e.text).slice(0, 60)}</span>
-                                        {e.status === 'draft' && <span className="ml-2 text-[11px] text-[var(--bond-muted)]">草稿</span>}
-                                    </div>
-                                ))}
-                            </div>
+                            <SectionLabel right={onWriteEssay ? (
+                                <button type="button" className="text-[11.5px] text-[var(--bond-accent)] flex items-center gap-1" onClick={onWriteEssay}>
+                                    <Feather size={12} />{space.kind === 'pair' ? '請他們寫隨筆' : `請 ${space.rightName} 寫隨筆`}
+                                </button>
+                            ) : undefined}>隨 筆</SectionLabel>
+                            {item.essays.length > 0 ? (
+                                <div className="divide-y bond-hair border-y">
+                                    {item.essays.filter(e => !e.afterwordOf || !item.essays.some(x => x.id === e.afterwordOf)).map(e => {
+                                        const author = characters.find(c => c.id === e.author);
+                                        const afterwords = essayThread(item.essays, e.id).length - 1;
+                                        return (
+                                            <button key={e.id} type="button" onClick={() => onOpenEssay?.(e.id)} className="w-full text-left py-3 text-[13.5px] leading-relaxed">
+                                                <span className="bond-serif">{(e.title || e.text).slice(0, 60)}</span>
+                                                <span className="block mt-0.5 text-[11px] text-[var(--bond-muted)]">
+                                                    {author?.name || ''}{e.status === 'draft' ? ' · 草稿' : ''}{afterwords && !e.afterwordOf ? ` · 後記 ${afterwords}` : ''}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-[12px] text-[var(--bond-muted)]">還沒有人就這件事寫過什麼。</div>
+                            )}
                         </section>
                     )}
 
                     <section className="flex flex-wrap gap-2">
+                        {onBringToChat && (
+                            <button type="button" className="bond-btn" onClick={() => onBringToChat(item)}><ChatCircleText size={14} />帶去聊聊</button>
+                        )}
                         <button type="button" className="bond-btn" onClick={() => setMark({ favorite: !item.favorite })}>
                             <Star size={14} weight={item.favorite ? 'fill' : 'regular'} className={item.favorite ? 'text-[var(--bond-accent)]' : ''} />
                             {item.favorite ? '取消收藏' : '收藏'}

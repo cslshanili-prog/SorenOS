@@ -12,6 +12,7 @@
  */
 
 import { formatUserVoiceContent, isUserVoiceMessage } from './userVoice';
+import { bondRefOf, formatBondRefContent } from './bond/bondRef';
 import { formatLibraryFileRecord } from './libraryShare';
 import { formatDateInviteRecord } from './dateInvite';
 import { formatPersonaRevealRecord } from './personaReveal';
@@ -403,6 +404,9 @@ export function normalizeMessageContent(
     }
 
     // 你發的語音條（plans/user-voice.md）：記憶、歸檔看到的跟私聊歷史一樣標 [語音]
+    // 帶去聊聊（plans/bond-batch2.md 6.2）：前面接上帶過來的那件事
+    const bondRef = bondRefOf(msg);
+    if (bondRef) return formatBondRefContent(isUserVoiceMessage(msg) ? formatUserVoiceContent(msg.content || '') : msg.content || '', bondRef);
     if (isUserVoiceMessage(msg)) return formatUserVoiceContent(msg.content || '');
 
     // 默認：text / 未知類型 → 用 content

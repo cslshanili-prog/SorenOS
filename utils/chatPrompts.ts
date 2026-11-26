@@ -1,4 +1,5 @@
 import { isUserVoiceMessage, USER_VOICE_PREFIX } from './userVoice';
+import { bondRefOf, formatBondRefContent } from './bond/bondRef';
 import { privateGroupContextWindow } from './groupChat/topicBoxes';
 import { buildGroupOthersKnownNote, membersKnownPeople } from './groupChat/knownPeople';
 import { isOnlinePaused } from './dateOffline';
@@ -1824,6 +1825,8 @@ ${voiceActingGuide()}`);
                     content = `${timeStr} ${normalizeMessageContent(m, char?.name || '你', userProfile?.name || '用戶')}`;
                 }
                 // 你發的語音條（plans/user-voice.md）：標成 [語音]，角色知道你是用說的
+                // 帶去聊聊（plans/bond-batch2.md 6.2）：前面接上帶過來的那件事；雲端的即時對話、主動消息也是這份歷史
+                else if (bondRefOf(m)) content = `${timeStr} ${sourceTag} ${formatBondRefContent(isUserVoiceMessage(m) ? `${USER_VOICE_PREFIX} ${content}` : content, bondRefOf(m))}`;
                 else if (isUserVoiceMessage(m)) content = `${timeStr} ${sourceTag} ${USER_VOICE_PREFIX} ${content}`;
                 else content = `${timeStr} ${sourceTag} ${content}`;
 

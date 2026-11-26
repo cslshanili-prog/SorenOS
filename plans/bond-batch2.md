@@ -17,6 +17,14 @@
 > - 挑幾件只讀私聊那條線（見面的訊息不算），一次最多 120 則；「都不留」也會記水位（`lastMomentScanId`），下次從更新的挑。
 > - 跳回：私聊照那條線切身份卡再開（`chatJumpLaunch`），見面要沒有掛起中的見面才跳（`dateJumpLaunch`，開歷史、往前載到那則、捲過去閃一下），角色私聊開那兩人的頁（`pairChatLaunch`）；記憶在詳細頁有「在神經鏈接打開」（`characterLaunch` 的 `detailTab: 'memory'`），連著宮殿又開著宮殿時多一個「在記憶宮殿打開」。
 > - 片刻附照片在這批接上：全螢幕從資料庫挑（`components/bond/BondPhotoPicker.tsx`，最多 6 張、只列照片），存成 `type: 'photo'` 的來源。
+>
+> **實況（2026-11-26）：2c 做完，第 2 批全部做完。** 跟設計稿不同的地方：
+> - 隨筆的提示詞、解析、草稿與編修在 `utils/bond/essay.ts`（測試 `bondEssay.test.ts`），組時間線和叫模型在 `components/bond/essayRun.ts`；回覆要 JSON（`title`／`text`，挑的多 `pick`），不是 JSON 時「指定」和「後記」把整段當正文，「讓 TA 挑」算失敗。
+> - 請 TA 寫之前可以補一句「想請 TA 寫的方向」；角色之間的空間先選誰來寫（後記固定是原作者），對方整理的話題盒不給寫的人看（`visibleToWriter`）。
+> - 「讓 TA 寫一篇」放在「隨筆」篩選裡（這個篩選現在一直都在）；詳細頁的隨筆區有「請 TA 寫隨筆」，點隨筆進書頁。
+> - 草稿頁有收下／重寫／改一改／丟掉；丟掉草稿連它底下的後記草稿一起刪。刪已收下的隨筆時，有後記就問一起刪還是留著（留著的後記拆成獨立一篇）。
+> - 帶去聊聊：`utils/bond/bondRef.ts`（`metadata.bondRef` 的形狀、歷史寫法、從時間線／隨筆組卡）；私聊歷史在 `chatPrompts` 那段接上前綴，記憶、歸檔走 `normalizeMessageContent`，雲端的即時對話和主動消息用的就是同一份歷史，Worker 不用改。打開聊天的字條是 `chatBondRefLaunch`；氣泡上的小卡點了發 `BOND_REF_OPEN_EVENT`，由私聊頁開羈絆，這時羈絆按返回直接回聊天（`appReturn.pending`）。
+> - 帶去聊聊只有身份卡 × 角色的空間有（角色之間的留給第 6 批）；語音條也能帶卡，歷史寫成 `[從羈絆帶來：…] [語音] 內容`。
 
 ## 0. 範圍
 

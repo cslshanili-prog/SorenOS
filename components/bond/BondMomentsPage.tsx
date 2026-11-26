@@ -3,7 +3,7 @@
  * 書頁的排法：月份是頁邊小字，每件事左邊一行日期註記，右邊是標題或首句。
  */
 import React, { useMemo, useState } from 'react';
-import { Plus, Sparkle, Star } from '@phosphor-icons/react';
+import { Feather, Plus, Sparkle, Star } from '@phosphor-icons/react';
 import type { CharacterProfile } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -53,7 +53,10 @@ export const BondMomentsPage: React.FC<{
     onNewMoment: () => void;
     /** 從最近的聊天挑幾件 */
     onPick?: () => void;
-}> = ({ space, characters, tabBar, onBack, onOpenItem, onNewMoment, onPick }) => {
+    onOpenEssay?: (essayId: string) => void;
+    /** 讓 TA 自己挑一件寫隨筆 */
+    onChooseEssay?: () => void;
+}> = ({ space, characters, tabBar, onBack, onOpenItem, onNewMoment, onPick, onOpenEssay, onChooseEssay }) => {
     const { items, entries } = useSpaceTimeline(space, characters);
     const [filter, setFilter] = useState<TimelineFilter>('all');
     const [showHidden, setShowHidden] = useState(false);
@@ -76,7 +79,7 @@ export const BondMomentsPage: React.FC<{
         return unknown.length ? [...known, { key: '', items: unknown }] : known;
     }, [shown]);
 
-    const filters = FILTERS.filter(f => f.id !== 'essay' || essays.length > 0);
+    const filters = FILTERS;
 
     return (
         <div className="absolute inset-0 flex flex-col bond-root">
@@ -108,16 +111,32 @@ export const BondMomentsPage: React.FC<{
 
                 {filter === 'essay' ? (
                     <div className="px-5 pb-10">
-                        <div className="divide-y bond-hair border-y">
-                            {essays.map(e => (
-                                <div key={e.id} className="py-3.5">
-                                    <div className="text-[11px] text-[var(--bond-muted)]">
-                                        關於 {formatEventDate(e.eventDate)}{e.status === 'draft' ? ' · 草稿' : ''}{e.afterwordOf ? ' · 後記' : ''}
-                                    </div>
-                                    <div className="bond-serif mt-1 text-[14.5px] leading-relaxed">{itemHeadline(e)}</div>
-                                </div>
-                            ))}
-                        </div>
+                        {onChooseEssay && (
+                            <button type="button" onClick={onChooseEssay}
+                                className="mb-4 w-full flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                                <span>
+                                    <span className="bond-serif block text-[14px]">{isPair ? '讓他們寫一篇' : `讓 ${space.rightName} 寫一篇`}</span>
+                                    <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">從還沒寫過的事裡自己挑一件</span>
+                                </span>
+                                <Feather size={16} className="text-[var(--bond-accent)]" />
+                            </button>
+                        )}
+                        {essays.length === 0 ? (
+                            <div className="py-12 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">
+                                還沒有隨筆。點進時間線上的一件事，可以請{isPair ? '他們' : ` ${space.rightName} `}就那件事寫一篇。
+                            </div>
+                        ) : (
+                            <div className="divide-y bond-hair border-y">
+                                {essays.map(e => (
+                                    <button key={e.id} type="button" onClick={() => onOpenEssay?.(e.id)} className="w-full text-left py-3.5">
+                                        <div className="text-[11px] text-[var(--bond-muted)]">
+                                            {characters.find(c => c.id === e.author)?.name || ''} · 關於 {formatEventDate(e.eventDate)}{e.status === 'draft' ? ' · 草稿' : ''}{e.afterwordOf ? ' · 後記' : ''}
+                                        </div>
+                                        <div className="bond-serif mt-1 text-[14.5px] leading-relaxed">{itemHeadline(e)}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ) : groups.length === 0 ? (
                     <div className="px-8 py-16 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">
