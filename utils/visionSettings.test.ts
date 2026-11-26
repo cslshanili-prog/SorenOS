@@ -33,11 +33,13 @@ function Harness() {
     };
     return createElement(Settings);
 }
+// 識圖收進「API 配置」卡片的「識圖」分頁（設置頁同類收成一張卡）
 function visionSection() {
-    return Array.from(container.querySelectorAll('section')).find(section => section.querySelector('h2')?.textContent === '識圖 API')!;
+    return Array.from(container.querySelectorAll('section')).find(section => section.querySelector('h2')?.textContent === 'API 配置')!;
 }
 async function openVision() {
-    await act(async () => { visionSection().querySelector('button')!.click(); });
+    if (!visionSection().querySelector('[role="tablist"]')) await act(async () => { visionSection().querySelector('button')!.click(); });
+    await act(async () => { visionSection().querySelector<HTMLButtonElement>('#settings-api-tab-vision')!.click(); });
 }
 afterEach(async () => { await act(async () => { root.render(null); }); vi.restoreAllMocks(); });
 
