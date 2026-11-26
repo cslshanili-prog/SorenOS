@@ -18,9 +18,10 @@ import { DB } from '../utils/db';
 import type { AvatarTouchRecord } from '../utils/avatarTouch';
 import { clampClaudeTemperature, modelRejectsSamplingParams, stripSamplingParams } from '../utils/samplingParamCompat';
 import { buildMalformedImageDiagnostics, extractImagesInPlace, deepCloneForExport, stripBackupImages, parseImageDataUrlForBackup, imageDedupKey, backupBatchSize, type BackupObjectPath, type MalformedBackupImageDiagnostic } from '../utils/backupExport';
-import { createJSZipWriter, createMemorySink, createZipStreamWriter, type DeflateRaw, type ZipSink, type ZipStreamWriter } from '../utils/zipStream/writer';
+import { createJSZipWriter, createMemorySink, createZipStreamWriter, type ZipSink, type ZipStreamWriter } from '../utils/zipStream/writer';
 import { clearBackupTempFiles, createOpfsSink, isOpfsSinkSupported, type OpfsSink } from '../utils/zipStream/opfsSink';
-import { openZipReader, type BackupZipReader, type InflateRaw, type InflateStream } from '../utils/zipStream/reader';
+import type { BackupZipReader } from '../utils/zipStream/reader';
+import { loadDeflateRaw, openZipWithFallback } from '../utils/zipStream/factory';
 import { assembleV1Stream, blobChunks } from '../utils/backupV1Stream';
 import { beginBackupRun, describeInterruptedBackup, endBackupRun, interruptedBackupEventProps, isBackupRunning, isRestoreRunning, beginRestoreRun, endRestoreRun, preferredBackupSink, takeInterruptedBackupRun, updateBackupRun, type BackupRunSink } from '../utils/backupRunState';
 import { isBlobRef, getBlobForRef, restoreBlobRef, migrateDataUrlToRef, migrateAppearancePresetBlobRefs, migrateChatThemeBlobRefs, resolveBlobRefsDeep, resolveRefToDataUrl, BLOBREF_PREFIX, deleteBlobRefIfUnreferenced } from '../utils/blobRef';
@@ -293,41 +294,6 @@ const loadJSZip = async (): Promise<JSZipCtorLike> => {
   return jszipCtorPromise;
 };
 
-/** 原始 DEFLATE（備份的串流寫入器用，utils/zipStream/writer.ts）。跟 JSZip 一樣用到才載 */
-let deflateRawPromise: Promise<DeflateRaw> | null = null;
-const loadDeflateRaw = (): Promise<DeflateRaw> => {
-  if (!deflateRawPromise) {
-    deflateRawPromise = import('fflate')
-      .then((mod): DeflateRaw => (data, options) => mod.deflateSync(data, { level: options.level as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 }))
-      .catch((error) => {
-        deflateRawPromise = null;
-        throw new Error(`壓縮元件載入失敗：${error instanceof Error ? error.message : 'unknown error'}`);
-      });
-  }
-  return deflateRawPromise;
-};
-
-/** 原始 DEFLATE 解壓（還原備份的隨機讀取器用，utils/zipStream/reader.ts）：整塊解的和邊餵邊吐的各一個 */
-let inflatersPromise: Promise<{ inflate: InflateRaw; createInflateStream: () => InflateStream }> | null = null;
-const loadInflaters = () => {
-  if (!inflatersPromise) {
-    inflatersPromise = import('fflate')
-      .then((mod) => ({
-        inflate: ((data, size) => mod.inflateSync(data, { out: new Uint8Array(size) })) as InflateRaw,
-        createInflateStream: (): InflateStream => {
-          let out: Uint8Array[] = [];
-          const inflater = new mod.Inflate((chunk) => { out.push(chunk); });
-          return { push(data, final) { out = []; inflater.push(data, final); return out; } };
-        },
-      }))
-      .catch((error) => {
-        inflatersPromise = null;
-        throw new Error(`解壓元件載入失敗：${error instanceof Error ? error.message : 'unknown error'}`);
-      });
-  }
-  return inflatersPromise;
-};
-
 /**
  * 還原早期備份（一整根 data.json）時，大表的原文暫存到哪（utils/backupV1Stream.ts）。
  * 能寫磁碟就寫 OPFS 的暫存檔；不行就放記憶體（還是比整張表的物件省）。
@@ -370,15 +336,7 @@ const V1_STREAM_MIN_BYTES = 8 * 1024 * 1024;
 const openBackupZip = async (file: File): Promise<BackupZipReader> => {
   let forceLegacy = false;
   try { forceLegacy = localStorage.getItem('backup_zip_reader') === 'jszip'; } catch { /* ignore */ }
-  if (!forceLegacy) {
-    try {
-      return await openZipReader(file, await loadInflaters());
-    } catch (error) {
-      console.warn('[Backup] 隨機讀取開不了這個備份包，退回整包讀', error);
-    }
-  }
-  const JSZip = await loadJSZip();
-  return (await JSZip.loadAsync(file)) as unknown as BackupZipReader;
+  return openZipWithFallback(file, { forceLegacy });
 };
 
 // 默認實時配置
@@ -3920,7 +3878,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
           endBackupRun();
           // 上傳完，磁碟上那份暫存檔用不到了
-          void clearBackupTempFiles();
+          void clearBackupTempFiles({ prefixes: ['backup-'] });
 
           if (!result.ok) {
               throw new Error(result.message);
@@ -3942,7 +3900,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           });
       } catch (e: any) {
           endBackupRun();
-          void clearBackupTempFiles();
+          void clearBackupTempFiles({ prefixes: ['backup-'] });
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           addToast(`雲端備份失敗: ${e.message}`, 'error');
           trackEvent('上传备份到云端', {
@@ -3960,7 +3918,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           setSysOperation({ status: 'processing', message: '正在從雲端下載...', progress: 0 });
           // 下載回來的檔在磁碟上的暫存區，還原做完之前不能被清掉（utils/backupRunState.ts）
           beginRestoreRun();
-          await clearBackupTempFiles();
+          await clearBackupTempFiles({ prefixes: ['restore-download-', 'import-spill-'], olderThanMs: 10 * 60 * 1000 });
           const blob = await downloadBackup(cloudBackupConfig, file, (pct) => {
               setSysOperation(prev => ({ ...prev, message: `下載中 ${pct}%...`, progress: pct * 0.5 }));
           }, createRestoreDownloadStore);
@@ -3972,7 +3930,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           await importSystem(zipFile);
       } catch (e: any) {
           endRestoreRun();
-          void clearBackupTempFiles();
+          void clearBackupTempFiles({ prefixes: ['restore-download-', 'import-spill-'] });
           setSysOperation({ status: 'idle', message: '', progress: 0 });
           addToast(`雲端恢復失敗: ${e.message}`, 'error');
           throw e;
@@ -5117,8 +5075,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 輸出：預設寫進瀏覽器的私有檔案區（OPFS），整包不在記憶體裡；環境不支援或開不了就留在記憶體。
           // 排查開關（localStorage backup_zip_writer = 'memory'／'jszip'）見 utils/backupRunState.ts。
           let sinkKind: BackupRunSink = forcedSink || preferredBackupSink();
-          // 上一次備份留下的暫存檔（跟備份檔一樣大）先清掉
-          await clearBackupTempFiles();
+          // 上一次備份留下的暫存檔（跟備份檔一樣大）先清掉。別種包的暫存檔（剛導出還在下載的模型備份之類）放久了才清
+          await clearBackupTempFiles({ prefixes: ['backup-'], olderThanMs: 10 * 60 * 1000 });
           if (sinkKind === 'opfs') {
               try {
                   if (!isOpfsSinkSupported()) throw new Error('這個環境沒有 OPFS 或 Worker');

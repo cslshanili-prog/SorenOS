@@ -14,7 +14,7 @@ const spyBlob = (bytes: Uint8Array) => {
     const reads: number[] = [];
     const proxy = {
         size: blob.size,
-        slice: (start: number, end: number) => { reads.push(end - start); return blob.slice(start, end); },
+        slice: (start: number, end: number, type?: string) => { reads.push(end - start); return blob.slice(start, end, type); },
     } as unknown as Blob;
     return { blob: proxy, reads };
 };
@@ -156,3 +156,27 @@ describe('encodeBase64', () => {
         }
     });
 });
+
+describe('條目直接拿成 Blob（模型備份還原用）', () => {
+    it('沒壓縮的條目：就是來源檔裡的那一段，不讀進記憶體；大小、內容、類型都對', async () => {
+        const bytes = await packWithJSZip({ streamFiles: true });
+        const { blob, reads } = spyBlob(bytes);
+        const zip = await openZipReader(blob, { inflate });
+        const before = reads.length;
+        const out = await zip.file('blobs/abc')!.blob('model/gltf-binary');
+        // 只多切了一段：本地檔頭（找資料從哪開始）＋資料本身那一刀，沒有另外把 35 萬位元組讀出來再包一次
+        expect(reads.slice(before).filter(n => n === 350_000)).toHaveLength(1);
+        expect(out.size).toBe(350_000);
+        expect(out.type).toBe('model/gltf-binary');
+        expect(new Uint8Array(await out.arrayBuffer())).toEqual(sample()['blobs/abc']);
+    });
+
+    it('壓縮過的條目：解開後包成 Blob，內容一樣', async () => {
+        const zip = await open(await packWithStreamWriter());
+        const out = await zip.file('stores/messages.000.json')!.blob('application/json');
+        expect(out.type).toBe('application/json');
+        expect(await out.text()).toBe(sample()['stores/messages.000.json']);
+        expect((await zip.file('empty.json')!.blob()).size).toBe(0);
+    });
+});
+

@@ -133,4 +133,81 @@ describe('avatar model backup', () => {
     expect(result).toMatchObject({ total: 2, restored: 1, skipped: 1 });
     expect(result.warnings[0]).toContain('B');
   });
+
+  // 第 4 批：打包和還原換成串流寫入器／隨機讀取器，下面幾條鎖著「跟以前的備份互通」
+  const bytesOf = async (blob: Blob) => Array.from(new Uint8Array(await blob.arrayBuffer()));
+
+  it('restores each model as a slice of the archive with the right type and bytes', async () => {
+    const archive = await createAvatarModelBackup();
+    const stored = new Map<string, Blob>();
+    dbMock.putBlobAsset.mockImplementation(async (id: string, blob: Blob) => { stored.set(id, blob); });
+
+    await restoreAvatarModelBackup(archive);
+
+    expect(stored.get(vrmConfig.assetId)!.type).toBe('model/gltf-binary');
+    expect(await bytesOf(stored.get(vrmConfig.assetId)!)).toEqual([1, 2, 3]);
+    expect(stored.get(live2dConfig.assetId)!.type).toBe('application/zip');
+    expect(await bytesOf(stored.get(live2dConfig.assetId)!)).toEqual([4, 5, 6, 7]);
+  });
+
+  it('restores an archive produced by the previous JSZip packer (streamed, with data descriptors)', async () => {
+    const legacy = new JSZip();
+    legacy.file('models/001.vrm', new Uint8Array([1, 2, 3]), { compression: 'STORE' });
+    legacy.file('models/002.live2d.zip', new Uint8Array([4, 5, 6, 7]), { compression: 'STORE' });
+    legacy.file('manifest.json', JSON.stringify({
+      format: AVATAR_MODEL_BACKUP_FORMAT,
+      version: 1,
+      createdAt: 1,
+      models: [
+        { characterId: 'a', characterName: 'A', path: 'models/001.vrm', byteLength: 3, config: vrmConfig },
+        { characterId: 'b', characterName: 'B', path: 'models/002.live2d.zip', byteLength: 4, config: live2dConfig },
+      ],
+    }), { compression: 'STORE' });
+    const archive = await legacy.generateAsync({ type: 'blob', streamFiles: true, compression: 'STORE' });
+    const stored = new Map<string, Blob>();
+    dbMock.putBlobAsset.mockImplementation(async (id: string, blob: Blob) => { stored.set(id, blob); });
+
+    const result = await restoreAvatarModelBackup(archive);
+
+    expect(result).toMatchObject({ total: 2, restored: 2, skipped: 0, restoredBytes: 7 });
+    expect(await bytesOf(stored.get(vrmConfig.assetId)!)).toEqual([1, 2, 3]);
+    expect(await bytesOf(stored.get(live2dConfig.assetId)!)).toEqual([4, 5, 6, 7]);
+  });
+
+  it('stops before writing when a model in the archive is not the size the manifest says', async () => {
+    const broken = new JSZip();
+    broken.file('models/001.vrm', new Uint8Array([1, 2]), { compression: 'STORE' });
+    broken.file('manifest.json', JSON.stringify({
+      format: AVATAR_MODEL_BACKUP_FORMAT,
+      version: 1,
+      createdAt: 1,
+      models: [{ characterId: 'a', characterName: 'A', path: 'models/001.vrm', byteLength: 3, config: vrmConfig }],
+    }));
+    const archive = await broken.generateAsync({ type: 'blob' });
+
+    await expect(restoreAvatarModelBackup(archive)).rejects.toThrow('大小校驗失敗');
+    expect(dbMock.putBlobAsset).not.toHaveBeenCalled();
+  });
+
+  it('reads the models one at a time when packing, never holding two at once', async () => {
+    let held = 0;
+    let peak = 0;
+    dbMock.getBlobAsset.mockImplementation(async (id: string) => {
+      const source = new Blob([new Uint8Array(id === vrmConfig.assetId ? [1, 2, 3] : [4, 5, 6, 7])]);
+      // 包一層：寫入器真的去讀它的時候才算「握著」，讀完就放
+      return new Proxy(source, {
+        get(target, key) {
+          if (key === 'arrayBuffer') return async () => { held++; peak = Math.max(peak, held); try { return await target.arrayBuffer(); } finally { held--; } };
+          const value = (target as any)[key];
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    });
+
+    const archive = await createAvatarModelBackup();
+
+    expect(peak).toBe(1);
+    const zip = await JSZip.loadAsync(await archive.arrayBuffer());
+    expect(Array.from(await zip.file('models/002.live2d.zip')!.async('uint8array'))).toEqual([4, 5, 6, 7]);
+  });
 });

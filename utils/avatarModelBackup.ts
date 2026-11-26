@@ -1,4 +1,5 @@
-import JSZip from 'jszip';
+import { buildZip, openZipWithFallback } from './zipStream/factory';
+import type { BackupZipReader } from './zipStream/reader';
 import type { CharacterProfile } from '../types';
 import { DB } from './db';
 import { live2DRuntimeCacheAssetIds } from './avatarModelStore';
@@ -80,7 +81,7 @@ const isVideoAvatarConfig = (value: unknown): value is VideoAvatarConfig => {
     && typeof config.fileName === 'string';
 };
 
-const readManifest = async (zip: JSZip): Promise<AvatarModelBackupManifest> => {
+const readManifest = async (zip: BackupZipReader): Promise<AvatarModelBackupManifest> => {
   const entry = zip.file('manifest.json');
   if (!entry) throw new Error('這不是 Sully 模型備份：缺少 manifest.json。');
 
@@ -178,54 +179,51 @@ export const createAvatarModelBackup = async (
   });
   if (!candidates.length) throw new Error('當前沒有需要備份的自定義模型；Sully 內置模型會隨應用自動提供。');
 
-  const zip = new JSZip();
-  const models: AvatarModelManifestEntry[] = [];
+  // 模型一個一個讀、寫出去就放（plans/backup-streaming.md 第 4 批）。以前是全部讀進記憶體、最後一次打包，
+  // 幾個上百 MB 的模型在手機上會讓分頁被系統關掉。輸出能寫磁碟就寫磁碟上的暫存檔。
+  // 寫暫存檔失敗時 buildZip 會用記憶體把這段重跑一次，所以清單每次從頭組。
+  let models: AvatarModelManifestEntry[] = [];
+  const archive = await buildZip({ tmpPrefix: 'models' }, async (zip) => {
+    models = [];
+    for (let index = 0; index < candidates.length; index++) {
+      const { character, config, slot } = candidates[index];
+      onProgress?.({ phase: 'scan', done: index, total: candidates.length, label: `正在讀取 ${character.name} 的模型…` });
+      const blob = await DB.getBlobAsset(config.assetId);
+      if (!blob) continue;
+      const path = modelPath(models.length, config.format);
+      zip.file(path, blob, { compression: 'STORE' });
+      await zip.drain();
+      models.push({
+        characterId: character.id,
+        characterName: character.name,
+        path,
+        byteLength: blob.size,
+        config: { ...config, byteLength: blob.size },
+        slot,
+      });
+      onProgress?.({ phase: 'scan', done: index + 1, total: candidates.length, label: `已加入 ${character.name}` });
+    }
 
-  for (let index = 0; index < candidates.length; index++) {
-    const { character, config, slot } = candidates[index];
-    onProgress?.({ phase: 'scan', done: index, total: candidates.length, label: `正在讀取 ${character.name} 的模型…` });
-    const blob = await DB.getBlobAsset(config.assetId);
-    if (!blob) continue;
-    const path = modelPath(models.length, config.format);
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    zip.file(path, bytes, { compression: 'STORE' });
-    models.push({
-      characterId: character.id,
-      characterName: character.name,
-      path,
-      byteLength: blob.size,
-      config: { ...config, byteLength: blob.size },
-      slot,
-    });
-    onProgress?.({ phase: 'scan', done: index + 1, total: candidates.length, label: `已加入 ${character.name}` });
-  }
+    if (!models.length) throw new Error('角色資料裡有模型索引，但本地模型文件已經丟失。');
 
-  if (!models.length) throw new Error('角色資料裡有模型索引，但本地模型文件已經丟失。');
-
-  const manifest: AvatarModelBackupManifest = {
-    format: AVATAR_MODEL_BACKUP_FORMAT,
-    version: AVATAR_MODEL_BACKUP_VERSION,
-    createdAt: Date.now(),
-    models,
-  };
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-
-  return zip.generateAsync(
-    { type: 'blob', streamFiles: true, compression: 'STORE' },
-    metadata => onProgress?.({
-      phase: 'pack',
-      done: Math.round(metadata.percent),
-      total: 100,
-      label: `正在生成模型備份 ${Math.round(metadata.percent)}%…`,
-    }),
-  );
+    const manifest: AvatarModelBackupManifest = {
+      format: AVATAR_MODEL_BACKUP_FORMAT,
+      version: AVATAR_MODEL_BACKUP_VERSION,
+      createdAt: Date.now(),
+      models,
+    };
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2), { compression: 'STORE' });
+    onProgress?.({ phase: 'pack', done: 100, total: 100, label: '正在生成模型備份 100%…' });
+  });
+  return archive;
 };
 
 export const restoreAvatarModelBackup = async (
   file: Blob,
   onProgress?: (progress: AvatarModelBackupProgress) => void,
 ): Promise<AvatarModelRestoreResult> => {
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
+  // 只讀目錄，要哪個模型才讀那一段；整個備份檔不進記憶體（第 4 批）
+  const zip = await openZipWithFallback(file);
   const manifest = await readManifest(zip);
   const characters = await DB.getAllCharacters();
   const byId = new Map(characters.map(character => [character.id, character]));
@@ -259,13 +257,20 @@ export const restoreAvatarModelBackup = async (
       total: manifest.models.length,
       label: `正在恢復 ${item.characterName}（${index + 1}/${manifest.models.length}）…`,
     });
-    const bytes = await zip.file(item.path)!.async('uint8array');
-    if (bytes.byteLength !== item.byteLength) {
+    const entry = zip.file(item.path)!;
+    const type = item.config.format === 'vrm' ? 'model/gltf-binary' : 'application/zip';
+    // 隨機讀取器開的檔：模型沒壓縮，直接拿備份檔裡的那一段當 Blob 存，內容不經過記憶體。
+    // 退回 JSZip 時沒有 blob()，照舊讀成位元組。
+    let blob: Blob;
+    if (typeof (entry as { blob?: unknown }).blob === 'function') {
+      blob = await entry.blob(type);
+    } else {
+      const bytes = await entry.async('uint8array');
+      blob = new Blob([bytes.slice().buffer], { type });
+    }
+    if (blob.size !== item.byteLength) {
       throw new Error(`模型 ${item.characterName} 大小校驗失敗，已停止導入。`);
     }
-    const blob = new Blob([bytes.slice().buffer], {
-      type: item.config.format === 'vrm' ? 'model/gltf-binary' : 'application/zip',
-    });
 
     const config = { ...item.config, byteLength: blob.size } as VideoAvatarConfig;
     await DB.putBlobAsset(config.assetId, blob);

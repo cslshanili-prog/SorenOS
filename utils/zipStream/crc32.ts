@@ -9,8 +9,12 @@ const TABLE = (() => {
     return table;
 })();
 
-export const crc32 = (bytes: Uint8Array): number => {
-    let crc = 0xFFFFFFFF;
+/** 分段算：`crc32Update(CRC32_INIT, 第一段)` → 再餵下一段 → 最後 `crc32Finish` */
+export const CRC32_INIT = 0xFFFFFFFF;
+export const crc32Update = (crc: number, bytes: Uint8Array): number => {
     for (let i = 0; i < bytes.length; i++) crc = TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
-    return (crc ^ 0xFFFFFFFF) >>> 0;
+    return crc;
 };
+export const crc32Finish = (crc: number): number => (crc ^ 0xFFFFFFFF) >>> 0;
+
+export const crc32 = (bytes: Uint8Array): number => crc32Finish(crc32Update(CRC32_INIT, bytes));

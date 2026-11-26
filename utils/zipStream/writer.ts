@@ -12,7 +12,7 @@ import {
     buildCentralRecord, buildEndRecords, buildLocalHeader, toDosDateTime,
     type ZipEntryRecord,
 } from './zipFormat';
-import { crc32 } from './crc32';
+import { CRC32_INIT, crc32, crc32Finish, crc32Update } from './crc32';
 
 export interface ZipFileOptions {
     /** 內容是 base64 字串（舊格式的內嵌圖片）：解成位元組再寫 */
@@ -128,11 +128,17 @@ export interface ZipStreamWriterOptions {
     level?: number;
     /** 寫進每個條目的時間（預設現在） */
     date?: Date;
+    /** 原樣存的 Blob 到這麼大就分段讀寫，不整個讀進記憶體（預設 8 MB） */
+    streamBlobMinBytes?: number;
+    /** 分段讀寫時一段多大（預設 4 MB） */
+    blobChunkBytes?: number;
 }
 
 export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStreamWriter => {
     const sink = options.sink || createMemorySink();
     const defaultLevel = options.level ?? 6;
+    const streamBlobMinBytes = options.streamBlobMinBytes ?? 8 * 1024 * 1024;
+    const blobChunkBytes = Math.max(1, options.blobChunkBytes ?? 4 * 1024 * 1024);
     const { dosTime, dosDate } = toDosDateTime(options.date || new Date());
 
     const entries: ZipEntryRecord[] = [];
@@ -189,6 +195,44 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
         }
     };
 
+    /**
+     * 原樣存的大 Blob（模型這種上百 MB 的）：不整個讀進來，一段一段讀、一段一段寫。
+     * 檔頭要先寫 CRC，所以讀兩趟：第一趟只算 CRC，第二趟寫出去。寫出來的位元組跟整個讀的一模一樣。
+     */
+    const emitStoredBlob = async (name: string, blob: Blob) => {
+        const size = blob.size;
+        if (size >= MAX_UINT32) throw new Error(`備份裡有單個檔案超過 4 GB（${name}），無法寫入。`);
+        const nameBytes = encoder.encode(name);
+        if (nameBytes.length > 0xFFFF) throw new Error(`備份裡的檔名太長：${name.slice(0, 80)}…`);
+        const readChunk = async (at: number) => new Uint8Array(await blob.slice(at, Math.min(size, at + blobChunkBytes)).arrayBuffer());
+
+        let crc = CRC32_INIT;
+        for (let at = 0; at < size; at += blobChunkBytes) crc = crc32Update(crc, await readChunk(at));
+        const entry: ZipEntryRecord = {
+            nameBytes, method: METHOD_STORE, crc: crc32Finish(crc), compressedSize: size, size,
+            offset: 0, dosTime, dosDate,
+        };
+
+        // 從這裡開始已經在寫：中途出錯就是斷在半個條目上，整包作廢
+        try {
+            entry.offset = offset;
+            emit(buildLocalHeader(entry), true);
+            let written = 0;
+            for (let at = 0; at < size; at += blobChunkBytes) {
+                const chunk = await readChunk(at);
+                written += chunk.byteLength;
+                emit(chunk, true);
+                // 等輸出端消化完再讀下一段，不然整個檔還是會堆在佇列裡
+                if (sink.drain) await sink.drain();
+            }
+            if (written !== size) throw new Error(`檔案讀到一半長度不對（${name}）。`);
+            entries.push(entry);
+        } catch (error) {
+            failure = error instanceof Error ? error : new Error(String(error));
+            throw failure;
+        }
+    };
+
     const assertOpen = () => {
         if (failure) throw failure;
         if (state !== 'open') throw new Error(state === 'finished' ? '備份包已經收尾，不能再寫。' : '備份已經中止。');
@@ -207,7 +251,8 @@ export const createZipStreamWriter = (options: ZipStreamWriterOptions): ZipStrea
             blobChain = blobChain.then(async () => {
                 if (failure || state !== 'open') return;
                 try {
-                    emitEntry(prepareEntry(name, new Uint8Array(await data.arrayBuffer()), fileOptions, true));
+                    if (fileOptions.compression === 'STORE' && data.size >= streamBlobMinBytes) await emitStoredBlob(name, data);
+                    else emitEntry(prepareEntry(name, new Uint8Array(await data.arrayBuffer()), fileOptions, true));
                 } catch (error) {
                     // Blob 是排隊寫的，呼叫端當下接不到錯：讀不到也算整包失敗，由 drain／finish 報出來
                     failure = failure || (error instanceof Error ? error : new Error(String(error)));
