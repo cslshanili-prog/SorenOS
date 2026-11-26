@@ -379,7 +379,7 @@ ${material.recentEpisodes.length > 0 ? `
                     stream: false,
                 }),
             },
-            2, 120_000, { appName: '記憶宮殿', purpose: '記憶消化' }
+            2, 120_000, { appName: '記憶宮殿', charName, purpose: '記憶消化' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';

@@ -20,7 +20,8 @@ interface RealBalancePanelProps {
      * 右上角 ⟳ 的 AI 生成（第三批）。system 是角色設定或用戶身份卡那一段；api 沒配好就提示去設置。
      * 不傳就不顯示 ⟳。
      */
-    ai?: { ownerName: string; system: () => string; api: FinanceApi | null | undefined };
+    /** charId：替哪個角色生成（查手機）；用戶自己的不帶。只用來標 API 調用記錄 */
+    ai?: { ownerName: string; charId?: string; system: () => string; api: FinanceApi | null | undefined };
 }
 
 type Tab = 'overview' | 'flow';
@@ -44,14 +45,15 @@ const RealBalancePanel: React.FC<RealBalancePanelProps> = ({ state, onCommit, on
         setGenerating(true);
         try {
             const system = ai.system();
+            const logMeta = { appName: ai.charId ? '查手機' : '銀行', charId: ai.charId, charName: ai.charId ? ai.ownerName : undefined, purpose: target === 'overview' ? 'AI 生成資產總覽' : 'AI 生成流水' };
             if (target === 'overview') {
-                const gen = parseOverview(await requestFinanceJson(ai.api, system, buildOverviewPrompt(ai.ownerName)));
+                const gen = parseOverview(await requestFinanceJson(ai.api, system, buildOverviewPrompt(ai.ownerName), logMeta));
                 if (!gen) { addToast('這次沒解析出內容，再試一次', 'error'); trackEvent('AI 生成余额管理', { 分页: '总览', 结果: '失败' }); return; }
                 onCommit(applyGeneratedOverview(state, gen));
                 addToast('已生成財務狀況', 'success');
                 trackEvent('AI 生成余额管理', { 分页: '总览', 结果: '成功' });
             } else {
-                const flows = parseFlows(await requestFinanceJson(ai.api, system, buildFlowPrompt(state, ai.ownerName)), state);
+                const flows = parseFlows(await requestFinanceJson(ai.api, system, buildFlowPrompt(state, ai.ownerName), logMeta), state);
                 if (!flows.length) { addToast('這次沒解析出流水，再試一次', 'error'); trackEvent('AI 生成余额管理', { 分页: '流水', 结果: '失败' }); return; }
                 onCommit(applyGeneratedFlows(state, flows));
                 addToast(`已生成 ${flows.length} 筆流水`, 'success');

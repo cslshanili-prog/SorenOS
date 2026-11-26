@@ -152,7 +152,7 @@ ${buildGroupRulesBlock(groupName, memberNames, userLabel)}
                     stream: false,
                 }),
             },
-            2, 180_000, { appName: '記憶宮殿', purpose: '群記憶提取' }
+            2, 180_000, { appName: '記憶宮殿', purpose: `群記憶提取 · ${groupName}` }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';

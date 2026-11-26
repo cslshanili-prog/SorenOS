@@ -15,9 +15,12 @@ import {
     scanSseForLog,
     setApiRequestCaptureArmed,
     setApiCallAmbientContext,
+    mergeApiCallMeta,
+    withApiCallMeta,
     summarizeApiRequestCaptureDuplicates,
     updateApiRequestCaptureUsage,
 } from './apiCallLog';
+import { setCharNameRegistry } from './charNameRegistry';
 
 describe('one-shot full API request capture', () => {
     it('uses the in-memory armed flag on the disabled hot path instead of reading localStorage per request', () => {
@@ -206,6 +209,38 @@ describe('one-shot full API request capture', () => {
         const raw = JSON.stringify(capture.payload);
         expect(raw).toContain('原始 5,022 字符');
         expect(raw).not.toContain('a'.repeat(100));
+    });
+});
+
+// 「角色」那格以前會被兜底成「目前選著的角色」：背景的朋友圈、記憶整理、別的角色的回覆
+// 全記到你正在看的那個人頭上。兜底只留 App，角色只認調用點自己帶的。
+describe('API 調用記錄的角色不從環境兜底', () => {
+    it('環境只留 App：傳進角色也不收', () => {
+        setApiCallAmbientContext({ appId: 'chat', appName: '消息', charId: 'c-front', charName: '前台角色' });
+        expect(getApiCallAmbientContext()).toEqual({ appId: 'chat', appName: '消息' });
+        expect(mergeApiCallMeta(undefined)).toEqual({ appId: 'chat', appName: '消息' });
+        setApiCallAmbientContext({});
+    });
+
+    it('顯式帶了角色就照它；沒說 App 的拿環境補 App，角色不動', () => {
+        const ambient = { appId: 'moments', appName: '朋友圈' };
+        expect(mergeApiCallMeta({ charId: 'c-bg', charName: '背景角色', purpose: '朋友圈留言' }, ambient))
+            .toEqual({ appId: 'moments', appName: '朋友圈', charId: 'c-bg', charName: '背景角色', purpose: '朋友圈留言' });
+        expect(mergeApiCallMeta({ appName: '記憶宮殿', purpose: '記憶提取' }, ambient))
+            .toEqual({ appName: '記憶宮殿', purpose: '記憶提取' });
+    });
+
+    it('只給 charId 的照登記表補名字', () => {
+        setCharNameRegistry([{ id: 'c-reg', name: '登記的名字' }]);
+        expect(mergeApiCallMeta({ appName: '記憶潛行', charId: 'c-reg' }, {})).toMatchObject({ charId: 'c-reg', charName: '登記的名字' });
+        setCharNameRegistry([]);
+    });
+
+    it('withApiCallMeta 把 meta 掛到 RequestInit 上，空的不掛', () => {
+        const init = { method: 'POST' };
+        expect((withApiCallMeta(init, { charId: 'x', purpose: 'p' }) as any).__sullyMeta).toEqual({ charId: 'x', purpose: 'p' });
+        expect(withApiCallMeta(init, {})).toBe(init);
+        expect(withApiCallMeta(init, undefined)).toBe(init);
     });
 });
 

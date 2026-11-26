@@ -8,6 +8,7 @@ import { stripLeakedReasoning } from './reasoningLeak';
 import { characterVoice } from './momentsVoice';
 import { personaExtraSetting } from './personaSetting';
 
+import { withApiCallMeta } from './apiCallLog';
 /**
  * 「AI 幫我回覆」（聊天設定 · Scenario）：「+」面板按一下，替用戶想三個回覆草稿，掛在輸入欄上方；
  * 點一個就落進輸入框，用戶自己改完再發。草稿不存、不進聊天記錄，角色看不到。
@@ -134,7 +135,7 @@ export async function generateReplyDrafts(params: {
         char, user, withActions, partial,
         history: draftHistoryLines(recent, char.name, user.name || '我'),
     });
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey || 'sk-none'}` },
         body: JSON.stringify({
@@ -142,7 +143,7 @@ export async function generateReplyDrafts(params: {
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.9,
         }),
-    });
+    }, { appName: '消息', charId: char.id, charName: char.name, purpose: '幫我回草稿' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const drafts = parseReplyDrafts(extractContent(await safeResponseJson(response)) || '', withActions);
     if (!drafts.length) throw new Error('這次沒想出來，再試一次');

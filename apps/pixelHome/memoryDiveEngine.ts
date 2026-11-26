@@ -317,7 +317,7 @@ export async function callDiveLLM(
       }),
     },
     2, // 最多重試 2 次（覆蓋瞬時 5xx / 網絡抖動）
-    0, { appName: '記憶潛行', purpose: '探訪生成' },
+    0, { appName: '記憶潛行', charId: req.charId, charName: req.charName, purpose: '探訪生成' },
   );
 
   const content = extractContent(data);
@@ -864,7 +864,7 @@ export async function planRoomVisit(
         response_format: { type: 'json_object' },
       }),
     },
-    2, 0, { appName: '記憶潛行', purpose: '劇本生成' },
+    2, 0, { appName: '記憶潛行', charId: params.charId, purpose: '劇本生成' },
   );
 
   const content = extractContent(data);
@@ -1022,7 +1022,7 @@ export async function emitDiveEmotion(params: EmitDiveEmotionParams): Promise<vo
           stream: false,
         }),
       },
-      2, 0, { appName: '記憶潛行', purpose: '情緒結算' },
+      2, 0, { appName: '記憶潛行', charId: params.charProfile.id, charName: params.charProfile.name, purpose: '情緒結算' },
     );
 
     const raw = data?.choices?.[0]?.message?.content || '';

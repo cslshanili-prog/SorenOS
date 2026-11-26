@@ -1,3 +1,4 @@
+import type { ApiCallMeta } from '../../../utils/apiCallLog';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadStoryActorContext, replaceStoryTheaterReply, STORY_REROLL_INSTRUCTION } from '../../../utils/storyTheaterReply';
 import { buildStoryKnownPeopleNote } from '../../../utils/storyActorView';
@@ -506,8 +507,8 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
             body: JSON.stringify({ model: apiConfig.model, messages: payload, stream: false, ...generationSettings }),
-            __sullyMeta: { appId: 'date', appName: '見面', purpose: '劇情見面生成' },
-        } as RequestInit & { __sullyMeta: { appId: string; appName: string; purpose: string } });
+            __sullyMeta: { appId: 'date', appName: '見面', charId: actors.length === 1 ? actors[0].id : undefined, charName: sceneActorNames.join('、') || undefined, purpose: '劇情見面生成' },
+        } as RequestInit & { __sullyMeta: ApiCallMeta });
         const data = await safeResponseJson(response);
         if (!response.ok) throw new Error(describeStoryApiError(response.status, data));
         const reportedPromptTokens = Number(data?.usage?.prompt_tokens);
@@ -515,7 +516,7 @@ const StoryTheaterSession: React.FC<Props> = ({ entry, preset, masks, onBack, on
         const content = extractContent(data).trim();
         if (!content) throw new Error(describeEmptyStoryCompletion(data));
         return content;
-    }, [apiConfig, entry.omitSamplingParams]);
+    }, [actors, apiConfig, entry.omitSamplingParams, sceneActorNames]);
 
     /**
      * 存中央那則，並鏡像進演員的私聊紀錄（只有寫進角色記憶的劇情）。

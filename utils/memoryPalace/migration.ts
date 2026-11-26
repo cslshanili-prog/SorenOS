@@ -160,7 +160,7 @@ date 字段填記憶對應的大概日期。`;
             1,         // 失敗只再試 1 次（整體 3 次 × 5min = 15min 太久）
             5 * 60_000, // 單次 5 分鐘硬超時：第一批 142s 就過了，若超過 5min 基本是 provider 卡死，
                        // 繼續等只會讓用戶誤以為整頁凍住（實際主線程閒著等 fetch），主動 abort 切下一批。
-            { appName: '記憶宮殿', purpose: '記憶遷移' }
+            { appName: '記憶宮殿', charName, purpose: '記憶遷移' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';

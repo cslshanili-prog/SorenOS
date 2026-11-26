@@ -25,6 +25,7 @@ import { generateCharacterMoment } from './momentsGenerate';
 import { replyAsAuthor } from './momentsReply';
 import { characterVoice, relationToAuthor } from './momentsVoice';
 
+import { withApiCallMeta } from './apiCallLog';
 /**
  * 朋友圈第二批的執行層：OSContext 在 App 開著時每分鐘調一次 runMomentsAutomation，
  * 新貼文發出來時調 scheduleReactionsForPost。純邏輯在 utils/momentsAuto.ts。
@@ -157,11 +158,11 @@ async function executeJob(job: MomentJob, ctx: MomentsRuntimeContext): Promise<v
         const promptUserName = post.author.kind === 'user' ? authorName : userName;
         const altInvolved = [post.author.id, ...post.comments.map(c => c.actor.id)].some(id => !!ctx.characters.find(c => c.id === id)?.altOf);
         const prompt = buildBatchCommentPrompt({ authorName, post, thread, commenters, userName: promptUserName, strangerRule: altInvolved ? ALT_RECOGNITION_RULE : undefined });
-        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
             body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
-        });
+        }, { appName: '朋友圈', charId: commenters.length === 1 ? commenters[0].id : undefined, charName: commenters.map(c => c.name).filter(Boolean).join('、') || undefined, purpose: '朋友圈批量留言' }));
         if (!response.ok) throw new Error(`API 返回 ${response.status}`);
         const comments = parseBatchComments(extractJson(extractContent(await safeResponseJson(response))), actorIds);
         const settings = normalizeMomentsSettings(ctx.userProfile.momentsSettings);

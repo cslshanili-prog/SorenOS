@@ -168,6 +168,7 @@ import ChatSwitcherPage from '../components/chat/ChatSwitcherPage';
 import ChatBubblePickerPage from '../components/chat/ChatBubblePickerPage';
 import { DECORATION_TEMPLATES_CHANGED_EVENT, loadDecorationTemplates } from '../utils/decorationTemplateStore';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -651,7 +652,7 @@ const Chat: React.FC = () => {
     // 以前不查狀態碼、失敗靜默吞掉，翻譯一次拿不到就永遠空著（「外語語音沒翻譯」主因）。
     const llmTranslate = async (systemPrompt: string, text: string): Promise<string> => {
         const attempt = async (): Promise<string> => {
-            const res = await fetch(`${apiConfig.baseUrl}/chat/completions`, {
+            const res = await fetch(`${apiConfig.baseUrl}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -659,7 +660,7 @@ const Chat: React.FC = () => {
                     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: text }],
                     temperature: 0.3,
                 }),
-            });
+            }, { charId: char?.id, charName: char?.name, purpose: '語音翻譯' }));
             if (!res.ok) throw new Error(`translate http ${res.status}`);
             const data = await res.json();
             return data?.choices?.[0]?.message?.content?.trim() || '';
@@ -1590,7 +1591,7 @@ const Chat: React.FC = () => {
         // 你打的原句留在 metadata.typedOriginal，氣泡上點一下看得到。翻不成就照原句送。
         if (type === 'text' && chatLanguage.translateMine && chatLanguage.speak) {
             try {
-                const [out] = await translateTexts([text], chatLanguage.speak, apiConfig);
+                const [out] = await translateTexts([text], chatLanguage.speak, apiConfig, char ? { charId: char.id, charName: char.name, purpose: '翻譯我的訊息' } : undefined);
                 const translated = (out || '').trim();
                 if (translated && translated !== text) {
                     metadata = { ...(metadata || {}), typedOriginal: text };
@@ -3274,7 +3275,7 @@ const Chat: React.FC = () => {
                 prompt = prompt.replace(/\$\{userProfile\.name\}/g, chatUserProfile.name);
                 prompt = prompt.replace(/\$\{rawLog.*?\}/g, rawLog.substring(0, 200000));
 
-                const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                     body: JSON.stringify({
@@ -3283,7 +3284,7 @@ const Chat: React.FC = () => {
                         temperature: 0.5,
                         max_tokens: 8000 
                     })
-                });
+                }, { charId: char?.id, charName: char?.name, purpose: '全量歸檔記憶' }));
 
                 if (!response.ok) throw new Error(`API Error on ${dateStr}`);
                 const data = await safeResponseJson(response);

@@ -14,6 +14,7 @@ import {
 import { buildToolResultMessage, normalizeToolCallsForCompat } from '../toolCallCompat';
 import { toolCallFingerprint } from '../agenticToolFeedback';
 
+import { withApiCallMeta, type ApiCallMeta } from '../apiCallLog';
 interface GroupMcpCompletionOptions {
     url: string;
     headers: HeadersInit;
@@ -22,6 +23,8 @@ interface GroupMcpCompletionOptions {
     userName: string;
     signal?: AbortSignal;
     onStatus?: (status: string) => void;
+    /** API 調用記錄：哪個群、這一拍是誰說（各自發言才有） */
+    meta?: ApiCallMeta;
 }
 
 const mergeUsage = (total: Record<string, number>, usage: any) => {
@@ -40,12 +43,12 @@ export async function completeGroupChatWithMcp(options: GroupMcpCompletionOption
     const usageTotal: Record<string, number> = {};
 
     const request = async (body: Record<string, any>): Promise<any> => {
-        const response = await fetch(options.url, {
+        const response = await fetch(options.url, withApiCallMeta({
             method: 'POST',
             headers: options.headers,
             body: JSON.stringify(body),
             signal: options.signal,
-        });
+        }, options.meta));
         if (!response.ok) {
             const preview = await response.text().catch(() => '');
             throw new Error(`API 返回 ${response.status}${preview ? `: ${preview.slice(0, 160)}` : ''}`);

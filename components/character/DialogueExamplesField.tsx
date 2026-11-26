@@ -40,7 +40,7 @@ const DialogueExamplesField: React.FC<Props> = ({ char, apiConfig, onChange, add
         if (!char.systemPrompt?.trim()) { addToast('核心指令是空的，沒有東西可以拆', 'info'); return; }
         setBusy(true);
         try {
-            const result = await extractDialogueExamples(char.systemPrompt, apiConfig);
+            const result = await extractDialogueExamples(char.systemPrompt, apiConfig, { appName: '神經鏈接', charId: char.id, charName: char.name, purpose: '拆對話範例' });
             if (!result.found && !result.fixedFound) {
                 addToast(result.missed ? 'AI 找到的段落跟原文對不上，這次沒有動人設，可以再試一次' : '核心指令裡沒找到對話範例或固定台詞', 'info');
                 return;

@@ -18,6 +18,7 @@ import {
     PaperPlaneTilt, Check,
 } from '@phosphor-icons/react';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // ============================================================
 //  TYPES (runtime script model) — Beat / SimScript 已移到 types.ts 共享，
 //  以便「生活記錄」存完整腳本快照用於重播。
@@ -101,11 +102,11 @@ export async function generatePersonaScript(opts: {
     const firstTs = msgs.find(m => typeof m.timestamp === 'number')?.timestamp;
     const acquaintance = describeAcquaintance(firstTs, userProfile.name, char.name);
     const prompt = buildDirectorPrompt(context, recent, mode, theme, char.name, acquaintance, userProfile.name, userPresence, tone);
-    const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
         body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.98, max_tokens: 24000 }),
-    });
+    }, { charId: char.id, charName: char.name, purpose: '人格模擬劇本' }));
     if (!res.ok) throw new Error('API');
     const data = await safeResponseJson(res);
     // 截斷直接報錯，不兜底：模型輸出被 token 上限截斷時 finish_reason 為 'length'

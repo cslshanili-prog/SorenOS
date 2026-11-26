@@ -32,12 +32,13 @@ import {
 import TokenImg from '../components/os/TokenImg';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta, type ApiCallMeta } from '../utils/apiCallLog';
 // --- Helper: Generate ID ---
 const genId = () => Math.random().toString(36).slice(2, 10);
 
 // --- Helper: API Call ---
-async function callAPI(apiConfig: { baseUrl: string; apiKey: string; model: string }, prompt: string): Promise<string> {
-    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+async function callAPI(apiConfig: { baseUrl: string; apiKey: string; model: string }, prompt: string, meta?: ApiCallMeta): Promise<string> {
+    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
         body: JSON.stringify({
@@ -47,7 +48,7 @@ async function callAPI(apiConfig: { baseUrl: string; apiKey: string; model: stri
             max_tokens: 4000,
             stream: false,
         }),
-    });
+    }, meta));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     let json: any;
@@ -711,7 +712,7 @@ const GuidebookApp: React.FC = () => {
         try {
             await injectMemoryPalace(char, undefined, scenarioHint || undefined);
             const prompt = buildOpeningPrompt(char, userProfile, initialAffinity, scenarioHint, 'manual', recentMsgs, char.guidebookInsights);
-            const raw = await callAPI(apiConfig, prompt);
+            const raw = await callAPI(apiConfig, prompt, { charId: selectedCharId || undefined, purpose: '攻略本' });
             let data = extractJson(raw);
 
             // Flexible segment extraction: try multiple paths
@@ -786,7 +787,7 @@ const GuidebookApp: React.FC = () => {
                 session.currentRound + 1, session.rounds, session.scenarioHint || '',
                 cachedRecentMsgs, wc, nextDirectionHint || undefined
             );
-            const raw = await callAPI(apiConfig, prompt);
+            const raw = await callAPI(apiConfig, prompt, { charId: selectedCharId || undefined, purpose: '攻略本' });
             const data = extractJson(raw);
             // Flexible: try data.options, or any array field with 3+ items that have text
             let opts: any[] | null = null;
@@ -884,7 +885,7 @@ const GuidebookApp: React.FC = () => {
                 roundNum, session.maxRounds, options, session.rounds, session.scenarioHint || '',
                 cachedRecentMsgs, wc, nextDirectionHint || undefined, roundScenario || undefined
             );
-            const raw = await callAPI(apiConfig, prompt);
+            const raw = await callAPI(apiConfig, prompt, { charId: selectedCharId || undefined, purpose: '攻略本' });
             const data = extractJson(raw);
             const choice = data?.choice;
             // Accept number, string number, or letter A/B/C
@@ -963,7 +964,7 @@ const GuidebookApp: React.FC = () => {
                 session.initialAffinity, session.currentAffinity, session.rounds,
                 cachedRecentMsgs
             );
-            const raw = await callAPI(apiConfig, prompt);
+            const raw = await callAPI(apiConfig, prompt, { charId: selectedCharId || undefined, purpose: '攻略本' });
             const data = extractJson(raw);
 
             if (data) {

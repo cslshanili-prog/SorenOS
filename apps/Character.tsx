@@ -565,7 +565,7 @@ const Character: React.FC = () => {
                   ],
                   temperature: 0.3,
               })
-          }, 0);
+          }, 0, undefined, { appName: '神經鏈接', charId: formData?.id, charName: formData?.name, purpose: '精煉月度記憶' });
           const dt = Math.round(performance.now() - t0);
           const summary = extractContent(data);
           if (!summary) {
@@ -663,7 +663,7 @@ const Character: React.FC = () => {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
               body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.5, max_tokens: 8000, stream: false }),
-          }, 0);
+          }, 0, undefined, { appName: '神經鏈接', charId: formData?.id, charName: formData?.name, purpose: '歸檔某日記憶' });
           let summary = extractContent(data).replace(/^["']|["']$/g, '');
           if (!summary) throw new Error('空響應');
 
@@ -859,7 +859,7 @@ const Character: React.FC = () => {
                             max_tokens: 8000,
                             temperature: 0.5
                         })
-                    }, 0);
+                    }, 0, undefined, { appName: '神經鏈接', charId: formData?.id, charName: formData?.name, purpose: '批量總結記憶' });
                 } catch {
                     // 單天失敗軟跳過，繼續後面的日期（與原 if(response.ok) 的語義一致）
                 }
@@ -1052,7 +1052,7 @@ ${isInitialGeneration ? `
                   // 流式響應由 safeResponseJson 拼回完整對象，下游 extractContent 無需改動。
                   stream: apiConfig.stream === true
               })
-          }, 0);
+          }, 0, undefined, { appName: '神經鏈接', charId: formData?.id, charName: formData?.name, purpose: '生成印象' });
           const parsed = parseGeneratedImpression(data);
 
           if (editingIdRef.current === targetId) {

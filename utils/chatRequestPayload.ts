@@ -267,6 +267,7 @@ export async function buildChatRequestPayload(input: BuildChatPayloadInput): Pro
         const prepared = await materializeVisionDescriptions(
             [...uniqueMessages.values()],
             input.visionApiConfig,
+            { appName: '消息', charId: input.char.id, charName: input.char.name, purpose: '識圖' },
         );
         const preparedById = new Map(prepared.map(message => [message.id, message]));
         historyMsgsForPrompt = selectedHistory.map(message => preparedById.get(message.id) || message);

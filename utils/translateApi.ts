@@ -10,6 +10,7 @@ import type { APIConfig, TranslationApiConfig, TranslationProvider } from '../ty
 import { extractContent, safeFetchJson } from './safeApi';
 import { scrubKeys } from './assistant/client';
 
+import type { ApiCallMeta } from './apiCallLog';
 export const TRANSLATION_PROVIDERS: ReadonlyArray<{ value: TranslationProvider; label: string; hint: string }> = [
     { value: 'llm', label: '聊天模型', hint: '挑一組便宜的小模型；唯一能好好翻粵語、會照語氣翻的' },
     { value: 'deepl', label: 'DeepL', hint: '要經過你的主動消息 2.0 Worker；不支援粵語' },
@@ -79,7 +80,7 @@ export const parseLlmTranslation = (raw: string, expected: number): string[] => 
     throw new TranslateError('翻譯模型回的格式不對');
 };
 
-async function translateWithLlm(texts: string[], to: string, apiConfig: APIConfig): Promise<string[]> {
+async function translateWithLlm(texts: string[], to: string, apiConfig: APIConfig, meta?: ApiCallMeta): Promise<string[]> {
     const c = apiConfig.translationApi;
     const baseUrl = (c?.baseUrl || apiConfig.baseUrl || '').trim().replace(/\/+$/, '');
     const apiKey = (c?.apiKey || apiConfig.apiKey || '').trim();
@@ -97,7 +98,7 @@ async function translateWithLlm(texts: string[], to: string, apiConfig: APIConfi
             temperature: 0.2,
             stream: false,
         }),
-    }, 1, 60_000, { appName: '消息', purpose: '翻譯' });
+    }, 1, 60_000, { appName: '消息', purpose: '翻譯', ...meta });
     return parseLlmTranslation(extractContent(data), texts.length);
 }
 
@@ -158,7 +159,8 @@ async function translateWithAzure(texts: string[], to: string, cfg: TranslationA
  * 把 texts 一句一句翻成 `to`（給模型看的語言名，例如「繁體中文」）。
  * 回傳跟 texts 等長；失敗丟 TranslateError（訊息已拿掉 Key）。
  */
-export async function translateTexts(texts: string[], to: string, apiConfig: APIConfig): Promise<string[]> {
+/** meta：API 調用記錄上這一批是替誰翻的（不給就只標「翻譯」） */
+export async function translateTexts(texts: string[], to: string, apiConfig: APIConfig, meta?: ApiCallMeta): Promise<string[]> {
     const items = texts.map(t => t.trim());
     if (!items.length) return [];
     const cfg = apiConfig.translationApi;
@@ -167,7 +169,7 @@ export async function translateTexts(texts: string[], to: string, apiConfig: API
         if (provider === 'deepl') return await translateWithDeepl(items, to, cfg!);
         if (provider === 'google') return await translateWithGoogle(items, to, cfg!);
         if (provider === 'azure') return await translateWithAzure(items, to, cfg!);
-        return await translateWithLlm(items, to, apiConfig);
+        return await translateWithLlm(items, to, apiConfig, meta);
     } catch (e: any) {
         const msg = scrubKeys(String(e?.message || e), secretsOf(apiConfig)).slice(0, 200);
         throw new TranslateError(e instanceof TranslateError ? msg : `${providerName(provider)} 翻譯失敗：${msg}`);

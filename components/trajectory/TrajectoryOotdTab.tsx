@@ -24,6 +24,7 @@ import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chat
 const withOotdFaceNote = (prompt: string, withReference: boolean) => (withReference ? `${prompt}\n${OOTD_FACE_NOTE}` : prompt);
 import { resolveCharTimeZone, nowInTimeZone } from '../../utils/timezone';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 interface Props {
     char: CharacterProfile;
     posts: TrajectoryOotdPost[];
@@ -95,7 +96,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
             const timeContext = await buildOotdTimeContext(char);
             const prompt = buildTrajectoryOotdPrompt(roleSettingsBlock, posts, timeContext);
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -103,7 +104,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                     messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
                     temperature: 0.95,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '軌跡·穿搭' }));
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const data = await safeResponseJson(response);
             const draft = parseTrajectoryOotdDraft(extractJson(extractContent(data)));

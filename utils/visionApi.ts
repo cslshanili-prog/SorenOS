@@ -4,6 +4,7 @@ import { extractContent, safeFetchJson } from './safeApi';
 import { normalizeApiBaseUrl, normalizeApiCredential, normalizeApiModel } from './apiConfigNormalize';
 import { isBlobRef } from './blobRef';
 
+import type { ApiCallMeta } from './apiCallLog';
 export const VISION_DESCRIPTION_METADATA_KEY = 'visionDescription';
 
 /** 設置頁測試識圖能力時發送的 48×48 白底紫色圓點 PNG。 */
@@ -64,7 +65,7 @@ export interface VisionDescribeOptions {
   /** 描述留著換行（預設壓成一行） */
   keepLines?: boolean;
   /** API 記錄上標哪個 App、做什麼 */
-  meta?: { appId?: string; appName: string; purpose: string };
+  meta?: ApiCallMeta;
   signal?: AbortSignal;
   /** 等多久算逾時（毫秒，預設 60 秒）：問法要得細、回得長的給久一點 */
   timeoutMs?: number;
@@ -111,7 +112,7 @@ export async function describeImageWithVisionApi(
         stream: false,
       }),
       ...(options.signal ? { signal: options.signal } : {}),
-    }, 1, options.timeoutMs || 60_000, options.meta || { appName: '消息', purpose: '識圖' });
+    }, 1, options.timeoutMs || 60_000, { appName: '消息', purpose: '識圖', ...options.meta });
 
     const description = cleanDescription(extractContent(data), options.keepLines);
     if (!description) throw new Error('識圖 API 沒有返回圖片描述');
@@ -136,6 +137,8 @@ export async function describeImageWithVisionApi(
 export async function materializeVisionDescriptions(
   messages: Message[],
   config?: VisionApiConfig | null,
+  /** API 調用記錄：這批圖是在哪個 App、替誰看的 */
+  meta?: ApiCallMeta,
 ): Promise<Message[]> {
   if (config?.enabled !== true) return messages;
   if (!isVisionApiReady(config)) {
@@ -166,7 +169,7 @@ export async function materializeVisionDescriptions(
       continue;
     }
     const description = descriptionByImage.get(imageUrl)
-      || await describeImageWithVisionApi(imageUrl, config);
+      || await describeImageWithVisionApi(imageUrl, config, meta ? { meta } : undefined);
     descriptionByImage.set(imageUrl, description);
 
     const metadata = {

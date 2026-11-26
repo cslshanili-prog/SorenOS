@@ -10,6 +10,7 @@ import { extractContent, extractJson, safeResponseJson } from './safeApi';
 import { lineFor } from './chatLine';
 import { altGuessUserText, altRevealNotes, buildAltGuessPrompt, parseAltGuessDecision } from './altReveal';
 
+import { withApiCallMeta } from './apiCallLog';
 const fieldsOf = (line: { charId: string; personaKey?: string }) => (line.personaKey ? { charId: line.charId, personaKey: line.personaKey } : { charId: line.charId });
 
 /** 認出來了：小號那條線和本人那條（同一個你）各落一則系統提示 */
@@ -42,7 +43,7 @@ export async function runAltGuess(args: {
         .map(m => `${m.role === 'user' ? userName : '你'}: ${String(m.content).replace(/\n+/g, ' ').slice(0, 160)}`)
         .join('\n');
     const prompt = `${history ? `你們最近在這個帳號上聊的：\n${history}\n\n` : ''}${buildAltGuessPrompt({ altName: alt.name, ownerName: owner.name, userName, guessName, reason, deniedTimes: alt.altDenied?.times || 0 })}`;
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -51,7 +52,7 @@ export async function runAltGuess(args: {
             messages: [{ role: 'system', content: ContextBuilder.buildRoleSettingsContext(alt) }, { role: 'user', content: prompt }],
             temperature: 0.9,
         }),
-    });
+    }, { appName: '消息', charId: alt.id, charName: alt.name, purpose: '小號被猜中' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const decision = parseAltGuessDecision(extractJson(extractContent(await safeResponseJson(response))));
     if (!decision) throw new Error('它的回覆沒看懂，再問一次試試');

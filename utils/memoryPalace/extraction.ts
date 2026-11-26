@@ -484,7 +484,7 @@ pinDays 僅在需要置頂時才寫，大多數記憶不需要。
                     stream: false,
                 }),
             },
-            2, 180_000, { appName: '記憶宮殿', purpose: '記憶提取' }
+            2, 180_000, { appName: '記憶宮殿', charId, charName, purpose: '記憶提取' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';

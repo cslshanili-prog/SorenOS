@@ -6,6 +6,7 @@ import type { APIConfig, CharacterProfile } from '../types';
 import { extractContent, extractJson, safeResponseJson } from './safeApi';
 import { CONTEXT_RANGE_POLICY_VERSION, DEFAULT_MANUAL_CONTEXT_LIMIT } from './chatContextRange';
 
+import { withApiCallMeta } from './apiCallLog';
 export interface AltDraft {
     name: string;
     /** 一句話簡介（別人看到的） */
@@ -93,14 +94,14 @@ export function buildAltCharacter(args: {
     } as CharacterProfile;
 }
 
-export async function requestAltDraft(args: Parameters<typeof buildAltGenPrompt>[0] & { apiConfig: APIConfig }): Promise<AltDraft> {
-    const { apiConfig, ...promptArgs } = args;
+export async function requestAltDraft(args: Parameters<typeof buildAltGenPrompt>[0] & { apiConfig: APIConfig; /** API 調用記錄記在本人頭上 */ ownerId?: string }): Promise<AltDraft> {
+    const { apiConfig, ownerId, ...promptArgs } = args;
     if (!apiConfig.baseUrl || !apiConfig.apiKey) throw new Error('請先配置 API');
-    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
         body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: buildAltGenPrompt(promptArgs) }], temperature: 0.95 }),
-    });
+    }, { appName: '神經鏈接', charId: ownerId, charName: promptArgs.owner.name, purpose: 'AI 生成小號' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const draft = parseAltDraft(extractContent(await safeResponseJson(response)));
     if (!draft) throw new Error('沒看懂生成的內容，再試一次');

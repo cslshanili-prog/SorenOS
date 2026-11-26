@@ -12,6 +12,7 @@ import { extractJson, safeResponseJson } from '../safeApi';
 import { injectMemoryPalace } from '../memoryPalace/pipeline';
 import type { CharacterProfile, UserProfile, Message } from '../../types';
 
+import { withApiCallMeta } from '../apiCallLog';
 // ============================================================
 // 類型
 // ============================================================
@@ -984,6 +985,8 @@ interface CallOptions<T> {
     temperature: number;
     validate: (parsed: any) => parsed is T;
     maxRetries?: number;
+    /** API 調用記錄：替哪個角色生成 */
+    char?: Pick<CharacterProfile, 'id' | 'name'>;
 }
 
 async function callLike520LLM<T>(opts: CallOptions<T>): Promise<T> {
@@ -1000,7 +1003,7 @@ async function callLike520LLM<T>(opts: CallOptions<T>): Promise<T> {
         console.log(`[520][${opts.label}] attempt ${attempt + 1}/${maxRetries + 1}`);
 
         try {
-            const response = await fetch(`${opts.apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${opts.apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1018,7 +1021,7 @@ async function callLike520LLM<T>(opts: CallOptions<T>): Promise<T> {
                     // 拉到 32000 把上限堆死，讓信能完整寫完。
                     max_tokens: 32000,
                 }),
-            });
+            }, { appName: '520', charId: opts.char?.id, charName: opts.char?.name, purpose: `520 ${opts.label}` }));
 
             if (!response.ok) {
                 throw new Error(`API ${response.status}`);
@@ -1089,6 +1092,7 @@ export async function runLike520CallA(
     return callLike520LLM<Like520CallAResult>({
         label: 'CallA',
         apiConfig,
+        char,
         systemContext: baseContext,
         userPrompt: buildCallAPrompt(userProfile.name || '你', recentMsgs),
         temperature: 0.88,
@@ -1114,6 +1118,7 @@ export async function runLike520CallB(
     return callLike520LLM<Like520CallBResult>({
         label: 'CallB',
         apiConfig,
+        char,
         systemContext: baseContext,
         userPrompt: buildCallBPrompt(userProfile.name || '你', callA, chosenTucao, recentMsgs),
         temperature: 0.9,

@@ -7,6 +7,7 @@ import { safeResponseJson, extractContent } from '../../utils/safeApi';
 import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { DB } from '../../utils/db';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 interface Props {
     char: CharacterProfile;
     characters: CharacterProfile[];
@@ -57,7 +58,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, entries, onCo
             const participants = pool.filter(p => selectedKeys.includes(p.key)).map(p => ({ name: p.name, description: p.description }));
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
             const prompt = buildTrajectoryJourneyPrompt(roleSettingsBlock, { kind, time, location, participants, detail });
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -65,7 +66,7 @@ const TrajectoryJourneyTab: React.FC<Props> = ({ char, characters, entries, onCo
                     messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
                     temperature: 0.9,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '軌跡·旅程' }));
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const data = await safeResponseJson(response);
             const story = extractContent(data).trim();

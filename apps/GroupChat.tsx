@@ -86,6 +86,7 @@ import {
     planGroupTopicBatch,
 } from '../utils/groupChat/topicBoxes';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 
@@ -1802,11 +1803,11 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                     charactersRef.current.filter(c => groupForArchive.members.includes(c.id)), userProfileBase,
                 )),
             );
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 0.3, max_tokens: 2000 }),
-            });
+            }, { appName: '群聊', purpose: `群記憶整理 · ${groupForArchive.name}` }));
             if (!response.ok) throw new Error(`API 返回 ${response.status}`);
             const data = await safeResponseJson(response);
             const parsed = parseGroupTopicBox(data.choices?.[0]?.message?.content || '');
@@ -1970,7 +1971,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             // 3. Group History + 導演任務指令（模板原文照搬進 utils/groupChat/prompts.ts）
             const liveHistoryMsgs = currentMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
             const historyWindow = liveHistoryMsgs.slice(-contextLimit);
-            const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi);
+            const preparedHistory = await materializeVisionDescriptions(historyWindow, apiConfig.visionApi, { appName: '群聊', purpose: `識圖 · ${activeGroup.name}` });
             const history = buildGroupHistoryBlock(
                 preparedHistory,
                 speakers,
@@ -2011,6 +2012,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                 userName: groupUserProfile.name,
                 signal: abort.signal,
                 onStatus: setMcpStatus,
+                meta: { appName: '群聊', purpose: `群聊導演 · ${activeGroup.name}` },
             });
 
             // Token 統計：從導演響應裡讀 usage（兼容 OpenAI 兼容接口的標準字段）
@@ -2119,7 +2121,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
             const prepareHistory = async () => {
                 const promptMsgs = filterLurkMsgs(roundMsgs);
                 const liveRoundMsgs = promptMsgs.filter(m => m.id > (activeGroup.archivedThroughMessageId || 0));
-                const preparedHistory = await materializeVisionDescriptions(liveRoundMsgs.slice(-contextLimit), apiConfig.visionApi);
+                const preparedHistory = await materializeVisionDescriptions(liveRoundMsgs.slice(-contextLimit), apiConfig.visionApi, { appName: '群聊', purpose: `識圖 · ${activeGroup.name}` });
                 const preparedById = new Map(preparedHistory.map(message => [message.id, message]));
                 // 寫回描述，下一拍不用再識圖一次
                 roundMsgs = roundMsgs.map(message => preparedById.get(message.id) || message);
@@ -2169,12 +2171,12 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         plotDirection,
                         knownPeopleNote,
                     });
-                    const res = await fetch(`${planApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                    const res = await fetch(`${planApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${planApi.apiKey}` },
                         body: JSON.stringify({ model: planApi.model, messages: [{ role: 'user', content: planPrompt }], temperature: 0.8, max_tokens: 600 }),
                         signal: abort.signal,
-                    });
+                    }, { appName: '群聊', purpose: `排出場順序 · ${activeGroup.name}` }));
                     if (res.ok) {
                         const data = await safeResponseJson(res);
                         beats = parseBeatPlan(String(data?.choices?.[0]?.message?.content ?? ''), beatMembers, maxBeats);
@@ -2223,6 +2225,7 @@ ${memberTimeline || '(暫無互動記錄)'}${oldPersonaNote ? `\n- ${oldPersonaN
                         userName: groupUserProfile.name,
                         signal: abort.signal,
                         onStatus: status => setMcpStatus(status ? `${member.name}：${status}` : ''),
+                        meta: { appName: '群聊', charId: member.id, charName: member.name, purpose: `群聊發言 · ${activeGroup.name}` },
                     });
 
                     // Token 統計：整輪累加顯示

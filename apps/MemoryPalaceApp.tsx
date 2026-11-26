@@ -59,6 +59,7 @@ import {
     resolveMemoryPalaceWaterline,
 } from '../utils/memoryPalace/waterline';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 /** 手動總結面板：每頁渲染多少條聊天記錄（翻頁，避免一次性塞幾百條 DOM 卡頓） */
 const RANGE_PAGE_SIZE = 50;
 
@@ -3255,7 +3256,7 @@ export default function MemoryPalaceApp() {
                             setTestingLight(true);
                             setLightTestResult(null);
                             try {
-                                const res = await fetch(`${lightUrl.trim().replace(/\/+$/, '')}/chat/completions`, {
+                                const res = await fetch(`${lightUrl.trim().replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -3266,7 +3267,7 @@ export default function MemoryPalaceApp() {
                                         messages: [{ role: 'user', content: 'Hi' }],
                                         max_tokens: 5,
                                     }),
-                                });
+                                }, { appName: '記憶宮殿', purpose: '測試副 API' }));
                                 if (res.ok) {
                                     const data = await res.json();
                                     const reply = (data.choices?.[0]?.message?.content || '').toString();

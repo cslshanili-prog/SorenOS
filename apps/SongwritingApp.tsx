@@ -57,6 +57,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { trackEvent } from '../utils/analytics';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // --- Helper Components ---
 
 // Phosphor icon map for voice presets — replaces flat emoji with weighted line art
@@ -509,11 +510,11 @@ const SongwritingApp: React.FC = () => {
 
             apiMessages.push({ role: 'user', content: userPrompt });
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: apiMessages, temperature: 0.8, max_tokens: 2000 })
-            });
+            }, { charId: collaborator?.id, charName: collaborator?.name, purpose: '寫歌' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);
@@ -864,7 +865,7 @@ const SongwritingApp: React.FC = () => {
                 const retryInstruction = attempt === 0
                     ? ''
                     : '\n\n【格式糾錯】上一次響應不是可用的單句歌詞。重新輸出一個完整 inspiration JSON；example_lines 只能包含一個純歌詞字符串，禁止輸出截斷 JSON、字段說明或額外正文。';
-                const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                     body: JSON.stringify({
@@ -876,7 +877,7 @@ const SongwritingApp: React.FC = () => {
                         temperature: attempt === 0 ? 0.9 : 0.65,
                         max_tokens: 500,
                     }),
-                });
+                }, { charId: collaborator?.id, charName: collaborator?.name, purpose: '寫歌' }));
                 if (!response.ok) throw new Error(`API Error: ${response.status}`);
                 const data = await safeResponseJson(response);
                 const raw = data.choices?.[0]?.message?.content?.trim() || '';
@@ -931,7 +932,7 @@ const SongwritingApp: React.FC = () => {
             );
             const systemPrompt = SongPrompts.buildCompletionSystemPrompt(collaborator, userProfile);
             const prompt = SongPrompts.buildCompletionPrompt(collaborator, userProfile, activeSong);
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -943,7 +944,7 @@ const SongwritingApp: React.FC = () => {
                     temperature: 0.7,
                     max_tokens: 500,
                 })
-            });
+            }, { charId: collaborator?.id, charName: collaborator?.name, purpose: '寫歌' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);

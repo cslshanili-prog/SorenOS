@@ -5,6 +5,7 @@ import { clampManualContextLimit, resolveContextRangeMode } from './chatContextR
 import { resolveMemoryPalaceWaterline } from './memoryPalace/waterline';
 import { expandWorldbookMacros } from './worldbook';
 
+import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
 /**
  * 神經鏈接 ·「對話範例」：角色說話風格的示範，從人設裡拆出來單獨一欄。
  *
@@ -159,9 +160,9 @@ export function applyExtractedExamples(systemPrompt: string, raw: string): Extra
     };
 }
 
-export async function extractDialogueExamples(systemPrompt: string, apiConfig: APIConfig): Promise<ExtractedExamples> {
+export async function extractDialogueExamples(systemPrompt: string, apiConfig: APIConfig, meta?: ApiCallMeta): Promise<ExtractedExamples> {
     if (!apiConfig.baseUrl || !apiConfig.apiKey) throw new Error('請先在設定裡配置 API');
-    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
         body: JSON.stringify({
@@ -169,7 +170,7 @@ export async function extractDialogueExamples(systemPrompt: string, apiConfig: A
             messages: [{ role: 'user', content: buildExtractExamplesPrompt(systemPrompt) }],
             temperature: 0,
         }),
-    });
+    }, meta));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     return applyExtractedExamples(systemPrompt, extractContent(await safeResponseJson(response)) || '');
 }

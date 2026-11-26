@@ -17,6 +17,7 @@ import { SONG_GENRES, SONG_MOODS } from './songPrompts';
 import { DB } from './db';
 import { getProxyWorkerUrl } from './proxyWorker';
 
+import { withApiCallMeta } from './apiCallLog';
 // ── Endpoint config ──
 // Same Cloudflare Worker that hosts /netease, /xhs, /webdav etc. — address comes
 // from the central config (utils/proxyWorker.ts); users can point it at their own
@@ -303,7 +304,7 @@ ${trimmed || '(用戶沒填，請完全憑角色檔案的怪癖和氣質來決�
 ${trimmed ? '⚠️ 再次提醒: 用戶 hint 裡寫明的具體音樂元素 (vocal 性別 / 風格 / 樂器 / BPM) 必須原樣保留。' : ''}
 最終回覆僅是那一行標籤串本身 (不要前後綴 / 不要解釋)。**即使 hint 模糊或為空, 也必須給出一段 8-15 個標籤的完整字符串, 絕不能空回。**`;
 
-  const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+  const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -322,7 +323,7 @@ ${trimmed ? '⚠️ 再次提醒: 用戶 hint 裡寫明的具體音樂元素 (vo
       max_tokens: 8000,
     }),
     signal,
-  });
+  }, { appName: '寫歌', charId: collaborator?.id, charName: collaborator?.name, purpose: 'AI 寫曲風提示詞' }));
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`LLM 調用失敗 (HTTP ${res.status}): ${text.slice(0, 150)}`);

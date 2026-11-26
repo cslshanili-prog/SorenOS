@@ -46,6 +46,7 @@ import { includesAnyScript } from '../utils/scriptKey';
 import { syncButtonLabel, upsertChatCard } from '../utils/chatCardSync';
 import { resolveBriefPersona } from '../utils/briefPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 type LayoutId = NonNullable<PhoneCustomApp['layout']>;
 
 const APP_LAYOUTS: { id: LayoutId; name: string; desc: string; icon: string }[] = [
@@ -953,7 +954,7 @@ ${realCharRule}
 
             const fullPrompt = `${context}\n\n### [你和用戶「${checkPhoneUserProfile.name}」的最近聊天（僅背景參考）]\n${recentMsgs}\n\n${perspectiveLock}\n\n### [Task]\n${promptInstruction}\n請結合上面的「當前時間 / 距離上次聯繫」和人設調整生成內容的時間戳和情緒。如果很久沒聯繫，記錄可能是近期的獨處狀態；如果剛聊過，記錄可能與聊天內容相關。`;
 
-            const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -961,7 +962,7 @@ ${realCharRule}
                     messages: [{ role: "user", content: fullPrompt }],
                     temperature: 0.8
                 })
-            });
+            }, { charId: targetChar?.id, charName: targetChar?.name, purpose: '查手機生成' }));
 
             if (!response.ok) throw new Error('API Error');
             const data = await safeResponseJson(response);
@@ -1102,11 +1103,11 @@ ${realCharRule}
 
     // 裸 LLM 調用（智能體生成 / 互動續寫共用）
     const callLLM = async (prompt: string, temperature = 0.85): Promise<string> => {
-        const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${effectiveApiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApiConfig.apiKey}` },
             body: JSON.stringify({ model: effectiveApiConfig.model, messages: [{ role: 'user', content: prompt }], temperature }),
-        });
+        }, { charId: targetChar?.id, charName: targetChar?.name, purpose: '查手機生成' }));
         if (!response.ok) throw new Error('API Error');
         const data = await safeResponseJson(response);
         // 用 extractContent 而非裸讀 message.content：兼容 Claude/思考類模型把正文放在
@@ -4075,6 +4076,7 @@ ${olderText}
                                     addToast={addToast}
                                     ai={{
                                         ownerName: targetChar.name,
+                                        charId: targetChar.id,
                                         system: () => ContextBuilder.buildRoleSettingsContext(targetChar, { skipMemories: true }),
                                         api: effectiveApiConfig,
                                     }}
