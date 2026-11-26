@@ -21,6 +21,7 @@ import { MONEY_SYMBOL } from './realBalance';
 import { extractContent, extractJson, safeResponseJson } from './safeApi';
 import { personaExtraSetting } from './personaSetting';
 
+import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
 // ── 小工具 ───────────────────────────────────────────
 
 const toNum = (v: unknown): number => {
@@ -247,8 +248,8 @@ export const hasAiFlows = (state: RealBalanceState): boolean => state.transactio
 
 export interface FinanceApi { baseUrl: string; apiKey: string; model: string }
 
-export async function requestFinanceJson(api: FinanceApi, system: string, prompt: string): Promise<unknown> {
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+export async function requestFinanceJson(api: FinanceApi, system: string, prompt: string, meta?: ApiCallMeta): Promise<unknown> {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -257,7 +258,7 @@ export async function requestFinanceJson(api: FinanceApi, system: string, prompt
             temperature: 0.9,
             max_tokens: 8000,
         }),
-    });
+    }, meta));
     if (!response.ok) throw new Error(`API Error ${response.status}`);
     const content = extractContent(await safeResponseJson(response));
     return extractJson(content);

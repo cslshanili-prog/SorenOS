@@ -494,7 +494,7 @@ export const ChatParser = {
          */
         frozenMusicSong?: FrozenMusicSong,
         /**
-         * 「系統設置 → 生圖API」配置。傳了且角色發圖開關都開著，才會真的執行
+         * 「系統設置 → API 配置 → 生圖」配置。傳了且角色發圖開關都開著，才會真的執行
          * `[[ACTION:SEND_PHOTO|畫面描述]]`；不傳（或配置不全）時靜默剝掉標籤、不生成——
          * 教沒教角色這個動作是 chatPrompts.ts 的事，這裡只負責「教了就要能兌現」。
          */

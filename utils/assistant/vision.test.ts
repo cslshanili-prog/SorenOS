@@ -128,7 +128,7 @@ describe('Sore 看圖：送給模型的樣子', () => {
 
     it('規矩裡有：看不到圖時怪自己這組模型；識圖沒成功別裝作看到', () => {
         expect(SORE_PERSONA).toContain('這則附了 N 張圖');
-        expect(SORE_PERSONA).toContain('識圖 API');
+        expect(SORE_PERSONA).toContain('API 配置 → 識圖');
         expect(SORE_PERSONA).toContain('齒輪');
         expect(SORE_PERSONA).toContain('識圖沒成功');
     });

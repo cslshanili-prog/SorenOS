@@ -12,6 +12,7 @@ import { lastWebShareFailure, shareBlobOnTap, shareOrDownloadBlob } from '../uti
 import { armViewportReset } from '../utils/viewportReset';
 import { bucketRetryCount, isAnalyticsConfigured, isAnalyticsEnabled, setAnalyticsEnabled, trackEvent } from '../utils/analytics';
 import Modal from '../components/os/Modal';
+import SettingsTabs from '../components/settings/SettingsTabs';
 import TranslationApiSettings from '../components/settings/TranslationApiSettings';
 import ImageGenSettingsPanel from '../components/settings/ImageGenSettingsPanel';
 import ApiCenterPanel from '../components/settings/ApiCenterPanel';
@@ -925,6 +926,12 @@ const Settings: React.FC = () => {
   const [downloadFileName, setDownloadFileName] = useState('Sully_Backup.zip');
   /** iOS 網頁自動分享沒開成：備份檔留在這，「備份下載」視窗放一顆分享鈕讓你點（有手勢才開得出分享面板） */
   const [pendingShare, setPendingShare] = useState<{ blob: Blob; fileName: string; title: string; reason: string } | null>(null);
+  // 設置頁卡片裡的分頁（同類設定收進一張卡，components/settings/SettingsTabs.tsx）
+  const [backupTab, setBackupTab] = useState<'local' | 'cloud'>(() => cloudBackupConfig.enabled ? 'cloud' : 'local');
+  const [apiTab, setApiTab] = useState<'chat' | 'image' | 'vision' | 'translate'>('chat');
+  const [voiceTab, setVoiceTab] = useState<'voice' | 'song'>('voice');
+  const [extTab, setExtTab] = useState<'realtime' | 'mcp'>('realtime');
+  const [pushTab, setPushTab] = useState<'amsg' | 'vapid' | 'subscription' | 'accel'>('amsg');
   // 用 ref 跟住當前的 object URL，關彈窗 / 重新導出 / 卸載時都能 revoke 到最新那個，
   // 不受 state 閉包過期影響。
   const downloadUrlRef = useRef<string>('');
@@ -1304,7 +1311,7 @@ const Settings: React.FC = () => {
   };
 
   // 選「誰來做語音生成」立即落庫——不需要再點下面的保存。
-  // 連同當前「其他 API」草稿一起提交（與保存按鈕同一份 payload）：一是即時生效，
+  // 連同當前「語音與寫歌」草稿一起提交（與保存按鈕同一份 payload）：一是即時生效，
   // 二是避免 [apiConfig] 同步 effect 把剛填、還沒保存的 Key 草稿沖掉。
   const selectTtsProvider = (provider: TtsProvider) => {
     setLocalTtsProvider(provider);
@@ -2120,15 +2127,18 @@ const Settings: React.FC = () => {
 
         </SettingsSection>
         
-        {/* 數據備份區域 */}
+        {/* 備份與恢復：本地文件與雲端收成一張卡，連了雲端預設打開雲端（照上游） */}
         <SettingsSection
-            title="備份與恢復 (ZIP)"
+            title="備份與恢復"
             icon={
                 <div className="p-2 bg-blue-100 rounded-xl text-blue-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" /></svg>
                 </div>
             }
         >
+            <SettingsTabs prefix="settings-backup" label="備份方式" selected={backupTab} onSelect={setBackupTab}
+                tabs={[{ id: 'local', label: '本地文件' }, { id: 'cloud', label: '雲端', dot: cloudBackupConfig.enabled }]}>
+            {backupTab === 'local' ? <>
             <StorageUsagePanel />
 
             <div className="mb-3">
@@ -2293,17 +2303,7 @@ const Settings: React.FC = () => {
             <button onClick={() => setShowResetConfirm(true)} className="w-full py-3 bg-red-50 border border-red-100 text-red-500 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
                 格式化系統 (出廠設置)
             </button>
-        </SettingsSection>
-
-        {/* 雲端備份區域 */}
-        <SettingsSection
-            title="雲端備份"
-            icon={
-                <div className="p-2 bg-sky-100 rounded-xl text-sky-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" /></svg>
-                </div>
-            }
-        >
+            </> : <>
             {!cloudBackupConfig.enabled ? (
                 <div className="space-y-3 py-2">
                     <p className="text-[11px] text-slate-400 leading-relaxed text-center">
@@ -2428,9 +2428,11 @@ const Settings: React.FC = () => {
                 備份始終存放在你自己的 WebDAV 或 GitHub 帳號中，項目不建立用戶備份數據庫。
                 網頁 WebDAV 因跨域限制需要中轉；GitHub 默認直連，網絡受限時可自行開啟中轉。
             </p>
+            </>}
+            </SettingsTabs>
         </SettingsSection>
 
-        {/* AI 連接設置區域 */}
+        {/* API 配置：對話、生圖、識圖、翻譯四頁收成一張卡；副 API 中心另一張（Liora 2026-11-26） */}
         <SettingsSection
             title="API 配置"
             sectionProps={{ 'data-guide': 'api' }}
@@ -2441,12 +2443,20 @@ const Settings: React.FC = () => {
                     </svg>
                 </div>
             }
-            actions={
+            actions={apiTab === 'chat' ? (
                 <button onClick={() => { setNewPresetName(''); setShowPresetModal(true); }} className="text-[10px] bg-slate-100 text-slate-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
                     新建預設
                 </button>
-            }
+            ) : undefined}
         >
+            <SettingsTabs prefix="settings-api" label="API 類型" selected={apiTab} onSelect={setApiTab}
+                tabs={[
+                    { id: 'chat', label: '對話' },
+                    { id: 'image', label: '生圖' },
+                    { id: 'vision', label: '識圖', dot: !!apiConfig.visionApi?.enabled },
+                    { id: 'translate', label: '翻譯', dot: !!(apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm') },
+                ]}>
+            {apiTab === 'chat' ? <>
             {/* Presets List */}
             {apiPresets.length > 0 && (
                 <div className="mb-4">
@@ -2618,58 +2628,16 @@ const Settings: React.FC = () => {
                     </div>
                 )}
             </div>
-        </SettingsSection>
-
-        {/* API 中心（plans/api-center-failover.md）：四個副槽集中在這裡填，角色級留著當覆蓋（朋友圈槽反過來蓋過角色） */}
-        <SettingsSection
-            title="副 API 中心"
-            badge={<span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500">記憶 · 情緒／日程 · 主動消息 · 朋友圈</span>}
-            icon={
-                <div className="p-2 bg-slate-100 rounded-xl text-slate-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                    </svg>
-                </div>
-            }
-        >
-            <ApiCenterPanel />
-        </SettingsSection>
-
-        {/* 生圖 API 區域：放在 API 配置正下方（Liora 2026-11-14） */}
-        <SettingsSection
-            title="生圖API"
-            icon={
-                <div className="p-2 bg-pink-100/50 rounded-xl text-pink-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M18 22.5H6a2.25 2.25 0 0 1-2.25-2.25V3.75A2.25 2.25 0 0 1 6 1.5h12a2.25 2.25 0 0 1 2.25 2.25v16.5A2.25 2.25 0 0 1 18 22.5ZM10.5 8.25a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z" />
-                    </svg>
-                </div>
-            }
-        >
+            </> : apiTab === 'image' ? <>
             <ImageGenSettingsPanel apiConfig={apiConfig} updateApiConfig={updateApiConfig} />
-        </SettingsSection>
-
-        {/* 獨立識圖 API：給不支持 image_url 的主模型補視覺能力；可手動從通用模型預設載入。 */}
-        <SettingsSection
-            title="識圖 API"
-            badge={
-                <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${
+            </> : apiTab === 'vision' ? <>
+            <div className="flex items-center gap-2 mb-3 pl-1 text-[11px] text-slate-400">目前 <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${
                     apiConfig.visionApi?.enabled
                         ? 'bg-violet-100 text-violet-600'
                         : 'bg-slate-100 text-slate-400'
                 }`}>
                     {apiConfig.visionApi?.enabled ? '已接入' : '未接入'}
-                </span>
-            }
-            icon={
-                <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    </svg>
-                </div>
-            }
-        >
+                </span></div>
             <div className="space-y-4">
                 <div className="rounded-2xl border border-violet-100 bg-violet-50/60 p-3.5">
                     <div className="flex items-center justify-between gap-3">
@@ -2805,32 +2773,36 @@ const Settings: React.FC = () => {
                     </div>
                 )}
             </div>
+            </> : <>
+            <div className="flex items-center gap-2 mb-3 pl-1 text-[11px] text-slate-400">目前用 <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? ({ deepl: 'DeepL', google: 'Google', azure: 'Azure' } as Record<string, string>)[apiConfig.translationApi.provider] : '聊天模型'}
+                </span></div>
+            <TranslationApiSettings apiConfig={apiConfig} updateApiConfig={updateApiConfig} apiPresets={apiPresets} />
+            </>}
+            </SettingsTabs>
         </SettingsSection>
 
-        {/* 翻譯 API：聊天語言「先寫再翻」與「我的訊息自動譯出」用（plans/chat-language.md 第 2 批） */}
+        {/* API 中心（plans/api-center-failover.md）：四個副槽集中在這裡填，角色級留著當覆蓋（朋友圈槽反過來蓋過角色） */}
         <SettingsSection
-            title="翻譯 API"
-            badge={
-                <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? 'bg-sky-100 text-sky-600' : 'bg-slate-100 text-slate-400'}`}>
-                    {apiConfig.translationApi && apiConfig.translationApi.provider !== 'llm' ? ({ deepl: 'DeepL', google: 'Google', azure: 'Azure' } as Record<string, string>)[apiConfig.translationApi.provider] : '聊天模型'}
-                </span>
-            }
+            title="副 API 中心"
+            badge={<span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500">記憶 · 情緒／日程 · 主動消息 · 朋友圈</span>}
             icon={
-                <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600">
+                <div className="p-2 bg-slate-100 rounded-xl text-slate-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138c.896.061 1.785.147 2.666.257m-4.589 8.495a18.023 18.023 0 0 1-3.827-5.802" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
                     </svg>
                 </div>
             }
         >
-            <TranslationApiSettings apiConfig={apiConfig} updateApiConfig={updateApiConfig} apiPresets={apiPresets} />
+            <ApiCenterPanel />
         </SettingsSection>
 
-        {/* API 調用記錄入口 — 點開看最近 5 天各 App / 角色 / 用途的調用明細 */}
-        <button
+        {/* 記錄：API 調用記錄＋錯誤記錄收在一張，不用展開就看得到（Liora 2026-11-26） */}
+        <section className="bg-[#fffefe] rounded-3xl p-2 shadow-[0_8px_24px_rgba(15,23,42,0.05)] border border-slate-200/80 divide-y divide-slate-100">
+            <button
             type="button"
             onClick={() => setShowApiCallLog(true)}
-            className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+            className="w-full flex items-center gap-3 rounded-2xl p-3 active:bg-slate-50 active:scale-[0.99] transition-transform text-left"
         >
             <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -2845,12 +2817,10 @@ const Settings: React.FC = () => {
                 <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
             </svg>
         </button>
-
-        {/* 錯誤記錄入口 — 頂端紅膠囊的歷史，本機留 7 天（utils/systemLogStore.ts） */}
-        <button
+            <button
             type="button"
             onClick={() => setShowErrorLog(true)}
-            className="w-full bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50 flex items-center gap-3 active:scale-[0.99] transition-transform text-left"
+            className="w-full flex items-center gap-3 rounded-2xl p-3 active:bg-slate-50 active:scale-[0.99] transition-transform text-left"
         >
             <div className="p-2 bg-rose-100/60 rounded-xl text-rose-500 shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -2865,10 +2835,11 @@ const Settings: React.FC = () => {
                 <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 0 1 .02-1.06L11.168 10 7.23 6.29a.75.75 0 1 1 1.04-1.08l4.5 4.25a.75.75 0 0 1 0 1.08l-4.5 4.25a.75.75 0 0 1-1.06-.02Z" clipRule="evenodd" />
             </svg>
         </button>
+        </section>
 
-        {/* 其他 API 區域 — 非 LLM 類（語音、寫歌等），不會跟隨預設切換 */}
+        {/* 語音與寫歌：非 LLM 類 API，不跟預設切換；分語音、寫歌兩頁 */}
         <SettingsSection
-            title="其他 API"
+            title="語音與寫歌"
             icon={
                 <div className="p-2 bg-amber-100/50 rounded-xl text-amber-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -2878,10 +2849,13 @@ const Settings: React.FC = () => {
             }
         >
             <p className="text-[11px] text-slate-400 mb-4 leading-relaxed pl-1">
-                語音 / 寫歌等非 LLM 類 API。這些設置 <span className="font-semibold text-slate-500">不會隨預設切換</span>，通常只配置一次。
+                語音、寫歌這些不是聊天模型的 API。這些設置 <span className="font-semibold text-slate-500">不會隨預設切換</span>，通常只配置一次。
             </p>
 
+            <SettingsTabs prefix="settings-voice" label="語音與寫歌" selected={voiceTab} onSelect={setVoiceTab}
+                tabs={[{ id: 'voice', label: '語音' }, { id: 'song', label: '寫歌' }]}>
             <div className="space-y-4">
+            {voiceTab === 'voice' ? <>
                 <p className="text-[11px] text-slate-400 -mt-1 pl-1 leading-relaxed">
                     🎙️ 語音生成支持 <span className="font-semibold text-slate-500">MiniMax</span>、<span className="font-semibold text-slate-500">魚聲 Fish</span> 和 <span className="font-semibold text-slate-500">ElevenLabs</span>。三家的配置都會保留，最後在底部選擇當前引擎。
                 </p>
@@ -3119,6 +3093,8 @@ const Settings: React.FC = () => {
                     )}
                 </div>
 
+
+            </> : <>
                 <div className="group">
                     <div className="flex items-center justify-between mb-1.5 pl-1">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">寫歌 · Replicate Token (可選)</label>
@@ -3194,15 +3170,18 @@ const Settings: React.FC = () => {
                     )}
                 </div>
 
+
+            </>}
                 <button onClick={handleSaveOtherApis} className="w-full py-3 rounded-2xl font-bold text-white shadow-lg shadow-amber-500/20 bg-amber-500 active:scale-95 transition-all mt-2">
-                    {otherStatusMsg || '保存其他 API'}
+                    {otherStatusMsg || '保存語音與寫歌'}
                 </button>
             </div>
+            </SettingsTabs>
         </SettingsSection>
 
-        {/* 實時感知配置區域 */}
+        {/* 擴展連接：實時感知與 MCP 收成一張卡 */}
         <SettingsSection
-            title="實時感知"
+            title="擴展連接"
             icon={
                 <div className="p-2 bg-violet-100/50 rounded-xl text-violet-600">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
@@ -3210,12 +3189,26 @@ const Settings: React.FC = () => {
                     </svg>
                 </div>
             }
-            actions={
+            actions={extTab === 'realtime' ? (
                 <button onClick={() => { trackEvent('打开实时感知配置'); setShowRealtimeModal(true); }} className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
                     配置
                 </button>
-            }
+            ) : (
+                <>
+                    <button
+                        onClick={() => { trackEvent('打开「MCP 是什么」说明弹窗'); setShowMcpHelp(true); }}
+                        aria-label="MCP 是什麼？"
+                        className="w-7 h-7 rounded-full border border-slate-200 bg-white text-[12px] font-bold text-slate-400 active:scale-90 transition-all"
+                    >?</button>
+                    <button onClick={() => { trackEvent('打开MCP工具服务器配置'); setShowMcpModal(true); }} className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
+                        管理
+                    </button>
+                </>
+            )}
         >
+            <SettingsTabs prefix="settings-ext" label="擴展連接" selected={extTab} onSelect={setExtTab}
+                tabs={[{ id: 'realtime', label: '實時感知' }, { id: 'mcp', label: 'MCP' }]}>
+            {extTab === 'realtime' ? <>
             <p className="text-xs text-slate-500 mb-3 leading-relaxed">
                 讓AI角色感知真實世界：天氣、新聞熱點、當前時間。角色可以根據天氣關心你、聊聊最近的熱點話題。
             </p>
@@ -3242,30 +3235,8 @@ const Settings: React.FC = () => {
                     小紅書
                 </div>
             </div>
-        </SettingsSection>
-
-        {/* 通用 MCP，獨立於實時感知 */}
-        <SettingsSection
-            title="MCP"
-            badge={<span className="text-[9px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-bold shrink-0">本機配置</span>}
-            icon={
-                <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
-                    <PlugsConnected size={16} weight="fill" />
-                </div>
-            }
-            actions={
-                <>
-                    <button
-                        onClick={() => { trackEvent('打开「MCP 是什么」说明弹窗'); setShowMcpHelp(true); }}
-                        aria-label="MCP 是什麼？"
-                        className="w-7 h-7 rounded-full border border-slate-200 bg-white text-[12px] font-bold text-slate-400 active:scale-90 transition-all"
-                    >?</button>
-                    <button onClick={() => { trackEvent('打开MCP工具服务器配置'); setShowMcpModal(true); }} className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform">
-                        管理
-                    </button>
-                </>
-            }
-        >
+            </> : <>
+            <p className="mb-3 pl-1 text-[11px] text-slate-400"><span className="text-[9px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded-full font-bold mr-1.5">本機配置</span>MCP 的設定只存在這台裝置。</p>
             <p className="text-xs text-slate-500 leading-relaxed">
                 連接標準 MCP 服務器，讓聊天可以調用資料庫、搜索、筆記或智能家居等工具。
             </p>
@@ -3283,27 +3254,50 @@ const Settings: React.FC = () => {
                     </p>
                 );
             })()}
+            </>}
+            </SettingsTabs>
         </SettingsSection>
 
-        {/* ───────── 推送憑據 (VAPID) ───────── */}
-        {/* VAPID 公私鑰：主動消息 2.0 部署 Worker 時用的就是這一對（一鍵部署自動沿用，手動部署照著填 env）。 */}
-        {/* vapidReadyTick: VAPID 彈窗關閉後 +1, 讓本節點 re-render 重讀 isPushVapidReady(). */}
+        {/* 主動消息與推送：主動消息 2.0、推送憑據、訂閱狀態、Push 加速收成一張卡（照上游合併同類卡片的做法） */}
         <SettingsSection
-            title="推送憑據 (VAPID)"
+            title="主動消息與推送"
             sectionProps={{ 'data-vapid-tick': vapidReadyTick }}
             icon={
                 <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
-                    </svg>
-                </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                    </div>
             }
-            actions={
+            actions={pushTab === 'amsg' ? (
+                <button
+                    onClick={() => { trackEvent('打开主动消息2.0配置'); setShowAmsg2Modal(true); }}
+                    className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
+                >
+                    配置
+                </button>
+            ) : pushTab === 'vapid' ? (
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isPushVapidReady() ? 'bg-violet-100 text-violet-600' : 'bg-rose-100 text-rose-600'}`}>
                     {isPushVapidReady() ? '已配置' : '未配置'}
                 </span>
-            }
+            ) : pushTab === 'accel' ? (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ppEnabled ? 'bg-teal-100 text-teal-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {ppEnabled ? '已啟用' : '未啟用'}
+                </span>
+            ) : undefined}
         >
+            <SettingsTabs prefix="settings-push" label="主動消息與推送" selected={pushTab} onSelect={setPushTab}
+                tabs={[
+                    { id: 'amsg', label: '主動消息 2.0' },
+                    { id: 'vapid', label: '推送憑據', dot: isPushVapidReady() },
+                    { id: 'subscription', label: '訂閱狀態' },
+                    ...(SHOW_PROACTIVE_PUSH_ACCEL_UI && ppAvailable ? [{ id: 'accel' as const, label: 'Push 加速', dot: ppEnabled }] : []),
+                ]}>
+            {pushTab === 'amsg' ? <>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                角色到點自動給你發消息，App 關著也能收。需要你自己部署一個 Cloudflare Worker（自帶 D1 數據庫 + 定時觸發），在配置裡填地址即可。聊天上雲（即時對話）與定時主動消息都由它承擔。
+            </p>
+            </> : pushTab === 'vapid' ? <>
             <p className="text-xs text-slate-500 mb-3 leading-relaxed">
                 主動消息 2.0 的 Worker 用這對密鑰籤推送：一鍵部署會自動沿用，手動部署時把它們填進 Worker 的環境變量。重新生成之後要重新部署 Worker 才能生效。
             </p>
@@ -3314,39 +3308,7 @@ const Settings: React.FC = () => {
             >
                 {isPushVapidReady() ? '查看 / 重新生成' : '生成 VAPID 密鑰對 →'}
             </button>
-        </SettingsSection>
-
-        {/* ───────── 推送訂閱狀態（診斷 + 重置） ───────── */}
-        <SettingsSection
-            title="推送訂閱狀態"
-            icon={
-                <div className="p-2 bg-sky-100/60 rounded-xl text-sky-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 0 1-1.043 3.296 3.745 3.745 0 0 1-3.296 1.043A3.745 3.745 0 0 1 12 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 0 1-3.296-1.043 3.745 3.745 0 0 1-1.043-3.296A3.745 3.745 0 0 1 3 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 0 1 1.043-3.296 3.746 3.746 0 0 1 3.296-1.043A3.746 3.746 0 0 1 12 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 0 1 3.296 1.043 3.746 3.746 0 0 1 1.043 3.296A3.745 3.745 0 0 1 21 12Z" />
-                    </svg>
-                </div>
-            }
-        >
-            <PushSubscriptionPanel addToast={addToast} />
-        </SettingsSection>
-
-        {/* ───────── 主動消息 Push 加速器（開關） ───────── */}
-        {SHOW_PROACTIVE_PUSH_ACCEL_UI && ppAvailable && (
-        <SettingsSection
-            title="主動消息 Push 加速"
-            icon={
-                <div className="p-2 bg-teal-100/60 rounded-xl text-teal-600">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                    </svg>
-                </div>
-            }
-            actions={
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${ppEnabled ? 'bg-teal-100 text-teal-600' : 'bg-slate-100 text-slate-400'}`}>
-                    {ppEnabled ? '已啟用' : '未啟用'}
-                </span>
-            }
-        >
+            </> : pushTab === 'accel' && SHOW_PROACTIVE_PUSH_ACCEL_UI && ppAvailable ? <>
             <p className="text-xs text-slate-500 mb-3 leading-relaxed">
                 讓主動消息在瀏覽器後台標籤裡也能準點觸發。AI 仍在本地生成，雲端只管"到點喊醒瀏覽器"。
                 瀏覽器進程被完全關閉時無法喚醒——下次打開 app 會自動補跑漏掉的主動消息，
@@ -3513,31 +3475,11 @@ const Settings: React.FC = () => {
                     {ppZombieStreak >= 3 && <><br/>連續幾次都沒成，已切到"深度重置"——點一下做一次更徹底的清理。</>}
                 </p>
             </div>
+            </> : <>
+            <PushSubscriptionPanel addToast={addToast} />
+            </>}
+            </SettingsTabs>
         </SettingsSection>
-        )}
-
-        {/* ───────── 主動消息 2.0（定時推送） ───────── */}
-        <section className="bg-white/80 rounded-3xl p-5 shadow-sm border border-white/50">
-            <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className="p-2 bg-violet-100/60 rounded-xl text-violet-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                    </div>
-                    <h2 className="text-sm font-semibold text-slate-600 tracking-wider">主動消息 2.0</h2>
-                </div>
-                <button
-                    onClick={() => { trackEvent('打开主动消息2.0配置'); setShowAmsg2Modal(true); }}
-                    className="text-[10px] bg-violet-100 text-violet-600 px-3 py-1.5 rounded-full font-bold shadow-sm active:scale-95 transition-transform"
-                >
-                    配置
-                </button>
-            </div>
-            <p className="text-xs text-slate-500 leading-relaxed">
-                角色到點自動給你發消息，App 關著也能收。需要你自己部署一個 Cloudflare Worker（自帶 D1 數據庫 + 定時觸發），在配置裡填地址即可。聊天上雲（即時對話）與定時主動消息都由它承擔。
-            </p>
-        </section>
 
         {/* 自定義網絡代理 — 刻意低調的高級入口。默認摺疊，不主動指引基本發現不了。
             普通用戶無需配置：默認走作者部署的公共 Worker，所有功能開箱即用。 */}
@@ -3652,7 +3594,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* 主動消息 Push 加速 · 啟用前確認 */}
-      <Modal
+      <Modal size="large"
           isOpen={showPpConfirm}
           title="啟用 Push 加速？"
           onClose={() => setShowPpConfirm(false)}
@@ -3709,7 +3651,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* Cloud Config Modal */}
-      <Modal isOpen={showCloudModal} title="雲端備份配置" onClose={() => setShowCloudModal(false)}>
+      <Modal size="large" isOpen={showCloudModal} title="雲端備份配置" onClose={() => setShowCloudModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
                   <p className="text-[10px] text-rose-700 leading-relaxed">
@@ -3768,7 +3710,7 @@ const Settings: React.FC = () => {
 
       {/* GitHub Backup Modal — minimum-input flow: paste a token, we figure
           out owner via /user and auto-create a private 'sully-backup' repo. */}
-      <Modal isOpen={showGithubModal} title="GitHub 備份" onClose={() => setShowGithubModal(false)}>
+      <Modal size="large" isOpen={showGithubModal} title="GitHub 備份" onClose={() => setShowGithubModal(false)}>
           <div className="space-y-4 p-1">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
                   <p className="text-[11px] text-slate-700 leading-relaxed">
@@ -3908,7 +3850,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* Cloud Restore Modal */}
-      <Modal isOpen={showCloudRestoreModal} title="從雲端恢復" onClose={() => setShowCloudRestoreModal(false)}>
+      <Modal size="large" isOpen={showCloudRestoreModal} title="從雲端恢復" onClose={() => setShowCloudRestoreModal(false)}>
           <div className="space-y-2 p-1">
               {cloudBackupListState === 'loading' ? (
                   <div className="text-center py-8"><p className="text-[11px] text-slate-400">正在加載雲端備份列表...</p></div>
@@ -3922,7 +3864,7 @@ const Settings: React.FC = () => {
               ) : (
                   <>
                       <p className="text-[10px] text-slate-400 mb-2">選擇要恢復的備份文件:</p>
-                      <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                      <div className="space-y-2">
                           {cloudBackupFiles.map((file, i) => file.status === 'incomplete' ? (
                               <div key={file.href || i} className="w-full p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-left">
                                   <div className="flex items-start justify-between gap-2">
@@ -3958,7 +3900,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 模型選擇 Modal */}
-      <Modal isOpen={showModelModal} title="選擇模型" onClose={() => setShowModelModal(false)}>
+      <Modal size="large" isOpen={showModelModal} title="選擇模型" onClose={() => setShowModelModal(false)}>
         {(() => {
             const { filtered, commonPrefix } = modelPickerView;
             return (
@@ -4038,7 +3980,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 識圖 API 使用獨立模型列表，避免覆蓋主 API 的模型選擇。 */}
-      <Modal isOpen={showVisionModelModal} title="選擇識圖模型" onClose={() => setShowVisionModelModal(false)}>
+      <Modal size="large" isOpen={showVisionModelModal} title="選擇識圖模型" onClose={() => setShowVisionModelModal(false)}>
         {(() => {
             const { filtered, commonPrefix } = visionModelPickerView;
             return (
@@ -4130,7 +4072,7 @@ const Settings: React.FC = () => {
       <ErrorLogModal isOpen={showErrorLog} onClose={() => setShowErrorLog(false)} />
 
       {/* Preset Name Modal */}
-      <Modal isOpen={showPresetModal} title="新建預設" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">新建</button>}>
+      <Modal size="large" isOpen={showPresetModal} title="新建預設" onClose={() => setShowPresetModal(false)} footer={<button onClick={handleSavePreset} className="w-full py-3 bg-primary text-white font-bold rounded-2xl">新建</button>}>
           <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase">預設名稱 (例如: DeepSeek)</label>
               <input value={newPresetName} onChange={e => setNewPresetName(e.target.value)} className="w-full bg-slate-100 rounded-xl px-4 py-3 text-sm focus:outline-primary" autoFocus placeholder="Name..." />
@@ -4139,7 +4081,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 編輯預設：只改這條預設本身；正在用它的話，當前配置一併跟著走 */}
-      <Modal
+      <Modal size="large"
           isOpen={!!editingPresetId}
           title="編輯預設"
           onClose={() => setEditingPresetId(null)}
@@ -4218,7 +4160,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 強制導出 Modal */}
-      <Modal isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} footer={
+      <Modal size="large" isOpen={showExportModal} title="備份下載" onClose={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} footer={
           <div className="flex gap-2 w-full">
                <button onClick={() => { revokeDownloadUrl(); setPendingShare(null); setShowExportModal(false); }} className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-2xl">關閉</button>
           </div>
@@ -4243,13 +4185,13 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 實時感知配置 Modal */}
-      <Modal
+      <Modal size="large"
           isOpen={showRealtimeModal}
           title="實時感知配置"
           onClose={() => setShowRealtimeModal(false)}
           footer={<button onClick={handleSaveRealtimeConfig} className="w-full py-3 bg-violet-500 text-white font-bold rounded-2xl shadow-lg">保存配置</button>}
       >
-          <div className="space-y-5 max-h-[60vh] overflow-y-auto no-scrollbar">
+          <div className="space-y-5">
               <UserHolidaySettings value={rtUserHolidays} onChange={setRtUserHolidays} />
               {/* 天氣配置 */}
               <div className="bg-emerald-50/50 p-4 rounded-2xl space-y-3">
@@ -4710,7 +4652,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 通用 MCP 管理（從實時感知裡獨立出來） */}
-      <Modal isOpen={showMcpModal} title="MCP" onClose={() => { setShowMcpModal(false); flushMcpToolConfigSync(); }}>
+      <Modal size="large" isOpen={showMcpModal} title="MCP" onClose={() => { setShowMcpModal(false); flushMcpToolConfigSync(); }}>
           <div className="space-y-4">
               <McpConnectionConsole addToast={addToast} onMcpConfigChanged={() => {
                   // MCP 配置變更只需重傳 tool_config：提示詞塊與 tools 數組由 worker 在 fire 時
@@ -4724,7 +4666,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* MCP 幫助 Modal —— 面向完全不懂 MCP 的用戶，講清用途與部署方式 */}
-      <Modal isOpen={showMcpHelp} title="MCP 是什麼？" onClose={() => setShowMcpHelp(false)}>
+      <Modal size="large" isOpen={showMcpHelp} title="MCP 是什麼？" onClose={() => setShowMcpHelp(false)}>
           <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
               <div className="bg-violet-50/60 rounded-xl p-3 space-y-1.5">
                   <p className="font-bold text-violet-700">MCP 工具服務器</p>
@@ -4777,7 +4719,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 確認重置 Modal */}
-      <Modal
+      <Modal size="large"
           isOpen={showResetConfirm}
           title="系統警告"
           onClose={() => setShowResetConfirm(false)}
@@ -4800,7 +4742,7 @@ const Settings: React.FC = () => {
       </Modal>
 
       {/* 雲端沒清乾淨：本地還一個字節都沒動，讓用戶決定 */}
-      <Modal
+      <Modal size="large"
           isOpen={!!resetCloudFailure}
           title="雲端還沒清乾淨"
           onClose={() => setResetCloudFailure(null)}

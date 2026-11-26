@@ -68,6 +68,7 @@ const callLlm = async (
     apiConfig: APIConfig,
     systemPrompt: string,
     userMessage: string,
+    who?: Pick<CharacterProfile, 'id' | 'name'>,
 ): Promise<string> => {
     const baseUrl = apiConfig.baseUrl.replace(/\/+$/, '');
     const resp = await fetch(`${baseUrl}/chat/completions`, {
@@ -86,7 +87,7 @@ const callLlm = async (
             stream: false,
         }),
         // API 調用記錄標籤：自由活動是後台任務，不標會被兜底成「用戶當時打開的 App」
-        __sullyMeta: { appName: '自由活動', purpose: '自由活動生成' },
+        __sullyMeta: { appName: '自由活動', charId: who?.id, charName: who?.name, purpose: '自由活動生成' },
     } as RequestInit);
 
     if (!resp.ok) throw new Error(`LLM API ${resp.status}: ${await resp.text().catch(() => '')}`);
@@ -366,6 +367,7 @@ const handleViewDetail = async (
         apiConfig,
         systemPrompt,
         buildDetailReactionPrompt(noteTitle, noteContent, comments, commentsUnavailable, canInteract),
+        char,
     );
     const reaction = parseJson<LlmDetailReaction>(reactionRaw);
 
@@ -494,7 +496,7 @@ export const XhsFreeRoamEngine = {
 
             // 4. Character decides
             callbacks.onStatus(`${char.name}在決定做什麼...`);
-            const decisionRaw = await callLlm(apiConfig, systemPrompt, buildDecisionPrompt());
+            const decisionRaw = await callLlm(apiConfig, systemPrompt, buildDecisionPrompt(), char);
             const decision = parseJson<LlmDecision>(decisionRaw);
 
             if (!decision) {
@@ -617,7 +619,7 @@ export const XhsFreeRoamEngine = {
 
                     // Let character react to what they saw (normalized notes have proper title/author)
                     callbacks.onStatus(`${char.name}在看搜索結果...`);
-                    const reactionRaw = await callLlm(apiConfig, systemPrompt, buildReactionPrompt(notes));
+                    const reactionRaw = await callLlm(apiConfig, systemPrompt, buildReactionPrompt(notes), char);
                     const reaction = parseJson<LlmReaction>(reactionRaw);
 
                     if (reaction?.thinking) {
@@ -741,7 +743,7 @@ export const XhsFreeRoamEngine = {
                     const reactionRaw = await callLlm(apiConfig, systemPrompt, buildProfileReactionPrompt(
                         '這是按角色獨立保存的個人主頁；真實小紅書帳號可能與其他角色共用',
                         notes
-                    ));
+                    ), char);
                     const reaction = parseJson<LlmReaction & { wantToViewDetail?: { noteId: string; title: string } }>(reactionRaw);
                     if (reaction?.thinking) {
                         callbacks.onThinking(reaction.thinking);

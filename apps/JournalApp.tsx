@@ -20,6 +20,7 @@ import JournalAppearanceButton, { JournalAppearanceStyle } from '../components/j
 import JournalThemeArtwork from '../components/journal/JournalThemeArtwork';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const INTRO_SEEN_KEY = 'journal_app_intro_seen_v4';
 
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
@@ -507,7 +508,7 @@ Structure:
   "stickers": ["sticker1", "http://custom-sticker-url..."] (從默認列表或 Custom Stickers 中選0-3個)
 }`;
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -518,7 +519,7 @@ Structure:
                     ],
                     temperature: 0.85
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '交換日記' }));
 
             if (!response.ok) throw new Error('API Error');
             const data = await safeResponseJson(response);
@@ -618,7 +619,7 @@ ${charPart}
 3. **細節勝過抽象**: 多說具體的事 (人名、地點、物件、當時的情緒),少用"我們度過了美好的一天"這種空話。
 4. **篇幅**: 150~300 字之間的一段中文敘述,不要分段,不要列表,不要任何前綴和標題,直接出敘述。
 `;
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -627,7 +628,7 @@ ${charPart}
                     temperature: 0.4,
                     max_tokens: 1200,
                 }),
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '日記總結' }));
             if (!response.ok) throw new Error(`主 API 失敗 (${response.status})`);
             const data = await safeResponseJson(response);
             let s = (data.choices?.[0]?.message?.content || '').trim();

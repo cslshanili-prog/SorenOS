@@ -11,7 +11,7 @@
 
 **部署（運營方做一次）：** 像平時一樣重新部署 `worker/index.js` 即可，URL 不變。
 
-**用戶側（不需要電腦/部署）：** SullyOS → 設置 → 實時感知 → 小紅書：
+**用戶側（不需要電腦/部署）：** SullyOS → 設置 → 擴展連接 → 實時感知 → 小紅書：
 - 服務器 URL 已默認 `https://sullymeow.ccwu.cc/api`，一般無需改。
 - 粘貼瀏覽器登錄 `xiaohongshu.com` 或 `rednote.com` 後的完整 cookie（含 `a1` 和
   `web_session`），點測試連接。Lite 會分別探測國內與全球后端並自動選擇，不依賴

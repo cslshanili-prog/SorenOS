@@ -92,7 +92,7 @@ async function callPlateLLM(
                 stream: false,
             }),
         },
-        2, PLATE_LLM_TIMEOUT_MS, { appName: '記憶宮殿', purpose: '門牌整理' }
+        2, PLATE_LLM_TIMEOUT_MS, { appName: '記憶宮殿', charName, purpose: '門牌整理' }
     );
 
     return parsePlateLlmReply(data.choices?.[0]?.message?.content || '');

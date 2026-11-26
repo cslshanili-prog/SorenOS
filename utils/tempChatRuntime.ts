@@ -12,6 +12,7 @@ import {
     tempChatThread, type TempChatMeta,
 } from './tempChat';
 
+import { withApiCallMeta } from './apiCallLog';
 /**
  * 臨時會話的執行層：用戶送一句、角色回一句（或被拉黑的角色自己傳話）。純邏輯在 utils/tempChat.ts。
  * 角色這邊用它自己的對話模型；今天次數用完就不打 API。
@@ -87,7 +88,7 @@ export async function generateCharTempMessage(params: {
     const prompt = buildTempChatPrompt({
         char, userName, before, thread, rejected, remaining: state.charRemaining, maxChars: state.limits.maxChars, replying, firstAttempt,
     });
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -95,7 +96,7 @@ export async function generateCharTempMessage(params: {
             messages: [{ role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) }, { role: 'user', content: prompt }],
             temperature: 0.9,
         }),
-    });
+    }, { appName: '消息', charId: char.id, charName: char.name, purpose: replying ? '臨時會話回覆' : '臨時會話主動' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const rawText = extractContent(await safeResponseJson(response)) || '';
     const result = parseTempChatReply(extractJson(rawText, { silent: true }), rawText, state.limits.maxChars);

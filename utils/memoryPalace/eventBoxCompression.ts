@@ -220,7 +220,7 @@ ${sarMemoryBoundary ? `\n${sarMemoryBoundary}` : ''}
                     stream: false,
                 }),
             },
-            2, 120_000, { appName: '記憶宮殿', purpose: '事件壓縮' }
+            2, 120_000, { appName: '記憶宮殿', charId: box.charId, charName, purpose: '事件壓縮' }
         );
 
         // 統一剝除 <think> 塊併兼容分段 content / reasoning-only 中轉。
@@ -312,7 +312,7 @@ async function recompressSummary(
                     stream: false,
                 }),
             },
-            2, 90_000, { appName: '記憶宮殿', purpose: '事件壓縮-二次壓縮' }
+            2, 90_000, { appName: '記憶宮殿', charName, purpose: '事件壓縮-二次壓縮' }
         );
         const reply = (data.choices?.[0]?.message?.content || '').trim();
         // 模型偶爾仍會裹 ``` 代碼塊，剝掉常見包裹

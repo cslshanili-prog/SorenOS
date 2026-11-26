@@ -5,6 +5,7 @@ import { ContextBuilder } from './context';
 import { safeResponseJson } from './safeApi';
 import { includesAnyScript } from './scriptKey';
 
+import { withApiCallMeta } from './apiCallLog';
 // --- Visual Themes ---
 export const NOVEL_THEMES = [
     { id: 'sakura', name: '櫻花 (Sakura)', bg: 'bg-pink-50', paper: 'bg-[#fff5f7]', text: 'text-slate-700', accent: 'text-pink-500', button: 'bg-pink-400', activeTab: 'bg-pink-500 text-white' },
@@ -390,7 +391,7 @@ ${char.memories?.slice(-3).map(m => `- ${m.summary}`).join('\n') || '- 無記憶
 **字數要求**：總共400-600字。`;
 
     try {
-        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json', 
@@ -402,7 +403,7 @@ ${char.memories?.slice(-3).map(m => `- ${m.summary}`).join('\n') || '- 無記憶
                 temperature: 0.7,
                 max_tokens: 8000
             })
-        });
+        }, { appName: '小說', charId: char.id, charName: char.name, purpose: '寫手人格分析' }));
         
         if (response.ok) {
             const data = await safeResponseJson(response);

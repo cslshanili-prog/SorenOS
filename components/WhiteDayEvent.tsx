@@ -24,6 +24,7 @@ import TokenImg from './os/TokenImg';
 import { dataUrlToBlob, isImageValue, putImageBlob, resolveRefToDataUrl } from '../utils/blobRef';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // ============================================================
 // 美術資產配置（用戶填入實際 PNG URL 後生效）
 // 留空則使用純色佔位背景
@@ -717,7 +718,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
   ]
 }`;
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -728,7 +729,7 @@ export const WhiteDaySession: React.FC<WhiteDaySessionProps> = ({ charId, onClos
                     ],
                     temperature: 0.85,
                 }),
-            });
+            }, { charId: c.id, charName: c.name, purpose: '白色情人節·出題' }));
 
             if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);
@@ -845,7 +846,7 @@ ${answerSummary}
   "chocolateDialogue": "（僅當 finalScore >= ${QUIZ_PASS_SCORE} 時填寫）告訴 ${userProfile.name} 巧克力做好了，可以去裝飾啦！"
 }`;
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -856,7 +857,7 @@ ${answerSummary}
                     ],
                     temperature: 0.82,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '白色情人節·回顧' }));
 
             if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);
@@ -931,7 +932,7 @@ ${answerSummary}
 
             const endpoint = `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`;
             const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` };
-            let response = await fetch(endpoint, {
+            let response = await fetch(endpoint, withApiCallMeta({
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -948,12 +949,12 @@ ${answerSummary}
                     ],
                     temperature: 0.88,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '白色情人節·巧克力評價' }));
 
             // 模型不支持視覺時降級為純文字評價
             if (!response.ok && (response.status === 400 || response.status === 422)) {
                 const fallbackPrompt = `你和 ${userProfile.name} 一起做了一塊白色情人節巧克力（主要是你做的，${userProfile.name} 幫忙裝飾了照片）。請用你的性格評價一下你們的作品——可以說說一起做的感受，也可以調皮地調侃。\n\n**僅限使用以下情緒標籤**: ${availableEmotions.join(', ')}\n\n輸出格式（每行一個節拍，2-4行）：\n[emotion] "你說的話"\n[emotion] 動作或表情描述`;
-                response = await fetch(endpoint, {
+                response = await fetch(endpoint, withApiCallMeta({
                     method: 'POST',
                     headers,
                     body: JSON.stringify({
@@ -964,7 +965,7 @@ ${answerSummary}
                         ],
                         temperature: 0.88,
                     }),
-                });
+                }, { charId: char.id, charName: char.name, purpose: '白色情人節·巧克力評價' }));
             }
 
             if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
@@ -1312,7 +1313,7 @@ ${answerSummary}
             if (apiConfig) {
                 try {
                     const endpoint = `${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-                    const resp = await fetch(endpoint, {
+                    const resp = await fetch(endpoint, withApiCallMeta({
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                         body: JSON.stringify({
@@ -1326,7 +1327,7 @@ ${answerSummary}
                             }],
                             temperature: 0.7,
                         }),
-                    });
+                    }, { charId: char.id, charName: char.name, purpose: '白色情人節·物品描述' }));
                     if (resp.ok) {
                         const data = await resp.json();
                         const text = data.choices?.[0]?.message?.content?.trim() || '';

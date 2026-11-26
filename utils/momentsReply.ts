@@ -9,6 +9,7 @@ import { distinctPersonaNote } from './personaSpeaker';
 import { addMomentComment } from './momentsStore';
 import { MOMENTS_VOICE_RULE } from './momentsVoice';
 
+import { withApiCallMeta } from './apiCallLog';
 /** 作者決定不回這則留言時輸出的標記。 */
 export const MOMENT_SKIP_TOKEN = '[[SKIP]]';
 export const isMomentSkip = (text: string): boolean => /\[\[\s*SKIP\s*\]\]/i.test(text);
@@ -96,7 +97,7 @@ export async function replyAsAuthor(params: {
     });
     try {
         if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
-        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
             body: JSON.stringify({
@@ -104,7 +105,7 @@ export async function replyAsAuthor(params: {
                 messages: [{ role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) }, { role: 'user', content: prompt }],
                 temperature: 0.9,
             }),
-        });
+        }, { appName: '朋友圈', charId: char.id, charName: char.name, purpose: '朋友圈回覆留言' }));
         if (!response.ok) throw new Error(`API 返回 ${response.status}`);
         const reply = cleanMomentReply(extractContent(await safeResponseJson(response)) || '', char.name);
         // 角色選擇已讀不回（高冷的人不會每則都回）
@@ -185,7 +186,7 @@ export async function commentAsCharacter(params: {
     const { nameOf, personaNote } = personaNaming(char.id, userName, characters, graph);
     const thread = post.comments.map(c => `${c.actor.id === char.id ? '你' : nameOf(c)}: ${c.content}`).join('\n');
     const authorName = post.author.id === char.id ? '你自己' : nameOf({ actor: post.author });
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -199,7 +200,7 @@ export async function commentAsCharacter(params: {
             ],
             temperature: 0.9,
         }),
-    });
+    }, { appName: '朋友圈', charId: char.id, charName: char.name, purpose: '朋友圈留言' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const text = cleanMomentReply(extractContent(await safeResponseJson(response)) || '', char.name);
     if (!text) return false;

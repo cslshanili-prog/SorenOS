@@ -25,6 +25,7 @@ import MallProductSheet, { type ProductDraft, type ProductSheetTarget } from './
 const RESTOCK_STYLE_EVENT: Record<MallRestockStyle, '日常' | '混搭' | '精品'> = { daily: '日常', mixed: '混搭', luxury: '精品' };
 import MallCategoryManager from './MallCategoryManager';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 /**
  * 購物中心（2026-10 改版：全螢幕頁＋訂單配送，見 plans/mall-redesign.md）。
  *
@@ -243,11 +244,11 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             const prompt = buildMallRestockPrompt(kind, targets.map(c => ({
                 category: c, existingNames: kindProducts.filter(p => p.categoryId === c.id).map(p => p.name),
             })), restockStyle);
-            const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
                 body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
-            });
+            }, { purpose: 'AI 補貨' }));
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const content = extractContent(await safeResponseJson(response));
             const fresh = parseMallRestockBlocks(content, kind, kindCats, products);

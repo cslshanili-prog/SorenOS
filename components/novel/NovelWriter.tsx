@@ -16,6 +16,7 @@ import { getLocalDateKey } from '../../utils/localDate';
 import TokenImg from '../os/TokenImg';
 import { includesAnyScript } from '../../utils/scriptKey';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 interface NovelWriterProps {
     activeBook: NovelBook;
     updateNovel: (id: string, updates: Partial<NovelBook>) => Promise<void>;
@@ -240,11 +241,11 @@ const NovelWriter: React.FC<NovelWriterProps> = ({
             if (traits.some(t => includesAnyScript(t, '電波') || includesAnyScript(t, '瘋'))) temperature = 0.98;
             if (traits.some(t => includesAnyScript(t, '理性') || includesAnyScript(t, '冷') || includesAnyScript(t, '邏輯'))) temperature = 0.6;
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: "user", content: prompt }], temperature, max_tokens: 8000 })
-            });
+            }, { charId: char.id, charName: char.name, purpose: '小說續寫' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);
@@ -391,11 +392,11 @@ ${chapterText.substring(0, 200000)}
 6. **寫作格式**：使用清晰的結構化格式（可以分段或使用標記），讓後續章節的AI僅憑此總結就能無縫銜接創作。
 
 請直接輸出總結內容，不需要JSON格式。`;
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ model: apiConfig.model, messages: [{ role: "user", content: prompt }] })
-            });
+            }, { charId: targetChar?.id, charName: targetChar?.name, purpose: '章節總結' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);

@@ -32,6 +32,7 @@ import { shareOrDownloadFile } from '../utils/shareExport';
 import { readShareText } from '../utils/pngShare';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 
@@ -645,7 +646,7 @@ const RoomApp: React.FC = () => {
             const baseContext = ContextBuilder.buildCoreContext(c, userProfile, false);
             const fallbackPrompt = `${baseContext}\n\nTask: User entered your room. Just say hello. JSON: { "welcomeMessage": "..." }`;
             
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ 
@@ -654,7 +655,7 @@ const RoomApp: React.FC = () => {
                     temperature: 0.5,
                     max_tokens: 8000 // Keep it tiny
                 })
-            });
+            }, { charId: c.id, charName: c.name, purpose: '房間生成（備用）' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);
@@ -808,7 +809,7 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
             // CONSOLE LOG REMOVED FOR PRODUCTION CLEANUP
 
             // FIX: Add Safety Settings & Lower Temperature
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({ 
@@ -824,7 +825,7 @@ ${!shouldGenerateTodo ? `(系統: 今日待辦已存在，無需生成，請忽�
                         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
                     ]
                 })
-            });
+            }, { charId: c.id, charName: c.name, purpose: '房間生成' }));
 
             if (response.ok) {
                 const data = await safeResponseJson(response);

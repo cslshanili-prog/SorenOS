@@ -945,7 +945,7 @@ const ActiveMsgGlobalSettingsModal: React.FC<ActiveMsgGlobalSettingsModalProps> 
 
   return (
     <>
-    <Modal
+    <Modal size="large"
       isOpen={isOpen}
       title="主動消息 2.0"
       onClose={onClose}

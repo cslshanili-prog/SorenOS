@@ -15,6 +15,7 @@ import { CharacterGroupFilterBar, filterCharactersByGroup, GROUP_FILTER_ALL } fr
 import { Planet, RocketLaunch, Lightning, LockSimple, DiceFive, Toolbox, FloppyDisk, ArrowsClockwise, DoorOpen } from '@phosphor-icons/react';
 import TokenImg from '../components/os/TokenImg';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // --- Themes Configuration (Enhanced) ---
 const GAME_THEMES: Record<GameTheme, { bg: string, text: string, accent: string, font: string, border: string, cardBg: string, gradient: string, optionNormal: string, optionChaotic: string, optionEvil: string }> = {
     fantasy: {
@@ -301,7 +302,7 @@ const GameApp: React.FC = () => {
 
     // --- Helper: Robust API Call ---
     const fetchGameAPI = async (prompt: string, maxTokens: number = 8000) => {
-        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
             body: JSON.stringify({
@@ -311,7 +312,7 @@ const GameApp: React.FC = () => {
                 max_tokens: maxTokens,
                 stream: false
             })
-        });
+        }, { purpose: '跑團' }));
 
         if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
 

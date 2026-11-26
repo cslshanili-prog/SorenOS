@@ -15,6 +15,7 @@ import { DB } from './db';
 import { safeResponseJson } from './safeApi';
 import { crossPersonaNote } from './personaSpeaker';
 
+import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
 export interface MiniApiConfig {
     baseUrl: string;
     apiKey: string;
@@ -244,8 +245,10 @@ async function chatCompletion(
     api: MiniApiConfig,
     userContent: string,
     temperature = 0.85,
+    /** API 調用記錄：這一句是替誰寫的 */
+    meta?: ApiCallMeta,
 ): Promise<string> {
-    const res = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const res = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -253,7 +256,7 @@ async function chatCompletion(
             messages: [{ role: 'user', content: userContent }],
             temperature,
         }),
-    });
+    }, meta));
     if (!res.ok) throw new Error(`LLM ${res.status}`);
     const data = await safeResponseJson(res);
     // 模型有時把思考過程（<thinking>、開頭一段「讓我看看現在的狀況…」）當正文吐出來；
@@ -318,6 +321,8 @@ async function lastUserInteractionTs(charId: string | ChatLine): Promise<number 
 export async function summarizeConversation(p: {
     api: MiniApiConfig;
     speakerName: string;
+    /** API 調用記錄記在誰頭上 */
+    speakerId?: string;
     otherName: string;
     transcript: string;
 }): Promise<string> {
@@ -328,7 +333,7 @@ ${p.transcript}
 """
 請用**第一人稱、帶你自己的主觀色彩**，把這段聊天濃縮成一段你自己的記憶/印象（3-5 句）：你們聊了什麼、你當時的感受和判斷、對 TA 的看法有沒有變化。只輸出這段記憶本身，別加「我:」之類前綴、別解釋、別旁白。`;
     try {
-        const out = await chatCompletion(p.api, prompt, 0.7);
+        const out = await chatCompletion(p.api, prompt, 0.7, { appName: '角色私聊', charId: p.speakerId, charName: p.speakerName, purpose: '對話整理成記憶' });
         return out.replace(/^[「"']|[」"']$/g, '').trim();
     } catch {
         return '';
@@ -512,7 +517,7 @@ ${replyTo ? `- 你是一個**完整、獨立的人格**，有自己的生活、�
 如果這次交流讓你對「${b.name}」**有了新的認識**（TA 是誰、什麼身份、在意什麼、透露了什麼關鍵信息——記住這些只是 TA 自己說的、**未必是真的**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有新認識就別寫這一行。${p.sideNoteA || ''}`;
         let aRaw = '';
         try {
-            aRaw = await chatCompletion(api, aPrompt);
+            aRaw = await chatCompletion(api, aPrompt, undefined, { appName: '角色私聊', charId: a.id, charName: a.name, purpose: `跟「${b.name}」聊天` });
         } catch {
             break;
         }
@@ -567,7 +572,7 @@ ${labeled()}
 如果這次交流讓你對「${a.name}」**有了新的認識**（TA 是誰、身份、在意什麼、透露了什麼——記住只是 TA 自己說的、**未必為真**，寫成你的判斷），再另起一行用 [[瞭解:一句話]] 記下來；沒有就別寫。${p.sideNoteB || ''}`;
         let bRaw = '';
         try {
-            bRaw = await chatCompletion(api, bPrompt);
+            bRaw = await chatCompletion(api, bPrompt, undefined, { appName: '角色私聊', charId: b.id, charName: b.name, purpose: `跟「${a.name}」聊天` });
         } catch {
             break;
         }
@@ -692,7 +697,7 @@ ${replyTo ? `任務：「${p.npcName}」剛發來最後那段話，只寫**你�
 
     let out = '';
     try {
-        out = await chatCompletion(p.api, prompt, 0.9);
+        out = await chatCompletion(p.api, prompt, 0.9, { appName: '查手機', charId: p.host.id, charName: p.host.name, purpose: `跟「${p.npcName}」聊天` });
     } catch {
         return { detail: p.existingDetail || '', learnedNew: '' };
     }

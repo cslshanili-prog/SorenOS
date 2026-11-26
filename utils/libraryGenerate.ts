@@ -14,6 +14,7 @@ import { extractContent, safeResponseJson } from './safeApi';
 import { isImageFeatureOff } from './imageStyle';
 import { generateImage, resolveCharacterReferenceImage } from './imageGeneration';
 
+import { withApiCallMeta } from './apiCallLog';
 export const LIBRARY_GEN_KINDS: { kind: LibraryGenKind; label: string; placeholder: string }[] = [
     { kind: 'solo', label: '獨照', placeholder: '例：午後在咖啡廳窗邊看書，陽光斜斜照進來，側臉' },
     { kind: 'group', label: '合照', placeholder: '例：傍晚在海邊並肩坐著，看向鏡頭笑，風把頭髮吹亂' },
@@ -186,11 +187,11 @@ export const buildLibraryPromptWriterPrompt = (input: { kind: LibraryGenKind; te
 
 export const writeLibraryPromptWithAI = async (input: { kind: LibraryGenKind; text: string; names: string[]; api: { baseUrl: string; apiKey: string; model: string } }): Promise<string> => {
     if (!input.api.baseUrl || !input.api.apiKey) throw new Error('先在設置裡填好對話 API');
-    const response = await fetch(`${input.api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${input.api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${input.api.apiKey}` },
         body: JSON.stringify({ model: input.api.model, messages: [{ role: 'user', content: buildLibraryPromptWriterPrompt(input) }], temperature: 0.8 }),
-    });
+    }, { appName: '資料庫', purpose: 'AI 寫生圖提示詞' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const text = extractContent(await safeResponseJson(response)).replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '').trim().replace(/^["「]|["」]$/g, '');
     if (!text) throw new Error('AI 沒寫出東西，再試一次');

@@ -1553,7 +1553,7 @@ export const useChatAI = ({
                     data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                         method: 'POST', headers,
                         body: JSON.stringify(followBody)
-                    });
+                    }, undefined, undefined, { appName: '消息', charId: char.id, charName: char.name, purpose: 'MCP 工具續寫' });
                     updateTokenUsage(data, historyMsgCount, `mcd-propose-${it + 1}`);
                     // 第二輪跳過 (我們已經禁用了 tools)
                     if (!data.choices?.[0]?.message?.tool_calls?.length) break;
@@ -1656,7 +1656,7 @@ export const useChatAI = ({
                     data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                         method: 'POST', headers,
                         body: JSON.stringify(followBody)
-                    });
+                    }, undefined, undefined, { appName: '消息', charId: char.id, charName: char.name, purpose: 'MCP 工具續寫' });
                     updateTokenUsage(data, historyMsgCount, `luckin-propose-${it + 1}`);
                     if (!data.choices?.[0]?.message?.tool_calls?.length) break;
                 }
@@ -1813,7 +1813,7 @@ export const useChatAI = ({
                     data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                         method: 'POST', headers,
                         body: JSON.stringify(followBody)
-                    });
+                    }, undefined, undefined, { appName: '消息', charId: char.id, charName: char.name, purpose: 'MCP 工具續寫' });
                     updateTokenUsage(data, historyMsgCount, `${payload.flags.luckinChatActive ? 'luckin-chat' : 'mcp-chat'}-${it + 1}`);
                     if (forceWrapUp) break;
                 }
@@ -1850,7 +1850,7 @@ export const useChatAI = ({
                         data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                             method: 'POST', headers,
                             body: JSON.stringify(wrapBody)
-                        });
+                        }, undefined, undefined, { appName: '消息', charId: char.id, charName: char.name, purpose: 'MCP 工具續寫' });
                         updateTokenUsage(data, historyMsgCount, `mcp-text-wrap-${it + 1}`);
                         break;
                     }
@@ -1886,7 +1886,7 @@ export const useChatAI = ({
                     data = await safeFetchJson(`${baseUrl}/chat/completions`, {
                         method: 'POST', headers,
                         body: JSON.stringify(followBody)
-                    });
+                    }, undefined, undefined, { appName: '消息', charId: char.id, charName: char.name, purpose: 'MCP 工具續寫' });
                     updateTokenUsage(data, historyMsgCount, `mcp-text-${it + 1}`);
                     if (reachedHardLimit) break;
                 }

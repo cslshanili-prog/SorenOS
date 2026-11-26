@@ -12,7 +12,7 @@ interface CharacterImageGenPanelProps {
     charName: string;
     value: CharacterProfile['imageGenCharConfig'];
     onChange: (value: CharacterProfile['imageGenCharConfig']) => void;
-    /** 系統設置 → 生圖API 的總開關（開啟角色生圖）現在是否打開；關著的話這裡只能先配置，實際生圖要等總開關打開。 */
+    /** 系統設置 → API 配置 → 生圖 的總開關（開啟角色生圖）現在是否打開；關著的話這裡只能先配置，實際生圖要等總開關打開。 */
     globalImageGenEnabled: boolean;
     /** 'user'：身份卡用（見面「拍下這一刻」鎖你的臉），文案換成你、拿掉只跟角色傳照片有關的選項 */
     subject?: 'character' | 'user';
@@ -99,7 +99,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
 
                 {!globalImageGenEnabled && (
                     <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 leading-relaxed">
-                        「系統設置 → 生圖API」的總開關「開啟角色生圖」目前是關閉的，這裡可以先設定，但要等總開關打開才會真的生效。
+                        「系統設置 → API 配置 → 生圖」的總開關「開啟角色生圖」目前是關閉的，這裡可以先設定，但要等總開關打開才會真的生效。
                     </div>
                 )}
 
@@ -116,7 +116,7 @@ const CharacterImageGenPanel: React.FC<CharacterImageGenPanelProps> = ({ charNam
                                 {stylePresets.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                             </select>
                         )}
-                        <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">畫風庫在「設置 → 生圖API」。各處畫風那張表關掉的地方，這裡選什麼都不會生圖。</p>
+                        <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">畫風庫在「設置 → API 配置 → 生圖」。各處畫風那張表關掉的地方，這裡選什麼都不會生圖。</p>
                     </div>
                 )}
 

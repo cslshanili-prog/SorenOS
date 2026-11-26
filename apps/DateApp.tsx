@@ -761,7 +761,7 @@ const DateApp: React.FC = () => {
 
         try {
             const msgs = await loadCharacterContextMessages(c);
-            const preparedMsgs = await materializeVisionDescriptions(msgs, apiConfig.visionApi);
+            const preparedMsgs = await materializeVisionDescriptions(msgs, apiConfig.visionApi, { appName: '見面', charId: c.id, charName: c.name, purpose: '識圖' });
             const preset = await loadPresetFor(c);
             if (preset) {
                 const opening = await generatePresetOpening({
@@ -923,7 +923,7 @@ const DateApp: React.FC = () => {
         // Re-fetch messages. Since we saved the opening in handleEnterSession,
         // 'allMsgs' will now correctly contain: [History..., Opening, UserMsg]
         const allMsgs = await loadCharacterContextMessages(char);
-        const preparedAllMsgs = await materializeVisionDescriptions(allMsgs, apiConfig.visionApi);
+        const preparedAllMsgs = await materializeVisionDescriptions(allMsgs, apiConfig.visionApi, { appName: '見面', charId: char.id, charName: char.name, purpose: '識圖' });
 
         // Update local state for display
         setDateMessages(await loadRecentDateMessages(char.id));
@@ -1201,7 +1201,7 @@ const DateApp: React.FC = () => {
     const handleCaptureMoment = async () => {
         if (!char || capturingMoment) return;
         const imageConfig = apiConfig.imageGenConfig;
-        if (!canCaptureDateMoment(imageConfig)) { addToast('先到「系統設置 → 生圖 API」填好，並打開「開啟角色生圖」', 'info'); return; }
+        if (!canCaptureDateMoment(imageConfig)) { addToast('先到「系統設置 → API 配置 → 生圖」填好，並打開「開啟角色生圖」', 'info'); return; }
         setCapturingMoment(true);
         addToast('喀嚓——照片洗出來要一點時間', 'info');
         try {

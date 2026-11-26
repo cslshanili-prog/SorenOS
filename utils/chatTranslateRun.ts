@@ -9,6 +9,7 @@ import type { APIConfig, ChatLanguageConfig, Message } from '../types';
 import { DB } from './db';
 import { joinBilingual, needsPostTranslation, resolveChatLanguage } from './chatLanguage';
 import { translateTexts } from './translateApi';
+import { getCharNameById } from './charNameRegistry';
 
 type LineArg = Parameters<typeof DB.getRecentMessagesByCharId>[0];
 
@@ -20,7 +21,10 @@ export async function translateMessagesInPlace(messages: Message[], to: string, 
     const targets = messages.filter(m => typeof m.id === 'number' && isTranslatable(m));
     if (!targets.length) return 0;
     try {
-        const out = await translateTexts(targets.map(m => m.content), to, apiConfig);
+        // API 調用記錄記在說話的角色頭上（訊息的 charId 認不出是角色就不標）
+        const speakerId = targets[0].charId;
+        const charName = getCharNameById(speakerId);
+        const out = await translateTexts(targets.map(m => m.content), to, apiConfig, charName ? { charId: speakerId, charName } : undefined);
         for (let i = 0; i < targets.length; i++) {
             const m = targets[i];
             const translated = out[i]?.trim();

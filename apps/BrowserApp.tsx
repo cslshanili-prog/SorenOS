@@ -7,6 +7,7 @@ import Modal from '../components/os/Modal';
 import { Camera, ImageSquare, GlobeSimple, MagnifyingGlass, Lightning } from '@phosphor-icons/react';
 import { includesAnyScript } from '../utils/scriptKey';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const TWEMOJI_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72';
 const twemojiUrl = (codepoint: string) => `${TWEMOJI_BASE}/${codepoint}.png`;
 
@@ -299,7 +300,7 @@ Generate realistic results linking to hypothetical URLs.`;
                 userPrompt = `Simulate the full webpage content for: "${url}". Make it detailed and realistic.`;
             }
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -311,7 +312,7 @@ Generate realistic results linking to hypothetical URLs.`;
                     temperature: 0.6,
                     max_tokens: 4000
                 })
-            });
+            }, { purpose: '瀏覽器生成網頁' }));
 
             if (!response.ok) throw new Error('Network Error');
             

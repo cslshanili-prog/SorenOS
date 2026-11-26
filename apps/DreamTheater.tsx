@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/react';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // ============================================================
 //  Dream Theater · 夢境演出系統
 //  在小屋裡偷看一場角色已經忘記的夢。夢不寫實、不連貫、允許中度幻覺，
@@ -157,7 +158,7 @@ export async function generateDreamScript(opts: {
     }).join('\n');
 
     const prompt = buildDreamPrompt(context, recent, char.name, userProfile.name, forcedArchetype);
-    const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const res = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
         // 夢境鼓勵高幻覺 → 溫度拉到安全上限。注意 temperature 封頂 1.0：Anthropic/Claude
@@ -165,7 +166,7 @@ export async function generateDreamScript(opts: {
         // max_tokens 用 8192：夢是一堆短碎片，足夠用；16000 在 claude-3.5 等輸出上限 8192 的
         // 模型上會 400。仍有「finish_reason==='length' → 截斷」兜底。
         body: JSON.stringify({ model: apiConfig.model, messages: [{ role: 'user', content: prompt }], temperature: 1.0, max_tokens: 8192 }),
-    });
+    }, { appName: '夢境', charId: char.id, charName: char.name, purpose: '夢境劇本' }));
     if (!res.ok) throw new Error('API');
     const data = await safeResponseJson(res);
     if (data.choices?.[0]?.finish_reason === 'length') throw new Error('夢境生成被截斷');

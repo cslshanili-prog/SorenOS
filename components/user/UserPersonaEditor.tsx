@@ -271,7 +271,7 @@ const UserPersonaEditor: React.FC<{ target: UserPersonaEditTarget; onClose: () =
                         addToast={addToast}
                         speakerName={draftName.trim() || '我'}
                         title={editingId === 'real' ? '我的聲音' : '這張卡的聲音'}
-                        hint="私聊裡你發語音條時，用這個聲音念出來。跟角色同一套：用哪家看設置 → 其他 API 的語音服務商，下面填那一家的音色就行。"
+                        hint="私聊裡你發語音條時，用這個聲音念出來。跟角色同一套：用哪家看設置 → 語音與寫歌 的語音服務商，下面填那一家的音色就行。"
                         speedOwner={editingId === 'real' ? '你' : '這張卡'}
                         showPreview
                         onVoiceApplied={() => trackEvent('身份卡选了音色')}

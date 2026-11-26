@@ -523,7 +523,7 @@ export async function runLightRecallRouter(
             },
             0,
             timeoutMs,
-            { appName: 'ChatApp', purpose: '記憶召回路由' },
+            { appName: '記憶宮殿', charName, purpose: '記憶召回路由' },
         );
         const parsed = extractJson(extractContent(data));
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {

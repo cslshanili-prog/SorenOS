@@ -44,7 +44,7 @@ export type ApiMessage = { role: string; content: any };
  * 見面（DateApp）台詞的語氣標籤規則（char.dateVoiceEnabled 時注入）。
  * 每句台詞開頭一個英文方括號標籤；送去 TTS 前按服務商保留、轉成情緒參數或剝掉（utils/dateVoiceTags.ts），
  * 所以這裡不分服務商，統一一種寫法。開頭編號 4. 是承接散文格式規則第 1~3 條。
- * 用戶可在「設置 → 其他 API → 語音提示詞」自定義；留空則用這份內置默認。舊版自定義的 [v:xxx] 寫法照樣認得。
+ * 用戶可在「設置 → 語音與寫歌 → 語音提示詞」自定義；留空則用這份內置默認。舊版自定義的 [v:xxx] 寫法照樣認得。
  */
 export const DATE_VOICE_GUIDE = `4. **台詞的語氣標籤**：台詞會被朗讀成真實語音。每一句台詞開頭加一個英文方括號標籤，寫這句話用什麼語氣、什麼聲音說，例如 \`[softly]\`、\`[lazy]\`、\`[teasing]\`、\`[chuckles]\`、\`[whispers]\`、\`[sighs]\`；也可以用 \`[happy]\`、\`[sad]\`、\`[angry]\`、\`[calm]\` 這類情緒詞。
    - 只有台詞加，旁白和動作行不加。標籤用英文單字或短語，一句最多兩個，不要自造中文標籤。

@@ -41,6 +41,7 @@ import type { EmotionState } from '../../utils/emotionApply';
 import { extractObservation, hasObservation, isObserveActive } from '../../utils/dateObserve';
 import ObserveHUD from './ObserveHUD';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 // 用戶輸入的顯示：去掉方括號標記（跟以前一樣），其餘原樣
 const cleanUserTextForDisplay = (text: string) => text.replace(/\[.*?\]/g, '').trim();
 
@@ -255,7 +256,7 @@ const DateSession: React.FC<DateSessionProps> = ({
             if (voiceLang) {
                 const langLabel = voiceLanguagePromptLabel(voiceLang);
                 try {
-                    const transRes = await fetch(`${apiConfig.baseUrl}/chat/completions`, {
+                    const transRes = await fetch(`${apiConfig.baseUrl}/chat/completions`, withApiCallMeta({
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiConfig.apiKey}` },
                         body: JSON.stringify({
@@ -263,7 +264,7 @@ const DateSession: React.FC<DateSessionProps> = ({
                             messages: [{ role: 'system', content: `Translate the following text to ${langLabel}. Output ONLY the translation, nothing else.` }, { role: 'user', content: ttsText }],
                             temperature: 0.3,
                         }),
-                    });
+                    }, { charId: char.id, charName: char.name, purpose: '見面台詞翻譯' }));
                     const transData = await transRes.json();
                     const translated = transData?.choices?.[0]?.message?.content?.trim();
                     if (translated) ttsText = translated;

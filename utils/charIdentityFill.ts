@@ -67,7 +67,7 @@ export async function generateIdentityFill(char: FillSource, api: Pick<APIConfig
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey || ''}` },
         body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: buildIdentityFillPrompt(char) }], temperature: 0.2, max_tokens: 600 }),
         ...(signal ? { signal } : {}),
-    }, 0, 90_000, { appName: '神經鏈接', purpose: '補別名與身份' });
+    }, 0, 90_000, { appName: '神經鏈接', charName: char.name, purpose: '補別名與身份' });
     const fill = parseIdentityFill(extractContent(data) || '', char.name);
     if (!fill) throw new Error('這次沒讀出東西，再試一次');
     return fill;

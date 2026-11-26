@@ -73,7 +73,7 @@ import { mirrorSceneNote } from './storyMirrorMeta';
 
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
 // 用魚聲則注入魚聲版（去掉 MiniMax 專屬標記，改用標點 / 省略號控制停頓）。
-// 用戶在「設置 → 其他 API → 語音提示詞」裡自定義過該服務商的指南時，優先用用戶那份；留空則回退內置默認。
+// 用戶在「設置 → 語音與寫歌 → 語音提示詞」裡自定義過該服務商的指南時，優先用用戶那份；留空則回退內置默認。
 const voiceActingGuide = (): string => {
   const provider = getTtsProvider();
   const custom = getVoicePromptOverride(provider);
@@ -237,7 +237,7 @@ export interface PromptBuildOptions {
      */
     timelyByWorker?: boolean;
     /**
-     * 「系統設置 → 生圖API」的配置。只有 charImageGenEnabled + charImageSendEnabled 都開、
+     * 「系統設置 → API 配置 → 生圖」的配置。只有 charImageGenEnabled + charImageSendEnabled 都開、
      * 且 baseUrl/model 配完整時，才會教角色 `[[ACTION:SEND_PHOTO|畫面描述]]` 這個動作
      * （見下方「可用動作」）；執行側在 utils/chatParser.ts。調用方（chatRequestPayload）
      * 只在本地/前台聊天路徑傳這個字段——主動消息 2.0 的 fire_pack 模板（activeMsgClient.ts）

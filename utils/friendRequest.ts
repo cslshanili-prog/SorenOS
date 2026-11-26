@@ -12,6 +12,7 @@ import { globalPersonaKey } from './userPersona';
 import { resolveCharacterChatApi } from './characterApi';
 import { extractContent, extractJson, safeResponseJson } from './safeApi';
 
+import { withApiCallMeta } from './apiCallLog';
 export const FRIEND_GREETING_MAX = 120;
 export const FRIEND_REPLY_MAX = 300;
 
@@ -68,7 +69,7 @@ export async function sendFriendRequest(args: {
     const api = resolveCharacterChatApi(char, apiConfig);
     if (!api.baseUrl || !api.apiKey) throw new Error('沒有可用的 API');
     const prompt = buildFriendRequestPrompt({ charName: char.name, face, greeting, history });
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -76,7 +77,7 @@ export async function sendFriendRequest(args: {
             messages: [{ role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) }, { role: 'user', content: prompt }],
             temperature: 0.9,
         }),
-    });
+    }, { appName: '消息', charId: char.id, charName: char.name, purpose: '好友申請' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const decision = parseFriendDecision(extractJson(extractContent(await safeResponseJson(response))));
     if (!decision) throw new Error('他的回覆沒看懂，再送一次試試');

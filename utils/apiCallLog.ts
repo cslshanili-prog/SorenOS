@@ -8,14 +8,20 @@
  *
  * 「時間 / 哪個 API / 哪個模型 / token」從請求體 + 響應裡自動解析；「哪個 App / 哪個
  * 角色 / 具體用途」靠兩條來源：
- *   1. 顯式 meta —— safeFetchJson 調用點通過第 5 個參數傳，掛到 RequestInit 的
- *      `__sullyMeta` 上由攔截器讀取（精確，含 purpose）。
- *   2. 環境兜底 ambientMeta —— OSContext 在切 App / 角色時寫入「當前在哪個 App、
- *      當前角色」，裸 fetch 沒有顯式 meta 時用它兜底標 App / 角色。
+ *   1. 顯式 meta —— safeFetchJson 調用點通過第 5 個參數傳；裸 fetch 用
+ *      `withApiCallMeta(init, meta)` 掛。兩者都落在 RequestInit 的 `__sullyMeta` 上由
+ *      攔截器讀取（精確，含 purpose）。
+ *   2. 環境兜底 ambientMeta —— OSContext 在切 App 時寫入「當前在哪個 App」，裸 fetch
+ *      沒有顯式 meta 時用它兜底標 App。**兜底不帶角色**：「目前選著的角色」跟這一次
+ *      請求是替誰發的常常不是同一個（朋友圈、情緒、記憶整理、群聊成員、別的角色的
+ *      主動消息…都在背景跑），拿它兜底會把別人的調用記到你正在看的那個角色頭上。
+ *      寧可空著也不標錯：知道角色的調用點自己帶 charId。
  *
  * 只保留近 5 天，超期在 DB 層寫入時丟棄。recordApiCall 是 best-effort：任何異常都
  * 吞掉，絕不影響主請求鏈路。
  */
+
+import { getCharNameById } from './charNameRegistry';
 
 /** 調用方可補充的語義信息（哪個 App / 角色 / 用途）。能填多少填多少。 */
 export interface ApiCallMeta {
@@ -176,8 +182,40 @@ const PRESETS_STORAGE_KEY = 'os_api_presets';
 let ambientMeta: ApiCallMeta = {};
 
 export function setApiCallAmbientContext(meta: ApiCallMeta): void {
-    ambientMeta = meta || {};
+    // 只留 App：角色兜底會標錯（見檔頭第 2 條），傳進來也不收
+    ambientMeta = meta ? { appId: meta.appId, appName: meta.appName } : {};
 }
+
+/**
+ * 裸 fetch 的調用點用它把 meta 掛到 RequestInit 上（跟 safeFetchJson 第 5 個參數同一條路）。
+ * 知道是替哪個角色發的就帶 charId（charName 沒給會照登記表補）。
+ */
+export function withApiCallMeta<T extends RequestInit>(init: T, meta: ApiCallMeta | undefined): T {
+    if (!hasMeta(meta)) return init;
+    return { ...init, __sullyMeta: meta } as T;
+}
+
+/** 只給了 charId 沒給名字的，照登記表補上名字（記錄頁顯示的是名字） */
+function completeMeta(meta: ApiCallMeta): ApiCallMeta {
+    if (meta.charId && !meta.charName) {
+        const name = getCharNameById(meta.charId);
+        if (name) return { ...meta, charName: name };
+    }
+    return meta;
+}
+
+/**
+ * 顯式 meta 為準。顯式的只說了角色／用途、沒說是哪個 App 的（前台頁面自己發的多半這樣），
+ * App 那兩格拿環境的補；角色永遠不從環境補。
+ */
+export function mergeApiCallMeta(meta: ApiCallMeta | undefined, ambient: ApiCallMeta = ambientMeta): ApiCallMeta {
+    if (!hasMeta(meta)) return { appId: ambient.appId, appName: ambient.appName };
+    const filled = completeMeta(meta!);
+    if (filled.appId || filled.appName) return filled;
+    return { ...filled, appId: ambient.appId, appName: ambient.appName };
+}
+
+const pickMeta = (meta: ApiCallMeta | undefined): ApiCallMeta => mergeApiCallMeta(meta);
 
 /** Snapshot the current fallback context when a request starts. */
 export function getApiCallAmbientContext(): ApiCallMeta {
@@ -745,7 +783,7 @@ export function buildApiRequestCapture(input: {
 
     const baseUrl = deriveBaseUrl(input.url);
     const model = extractModel(body);
-    const meta = hasMeta(input.meta) ? { ...input.meta } : { ...ambientMeta };
+    const meta = { ...pickMeta(input.meta) };
     const capturedAt = input.capturedAt ?? Date.now();
     return {
         version: 1,
@@ -977,7 +1015,7 @@ export function recordApiCall(input: {
         const baseUrl = deriveBaseUrl(input.url);
         const model = extractModel(input.body);
         // 顯式 meta 優先（safeFetchJson 各調用點傳的精確信息）；沒有就用環境兜底（裸 fetch）。
-        const meta = hasMeta(input.meta) ? input.meta! : ambientMeta;
+        const meta = pickMeta(input.meta);
         // 整包 JSON 直接讀；流式響應（response 為空但有原始文本）走 SSE 兜底掃描
         let responseForExtract: unknown = input.response;
         let backendModel: string | undefined =
@@ -1052,7 +1090,7 @@ export function recordCloudApiCall(input: {
 }): void {
     try {
         const baseUrl = stripTrailingSlash(input.baseUrl || '');
-        const meta = hasMeta(input.meta) ? input.meta! : ambientMeta;
+        const meta = pickMeta(input.meta);
         const entry: ApiCallLogEntry = {
             id: input.id,
             timestamp: input.timestamp ?? Date.now(),

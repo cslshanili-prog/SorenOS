@@ -37,7 +37,7 @@ const AltAccountsSection: React.FC<{
     const think = async () => {
         setBusy(true);
         try {
-            const d = await requestAltDraft({ owner, existingNames: alts.map(a => a.name), apiConfig });
+            const d = await requestAltDraft({ owner, ownerId: owner.id, existingNames: alts.map(a => a.name), apiConfig });
             setDraft(d);
         } catch (e: any) {
             addToast(e?.message || '沒想出來，再試一次', 'error');

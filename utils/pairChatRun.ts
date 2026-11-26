@@ -134,8 +134,8 @@ export async function archivePairIfNeeded(args: {
     while (lines.length - mark >= PAIR_ARCHIVE_EVERY) {
         const aChunk = serializeTurns(lines.slice(mark, mark + PAIR_ARCHIVE_EVERY));
         const [aSum, bSum] = await Promise.all([
-            summarizeConversation({ api, speakerName: a.name, otherName: b.name, transcript: aChunk }),
-            summarizeConversation({ api, speakerName: b.name, otherName: a.name, transcript: flipTranscript(aChunk) }),
+            summarizeConversation({ api, speakerName: a.name, speakerId: a.id, otherName: b.name, transcript: aChunk }),
+            summarizeConversation({ api, speakerName: b.name, speakerId: b.id, otherName: a.name, transcript: flipTranscript(aChunk) }),
         ]);
         const ts = Date.now();
         const mk = () => `tp-${ts}-${Math.random().toString(36).slice(2, 7)}`;

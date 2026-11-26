@@ -94,7 +94,7 @@ strength 範圍 0.3-0.8。沒有關聯返回 []。只輸出 JSON。`;
                     stream: false,
                 }),
             },
-            2, 90_000, { appName: '記憶宮殿', purpose: '記憶關聯' }
+            2, 90_000, { appName: '記憶宮殿', charId: newNodes[0]?.charId, purpose: '記憶關聯' }
         );
 
         const reply = data.choices?.[0]?.message?.content || '';

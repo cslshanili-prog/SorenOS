@@ -105,7 +105,7 @@ const VoiceProfileFields: React.FC<Props> = ({
             return;
         }
         if (!apiConfig.elevenLabsApiKey?.trim()) {
-            addToast('請先在設置 → 其他 API 保存 ElevenLabs Key', 'info');
+            addToast('請先在設置 → 語音與寫歌 保存 ElevenLabs Key', 'info');
             return;
         }
         setIsTestingElevenLabsVoice(true);
@@ -128,7 +128,7 @@ const VoiceProfileFields: React.FC<Props> = ({
         if (isPreviewing) return;
         const shell = voiceShell(vp, speakerName);
         if (!canSynthesizeSpeech(shell, apiConfig)) {
-            addToast('目前的語音服務商還沒配好：先填上面對應那家的音色，Key 在設置 → 其他 API', 'info');
+            addToast('目前的語音服務商還沒配好：先填上面對應那家的音色，Key 在設置 → 語音與寫歌', 'info');
             return;
         }
         setIsPreviewing(true);
@@ -242,7 +242,7 @@ const VoiceProfileFields: React.FC<Props> = ({
                    />
                </div>
 
-               {/* 魚聲 Fish Audio 音色：僅當全局語音服務商切到魚聲時生效（設置 → 其他 API） */}
+               {/* 魚聲 Fish Audio 音色：僅當全局語音服務商切到魚聲時生效（設置 → 語音與寫歌） */}
                <div className="rounded-2xl border border-sky-200/60 bg-sky-50/40 p-2.5 space-y-1.5">
                    <div className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">魚聲 Fish 音色</div>
                    <input

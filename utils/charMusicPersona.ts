@@ -15,7 +15,7 @@
 import { APIConfig, CharacterProfile, CharMusicProfile, CharPlaylist, UserProfile } from '../types';
 import { ContextBuilder } from './context';
 
-const callLlm = async (api: APIConfig, sys: string, user: string): Promise<string> => {
+const callLlm = async (api: APIConfig, sys: string, user: string, who?: Pick<CharacterProfile, 'id' | 'name'>): Promise<string> => {
     const baseUrl = api.baseUrl.replace(/\/+$/, '');
     const resp = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
@@ -37,7 +37,7 @@ const callLlm = async (api: APIConfig, sys: string, user: string): Promise<strin
             stream: false,
         }),
         // API 調用記錄標籤：音樂人格生成是後台任務，不標會被兜底成「用戶當時打開的 App」
-        __sullyMeta: { appName: '音樂', purpose: '音樂人格生成' },
+        __sullyMeta: { appName: '音樂', charId: who?.id, charName: who?.name, purpose: '音樂人格生成' },
     } as RequestInit);
     if (!resp.ok) throw new Error(`LLM ${resp.status}`);
     const j = await resp.json();
@@ -231,7 +231,7 @@ export const CharMusicPersona = {
         }
 
         const { sys, usr } = buildPersonaPrompt(char, userProfile);
-        const rawText = await callLlm(apiConfig, sys, usr);
+        const rawText = await callLlm(apiConfig, sys, usr, char);
         if (!rawText || !rawText.trim()) {
             throw new Error('LLM 返回為空');
         }

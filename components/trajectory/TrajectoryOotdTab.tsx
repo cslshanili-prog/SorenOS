@@ -24,6 +24,7 @@ import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chat
 const withOotdFaceNote = (prompt: string, withReference: boolean) => (withReference ? `${prompt}\n${OOTD_FACE_NOTE}` : prompt);
 import { resolveCharTimeZone, nowInTimeZone } from '../../utils/timezone';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 interface Props {
     char: CharacterProfile;
     posts: TrajectoryOotdPost[];
@@ -87,7 +88,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     const handleGenerate = async () => {
         if (!apiConfig?.baseUrl || !apiConfig?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
         if (!canGenerateFor(imageGenConfig, 'ootd')) {
-            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -95,7 +96,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
             const timeContext = await buildOotdTimeContext(char);
             const prompt = buildTrajectoryOotdPrompt(roleSettingsBlock, posts, timeContext);
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -103,7 +104,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
                     messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
                     temperature: 0.95,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '軌跡·穿搭' }));
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const data = await safeResponseJson(response);
             const draft = parseTrajectoryOotdDraft(extractJson(extractContent(data)));
@@ -130,7 +131,7 @@ const TrajectoryOotdTab: React.FC<Props> = ({ char, posts, onCommit, apiConfig, 
     // description 來自「✎ 改照片描述」：改過的存回 imagePrompt，之後 ⟳ 就照新的跑
     const handleRegeneratePhoto = async (post: TrajectoryOotdPost, description?: string, pick?: ImageStylePick) => {
         if (!canGenerateFor(imageGenConfig, 'ootd')) {
-            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
+            addToast(isImageFeatureOff(imageGenConfig, 'ootd') ? '穿搭的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);

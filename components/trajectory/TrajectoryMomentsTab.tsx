@@ -109,7 +109,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
         const usable = globalMomentsApi(osApiConfig) || apiConfig;
         if (!usable?.baseUrl || !usable?.apiKey) { addToast('先在設置裡配置好 API', 'info'); return; }
         if (!canGenerateFor(imageGenConfig, 'moments')) {
-            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
+            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setGenerating(true);
@@ -133,7 +133,7 @@ const TrajectoryMomentsTab: React.FC<Props> = ({ char, cover, onCommitCover, api
     // overrides 來自「✎ 改照片描述」：改過的描述存回 imagePrompt，之後 ⟳ 就照新的跑
     const handleRegeneratePhoto = async (post: MomentPost, overrides?: { description: string; forceReference: boolean; pick?: ImageStylePick }) => {
         if (!canGenerateFor(imageGenConfig, 'moments')) {
-            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → 生圖API → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
+            addToast(isImageFeatureOff(imageGenConfig, 'moments') ? '朋友圈配圖的生圖在「設置 → API 配置 → 生圖 → 各處畫風」關掉了' : '先在設置裡開啟並配置好生圖 API', 'info');
             return;
         }
         setRegeneratingPhoto(true);

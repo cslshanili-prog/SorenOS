@@ -7,6 +7,7 @@ import { safeResponseJson, extractContent, extractJson } from '../../utils/safeA
 import { syncButtonLabel, syncToastText, upsertChatCard } from '../../utils/chatCardSync';
 import { DB } from '../../utils/db';
 
+import { withApiCallMeta } from '../../utils/apiCallLog';
 type ProfileSubTab = 'archives' | 'objective' | 'checklist';
 
 const SUB_TABS: { key: ProfileSubTab; label: string }[] = [
@@ -43,7 +44,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
         try {
             const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char, { skipMemories: true });
             const prompt = buildTrajectoryProfilePrompt(roleSettingsBlock, profile);
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -51,7 +52,7 @@ const TrajectoryProfileTab: React.FC<Props> = ({ char, profile, onCommit, apiCon
                     messages: [{ role: 'system', content: roleSettingsBlock }, { role: 'user', content: prompt }],
                     temperature: 0.95,
                 }),
-            });
+            }, { charId: char.id, charName: char.name, purpose: '軌跡·檔案' }));
             if (!response.ok) throw new Error(`API Error ${response.status}`);
             const data = await safeResponseJson(response);
             const content = extractContent(data);

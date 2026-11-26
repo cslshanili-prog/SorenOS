@@ -18,6 +18,7 @@ import { generateImage, buildCharacterImagePrompt, resolveCharacterReferenceImag
 import { migrateDataUrlToRef } from './blobRef';
 import { createMomentPost } from './momentsStore';
 
+import { withApiCallMeta } from './apiCallLog';
 /**
  * 讓一個角色發一篇朋友圈（寫進單一貼文池）：軌跡 Moments 的「✦ 生成一條」和朋友圈頁的「↻ 重整」共用。
  * 文案先用 API 中心的朋友圈槽，沒設才用角色自己的模型（resolveCharacterChatApi）；生圖設定開著才配圖，沒開就發純文字。
@@ -103,7 +104,7 @@ export async function generateCharacterMoment(params: {
     const roleSettingsBlock = ContextBuilder.buildRoleSettingsContext(char);
     const moment = await loadMomentContext(char, params.userProfileBase);
     const systemBlock = `${roleSettingsBlock}${moment.block}`;
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({
@@ -114,7 +115,7 @@ export async function generateCharacterMoment(params: {
             ],
             temperature: 0.95,
         }),
-    });
+    }, { appName: '朋友圈', charId: char.id, charName: char.name, purpose: '朋友圈發文' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const draft = parseTrajectoryMomentDraft(extractJson(extractContent(await safeResponseJson(response))));
     if (!draft) throw new Error('這次沒解析出動態內容');

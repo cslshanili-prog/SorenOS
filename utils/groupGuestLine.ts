@@ -4,6 +4,7 @@ import { safeResponseJson, extractContent } from './safeApi';
 import { userRelationLabel } from './personaSpeaker';
 import { isOnStage, isSupporting } from './castRole';
 
+import { withApiCallMeta } from './apiCallLog';
 export interface GroupGuestLineOptions {
     /** 客串的配角 */
     guest: Pick<CharacterProfile, 'id' | 'name' | 'systemPrompt' | 'description' | 'aliases' | 'roleTitle' | 'worldview' | 'relationships' | 'refinedMemories'>;
@@ -71,11 +72,11 @@ ${recentTranscript || '（還沒人說話）'}
 ${hint ? `【這次客串的方向提示，供參考】\n${hint}\n` : ''}
 只輸出「${guest.name}」說的這一句話本身，不要帶名字前綴、不要加引號包裹，1-2 句話，符合群聊口語節奏。`;
 
-    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+    const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
         body: JSON.stringify({ model: api.model, messages: [{ role: 'user', content: prompt }], temperature: 0.9 }),
-    });
+    }, { appName: '群聊', charId: guest.id, charName: guest.name, purpose: '配角客串' }));
     if (!response.ok) throw new Error(`API 返回 ${response.status}`);
     const data = await safeResponseJson(response);
     return extractContent(data).trim();

@@ -34,6 +34,7 @@ import { markAmsgStateDirty } from '../utils/amsgStateSync';
 import { createQixiChatMessagePair } from '../utils/qixiChatCard';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 // ============================================================
 // 情人節立繪 Sprite 映射 (佔位 emoji，等圖片整理好後替換為圖床URL)
 // ============================================================
@@ -567,7 +568,7 @@ export const ValentineSession: React.FC<ValentineSessionProps> = ({ charId, onCl
 
 禁止使用不在列表中的情緒標籤。台詞用雙引號，動作直接寫。`;
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiConfig.apiKey}` },
                 body: JSON.stringify({
@@ -578,7 +579,7 @@ export const ValentineSession: React.FC<ValentineSessionProps> = ({ charId, onCl
                     ],
                     temperature: 0.88
                 })
-            });
+            }, { charId: c.id, charName: c.name, purpose: '情人節信' }));
 
             if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
             const data = await safeResponseJson(response);

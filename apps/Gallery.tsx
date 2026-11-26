@@ -41,6 +41,7 @@ import {
     resolveLibraryAccess,
 } from '../utils/library';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 const DESCRIPTION_HINT = '寫給角色看的：畫面裡有什麼、在哪裡、什麼時候。有描述的照片，分配到的角色才知道它在、能傳給你。';
 
 /**
@@ -335,14 +336,14 @@ CRITICAL: Stay in character. If there's conversation context, your comment shoul
                 stream: false
             };
 
-            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${apiConfig.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiConfig.apiKey}`
                 },
                 body: JSON.stringify(payload)
-            });
+            }, { charId: char.id, charName: char.name, purpose: '照片點評' }));
 
             if (!response.ok) {
                 let errorMsg = `HTTP Error ${response.status}`;

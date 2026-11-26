@@ -14,6 +14,7 @@ import { trackEvent } from '../utils/analytics';
 import { extractPdfText, isPdfFile } from '../utils/pdfText';
 import { resolveUserProfileForChar } from '../utils/userPersona';
 
+import { withApiCallMeta } from '../utils/apiCallLog';
 type KatexLike = {
     renderToString: (latex: string, options: any) => string;
 };
@@ -579,7 +580,7 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
   ]
 }
 `;
-        const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
             body: JSON.stringify({
@@ -588,7 +589,7 @@ For each chapter, provide a title, a brief summary of what it covers, and a diff
                 temperature: 0.5,
                 max_tokens: 8000
             })
-        });
+        }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·生成課綱' }));
 
         if (!response.ok) throw new Error('API Error');
         const data = await safeResponseJson(response);
@@ -691,7 +692,7 @@ Explain this chapter's key concepts to the user based strictly on the Source Mat
   3. Example: A concrete example or walkthrough.
   4. Summary: Quick recap.
 `;
-            return await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            return await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
                 body: JSON.stringify({
@@ -706,7 +707,7 @@ Explain this chapter's key concepts to the user based strictly on the Source Mat
                         { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
                     ]
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·講課' }));
         };
 
         try {
@@ -819,7 +820,7 @@ ${chunkText.substring(0, 8000)}
 ### Task
 Answer the question based on the source material. Be helpful and encouraging (in character). Use Markdown.
 `;
-             const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+             const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
                 body: JSON.stringify({
@@ -828,7 +829,7 @@ Answer the question based on the source material. Be helpful and encouraging (in
                     temperature: 0.7,
                     max_tokens: 8000
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·問答' }));
             
             const data = await safeResponseJson(response);
             const text = data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning_content || "（無回答）";
@@ -877,11 +878,11 @@ Format: "今天給[User]講了[Topic]..." or "Today I taught [User] about..."
 Note: Use "我" (I) to refer to yourself.
 `;
 
-        fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
             body: JSON.stringify({ model: effectiveApi.model, messages: [{ role: "user", content: summaryPrompt }] })
-        }).then(res => safeResponseJson(res)).then(data => {
+        }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·章節結束' })).then(res => safeResponseJson(res)).then(data => {
             const mem = data.choices[0].message.content;
             const newMem = { id: `mem-${Date.now()}`, date: new Date().toLocaleDateString(), summary: `[教學] ${mem}`, mood: 'proud' };
             updateCharacter(selectedChar.id, { memories: [...(selectedChar.memories || []), newMem] });
@@ -998,7 +999,7 @@ ${chunkText.substring(0, 10000)}
 }`;
 
         try {
-            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
                 body: JSON.stringify({
@@ -1007,7 +1008,7 @@ ${chunkText.substring(0, 10000)}
                     temperature: 0.7,
                     max_tokens: 8000
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·出測驗' }));
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await safeResponseJson(response);
@@ -1116,7 +1117,7 @@ ${resultsText}
 ### Your Review (in character):`;
 
         try {
-            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
                 body: JSON.stringify({
@@ -1125,7 +1126,7 @@ ${resultsText}
                     temperature: 0.8,
                     max_tokens: 8000
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·批改測驗' }));
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await safeResponseJson(response);
@@ -1219,7 +1220,7 @@ ${question.options ? question.options.map(o => `  ${o}`).join('\n') : ''}
 Answer in character. Be helpful and clear. If they're confused about a concept, explain it with different examples or analogies. Keep it concise but thorough.`;
 
         try {
-            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+            const response = await fetch(`${effectiveApi.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${effectiveApi.apiKey}` },
                 body: JSON.stringify({
@@ -1228,7 +1229,7 @@ Answer in character. Be helpful and clear. If they're confused about a concept, 
                     temperature: 0.7,
                     max_tokens: 4000
                 })
-            });
+            }, { charId: selectedChar?.id, charName: selectedChar?.name, purpose: '自習室·追問' }));
 
             if (!response.ok) throw new Error(`API Error: ${response.status}`);
             const data = await safeResponseJson(response);

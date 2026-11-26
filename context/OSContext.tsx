@@ -53,7 +53,7 @@ import { runWorldEpisode, rerollWorldCharBeat, rerollWorldEpisodeAll } from '../
 import { migrateWorldDaySegs } from '../utils/worldHome/prompts';
 import { ChatParser } from '../utils/chatParser';
 import { safeFetchJson } from '../utils/safeApi';
-import { captureApiRequestOnce, getApiCallAmbientContext, recordApiCall, setApiCallAmbientContext, updateApiRequestCaptureUsage } from '../utils/apiCallLog';
+import { captureApiRequestOnce, getApiCallAmbientContext, mergeApiCallMeta, recordApiCall, setApiCallAmbientContext, updateApiRequestCaptureUsage } from '../utils/apiCallLog';
 import { isGlobalStreamEnabled, upgradeChatBodyToStream, assembleUpgradedResponse } from '../utils/streamUpgrade';
 import { rewriteStaleWorkerUrl } from '../utils/proxyWorker';
 import { buildFetchFailureDetail, classifyFetchFailure, describeReachabilityProbe, parseTargetUrl, probeOriginReachability, shouldProbeReachability, summarizeFetchRequestBody } from '../utils/networkFailureDiagnosis';
@@ -1221,13 +1221,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
       }
   };
 
-  // --- API 調用記錄的環境兜底：當前在哪個 App、當前角色是誰 ---
-  // 裸 fetch 調用點無法傳 meta，全局攔截器記錄時用這份兜底標出 App / 角色。
+  // --- API 調用記錄的環境兜底：當前在哪個 App ---
+  // 裸 fetch 調用點沒傳 meta 時，全局攔截器用這份兜底標出 App。不兜底角色：
+  // 「目前選著的角色」常常不是這次請求替誰發的（背景的朋友圈、情緒、記憶、群聊成員…），
+  // 會標錯人；角色由調用點自己帶（utils/apiCallLog.ts 檔頭）。
   useEffect(() => {
       const appName = INSTALLED_APPS.find(a => a.id === activeApp)?.name;
-      const char = characters.find(c => c.id === activeCharacterId);
-      setApiCallAmbientContext({ appId: activeApp, appName, charId: char?.id, charName: char?.name });
-  }, [activeApp, activeCharacterId, characters]);
+      setApiCallAmbientContext({ appId: activeApp, appName });
+  }, [activeApp]);
 
   // --- 使用統計：打開了哪個 App ---
   // 掛在 activeApp 上而不是塞進 openApp，是因為進一個 App 有好幾條路（桌面點圖標、
@@ -1463,7 +1464,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
           // 取兼容層處理後的 sendArgs，展示內容與本次實際提交給服務端的請求體一致。
           let apiRequestCaptureId: string | null = null;
           if (urlStr.includes('/chat/completions')) {
-              const captureMeta = (sendArgs[1] as any)?.__sullyMeta || ambientMetaAtStart;
+              const captureMeta = mergeApiCallMeta((sendArgs[1] as any)?.__sullyMeta, ambientMetaAtStart);
               apiRequestCaptureId = captureApiRequestOnce({ url: urlStr, body: (sendArgs[1] as any)?.body, meta: captureMeta });
           }
 
@@ -1513,7 +1514,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // 正文 44s 才灌完，卡片卻記成 6.5s（實測誤導排查）。clone 與調用方並行消費同一
               // 條流，text() 完成時刻 ≈ 真實收完時刻。
               if (urlStr.includes('/chat/completions')) {
-                  const baseMeta = (config as any)?.__sullyMeta || ambientMetaAtStart;
+                  const baseMeta = mergeApiCallMeta((config as any)?.__sullyMeta, ambientMetaAtStart);
                   // 換過家的在用途後面標一句，「API 調用記錄」看得出哪家常掛
                   const meta = failoverNote ? { ...(baseMeta || {}), purpose: `${baseMeta?.purpose || '—'}（備援 ${failoverNote}）` } : baseMeta;
                   const requestId = (config as any)?.__sullyApiCallId;
@@ -1587,7 +1588,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               // Network Failure
               if (urlStr.includes('/chat/completions')) {
                   updateApiRequestCaptureUsage({ captureId: apiRequestCaptureId, ok: false });
-                  recordApiCall({ requestId: (config as any)?.__sullyApiCallId, url: urlStr, body: (sendArgs[1] as any)?.body, ok: false, meta: (config as any)?.__sullyMeta || ambientMetaAtStart, durationMs: Date.now() - fetchStartedAt });
+                  recordApiCall({ requestId: (config as any)?.__sullyApiCallId, url: urlStr, body: (sendArgs[1] as any)?.body, ok: false, meta: mergeApiCallMeta((config as any)?.__sullyMeta, ambientMetaAtStart), durationMs: Date.now() - fetchStartedAt });
               }
               if (!isAnalyticsRequestUrl(urlStr)) {
                   // 光禿禿一句 "Failed to fetch" + 一個 URL 排查不了任何東西（社區裡這條卡過好幾個人）。
@@ -1596,7 +1597,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   // 結論回填到同一條日誌上——「網絡不通」和「網絡通但響應被 CORS 攔」要走的排查路
                   // 完全相反，不分開的話用戶只能瞎試。詳見 utils/networkFailureDiagnosis.ts。
                   const logId = `log-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                  const requestMeta = (sendArgs[1] as any)?.__sullyMeta || ambientMetaAtStart;
+                  const requestMeta = mergeApiCallMeta((sendArgs[1] as any)?.__sullyMeta, ambientMetaAtStart);
                   const recentSuccess = recentSuccessfulFetches.get(requestComparisonKey);
                   const baseDetail = buildFetchFailureDetail({
                       url: urlStr,

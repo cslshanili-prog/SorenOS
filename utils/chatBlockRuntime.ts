@@ -8,6 +8,7 @@ import { normalizeMessageContent } from './messageFormat';
 import { buildReconsiderPrompt, isCharBlockingUser, parseReconsider } from './chatBlock';
 import { TEMP_CHAT_HISTORY_PREFIX } from './tempChat';
 
+import { withApiCallMeta } from './apiCallLog';
 /**
  * 角色拉黑用戶之後，冷靜期到了讓角色想一次要不要解除（OSContext 每分鐘看一次誰到點了）。
  * 打角色自己的對話模型一次；結果交回 OSContext 寫角色、落訊息。純邏輯在 utils/chatBlock.ts。
@@ -51,7 +52,7 @@ export async function runCharBlockReconsider(params: {
         const rejected = recent.filter(m => m.timestamp >= block.since && (m.role === 'user' || !!m.metadata?.tempChat)).slice(-REJECTED_LINES)
             .map(m => lineOf(m, char.name, userName)).join('\n');
         const prompt = buildReconsiderPrompt({ charName: char.name, userName, reason: block.reason, since: block.since, now, before, rejected });
-        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        const response = await fetch(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, withApiCallMeta({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${api.apiKey}` },
             body: JSON.stringify({
@@ -59,7 +60,7 @@ export async function runCharBlockReconsider(params: {
                 messages: [{ role: 'system', content: ContextBuilder.buildRoleSettingsContext(char) }, { role: 'user', content: prompt }],
                 temperature: 0.9,
             }),
-        });
+        }, { appName: '消息', charId: char.id, charName: char.name, purpose: '拉黑後重新考慮' }));
         if (!response.ok) throw new Error(`API 返回 ${response.status}`);
         const decision = parseReconsider(extractJson(extractContent(await safeResponseJson(response))));
         return decision.unblock ? { kind: 'unblock', message: decision.message } : { kind: 'stay' };
