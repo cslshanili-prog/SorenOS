@@ -4075,7 +4075,7 @@ export const DB = {
           });
       };
 
-      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, calendarEvents, trips, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets] = await Promise.all([
+      const [characters, characterGroups, npcs, momentPosts, messages, themes, emojis, emojiCategories, assets, galleryImages, userProfiles, diaries, tasks, anniversaries, calendarEvents, trips, roomTodos, roomNotes, groups, journalStickers, socialPosts, courses, games, worldbooks, storyTheaters, storyTheaterPresets, storyTheaterMasks, novels, bankTx, bankData, xhsActivities, xhsOwnedPosts, xhsStockImages, songs, quizzes, guidebookSessions, scheduledMessages, lifeSimStates, handbooks, trackers, trackerEntries, hotNewsSnapshots, vrNovels, vrAnnotations, customCreatorParts, vrMusic, vrGuestbook, vrScripts, vrStagedPlays, vrPresets, vrLetters, vrSettings, worlds, worldEpisodes, lifeRecords, medPlans, lifeRecordSettings, meetingPresets, dateStories, dateSummaryPresets, bonds, mallCategories, mallProducts, mallOrders] = await Promise.all([
           getAllFromStore(STORE_CHARACTERS),
           getAllFromStore(STORE_CHAR_GROUPS),
           getAllFromStore(STORE_NPCS),
@@ -4136,6 +4136,10 @@ export const DB = {
           getAllFromStore(STORE_MEETING_PRESETS),
           getAllFromStore(STORE_DATE_STORIES),
           getAllFromStore(STORE_DATE_SUMMARY_PRESETS),
+          getAllFromStore(STORE_BONDS),
+          getAllFromStore(STORE_MALL_CATEGORIES),
+          getAllFromStore(STORE_MALL_PRODUCTS),
+          getAllFromStore(STORE_MALL_ORDERS),
       ]);
 
       const userProfile = userProfiles.length > 0 ? {
@@ -4169,6 +4173,10 @@ export const DB = {
           meetingPresets,
           dateStories,
           dateSummaryPresets,
+          bonds,
+          mallCategories,
+          mallProducts,
+          mallOrders,
           hotNewsSnapshots,
           vrNovels,
           vrAnnotations,
@@ -4285,6 +4293,9 @@ export const DB = {
           data.calendarEvents !== undefined,
           data.trips !== undefined,
           data.bonds !== undefined,
+          data.mallCategories !== undefined,
+          data.mallProducts !== undefined,
+          data.mallOrders !== undefined,
           data.roomTodos !== undefined,
           data.roomNotes !== undefined,
           data.groups !== undefined,
@@ -4590,6 +4601,19 @@ export const DB = {
           await clearAndAdd(STORE_BONDS, data.bonds, '羈絆', false);
           data.bonds = undefined as any;
       }, data.bonds?.length || 0);
+      // 購物中心：三張一起（訂單的商品是下單當下的快照，不靠商品表；分類跟商品照 id 對）
+      await runSection('購物中心分類', data.mallCategories !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_CATEGORIES, data.mallCategories, '購物中心分類', false);
+          data.mallCategories = undefined as any;
+      }, data.mallCategories?.length || 0);
+      await runSection('購物中心商品', data.mallProducts !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_PRODUCTS, data.mallProducts, '購物中心商品', false);
+          data.mallProducts = undefined as any;
+      }, data.mallProducts?.length || 0);
+      await runSection('購物中心訂單', data.mallOrders !== undefined, async () => {
+          await clearAndAdd(STORE_MALL_ORDERS, data.mallOrders, '購物中心訂單', false);
+          data.mallOrders = undefined as any;
+      }, data.mallOrders?.length || 0);
       await runSection('房間待辦', data.roomTodos !== undefined, async () => {
           await clearAndAdd(STORE_ROOM_TODOS, data.roomTodos, '房間待辦', false);
           data.roomTodos = undefined as any;

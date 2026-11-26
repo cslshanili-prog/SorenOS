@@ -5512,6 +5512,10 @@ export interface FullBackupData {
     trips?: Trip[];
     /** 羈絆空間（plans/bond.md） */
     bonds?: BondRecord[];
+    /** 購物中心（plans/mall-redesign.md）：分類、商品、訂單 */
+    mallCategories?: MallCategory[];
+    mallProducts?: MallProduct[];
+    mallOrders?: MallOrder[];
     roomTodos?: RoomTodo[]; 
     roomNotes?: RoomNote[];
     socialPosts?: SocialPost[]; 

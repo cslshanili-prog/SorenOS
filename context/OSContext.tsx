@@ -5250,6 +5250,14 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               'life_records', 'med_plans', 'life_record_settings',
               // 羈絆空間（plans/bond.md）
               'bonds',
+              // 2026-11-26 補：以下幾張 importFullData 早就會還原（購物中心是這次一起補上），
+              // 但一直漏在這份清單外，設置頁的備份根本沒打包（DB.exportFullData 有，所以 roundtrip 測試是綠的）。
+              'calendar_events', 'trips',                                    // 行事曆的約定層、旅行
+              'date_stories', 'meeting_presets', 'date_summary_presets',     // 見面的線下故事、預設、總結預設
+              'xhs_owned_posts',                                             // 角色自己的小紅書主頁
+              'mall_categories', 'mall_products', 'mall_orders',             // 購物中心
+              // 刻意不帶（utils/backupStoreCoverage.test.ts 列著）：blob_assets（二進位走 blobs/*）、
+              // api_call_log（本機診斷）、assistant_sessions（Sore 的對話只在這台裝置，plans/ai-assistant.md）。
           ];
 
           if (mode === 'full') {
@@ -5636,6 +5644,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
               med_plans: 'medPlans',
               life_record_settings: 'lifeRecordSettings',
               bonds: 'bonds',
+              calendar_events: 'calendarEvents',
+              trips: 'trips',
+              date_stories: 'dateStories',
+              meeting_presets: 'meetingPresets',
+              date_summary_presets: 'dateSummaryPresets',
+              xhs_owned_posts: 'xhsOwnedPosts',
+              mall_categories: 'mallCategories',
+              mall_products: 'mallProducts',
+              mall_orders: 'mallOrders',
           };
           const prewrittenStores: BackupManifest['stores'] = {};
           // 整合／媒體分批寫的表：純文字那張對照表再加 assets（純文字不帶 assets，所以那邊沒列）
@@ -5916,6 +5933,15 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                   case 'worlds': backupData.worlds = processedData; break;
                   case 'world_episodes': backupData.worldEpisodes = processedData; break;
                   case 'bonds': backupData.bonds = processedData; break;
+                  case 'calendar_events': backupData.calendarEvents = processedData; break;
+                  case 'trips': backupData.trips = processedData; break;
+                  case 'date_stories': backupData.dateStories = processedData; break;
+                  case 'meeting_presets': backupData.meetingPresets = processedData; break;
+                  case 'date_summary_presets': backupData.dateSummaryPresets = processedData; break;
+                  case 'xhs_owned_posts': backupData.xhsOwnedPosts = processedData; break;
+                  case 'mall_categories': backupData.mallCategories = processedData; break;
+                  case 'mall_products': backupData.mallProducts = processedData; break;
+                  case 'mall_orders': backupData.mallOrders = processedData; break;
               }
 
               await new Promise(resolve => setTimeout(resolve, 10));
