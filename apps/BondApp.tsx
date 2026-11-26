@@ -40,7 +40,7 @@ import { personaOptions } from '../utils/calendarView';
 import { isOnStage } from '../utils/castRole';
 import { loadCalendarEvents } from '../utils/calendarEvents';
 import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch, dateJumpLaunch, memoryPalaceLaunch, pairChatLaunch } from '../utils/appLaunch';
-import { bondRefFromEssay, bondRefFromItem, type BondRefMeta } from '../utils/bond/bondRef';
+import { bondRefFromDiary, bondRefFromEssay, bondRefFromItem, bondRefFromQuestion, bondRefFromSlip, type BondRefMeta } from '../utils/bond/bondRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
 import { trackEvent } from '../utils/analytics';
@@ -48,10 +48,10 @@ import { trackEvent } from '../utils/analytics';
 type Page =
     | { page: 'list' }
     | { page: 'space'; id: string; tab?: BondTab; heart?: HeartTab }
-    | { page: 'diary'; id: string; date?: string; from?: 'home' }
-    | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean }
+    | { page: 'diary'; id: string; date?: string; from?: 'home'; exitOnBack?: boolean }
+    | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean; exitOnBack?: boolean }
     | { page: 'question-new'; id: string }
-    | { page: 'slip'; id: string; entryId: string; from?: 'home' }
+    | { page: 'slip'; id: string; entryId: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'slip-edit'; id: string; entryId?: string; replyTo?: string }
     | { page: 'item'; id: string; key: string; exitOnBack?: boolean }
     | { page: 'moment-edit'; id: string; entryId?: string; key?: string }
@@ -83,9 +83,11 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         }
         if (!launch) return { page: 'list' };
         if (launch.heart) {
-            if (launch.questionId) return { page: 'question', id: launch.bondId, entryId: launch.questionId };
-            if (launch.slipId) return { page: 'slip', id: launch.bondId, entryId: launch.slipId };
-            if (launch.diaryDate) return { page: 'diary', id: launch.bondId, date: launch.diaryDate };
+            // 從聊天氣泡上的小卡開過來：返回就回聊天
+            const exitOnBack = appReturn.pending(AppID.Bond);
+            if (launch.questionId) return { page: 'question', id: launch.bondId, entryId: launch.questionId, exitOnBack };
+            if (launch.slipId) return { page: 'slip', id: launch.bondId, entryId: launch.slipId, exitOnBack };
+            if (launch.diaryDate) return { page: 'diary', id: launch.bondId, date: launch.diaryDate, exitOnBack };
             return { page: 'space', id: launch.bondId, tab: 'heart', heart: launch.heart };
         }
         if (launch.page === 'route') return { page: 'route', id: launch.bondId, from: 'list' };
@@ -306,14 +308,22 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                             <JournalApp embed={{
                                 char: s.view, user: s.user, bondId: s.id, mainBondId: mainBondIdOf(s), today: s.todayKey,
                                 initialDate: page.date, syncToChat: diarySetting.syncToChat, length: diarySetting.length, style: diarySetting.style,
-                                onBack: () => (page.from === 'home' ? toHome() : toHeart('diary')),
+                                onBack: () => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('diary')),
+                                onBringToChat: (d, side) => {
+                                    const ref = bondRefFromDiary(s.id, d, side, side === 'user' ? s.leftName : s.rightName);
+                                    if (ref) void bringToChat(s.id, ref, () => { bondLaunch.request({ bondId: s.id, heart: 'diary', diaryDate: d.date }); openApp(AppID.Bond); });
+                                },
                             }} />
                         </React.Suspense>
                     </div>
                 )}
                 {page.page === 'question' && (
                     <BondQuestionPage key={page.entryId} space={s} apiConfig={apiConfig} entryId={page.entryId} autoAsk={page.autoAsk}
-                        onBack={() => (page.from === 'home' ? toHome() : toHeart('question'))} addToast={addToast} />
+                        onBringToChat={e => {
+                            const ref = bondRefFromQuestion(s.id, e, { user: s.leftName, char: s.rightName });
+                            if (ref) void bringToChat(s.id, ref, () => { bondLaunch.request({ bondId: s.id, heart: 'question', questionId: e.id }); openApp(AppID.Bond); });
+                        }}
+                        onBack={() => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('question'))} addToast={addToast} />
                 )}
                 {page.page === 'question-new' && (
                     <BondQuestionComposePage space={s} apiConfig={apiConfig} onBack={() => toHeart('question')}
@@ -321,9 +331,13 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                 )}
                 {page.page === 'slip' && (
                     <BondSlipPage space={s} apiConfig={apiConfig} entryId={page.entryId}
-                        onBack={() => (page.from === 'home' ? toHome() : toHeart('note'))}
+                        onBack={() => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('note'))}
                         onReply={replyTo => setPage({ page: 'slip-edit', id: s.id, replyTo })}
                         onEditDraft={entryId => setPage({ page: 'slip-edit', id: s.id, entryId })}
+                        onBringToChat={root => {
+                            const ref = bondRefFromSlip(s.id, root, root.id, root.author === 'user' ? s.leftName : s.rightName);
+                            if (ref) void bringToChat(s.id, ref, () => { bondLaunch.request({ bondId: s.id, heart: 'note', slipId: root.id }); openApp(AppID.Bond); });
+                        }}
                         addToast={addToast} />
                 )}
                 {page.page === 'slip-edit' && (

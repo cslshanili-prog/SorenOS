@@ -95,6 +95,8 @@ export interface JournalEmbed {
     length: 'short' | 'medium' | 'long';
     style?: string;
     onBack: () => void;
+    /** 帶去聊聊（發布了的頁才能帶；羈絆第 3 批） */
+    onBringToChat?: (entry: DiaryEntry, side: 'user' | 'char') => void;
 }
 
 const JournalApp: React.FC<{ embed?: JournalEmbed }> = ({ embed }) => {
@@ -1219,6 +1221,11 @@ ${charPart}
                                         歸檔
                                     </>
                                 )}
+                            </button>
+                        )}
+                        {embed?.onBringToChat && currentEntry && (activeTab === 'user' ? pagePublished(currentEntry.userPage) : pagePublished(currentEntry.charPage)) && (
+                            <button onClick={() => embed.onBringToChat!(currentEntry, activeTab)} className="px-3 py-1.5 bg-white/10 rounded-full text-[11px] font-bold hover:bg-white/20 active:scale-95 transition-transform">
+                                帶去聊聊
                             </button>
                         )}
                         {activeTab === 'char' && currentEntry?.charPage?.originalText && (

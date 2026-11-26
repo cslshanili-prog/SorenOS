@@ -15,6 +15,13 @@
 > - 紙條的狀態由收到的那方標；你丟的紙條，TA 標狀態要等第 3c 批的排程。
 > - 首頁「最近值得留意」的「剛揭曉」用卡上的 `seenAt` 判斷有沒有看過那一輪；心意分頁有新東西時分頁名旁邊點一個小點。
 
+>
+> **實況（2026-11-26）：3b 做完。**
+> - 提示詞三段在 `utils/bond/prompt.ts` 的 `heartLines`（照 `utils/bond/visibility.ts` 挑）；日記的同步讀法是新的登記表 `utils/bond/diaryRegistry.ts`，`DB.saveDiary`／`deleteDiary` 順手更新並打髒；開機（角色讀進來後）`utils/bond/diaryStore.ts` 讀一次，順便替舊交換日記補 `bondId`（只補欄位）。
+> - 改動事件的常數搬到零依賴的 `utils/bond/events.ts`（`store.ts` 照舊轉出），卡片 id 搬到 `utils/bond/ids.ts`，讓純邏輯模組不把資料庫拉進來。
+> - 帶去聊聊多三種（`bondRefFromDiary`／`bondRefFromQuestion`／`bondRefFromSlip`）：日記的一頁（發布的）、問答（揭曉過的，沒揭曉的不能帶）、紙條（投遞的）；氣泡上的小卡點了開回那一頁、那一題、那張，返回回聊天。
+> - 問答、紙條的「同步私聊」只用在角色主動出的那份（第 3c 批）；你按「請 TA 出一題」、「請 TA 回」時你就在旁邊，不另外傳訊。
+
 ## 0. 範圍
 
 | 這一批做 | 不在這一批 |

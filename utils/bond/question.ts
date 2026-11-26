@@ -6,7 +6,7 @@
  * - **盲答是真的盲**：誰看得到哪個答案只有 `visibleAnswer` 一個判斷，畫面和提示詞都用它。
  */
 import type { BondAnswer, BondEntry, BondQuestion, BondQuestionRound, BondQuestionTopic } from '../../types';
-import { newBondEntryId } from './entries';
+import { newBondEntryId } from './ids';
 
 export type QSide = 'user' | 'char';
 

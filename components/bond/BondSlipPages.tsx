@@ -3,7 +3,7 @@
  * 投遞才算說出口：你的草稿只有你看得到，角色的提示詞也不會有（utils/bond/visibility.ts）。
  */
 import React, { useEffect, useState } from 'react';
-import { PaperPlaneTilt, Plus, Sparkle } from '@phosphor-icons/react';
+import { ChatCircleText, PaperPlaneTilt, Plus, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondSlip } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -24,8 +24,10 @@ export const BondSlipPage: React.FC<{
     onBack: () => void;
     onReply: (rootId: string) => void;
     onEditDraft: (id: string) => void;
+    /** 帶去聊聊（投遞了的才能帶） */
+    onBringToChat?: (root: BondEntry) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, apiConfig, entryId, onBack, onReply, onEditDraft, addToast }) => {
+}> = ({ space, apiConfig, entryId, onBack, onReply, onEditDraft, onBringToChat, addToast }) => {
     const entries = useBondEntries(space.id);
     const root = entries.find(e => e.id === entryId);
     const name = space.rightName;
@@ -131,6 +133,7 @@ export const BondSlipPage: React.FC<{
                     {root.status === 'published' && (
                         <section className="flex flex-wrap gap-2">
                             <button type="button" className="bond-btn" onClick={() => onReply(root.id)}><Plus size={14} />回一張</button>
+                            {onBringToChat && <button type="button" className="bond-btn" onClick={() => onBringToChat(root)}><ChatCircleText size={14} />帶去聊聊</button>}
                             {lastFromMe && (
                                 <button type="button" className="bond-btn" disabled={busy} onClick={askReply}><Sparkle size={14} />{busy ? `${name}在寫…` : `請 ${name} 回`}</button>
                             )}

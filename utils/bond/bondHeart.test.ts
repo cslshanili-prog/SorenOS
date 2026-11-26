@@ -158,3 +158,43 @@ describe('主動產出設定', () => {
         expect(resolveOutputSetting({ output: { note: { enabled: false } } }, 'note')).toMatchObject({ enabled: false, everyDays: [3, 7] });
     });
 });
+
+import { bondPromptBlock } from './prompt';
+import { bondRefFromDiary, bondRefFromQuestion, bondRefFromSlip, bondRefPrefix } from './bondRef';
+import { blankBond } from './model';
+
+describe('心意進提示詞（知情範圍）', () => {
+    const bond = blankBond('c1::p1', Date.now());
+    it('沒有心意的內容時一字不差', () => {
+        const base = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [], selfId: 'c1' });
+        const draftOnly = bondPromptBlock({
+            bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1',
+            entries: [newSlip({ bondId: 'c1::p1', author: 'user', text: '草稿', tags: [] }), newQuestion({ bondId: 'c1::p1', openedBy: 'user', prompt: '還沒送出', origin: 'user' })],
+            diaries: [{ ...blankDiary({ charId: 'c1', bondId: 'c1::p1', date: '2026-11-26' }), userPage: page('沒發布', { writtenAt: 1 }) }],
+        });
+        expect(draftOnly).toBe(base);
+    });
+    it('發布的日記、揭曉的問答、投遞的紙條進來；盲答不漏', () => {
+        const diary = putCharPage({ ...blankDiary({ charId: 'c1', bondId: 'c1::p1', date: '2026-11-26' }), userPage: page('今天喉嚨痛', { writtenAt: 1, publishedAt: 2 }) }, page('泡了檸檬水'), 'ai', 3);
+        const revealed = answerQuestion(answerQuestion(newQuestion({ bondId: 'c1::p1', openedBy: 'user', prompt: '最喜歡的季節', origin: 'user' }), 'user', { text: '秋天', state: 'sealed' }), 'char', { text: '冬天', state: 'sealed' });
+        const blind = answerQuestion(newQuestion({ bondId: 'c1::p1', openedBy: 'user', prompt: '早餐吃什麼', origin: 'user' }), 'user', { text: '秘密答案', state: 'sealed' });
+        const slip = setSlipState(deliverSlip(newSlip({ bondId: 'c1::p1', author: 'c1', text: '上次沒接話', tags: ['沒說出口的話'] })), 'want_to_talk');
+        const out = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1', entries: [revealed, blind, slip], diaries: [diary] });
+        expect(out).toContain('Liora寫：今天喉嚨痛；你寫：泡了檸檬水');
+        expect(out).toContain('「最喜歡的季節」你答：冬天；Liora答：秋天');
+        expect(out).toContain('Liora問你「早餐吃什麼」，你還沒回答');
+        expect(out).not.toContain('秘密答案');
+        expect(out).toContain('你丟給Liora（沒說出口的話）：上次沒接話；Liora標了「想再談」');
+    });
+    it('帶去聊聊：日記、揭曉的問答、投遞的紙條；沒揭曉的問答不能帶', () => {
+        const d = putCharPage(blankDiary({ charId: 'c1', bondId: 'b', date: '2026-11-26' }), page('泡了檸檬水'), 'ai', 3);
+        expect(bondRefPrefix(bondRefFromDiary('b', d, 'char', 'Sully')!)).toBe('[從羈絆帶來：〈日記〉（Sully寫的）11 月 26 日——泡了檸檬水]');
+        const sealed = answerQuestion(newQuestion({ bondId: 'b', openedBy: 'user', prompt: 'Q', origin: 'user' }), 'user', { text: 'A', state: 'sealed' });
+        expect(bondRefFromQuestion('b', sealed, { user: 'Liora', char: 'Sully' })).toBeNull();
+        const rev = answerQuestion(sealed, 'char', { text: 'B', state: 'sealed' });
+        expect(bondRefPrefix(bondRefFromQuestion('b', rev, { user: 'Liora', char: 'Sully' })!)).toBe('[從羈絆帶來：〈問答〉「Q」——Liora答「A」；Sully答「B」]');
+        const s = deliverSlip(newSlip({ bondId: 'b', author: 'c1', text: '記得吃飯', tags: ['掛念'] }));
+        expect(bondRefPrefix(bondRefFromSlip('b', s, s.id, 'Sully')!)).toBe('[從羈絆帶來：〈紙條〉（Sully丟的）掛念——記得吃飯]');
+        expect(bondRefFromSlip('b', newSlip({ bondId: 'b', author: 'user', text: '草稿', tags: [] }), 'x', 'Liora')).toBeNull();
+    });
+});

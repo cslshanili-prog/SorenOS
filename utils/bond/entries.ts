@@ -15,7 +15,7 @@ function announce(bondIds: string[]): void {
     window.dispatchEvent(new CustomEvent<BondChangeDetail>(BOND_CHANGE_EVENT, { detail: { ids } }));
 }
 
-export const newBondEntryId = (): string => `be-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+export { newBondEntryId } from './ids';
 
 /** 讀全部並更新登記表（開機、還原備份後） */
 export async function refreshBondEntryRegistry(): Promise<BondEntry[]> {

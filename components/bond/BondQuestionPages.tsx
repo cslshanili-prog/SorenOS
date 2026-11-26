@@ -3,7 +3,7 @@
  * 誰看得到哪個答案只問 utils/bond/question.ts 的 visibleAnswer（畫面、提示詞同一個判斷）。
  */
 import React, { useState } from 'react';
-import { ArrowsClockwise, Lock, Sparkle } from '@phosphor-icons/react';
+import { ArrowsClockwise, ChatCircleText, Lock, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondQuestionRound, BondQuestionTopic } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -23,9 +23,11 @@ export const BondQuestionPage: React.FC<{
     entryId: string;
     /** 剛出完題、封存好了：一進來就請 TA 答 */
     autoAsk?: boolean;
+    /** 帶去聊聊（揭曉過的才能帶） */
+    onBringToChat?: (entry: BondEntry) => void;
     onBack: () => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, apiConfig, entryId, autoAsk, onBack, addToast }) => {
+}> = ({ space, apiConfig, entryId, autoAsk, onBringToChat, onBack, addToast }) => {
     const entries = useBondEntries(space.id);
     const autoAsked = React.useRef(false);
     const entry = entries.find(e => e.id === entryId);
@@ -146,9 +148,10 @@ export const BondQuestionPage: React.FC<{
                         </section>
                     )}
 
-                    {!waiting.length && (
+                    {(!waiting.length || q.rounds.some(r => r.revealedAt)) && (
                         <section className="flex flex-wrap gap-2">
-                            <button type="button" className="bond-btn" onClick={reanswer}><ArrowsClockwise size={14} />過一陣子再答一次</button>
+                            {!waiting.length && <button type="button" className="bond-btn" onClick={reanswer}><ArrowsClockwise size={14} />過一陣子再答一次</button>}
+                            {onBringToChat && q.rounds.some(r => r.revealedAt) && <button type="button" className="bond-btn" onClick={() => onBringToChat(entry)}><ChatCircleText size={14} />帶去聊聊</button>}
                         </section>
                     )}
 

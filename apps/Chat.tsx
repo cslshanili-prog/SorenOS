@@ -1637,7 +1637,8 @@ const Chat: React.FC = () => {
         if (bondRef) {
             metadata = { ...(metadata || {}), bondRef };
             setBondRefDraft(null);
-            trackEvent('带去聊聊', { 类型: bondRef.kind === 'moment' ? '片刻' : bondRef.kind === 'memory' ? '记忆' : '随笔' });
+            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条' } as const;
+            trackEvent('带去聊聊', { 类型: kindLabel[bondRef.kind] });
         }
         const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
         
@@ -3260,7 +3261,15 @@ const Chat: React.FC = () => {
             const ref = (e as CustomEvent<BondRefMeta>).detail;
             if (!ref?.bondId) return;
             const backTo = activeCharIdRef.current;
-            bondLaunch.request({ bondId: ref.bondId, ...(ref.essayId ? { essayId: ref.essayId } : ref.itemKey ? { itemKey: ref.itemKey } : { page: 'moments' as const }) });
+            bondLaunch.request({
+                bondId: ref.bondId,
+                ...(ref.essayId ? { essayId: ref.essayId }
+                    : ref.itemKey ? { itemKey: ref.itemKey }
+                    : ref.questionId ? { heart: 'question' as const, questionId: ref.questionId }
+                    : ref.slipId ? { heart: 'note' as const, slipId: ref.slipId }
+                    : ref.diaryDate ? { heart: 'diary' as const, diaryDate: ref.diaryDate }
+                    : { page: 'moments' as const }),
+            });
             appReturn.set(AppID.Bond, () => { if (backTo) setActiveCharacterId(backTo); openApp(AppID.Chat); });
             openApp(AppID.Bond);
         };

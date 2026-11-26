@@ -7,8 +7,8 @@ import { DB } from '../db';
 import { blankBond } from './model';
 import { allRegisteredBonds, bondById, dropBondsFromRegistry, putBondInRegistry, setBondRegistry } from './registry';
 
-export const BOND_CHANGE_EVENT = 'soren-bond-change';
-export interface BondChangeDetail { ids: string[] }
+import { BOND_CHANGE_EVENT, type BondChangeDetail } from './events';
+export { BOND_CHANGE_EVENT, type BondChangeDetail } from './events';
 
 function announce(ids: string[]): void {
     if (typeof window === 'undefined' || !ids.length) return;

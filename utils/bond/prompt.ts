@@ -5,7 +5,8 @@
  *   現有提示詞一字不差（測試鎖著）。
  * - 友情、親情的鎖定除了在段落裡，系統提示詞最後還要再出現一次（bondFinalLock），預設改不掉。
  */
-import type { BondEntry, BondRecord, BondRoute } from '../../types';
+import type { BondEntry, BondRecord, BondRoute, DiaryEntry } from '../../types';
+import { knownDiaries, knownQuestions, knownSlips } from './visibility';
 import { lastTurn } from './model';
 import { eventSortKey, promptEventDate } from './eventDate';
 import { CUSTOM_STAGE, isDefaultBondState, routeLabel, stageLabel } from './routes';
@@ -30,7 +31,17 @@ export interface BondPromptInput {
     selfId?: string;
     /** 片刻上那句「想留著的原因」是你（用戶）寫的；角色 × 角色時角色不知道，不帶 */
     includeUserNotes?: boolean;
+    /**
+     * 這段關係的日記（plans/bond-batch3.md 第 2 節）：只有發布的頁會進來。
+     * 問答、紙條從 entries 裡挑（揭曉的、投遞的；自己封存的只有自己知道）。只有身份卡 × 角色有。
+     */
+    diaries?: DiaryEntry[];
 }
+
+export const PROMPT_DIARY_CHARS = 200;
+export const PROMPT_ANSWER_CHARS = 120;
+export const PROMPT_SLIP_CHARS = 120;
+const SLIP_STATE_TEXT = { want_to_talk: '想再談', responded: '已回應', resolved: '已說開' } as const;
 
 export const PROMPT_MOMENT_LIMIT = 8;
 export const PROMPT_ESSAY_LIMIT = 3;
@@ -79,6 +90,54 @@ function entryLines(input: BondPromptInput): string[] {
             const about = promptEventDate(e.eventDate);
             const title = oneLine(e.title);
             lines.push(`  - 關於 ${about}${title ? `〈${title}〉` : ''}：${clip(oneLine(e.text), PROMPT_ESSAY_CHARS)}`);
+        }
+    }
+    lines.push(...heartLines(input));
+    return lines;
+}
+
+/** 心意三段（plans/bond-batch3.md 第 2 節）：日記、拾光問答、心靈角落。沒有內容就一行都不出 */
+function heartLines(input: BondPromptInput): string[] {
+    const { otherName } = input;
+    const lines: string[] = [];
+    const diaries = knownDiaries(input.diaries || []);
+    if (diaries.length) {
+        lines.push(`你們的交換日記（寫給對方看的，你們都讀過）：`);
+        for (const d of diaries) {
+            const parts = [
+                d.user ? `${otherName}寫：${clip(oneLine(d.user), PROMPT_DIARY_CHARS)}` : '',
+                d.char ? `你寫：${clip(oneLine(d.char), PROMPT_DIARY_CHARS)}` : '',
+            ].filter(Boolean);
+            lines.push(`  - ${promptEventDate({ precision: 'day', date: d.date })}｜${parts.join('；')}`);
+        }
+    }
+    const entries = input.entries || [];
+    if (entries.some(e => e.kind === 'question')) {
+        const q = knownQuestions(entries);
+        if (q.revealed.length || q.mineSealed.length || q.askedMe.length) {
+            lines.push(`拾光問答（兩人各自寫答案、封存，都交出後一起揭曉；答案不同不代表不合）：`);
+            for (const r of q.revealed) {
+                const again = r.earlier ? `（之前也答過 ${r.earlier} 次，這是最新一次）` : '';
+                lines.push(`  - 「${clip(oneLine(r.prompt), 80)}」你答：${r.mine ? clip(oneLine(r.mine), PROMPT_ANSWER_CHARS) : '（跳過）'}；${otherName}答：${r.theirs ? clip(oneLine(r.theirs), PROMPT_ANSWER_CHARS) : '（跳過）'}${again}`);
+            }
+            for (const m of q.mineSealed) {
+                lines.push(`  - 「${clip(oneLine(m.prompt), 80)}」你答了「${clip(oneLine(m.mine), PROMPT_ANSWER_CHARS)}」，封存著；${otherName}還沒答，也還看不到你的答案`);
+            }
+            for (const a of q.askedMe) {
+                lines.push(`  - ${otherName}問你「${clip(oneLine(a.prompt), 80)}」，你還沒回答（${otherName}已經封存了自己的答案，你看不到）`);
+            }
+        }
+    }
+    const slips = knownSlips(entries);
+    if (slips.length) {
+        lines.push(`心靈角落的紙條（投遞了才算說出口；有回應不代表已經說開）：`);
+        for (const sl of slips) {
+            const who = sl.fromUser ? `${otherName}丟給你` : `你丟給${otherName}`;
+            const tags = sl.tags.length ? `（${sl.tags.join('、')}）` : '';
+            const reply = sl.isReply ? '（回應）' : '';
+            // 狀態是收到的那方標的：你丟的由對方標，對方丟的由你標
+            const state = sl.state ? `；${sl.fromUser ? '你' : otherName}標了「${SLIP_STATE_TEXT[sl.state]}」` : '';
+            lines.push(`  - ${who}${reply}${tags}：${clip(oneLine(sl.text), PROMPT_SLIP_CHARS)}${state}`);
         }
     }
     return lines;

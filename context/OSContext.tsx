@@ -123,6 +123,7 @@ import { refreshTripRegistry } from '../utils/trips';
 import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, BOND_CHANGE_EVENT, type BondChangeDetail } from '../utils/bond/store';
 import { parseBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
+import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { relationshipChangeBlocked } from '../utils/bond/guard';
 import { extractBondInvite } from '../utils/bond/invite';
 import { globalAmsgApi } from '../utils/apiCenter';
@@ -2557,6 +2558,13 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
   useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); }, []);
+  // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
+  const diaryRegistryLoadedRef = useRef(false);
+  useEffect(() => {
+    if (diaryRegistryLoadedRef.current || !characters.length) return;
+    diaryRegistryLoadedRef.current = true;
+    void refreshDiaryRegistry(characters);
+  }, [characters]);
   // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
   // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；
   // 提醒要等解鎖之後才跳：鎖屏上不顯示 toast，開機當下跳的話用戶根本看不到。

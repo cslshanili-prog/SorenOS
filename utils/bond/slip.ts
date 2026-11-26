@@ -6,7 +6,7 @@
  * - 收到的那方可以標「想再談／已回應／已說開」；有回應不等於說開。
  */
 import type { BondEntry, BondSlip } from '../../types';
-import { newBondEntryId } from './entries';
+import { newBondEntryId } from './ids';
 
 export const BUILTIN_SLIP_TAGS = ['吐槽', '掛念', '想一起做的事', '心結', '開心的事', '沒說出口的話'] as const;
 
