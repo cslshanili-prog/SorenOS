@@ -35,3 +35,8 @@
 `pnpm vitest run utils/iosStatusBarEdge.test.ts utils/iosStandalone.keyboard.test.ts utils/databaseStartup.test.ts utils/isStatusBarHidden.test.ts`：門禁、alpha 合成、深淺頂欄更新、contain 安裝/還原、零安全區、非同步高度收縮後的鍵盤恢復、冪等/清理、忽略正文更新、過期取樣不覆蓋新介面，以及原鍵盤/啟動行為。
 
 完整應用還需在手機預覽驗收：預設桌面、深淺自定義聊天頂欄、獨立鎖屏桌布、進入/退出聊天、彈出/收起鍵盤、前後臺往返。跨域圖片或複雜漸變頂欄可能只有近似底色。
+
+
+## 匯出回來的縮放重設（2026-11-26）
+
+`utils/viewportReset.ts` 在匯出（`utils/shareExport.ts` 的兩個入口）結束和回到前景時，把 viewport 的 `initial-scale` 換個寫法再改回原文，處理 iOS 分享／存檔回來後畫面放大偏移、不能縮小的情況。它只動那一格，下一幀就還原整串原文；如果這中間 viewport 被別人改過（例如這裡的 `viewport-fit=contain`），就不蓋回去。
