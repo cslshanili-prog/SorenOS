@@ -1112,6 +1112,8 @@ export interface ConvTopic {
     createdAt: number;
     /** 這條記憶濃縮了多少條原文（信息用） */
     span?: number;
+    /** 角色之間：從哪一章故事回寫來的（羈絆時間線不重複列；刪那一章時照它撤回，plans/bond-batch6.md 2.3） */
+    storyId?: string;
 }
 
 export interface PhoneContact {
@@ -6374,8 +6376,8 @@ export interface BondSyncProposal {
     routeTo?: BondRoute;
     date?: string;
     text: string;
-    source: 'relationship' | 'summary';
-    evidence: { lineId?: string; messageIds?: number[]; memoryId?: string };
+    source: 'relationship' | 'summary' | 'story';
+    evidence: { lineId?: string; messageIds?: number[]; memoryId?: string; /** 角色之間：哪一章故事 */ storyId?: string };
     /** 去重用的來源鍵 */
     key: string;
     at: number;
@@ -6562,6 +6564,11 @@ export interface BondStory {
     standalone?: boolean;
     /** 回寫各區的時間（重新整理會更新） */
     extractedAt?: number;
+    /** 回寫時寫到卡片以外的地方（話題盒、記憶宮殿），刪改這一章時照它撤回（plans/bond-batch6.md 第 7 節） */
+    derived?: {
+        topics?: Array<{ charId: string; topicId: string }>;
+        palace?: Array<{ charId: string; nodeId: string }>;
+    };
 }
 
 /** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
@@ -6668,7 +6675,8 @@ export interface BondLetter {
     readAt?: number;
     /** 回哪一封 */
     replyTo?: string;
-    origin: 'manual' | 'reply' | 'output' | 'eventCard';
+    /** story＝角色之間的故事裡寫了一封信，回寫時由寄信的那位另外寫全文 */
+    origin: 'manual' | 'reply' | 'output' | 'eventCard' | 'story';
 }
 
 /**
@@ -6676,7 +6684,7 @@ export interface BondLetter {
  * 你在那件上補了東西才寫一張卡，用 orderId 疊上去。
  */
 export interface BondGift {
-    /** 'out'＝你送 TA、'in'＝TA 送你 */
+    /** 'out'＝你送 TA、'in'＝TA 送你；角色之間：'out'＝bond.charId 那位送另一位、'in'＝另一位送他 */
     dir: 'out' | 'in';
     /** 打算送 → 已買 → 已送；TA 送的一出現就是 given。連了訂單的照訂單配送進度算，這格只是快照 */
     state: 'planned' | 'bought' | 'given';
@@ -6779,7 +6787,7 @@ export interface BondMilestone {
     /** 什麼事（內建清單的 id 或 'custom'） */
     what: string;
     /** 怎麼記下來的 */
-    via: 'manual' | 'eventCard' | 'chat' | 'memory' | 'review' | 'streak' | 'achievement';
+    via: 'manual' | 'eventCard' | 'chat' | 'memory' | 'review' | 'streak' | 'achievement' | 'story';
     /** 那時把階段改成什麼（有改才有） */
     stageTo?: string;
     /** 同時記成的紀念日（行事曆 CalendarEvent id） */

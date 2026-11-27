@@ -911,7 +911,7 @@ export const BondMilestoneEditPage: React.FC<{
                     <textarea className="bond-input bond-serif min-h-[110px] leading-relaxed" value={text} onChange={e => setText(e.target.value)}
                         placeholder="在哪裡、怎麼發生的、誰先開口……只寫真的發生過的" />
                 </section>
-                {existing && existing.milestone?.via !== 'manual' && <p className="text-[11px] text-[var(--bond-muted)]">這個里程碑是{existing.milestone?.via === 'eventCard' ? '事件卡' : existing.milestone?.via === 'chat' ? '聊天' : '紀錄'}留下的。</p>}
+                {existing && existing.milestone?.via !== 'manual' && <p className="text-[11px] text-[var(--bond-muted)]">這個里程碑是{existing.milestone?.via === 'eventCard' ? '事件卡' : existing.milestone?.via === 'chat' ? '聊天' : existing.milestone?.via === 'story' ? '故事' : '紀錄'}留下的。</p>}
                 {existing && (
                     <DeleteRow label="刪掉這個里程碑" warn={`刪掉？${name}之後就不會記得。${existing.milestone?.anniversaryId ? '紀念日留在行事曆。' : ''}`}
                         onDelete={async () => { await deleteBondEntries([existing.id]); onBack(); }} />

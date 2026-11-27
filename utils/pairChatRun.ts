@@ -169,23 +169,35 @@ function readPalaceConfig(): { embedding?: any; lightLLM?: any } {
 
 /** 角色私聊的話題記憶送進記憶宮殿（關係線第 6 批 6d），標成「你跟某某私下聊的，用戶不在場」。失敗只記日誌。 */
 async function sendPairTopicsToPalace(owner: CharacterProfile, partner: CharacterProfile, topics: ConvTopic[], api: MiniApiConfig): Promise<void> {
-    if (!topics.length || !owner.memoryPalaceEnabled) return;
+    await sendPairMemoriesToPalace(owner, partner, topics.map(t => ({
+        content: `〔這是你跟「${partner.name}」私下聊的，用戶不在場〕${t.text}`, happenedAt: t.createdAt,
+    })), api, '角色私聊');
+}
+
+/**
+ * 角色之間的記憶送進 owner 的記憶宮殿（開了記憶宮殿、設了 Embedding 的才送）。私下聊天整理、故事回寫（羈絆第 6 批）共用。
+ * 回傳寫進去的節點 id（撤回時照它刪）；沒開或失敗回空陣列，失敗只記日誌。
+ */
+export async function sendPairMemoriesToPalace(
+    owner: CharacterProfile, partner: CharacterProfile, items: Array<{ content: string; happenedAt: number }>, api: MiniApiConfig, baseTag: string,
+): Promise<string[]> {
+    if (!items.length || !owner.memoryPalaceEnabled) return [];
+    const ids: string[] = [];
     try {
         const [{ resolveDatePalaceConfig }, { importDateStorySummary }] = await Promise.all([
             import('./dateSummaryPalace'), import('./memoryPalace/pipeline'),
         ]);
         const config = resolveDatePalaceConfig(owner, readPalaceConfig(), api);
-        if (!config) return;
-        for (const t of topics) {
-            await importDateStorySummary({
-                charId: owner.id,
-                content: `〔這是你跟「${partner.name}」私下聊的，用戶不在場〕${t.text}`,
-                happenedAt: t.createdAt,
-                baseTags: ['角色私聊'],
-                tags: [partner.name],
+        if (!config) return [];
+        for (const it of items) {
+            const r = await importDateStorySummary({
+                charId: owner.id, content: it.content, happenedAt: it.happenedAt, baseTags: [baseTag], tags: [partner.name],
             }, config.embedding, config.llm);
+            if (r.nodeId) ids.push(r.nodeId);
+            else if (r.error) console.warn(`[${baseTag}] ${owner.name} 的記憶沒送進記憶宮殿：${r.error}`);
         }
     } catch (e) {
-        console.warn(`[角色私聊] ${owner.name} 的話題記憶沒送進記憶宮殿`, e);
+        console.warn(`[${baseTag}] ${owner.name} 的記憶沒送進記憶宮殿`, e);
     }
+    return ids;
 }

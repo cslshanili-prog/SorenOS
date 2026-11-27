@@ -329,8 +329,10 @@ export const BondStoryReadPage: React.FC<{
     onWriteNext: () => void;
     /** 刪一章（6d 會先列出衍生物） */
     onDelete?: (entry: BondEntry) => void;
+    /** 整理回寫（存下時先不寫的，之後從這裡補） */
+    onWriteback?: (entryId: string) => void;
     addToast: Toast;
-}> = ({ space, characters, entryId, onBack, onOpen, onEdit, onWriteNext, onDelete, addToast }) => {
+}> = ({ space, characters, entryId, onBack, onOpen, onEdit, onWriteNext, onDelete, onWriteback, addToast }) => {
     const { entries } = useSpaceTimeline(space, characters);
     const entry = entries.find(e => e.id === entryId) || bondEntryById(entryId);
     const { prev, next } = chapterNeighbors(entries, entryId);
@@ -363,6 +365,14 @@ export const BondStoryReadPage: React.FC<{
                 <h2 className="bond-serif text-[19px] text-center">{entry.title}</h2>
                 <div className="mt-1 mb-6 text-center text-[11px] text-[var(--bond-muted)]">{formatEventDate(entry.eventDate)}・{pov}</div>
                 <StoryText text={entry.text} />
+                {onWriteback && !entry.story.extractedAt && (
+                    <div className="mt-10 rounded-xl border border-[var(--bond-line)] px-4 py-3.5 flex items-center gap-3">
+                        <div className="min-w-0 flex-1 text-[12px] leading-relaxed text-[var(--bond-ink-2)]">
+                            這一章還沒整理回寫：裡面發生的事還沒進拾光、約定、珍藏，{space.leftName}和{space.rightName}也還不記得。
+                        </div>
+                        <button type="button" className="bond-btn shrink-0" onClick={() => onWriteback(entry.id)}><Sparkle size={14} />整理回寫</button>
+                    </div>
+                )}
                 <div className="mt-10 mb-2 flex items-center justify-between gap-2">
                     {prev ? <button type="button" className="bond-btn" onClick={() => onOpen(prev.id)}><CaretLeft size={14} />{chapterLabel(prev)}</button> : <span />}
                     {next ? <button type="button" className="bond-btn" onClick={() => onOpen(next.id)}>{chapterLabel(next)}<CaretRight size={14} /></button>

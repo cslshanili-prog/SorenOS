@@ -62,10 +62,12 @@ export const BondSpacePage: React.FC<{
     onOpenFeeling?: () => void;
     /** 同步承認的依據：跳回那段聊天或那天的總結 */
     onOpenSyncSource?: (p: BondSyncProposal) => void;
+    /** 角色之間：承認卡「看原文」開那一章 */
+    onOpenStory?: (entryId: string) => void;
     /** 角色之間：他們的故事與讀者視角概覽（plans/bond-batch6.md 第 1 節），放在主視覺下面第一塊 */
     storySlot?: React.ReactNode;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenCapsule, onOpenFeeling, onOpenSyncSource, storySlot, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenCapsule, onOpenFeeling, onOpenSyncSource, onOpenStory, storySlot, addToast }) => {
     const notice = useHeartNotice(space);
     const ledger = useBondLedger(space.id);
     const pactEntries = useBondEntries(space.id);
@@ -207,8 +209,9 @@ export const BondSpacePage: React.FC<{
                     )}
 
                     {/* 同步承認（plans/bond-batch4.md 2.4）：聊天裡已經發生的，等你按「對」 */}
-                    {!isPair && (bond.syncPending || []).map(p => (
-                        <section key={p.id}><SyncProposalCard space={space} p={p} onOpenSource={onOpenSyncSource} addToast={addToast} /></section>
+                    {(bond.syncPending || []).filter(p => !isPair || p.source === 'story').map(p => (
+                        <section key={p.id}><SyncProposalCard space={space} p={p} addToast={addToast}
+                            onOpenSource={p.source === 'story' ? (onOpenStory && p.evidence.storyId ? () => onOpenStory(p.evidence.storyId!) : undefined) : onOpenSyncSource} /></section>
                     ))}
                     {/* 留給以後：今天可以打開了 */}
                     {!isPair && onOpenCapsule && dueCapsules.map(e => (

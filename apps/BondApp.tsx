@@ -55,6 +55,7 @@ import { appReturn, bondLaunch, mallLaunch, chatBondRefLaunch, chatJumpLaunch, d
 import { bondRefFromDiary, bondRefFromEssay, bondRefFromGift, bondRefFromLetter, bondRefFromCapsule, bondRefFromItem, bondRefFromPact, bondRefFromQuestion, bondRefFromSlip, type BondRefMeta } from '../utils/bond/bondRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
+import { BondStoryWritebackPage } from '../components/bond/BondStoryWritebackPage';
 import { BondStoryComposePage, BondStoryEditPage, BondStoryListPage, BondStoryReadPage, PairStoryHome } from '../components/bond/BondStoryPages';
 import { trackEvent } from '../utils/analytics';
 
@@ -102,6 +103,7 @@ type Page =
     | { page: 'story-write'; id: string }
     | { page: 'story-list'; id: string }
     | { page: 'story-edit'; id: string; entryId: string }
+    | { page: 'story-writeback'; id: string; entryId: string }
     | { page: 'create' };
 
 // 交換日記搬進羈絆（plans/bond-batch3.md 第 4 節）：日記頁還是原本那一份，嵌進來用
@@ -273,7 +275,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit'
         || page.page === 'ledger' || page.page === 'achievements' || page.page === 'review' || page.page === 'feeling' || page.page === 'card' || page.page === 'card-new'
         || page.page === 'gift' || page.page === 'gift-edit' || page.page === 'letter' || page.page === 'letter-write' || page.page === 'special' || page.page === 'capsule' || page.page === 'capsule-seal'
-        || page.page === 'story' || page.page === 'story-write' || page.page === 'story-list' || page.page === 'story-edit') {
+        || page.page === 'story' || page.page === 'story-write' || page.page === 'story-list' || page.page === 'story-edit' || page.page === 'story-writeback') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -586,6 +588,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                             else if (p.evidence.memoryId) openMemory(s.id, '', s.char.id, 'link');
                         }}
                         onOpenPact={s.kind === 'persona' ? to => (to.promiseId ? setPage({ page: 'promise', id: s.id, entryId: to.promiseId }) : toPact(to.tab)) : undefined}
+                        onOpenStory={s.kind === 'pair' ? entryId => setPage({ page: 'story', id: s.id, entryId }) : undefined}
                         storySlot={s.kind === 'pair' ? (
                             <PairStoryHome space={s} characters={chars} apiConfig={apiConfig}
                                 onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })}
@@ -596,13 +599,18 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                 )}
                 {page.page === 'story-write' && s.kind === 'pair' && (
                     <BondStoryComposePage space={s} characters={chars} apiConfig={apiConfig} onBack={toSpace}
-                        onSaved={entryId => setPage({ page: 'story', id: s.id, entryId })} addToast={addToast} />
+                        onSaved={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {page.page === 'story-writeback' && s.kind === 'pair' && (
+                    <BondStoryWritebackPage space={s} characters={chars} entryId={page.entryId} apiConfig={apiConfig} updateCharacter={updateCharacter}
+                        onDone={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })} addToast={addToast} />
                 )}
                 {page.page === 'story' && s.kind === 'pair' && (
                     <BondStoryReadPage space={s} characters={chars} entryId={page.entryId} onBack={page.exitOnBack ? closeApp : toSpace}
                         onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })}
                         onEdit={entryId => setPage({ page: 'story-edit', id: s.id, entryId })}
-                        onWriteNext={() => setPage({ page: 'story-write', id: s.id })} addToast={addToast} />
+                        onWriteNext={() => setPage({ page: 'story-write', id: s.id })}
+                        onWriteback={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })} addToast={addToast} />
                 )}
                 {page.page === 'story-list' && s.kind === 'pair' && (
                     <BondStoryListPage space={s} characters={chars} onBack={toSpace}

@@ -322,10 +322,14 @@ export const SyncProposalCard: React.FC<{ space: ResolvedSpace; p: BondSyncPropo
     const stageName = (id?: string) => (id ? stagesOf(p.routeTo || space.bond.route).find(o => o.id === id)?.label || id : '');
     return (
         <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3.5">
-            <div className="text-[13.5px] leading-relaxed">看起來你們{day}<span className="bond-serif text-[var(--bond-accent)]">{label}</span>，要記下來嗎？</div>
+            <div className="text-[13.5px] leading-relaxed">
+                {p.source === 'story'
+                    ? <>這一章裡{space.kind === 'pair' ? '他們' : '你們'}<span className="bond-serif text-[var(--bond-accent)]">〈{label}〉</span>，要記成{space.kind === 'pair' ? '他們' : '你們'}現在的{p.stageTo ? '階段' : '里程碑'}嗎？</>
+                    : <>看起來{space.kind === 'pair' ? '他們' : '你們'}{day}<span className="bond-serif text-[var(--bond-accent)]">{label}</span>，要記下來嗎？</>}
+            </div>
             <div className="mt-1 bond-serif text-[13px] leading-relaxed text-[var(--bond-ink-2)]">「{p.text}」</div>
             <div className="mt-1.5 text-[11px] text-[var(--bond-muted)]">
-                {p.routeTo ? `會把路線設成${p.routeTo === 'romance' ? '戀愛' : '友情'}、` : ''}{p.stageTo ? `階段改成「${stageName(p.stageTo)}」、` : ''}記一個里程碑（依據是{p.source === 'summary' ? '那天的總結' : '那段聊天'}）
+                {p.routeTo ? `會把路線設成${p.routeTo === 'romance' ? '戀愛' : '友情'}、` : ''}{p.stageTo ? `階段改成「${stageName(p.stageTo)}」、` : ''}記一個里程碑（依據是{p.source === 'summary' ? '那天的總結' : p.source === 'story' ? '那一章故事' : '那段聊天'}）{p.source === 'story' ? '；按「不是」只留下片刻' : ''}
                 {onOpenSource && <button type="button" className="ml-1 text-[var(--bond-accent)]" onClick={() => onOpenSource(p)}>看原文 ›</button>}
             </div>
             <button type="button" className="bond-chip mt-2" aria-pressed={anniversary} onClick={() => setAnniversary(!anniversary)}>同時記成紀念日</button>
