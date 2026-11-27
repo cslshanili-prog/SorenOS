@@ -62,8 +62,10 @@ export const BondSpacePage: React.FC<{
     onOpenFeeling?: () => void;
     /** 同步承認的依據：跳回那段聊天或那天的總結 */
     onOpenSyncSource?: (p: BondSyncProposal) => void;
+    /** 角色之間：他們的故事與讀者視角概覽（plans/bond-batch6.md 第 1 節），放在主視覺下面第一塊 */
+    storySlot?: React.ReactNode;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenCapsule, onOpenFeeling, onOpenSyncSource, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenCapsule, onOpenFeeling, onOpenSyncSource, storySlot, addToast }) => {
     const notice = useHeartNotice(space);
     const ledger = useBondLedger(space.id);
     const pactEntries = useBondEntries(space.id);
@@ -190,6 +192,7 @@ export const BondSpacePage: React.FC<{
                 </section>
 
                 <div className="px-5 pt-6 space-y-8" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 40px)' }}>
+                    {storySlot}
                     {suggestion && (
                         <section className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3.5">
                             <div className="text-[13px] leading-relaxed">
@@ -364,7 +367,7 @@ export const BondSpacePage: React.FC<{
                                         </div>
                                     ))}
                                     <label className="flex items-center justify-between gap-3 pt-3 border-t bond-hair">
-                                        <span className="text-[12.5px] text-[var(--bond-ink-2)]">他們私下聊了一大段之後，各自留一篇日記</span>
+                                        <span className="text-[12.5px] text-[var(--bond-ink-2)]">他們私下聊了一大段、或存下一章故事時，各自留一篇日記</span>
                                         <input type="checkbox" className="h-4 w-4 accent-[var(--bond-accent)]" checked={bond.pairAutoDiary !== false} onChange={toggleAutoDiary} />
                                     </label>
                                 </div>

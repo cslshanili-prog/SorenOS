@@ -100,12 +100,12 @@ export const BOND_TABS: Array<{ id: BondTab; label: string }> = [
 ];
 /** 角色之間的空間沒有心意、約定、珍藏（第 6 批） */
 export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart', 'pact', 'treasure']);
-export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void; tabs?: BondTab[]; dots?: Partial<Record<BondTab, boolean>> }> = ({ value, onChange, tabs, dots }) => (
+export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void; tabs?: BondTab[]; dots?: Partial<Record<BondTab, boolean>>; labels?: Partial<Record<BondTab, string>> }> = ({ value, onChange, tabs, dots, labels }) => (
     <div className="shrink-0 flex gap-5 px-5 border-b bond-hair" role="tablist">
         {BOND_TABS.filter(t => !tabs || tabs.includes(t.id)).map(t => (
             <button key={t.id} type="button" role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
                 className={`bond-serif relative py-2.5 text-[14px] tracking-[0.2em] ${value === t.id ? 'text-[var(--bond-ink)]' : 'text-[var(--bond-muted)]'}`}>
-                {t.label}
+                {labels?.[t.id] || t.label}
                 {dots?.[t.id] && <span className="absolute -right-2 top-2 h-1.5 w-1.5 rounded-full bg-[var(--bond-accent)]" aria-label="有新的" />}
                 {value === t.id && <span className="absolute left-0 right-0 -bottom-px h-[1.5px] bg-[var(--bond-accent)]" />}
             </button>

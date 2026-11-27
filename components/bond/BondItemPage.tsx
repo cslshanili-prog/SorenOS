@@ -18,7 +18,7 @@ import { dependentsOf, planRetract, type DerivationRef } from '../../utils/bond/
 import { deleteBondEntries, saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { updateBond } from '../../utils/bond/store';
 
-const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片' } as const;
+const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片', story: '故事' } as const;
 
 export const BondItemPage: React.FC<{
     space: ResolvedSpace;
@@ -29,6 +29,8 @@ export const BondItemPage: React.FC<{
     onEditMemory: (memoryId: string) => void;
     /** 點來源跳回當時那則 */
     onOpenSource?: (source: BondSource) => void;
+    /** 角色之間：從哪一章故事長出來的，開那一章（plans/bond-batch6.md 2.3） */
+    onOpenStory?: (entryId: string) => void;
     /** 記憶：在神經鏈接（記憶分頁）或記憶宮殿打開 */
     onOpenMemory?: (charId: string, where: 'link' | 'palace') => void;
     onOpenEssay?: (essayId: string) => void;
@@ -38,7 +40,7 @@ export const BondItemPage: React.FC<{
     onBringToChat?: (item: TimelineItem) => void;
     updateCharacter: (id: string, updates: Partial<CharacterProfile> | ((prev: CharacterProfile) => Partial<CharacterProfile>)) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, onOpenSource, onOpenMemory, onOpenEssay, onWriteEssay, onBringToChat, updateCharacter, addToast }) => {
+}> = ({ space, itemKey, characters, onBack, onEditMoment, onEditMemory, onOpenSource, onOpenStory, onOpenMemory, onOpenEssay, onWriteEssay, onBringToChat, updateCharacter, addToast }) => {
     const { items, entries } = useSpaceTimeline(space, characters);
     const item = items.find(i => i.key === itemKey);
     const [confirming, setConfirming] = useState(false);
@@ -136,14 +138,14 @@ export const BondItemPage: React.FC<{
                             <SectionLabel>來 源</SectionLabel>
                             <ul className="space-y-2.5">
                                 {entry.sources.filter(src => src.type !== 'photo').map((s, i) => {
-                                    const jumpable = (s.type === 'message' || s.type === 'date') && !!onOpenSource;
+                                    const jumpable = ((s.type === 'message' || s.type === 'date') && !!onOpenSource) || (s.type === 'story' && !!onOpenStory);
                                     const label = s.type === 'message' && s.lineId.startsWith('pair~') ? '角色私聊' : SOURCE_LABEL[s.type];
                                     return (
                                         <li key={i} className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
                                             <div className="flex items-center justify-between gap-3">
                                                 <span className="text-[var(--bond-muted)]">{label}{'at' in s && s.at ? ` · ${new Date(s.at).toLocaleDateString()}` : ''}</span>
                                                 {jumpable && (
-                                                    <button type="button" onClick={() => onOpenSource!(s)} className="shrink-0 text-[11.5px] text-[var(--bond-accent)]">回到那時 ›</button>
+                                                    <button type="button" onClick={() => (s.type === 'story' ? onOpenStory!(s.entryId) : onOpenSource!(s))} className="shrink-0 text-[11.5px] text-[var(--bond-accent)]">{s.type === 'story' ? '讀那一章 ›' : '回到那時 ›'}</button>
                                                 )}
                                             </div>
                                             {'snippet' in s && s.snippet ? <span className="block mt-1 whitespace-pre-wrap bond-serif">{s.snippet}</span> : null}

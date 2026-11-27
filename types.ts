@@ -6310,6 +6310,10 @@ export interface BondRecord {
     inviteDeclinedAt?: number;
     /** pair：私聊整理時自動留日記（預設開，plans/bond.md 0.3） */
     pairAutoDiary?: boolean;
+    /** 角色之間：讀者視角的概覽（plans/bond-batch6.md 第 1 節）；chapter 是寫的時候讀到第幾章 */
+    pairOverview?: { text: string; at: number; chapter: number };
+    /** 角色之間：寫故事頁上次填的（篇幅、文風、視角） */
+    pairStoryPrefs?: { words?: [number, number]; style?: string; pov?: string };
     /**
      * 拾光時間線上「羈絆這邊的標記」（plans/bond-batch2.md 1.2）：鍵是記憶 id（MemoryFragment.id，
      * pair 是話題盒 id）。不改記憶本身；記憶的正文、日期要改走神經鏈接同一條路。
@@ -6535,18 +6539,36 @@ export type BondSource =
     | { type: 'message'; lineId: string; messageIds: number[]; snippet: string; at: number }
     | { type: 'date'; storyId: string; charId: string; messageIds: number[]; snippet: string; at: number }
     | { type: 'memory'; charId: string; memoryId: string }
-    | { type: 'photo'; galleryId: string };
+    | { type: 'photo'; galleryId: string }
+    /** 角色之間：從哪一章故事長出來的（plans/bond-batch6.md 2.3） */
+    | { type: 'story'; entryId: string };
 
 /** 一張卡建在什麼上面（隨筆 → 片刻／記憶；後記 → 原隨筆）；撤回時用來找誰依賴誰 */
 export type BondLink =
     | { type: 'entry'; id: string }
     | { type: 'memory'; charId: string; memoryId: string };
 
+/** 角色之間的一章故事（plans/bond-batch6.md 2.5） */
+export interface BondStory {
+    chapter: number;
+    /** 'narrator'＝旁白；否則是角色 id */
+    pov: string;
+    direction?: string;
+    scene?: string;
+    words?: [number, number];
+    /** 存下時寫的 80～150 字摘要（之後的章節、概覽、提示詞讀它） */
+    summary: string;
+    /** 獨立一篇：寫的時候沒帶前情 */
+    standalone?: boolean;
+    /** 回寫各區的時間（重新整理會更新） */
+    extractedAt?: number;
+}
+
 /** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule';
+    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule' | 'story' | 'diary';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6588,6 +6610,10 @@ export interface BondEntry {
     letter?: BondLetter;
     /** 珍藏：留給以後；text 是封存的內容 */
     capsule?: BondCapsule;
+    /** 角色之間：一章故事（plans/bond-batch6.md 2.5）；text 是全文、title 是章名 */
+    story?: BondStory;
+    /** 角色之間：一篇日記（作者是角色 id；不是交換日記那張表）；text 是內容 */
+    diary?: { date: string };
     updatedAt: number;
 }
 
