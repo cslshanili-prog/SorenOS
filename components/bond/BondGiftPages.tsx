@@ -70,6 +70,7 @@ export const BondGiftPage: React.FC<{
     const [genPrompt, setGenPrompt] = useState('');
     const [busy, setBusy] = useState<string | null>(null);
     const [editingReaction, setEditingReaction] = useState(false);
+    const [confirmUncount, setConfirmUncount] = useState(false);
     const [reaction, setReaction] = useState('');
 
     useEffect(() => {
@@ -260,6 +261,30 @@ export const BondGiftPage: React.FC<{
                                 onChange={e => setFollow(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void addFollow(); }} />
                             <button type="button" className="bond-btn shrink-0" disabled={!follow.trim() || !!busy} onClick={addFollow}>記一筆</button>
                         </div>
+                    </section>
+                )}
+
+                {view.order && (
+                    <section className="pt-2">
+                        {!confirmUncount ? (
+                            <button type="button" className="text-[11.5px] text-[var(--bond-muted)] underline underline-offset-2" onClick={e => {
+                                const sec = e.currentTarget.closest('section');
+                                setConfirmUncount(true);
+                                window.setTimeout(() => sec?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 30);
+                            }}>這件不算禮物</button>
+                        ) : (
+                            <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3">
+                                <p className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">移出圖鑑？{name}也不會再把它當成你們互送的禮物。聊天裡那張購物卡上可以再「算禮物」收回來。</p>
+                                <div className="mt-2.5 flex gap-2">
+                                    <button type="button" className="bond-btn flex-1" onClick={() => setConfirmUncount(false)}>先不要</button>
+                                    <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!!busy} onClick={async () => {
+                                        await save(e => patchGift(e, { counts: false }), '移出圖鑑了');
+                                        trackEvent('羁绊礼物', { 动作: '移出', 方向: view.dir === 'out' ? '我送' : 'TA送', 来源: view.order?.kind === 'food' ? '外卖' : '购物' });
+                                        onBack();
+                                    }}>移出</button>
+                                </div>
+                            </div>
+                        )}
                     </section>
                 )}
             </div>

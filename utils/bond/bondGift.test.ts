@@ -3,7 +3,7 @@ import type { MallOrder } from '../../types';
 import {
     buildGiftSummaryPrompt, dropGiftPending, FOLLOWUP_PENDING_MAX, giftsForSummary, parseGiftSummary, withGiftSummaryChecked, type GiftView,
     addFollowup, buildGiftViews, expiredSecretIds, giftBucket, giftOrdersFor, giftStats, giftWrapFor, markGiven,
-    matchOrderToPlan, newGift, newSecretPlan, orderGiftDir, overlayForOrder, plansDueSoon, SECRET_EXPIRE_MS,
+    matchOrderToPlan, newGift, orderCountsAsGift, withOrderCounts, newSecretPlan, orderGiftDir, overlayForOrder, plansDueSoon, SECRET_EXPIRE_MS,
 } from './gift';
 
 const DAY = 86400_000;
@@ -166,5 +166,45 @@ describe('每日總結對禮物後續（第 6 節）', () => {
         expect(dropGiftPending(b, id).giftFollowupPending!.some(p => p.id === id)).toBe(false);
         // 沒抓到也記成對過
         expect(withGiftSummaryChecked(base, 'm9', [], undefined, 5)).toMatchObject({ giftSummaryChecked: { m9: 5 }, giftFollowupPending: [] });
+    });
+});
+
+describe('外賣不算禮物、手動算進／移出', () => {
+    const now = 30 * DAY;
+    const food = order({ id: 'f', kind: 'food', items: [{ name: '鮮餛飩雞湯', price: 12, qty: 1 }], paidAt: 2 * DAY, createdAt: 2 * DAY });
+    const shop = order({ id: 's', paidAt: 3 * DAY, createdAt: 3 * DAY });
+    const keys = (entries: Parameters<typeof buildGiftViews>[0]['entries'], forViewer: 'user' | 'char' = 'user') =>
+        buildGiftViews({ orders: [food, shop], entries, forViewer, now }).map(v => v.key);
+
+    it('預設：商城的算、外賣不算（你看的、TA 看的都一樣）', () => {
+        expect(orderCountsAsGift(food)).toBe(false);
+        expect(orderCountsAsGift(shop)).toBe(true);
+        expect(keys([])).toEqual(['o:s']);
+        expect(keys([], 'char')).toEqual(['o:s']);
+    });
+
+    it('外賣按「算禮物」就進圖鑑；商城的按「不算」就出去，疊上去的卡也不另外列', () => {
+        const inFood = withOrderCounts('b1', food, undefined, true, now);
+        expect(inFood.gift).toMatchObject({ orderId: 'f', counts: true });
+        expect(keys([inFood])).toEqual(['o:s', 'o:f']);
+        const outShop = withOrderCounts('b1', shop, undefined, false, now);
+        expect(keys([inFood, outShop])).toEqual(['o:f']);
+        // 已經有卡（補過照片、後續）的照樣改那張，東西都留著
+        const withNote = addFollowup(overlayForOrder('b1', shop, now), { by: 'user', text: '擺在桌上' }, now);
+        const off = withOrderCounts('b1', shop, withNote, false, now);
+        expect(off.id).toBe(withNote.id);
+        expect(off.gift!.followups).toHaveLength(1);
+        expect(keys([off])).toEqual([]);
+        expect(keys([withOrderCounts('b1', shop, off, true, now)])).toEqual(['o:s']);
+    });
+
+    it('打算送的、TA 準備的走外賣送出：連回時自動算禮物', () => {
+        const plan = newGift({ bondId: 'b1', dir: 'out', state: 'planned', text: '鮮餛飩雞湯', now: DAY });
+        const hit = matchOrderToPlan(food, [plan], now)!;
+        expect(hit.gift).toMatchObject({ orderId: 'f', counts: true });
+        expect(keys([hit])).toContain('o:f');
+        // 商城的照舊不寫 counts（照預設算）
+        const plan2 = newGift({ bondId: 'b1', dir: 'out', state: 'planned', text: '手沖壺', now: DAY });
+        expect(matchOrderToPlan(shop, [plan2], now)!.gift!.counts).toBeUndefined();
     });
 });
