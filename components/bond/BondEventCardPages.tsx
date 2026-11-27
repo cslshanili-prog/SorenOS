@@ -198,7 +198,7 @@ export const BondEventCardPage: React.FC<{
                                             const on = itemPick.includes(m.key);
                                             return (
                                                 <button key={m.key} type="button" aria-pressed={on} onClick={() => setItemKeys(on ? itemPick.filter(x => x !== m.key) : [...itemPick, m.key])} className="w-full py-2.5 flex gap-3 text-left">
-                                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-white' : ''}`}>{on && <Check size={11} />}</span>
+                                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : ''}`}>{on && <Check size={11} />}</span>
                                                     <span className="min-w-0 text-[12.5px] leading-relaxed"><span className="text-[var(--bond-muted)]">{formatEventDate(m.eventDate)}　</span>{((m.title ? `${m.title}：` : '') + m.text).slice(0, 60)}</span>
                                                 </button>
                                             );
@@ -321,7 +321,7 @@ export const SyncProposalCard: React.FC<{ space: ResolvedSpace; p: BondSyncPropo
     const day = p.date ? `${Number(p.date.slice(5, 7))} 月 ${Number(p.date.slice(8, 10))} 日` : '最近';
     const stageName = (id?: string) => (id ? stagesOf(p.routeTo || space.bond.route).find(o => o.id === id)?.label || id : '');
     return (
-        <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3.5">
+        <div className="bond-block bg-[var(--bond-block-blush)] px-5 py-4">
             <div className="text-[13.5px] leading-relaxed">
                 {p.source === 'story'
                     ? <>這一章裡{space.kind === 'pair' ? '他們' : '你們'}<span className="bond-serif text-[var(--bond-accent)]">〈{label}〉</span>，要記成{space.kind === 'pair' ? '他們' : '你們'}現在的{p.stageTo ? '階段' : '里程碑'}嗎？</>

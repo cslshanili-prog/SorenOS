@@ -84,6 +84,19 @@ export function cardAvailability(def: EventCardDef, ctx: { level: number; stage:
     return 'ok';
 }
 
+/**
+ * 首頁主視覺的「下一個里程碑」：這條路線上還沒有卡、等級還不到的事件卡裡，解鎖等級最低的那張；
+ * 同一級有好幾張時，現在的階段演得了的先。全都解鎖了回 null。
+ */
+export function nextCardToUnlock(entries: BondEntry[], route: BondRoute | undefined, level: number, stage: string): EventCardDef | null {
+    const have = new Set(entries.filter(e => e.kind === 'eventCard').map(e => e.eventCard?.cardId));
+    const rest = cardsForRoute(route).filter(d => !have.has(d.id) && d.unlock > level);
+    if (!rest.length) return null;
+    const low = Math.min(...rest.map(d => d.unlock));
+    const tier = rest.filter(d => d.unlock === low);
+    return tier.find(d => !d.from || d.from.includes(stage)) || tier[0];
+}
+
 /** 等級到了、還沒有卡片的：新開一張（解鎖） */
 export function cardsToUnlock(entries: BondEntry[], route: BondRoute | undefined, level: number, hasOpenHurt: boolean): EventCardDef[] {
     const have = new Set(entries.filter(e => e.kind === 'eventCard').map(e => e.eventCard?.cardId));

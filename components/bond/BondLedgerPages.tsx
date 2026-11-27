@@ -115,7 +115,7 @@ export const BondAchievementsPage: React.FC<{ space: ResolvedSpace; onBack: () =
                         const done = s.periodKey === '*' ? trips.length > 0 : !!row && isCounted(row);
                         return (
                             <div key={`${s.key}|${s.periodKey}`} className={`py-3 flex items-center gap-3 ${done ? '' : 'opacity-55'}`}>
-                                <span className={`h-7 w-7 shrink-0 rounded-full grid place-items-center ${done ? 'bg-[var(--bond-accent)] text-white' : 'border bond-hair text-[var(--bond-muted)]'}`}><Medal size={14} /></span>
+                                <span className={`h-7 w-7 shrink-0 rounded-full grid place-items-center ${done ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'border bond-hair text-[var(--bond-muted)]'}`}><Medal size={14} /></span>
                                 <span className="min-w-0 flex-1">
                                     <span className="bond-serif block text-[13.5px]">{row?.label || s.label}{s.periodKey === '*' && trips.length ? `（${trips.length} 趟）` : ''}</span>
                                     <span className="block text-[10.5px] text-[var(--bond-muted)]">＋{s.points}{row ? ` · ${dayKeyOf(row.at)}${row.how === 'backfill' ? ' · 補算' : ''}${row.revokedAt ? ' · 撤銷了' : ''}` : ''}</span>
@@ -294,7 +294,7 @@ export const BondReviewPage: React.FC<{ space: ResolvedSpace; apiConfig: APIConf
                                     return (
                                         <button key={t.id} type="button" className="w-full py-2.5 flex items-center gap-3 text-left" aria-pressed={on}
                                             onClick={() => setTpls(v => (on ? v.filter(x => x !== t.id) : [...v, t.id]))}>
-                                            <span className={`h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-white' : ''}`}>{on && <Check size={11} />}</span>
+                                            <span className={`h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : ''}`}>{on && <Check size={11} />}</span>
                                             <span className="flex-1 text-[13px]">{templateTitle(t, space.bond.route)}</span>
                                             <span className="text-[11px] text-[var(--bond-muted)]">{st.days} 天 · ＋{st.points}</span>
                                         </button>

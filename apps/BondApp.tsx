@@ -41,6 +41,7 @@ import type { EssayMode } from '../utils/bond/essay';
 import { bondEntryById } from '../utils/bond/entryRegistry';
 import { lineArgFromKey, type BondCollectRequest } from '../utils/bond/collect';
 import { BondSpacePage } from '../components/bond/BondSpacePage';
+import { BondThemeRoot } from '../components/bond/bondTheme';
 import { BondRoutePage } from '../components/bond/BondRoutePage';
 import { BondDaysPage } from '../components/bond/BondDaysPage';
 import { resolveSpace, type ResolvedSpace } from '../components/bond/space';
@@ -127,7 +128,13 @@ type Page =
 const JournalApp = React.lazy(() => import('./JournalApp'));
 
 /** entry 'journal'：從桌面的「交換日記」圖示進來，直接開現在這個角色、這張身份卡的心意日記 */
+/** 外層掛淺色／深色（plans/bond-look.md） */
 const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
+    const { theme } = useOS();
+    return <BondThemeRoot osDark={theme?.darkMode}><BondAppInner entry={entry} /></BondThemeRoot>;
+};
+
+const BondAppInner: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
     const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine, updateCharacter, memoryPalaceConfig, remoteVectorConfig, setActivePersonaId, setActiveCharacterId, activeCharacterId, activeLineFor } = useOS();
     /** 進 App 直接到上次停留的那一對（還開著的）；一個都沒開就是歡迎頁 */
     const homeFor = (): Page => {
@@ -375,7 +382,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         };
         const diarySetting = resolveOutputSetting(s.bond, 'diary');
         return (
-            <BondSwitchContext.Provider value={page.page === 'space' ? () => setPage({ page: 'switcher', from: s.id }) : undefined}>
+            <BondSwitchContext.Provider value={page.page === 'space' ? { title: s.kind === 'pair' ? `${s.leftName}與${s.rightName}` : `你與${s.rightName}`, onSwitch: () => setPage({ page: 'switcher', from: s.id }) } : undefined}>
             <div className="h-full w-full relative bond-root overflow-hidden">
                 <BondStyle />
                 {page.page === 'space' && page.tab === 'moments' && (

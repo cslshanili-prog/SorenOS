@@ -76,3 +76,14 @@ describe('私聊開演的情境進提示詞', () => {
         expect(out).toContain('- 【這一刻】可能告白');
     });
 });
+
+describe('首頁的下一個里程碑', async () => {
+    const { nextCardToUnlock } = await import('./eventCards');
+    it('等級還不到、還沒有卡的，最低那級；同級先挑現在的階段演得了的', () => {
+        expect(nextCardToUnlock([], 'romance', 1, 'friend')?.id).toBe('romance-invite');
+        expect(nextCardToUnlock([], 'romance', 4, 'ambiguous')?.id).toBe('romance-confession');
+        const had = [{ kind: 'eventCard', eventCard: { cardId: 'friendship-latenight', state: 'unlocked' } }] as any;
+        expect(nextCardToUnlock(had, 'friendship', 1, 'friend')?.id).toBe('friendship-entrust');
+        expect(nextCardToUnlock([], 'romance', 10, 'married')).toBeNull();
+    });
+});

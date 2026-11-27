@@ -177,7 +177,7 @@ export const BondPactPage: React.FC<{
                                                 return (
                                                     <button key={p.id} type="button" onClick={() => onOpenPromise(p.id)} className="w-full text-left py-3.5 flex gap-3">
                                                         {live && (
-                                                            <span className={`mt-1 h-5 w-5 shrink-0 rounded-full border grid place-items-center ${doneNow ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-white' : 'bond-hair'}`}
+                                                            <span className={`mt-1 h-5 w-5 shrink-0 rounded-full border grid place-items-center ${doneNow ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'bond-hair'}`}
                                                                 aria-label={doneNow ? `${periodWord(pr.repeat)}做到了` : `${periodWord(pr.repeat)}還沒`}>
                                                                 {doneNow && <Check size={12} weight="bold" />}
                                                             </span>

@@ -1,11 +1,12 @@
 /**
- * 一段關係的首頁「我們」（plans/bond-batch1.md 3.3）：關係主視覺、建議路線卡、此刻的我們、下一個紀念日、
- * 天數；角色 × 角色多一塊「他們怎麼看對方」和私聊整理時自動留日記的開關。
+ * 一段關係的首頁「我們」（plans/bond-batch1.md 3.3，2026-11-27 照 Liora 的 wireframe 改成色塊分區，plans/bond-look.md）：
+ * 主視覺色塊（兩人、路線階段、天數、此刻的一句、等級與下一個里程碑）→ 等你接住（淡粉）→ 紀念日、最近拾光、此刻的我們、
+ * 親近與信任（白卡）→ 近期約定一行一個；角色 × 角色多一塊「他們怎麼看對方」和私聊整理時自動留日記的開關。
  */
 import React, { useMemo, useState } from 'react';
-import { CaretRight, PencilSimple, Sparkle } from '@phosphor-icons/react';
+import { CalendarBlank, CaretRight, EnvelopeSimple, Gift, Hourglass, LinkSimple, PencilSimple, Sparkle, type Icon } from '@phosphor-icons/react';
 import type { APIConfig, BondSyncProposal, CalendarEvent, CharacterProfile } from '../../types';
-import { AvatarPair, BondHeader, SectionLabel } from './bondUi';
+import { BondAvatar, BondHeader } from './bondUi';
 import { patchGift, plansDueSoon } from '../../utils/bond/gift';
 import { saveBondEntry } from '../../utils/bond/entries';
 import { useHeartNotice, type HeartNotice } from './BondHeartPage';
@@ -20,21 +21,17 @@ import { pairTranscript } from '../../utils/pairLine';
 import { trackEvent } from '../../utils/analytics';
 import { useSpaceTimeline } from './useSpaceTimeline';
 import { itemHeadline } from './BondMomentsPage';
-import { pickRecentItem } from '../../utils/bond/timeline';
+import { pickRecentItem, type TimelineItem } from '../../utils/bond/timeline';
 import { formatEventDate } from '../../utils/bond/eventDate';
 import { useBondLedger } from './useBondLedger';
 import { useBondEntries } from './useSpaceTimeline';
-import { LevelMark } from './BondLevel';
+import { levelInfo } from '../../utils/bond/level';
+import { nextCardToUnlock } from '../../utils/bond/eventCards';
 import { FeelingBars } from './BondFeelingPage';
 import { SyncProposalCard } from './BondEventCardPages';
 import { donePeriod, ledgerKeyOf, promiseStartDay, totalPoints } from '../../utils/bond/ledger';
 import { countsOnDay, dayKeyOf, periodKeyOf, periodWord } from '../../utils/bond/period';
 import { promiseWaitingOn } from '../../utils/bond/pact';
-
-const formatDay = (key: string) => {
-    const [y, m, d] = key.split('-');
-    return y && m && d ? `${y} 年 ${Number(m)} 月 ${Number(d)} 日` : key;
-};
 
 export const BondSpacePage: React.FC<{
     space: ResolvedSpace;
@@ -161,43 +158,63 @@ export const BondSpacePage: React.FC<{
     ] : [];
     const contactAffinity = (from: CharacterProfile, toId: string) => from.phoneState?.contacts?.find(c => c.linkedCharId === toId)?.affinity;
 
+    const level = levelInfo(points);
+    const nextCard = !isPair ? nextCardToUnlock(pactEntries, bond.route, level.level, bond.stage || '') : null;
+    const showLevel = !isPair && !!onOpenPact;
+    // 主視覺那句話：角色寫的此刻的我們，第一段
+    const heroLine = (charText || '').split(/\n+/).map(t => t.trim()).find(Boolean);
+    const routeLine = `${routeLabel(bond.route)}${bond.route ? '路線' : ''}`;
+
     return (
         <div className="absolute inset-0 flex flex-col bond-root">
-            <BondHeader title={isPair ? `${space.leftName} & ${space.rightName}` : space.rightName} onBack={onBack}
-                right={<button type="button" onClick={onOpenRoute} className="bond-note px-2 py-1">路線</button>} />
+            <BondHeader title={isPair ? `${space.leftName} & ${space.rightName}` : space.rightName} onBack={onBack} />
             {tabBar}
             <div className="flex-1 overflow-y-auto no-scrollbar">
-                {/* 關係主視覺 */}
-                <section className="px-6 pt-8 pb-7 text-center border-b bond-hair">
-                    <div className="flex justify-center"><AvatarPair a={space.leftAvatar} b={space.rightAvatar} aName={space.leftName} bName={space.rightName} size={64} /></div>
-                    <div className="bond-serif mt-4 text-[19px] tracking-wide">{space.leftName}<span className="mx-2 text-[var(--bond-rose)]">&amp;</span>{space.rightName}</div>
-                    <div className="mt-1 text-[11px] text-[var(--bond-muted)]">{formatDay(space.todayKey)}</div>
-                    <button type="button" onClick={onOpenDays} className="mt-5 block mx-auto">
-                        {counter.days !== null ? (
-                            // 天數做成頁邊小註記的分量（bond-batch1 3.3「不做大徽章」）
-                            <div className="text-[12px] text-[var(--bond-ink-2)] tracking-wide">
-                                {counter.label}的第<span className="bond-serif mx-1 text-[17px] text-[var(--bond-ink)] tabular-nums">{counter.days}</span>天
-                            </div>
-                        ) : (
-                            <div className="text-[12px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]">填一個起點，開始算天數</div>
+                <div className="px-4 pt-1 space-y-3.5" style={{ paddingBottom: 28 }}>
+                    {/* 關係主視覺：兩個人、路線與階段、天數、此刻的一句、等級 */}
+                    <section className="bond-block bg-[var(--bond-block-sand)] px-5 pt-7 pb-6 text-center">
+                        <div className="flex items-center justify-center gap-3">
+                            <BondAvatar value={space.leftAvatar} name={space.leftName} size={60} className="ring-4 ring-[var(--bond-card)]" />
+                            <LinkSimple size={22} className="text-[var(--bond-ink-2)]" aria-hidden />
+                            <BondAvatar value={space.rightAvatar} name={space.rightName} size={60} className="ring-4 ring-[var(--bond-card)]" />
+                        </div>
+                        <button type="button" onClick={onOpenRoute} className="mt-4 inline-flex items-center gap-1 text-[13px] tracking-wide text-[var(--bond-ink-2)]">
+                            {routeLine}<span className="mx-0.5 text-[var(--bond-rose)]">·</span>{stageLabel(bond)}
+                            <CaretRight size={11} className="text-[var(--bond-muted)]" />
+                        </button>
+                        <button type="button" onClick={onOpenDays} className="mt-1 block mx-auto">
+                            {counter.days !== null ? (
+                                <span className="inline-flex items-baseline gap-1.5 text-[var(--bond-ink)]">
+                                    <span className="text-[14px]">{counter.label}第</span>
+                                    <span className="bond-serif text-[54px] leading-none tracking-tight tabular-nums">{counter.days}</span>
+                                    <span className="text-[14px]">天</span>
+                                </span>
+                            ) : (
+                                <span className="inline-block mt-2 text-[12.5px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]">填一個起點，開始算天數</span>
+                            )}
+                        </button>
+                        {heroLine && <p className="mt-3 text-[13px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-2">{heroLine}</p>}
+                        {showLevel && (
+                            <button type="button" onClick={() => onOpenPact!({ tab: 'milestone' })} className="mt-5 block w-full text-left" aria-label={`羈絆等級 ${level.level}`}>
+                                <div className="flex items-baseline justify-between text-[13px]">
+                                    <span className="text-[var(--bond-ink)]">羈絆 Lv. {level.level}</span>
+                                    <span className="tabular-nums text-[var(--bond-ink-2)]">{level.points.toLocaleString()} / {level.next.toLocaleString()}</span>
+                                </div>
+                                <div className="mt-2 h-[7px] rounded-full bg-[var(--bond-track)] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[var(--bond-accent)]" style={{ width: `${Math.max(2, Math.round(level.progress * 100))}%` }} />
+                                </div>
+                                <div className="mt-2.5 text-center text-[12px] text-[var(--bond-ink-2)]">
+                                    {nextCard ? <>下一個里程碑<span className="mx-1 text-[var(--bond-rose)]">·</span>{nextCard.title}<span className="ml-1 text-[var(--bond-muted)]">Lv.{nextCard.unlock}</span></> : '這條路線的事件卡都解鎖了'}
+                                </div>
+                            </button>
                         )}
-                    </button>
-                    {!isPair && onOpenPact && (points > 0 || pactEntries.some(e => e.kind === 'promise')) && (
-                        <div className="mt-2"><LevelMark points={points} onClick={() => onOpenPact({ tab: 'milestone' })} /></div>
-                    )}
-                    <button type="button" onClick={onOpenRoute} className="mt-5 inline-flex items-center gap-1.5 text-[12.5px] text-[var(--bond-ink-2)]">
-                        <span className="bond-serif">{routeLabel(bond.route)}</span>
-                        <span className="text-[var(--bond-rose)]">·</span>
-                        <span>{stageLabel(bond)}</span>
-                        <CaretRight size={11} className="text-[var(--bond-muted)]" />
-                    </button>
-                </section>
+                    </section>
 
-                <div className="px-5 pt-6 space-y-8" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 40px)' }}>
                     {storySlot}
+
                     {suggestion && (
-                        <section className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3.5">
-                            <div className="text-[13px] leading-relaxed">
+                        <section className="bond-block bg-[var(--bond-block-mist)] px-5 py-4">
+                            <div className="text-[13.5px] leading-relaxed">
                                 看起來{isPair ? '他們' : '你們'}是<span className="bond-serif text-[var(--bond-accent)]">{suggestion.label || stageLabel({ route: suggestion.route, stage: suggestion.stage })}</span>
                                 <span className="text-[var(--bond-muted)]">（「{suggestion.from}」）</span>，要設成{ROUTE_LABEL[suggestion.route]}線嗎？
                             </div>
@@ -208,49 +225,64 @@ export const BondSpacePage: React.FC<{
                         </section>
                     )}
 
-                    {/* 同步承認（plans/bond-batch4.md 2.4）：聊天裡已經發生的，等你按「對」 */}
+                    {/* 等你接住：同步承認、到期的留給以後、快到的禮物、剛解鎖的事件卡、心意的新東西 */}
                     {(bond.syncPending || []).filter(p => !isPair || p.source === 'story').map(p => (
                         <section key={p.id}><SyncProposalCard space={space} p={p} addToast={addToast}
                             onOpenSource={p.source === 'story' ? (onOpenStory && p.evidence.storyId ? () => onOpenStory(p.evidence.storyId!) : undefined) : onOpenSyncSource} /></section>
                     ))}
-                    {/* 留給以後：今天可以打開了 */}
                     {!isPair && onOpenCapsule && dueCapsules.map(e => (
-                        <section key={e.id}>
-                            <button type="button" onClick={() => onOpenCapsule(e.id)} className="w-full text-left rounded-xl border border-[var(--bond-rose)] bg-[var(--bond-accent-soft)] px-4 py-3">
-                                <div className="text-[11px] text-[var(--bond-accent)]">留給以後・今天可以打開了</div>
-                                <div className="bond-serif mt-1 text-[14.5px]">{e.capsule!.cover || (e.capsule!.to === 'both' ? '你們一起封的那兩封' : e.author === 'user' ? `你封給${space.rightName}的那封` : `${space.rightName}封給你的那封`)}</div>
-                                <div className="mt-0.5 text-[11px] text-[var(--bond-muted)]">不會自己拆開，等你按。</div>
-                            </button>
-                        </section>
+                        <PendingCard key={e.id} icon={Hourglass} title={e.capsule!.cover || (e.capsule!.to === 'both' ? '你們一起封的那兩封' : e.author === 'user' ? `你封給${space.rightName}的那封` : `${space.rightName}封給你的那封`)}
+                            quote="不會自己拆開，等你按。" foot="留給以後 · 今天可以打開了" action="打開" onClick={() => onOpenCapsule(e.id)} />
                     ))}
-                    {/* 打算送的快到了 */}
                     {!isPair && onOpenGift && dueGifts.map(e => (
-                        <section key={e.id} className="rounded-xl border border-dashed border-[var(--bond-rose)] px-4 py-3">
-                            <button type="button" onClick={() => onOpenGift(`e:${e.id}`)} className="w-full text-left">
-                                <div className="text-[11px] text-[var(--bond-accent)]">打算 {Number(e.gift!.plannedFor!.slice(5, 7))}/{Number(e.gift!.plannedFor!.slice(8, 10))} 送的，還沒買</div>
-                                <div className="bond-serif mt-1 text-[14.5px]">{e.title || e.text}</div>
-                            </button>
-                            <button type="button" className="mt-1 text-[11px] text-[var(--bond-muted)] underline underline-offset-2"
-                                onClick={() => void saveBondEntry(patchGift(e, { remindedAt: Date.now() }))}>知道了</button>
-                        </section>
+                        <PendingCard key={e.id} icon={Gift} title={e.title || e.text}
+                            foot={`打算 ${Number(e.gift!.plannedFor!.slice(5, 7))}/${Number(e.gift!.plannedFor!.slice(8, 10))} 送的，還沒買`} action="去看看" onClick={() => onOpenGift(`e:${e.id}`)}
+                            extra={<button type="button" className="text-[12px] text-[var(--bond-muted)] underline underline-offset-2" onClick={() => void saveBondEntry(patchGift(e, { remindedAt: Date.now() }))}>知道了</button>} />
                     ))}
-                    {/* 剛解鎖的事件卡 */}
                     {!isPair && onOpenPact && freshCards.length > 0 && (
-                        <section>
-                            <button type="button" onClick={() => onOpenPact({ tab: 'milestone' })} className="w-full text-left rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3">
-                                <div className="text-[11px] text-[var(--bond-accent)]">剛解鎖的事件卡</div>
-                                <div className="bond-serif mt-1 text-[14.5px]">{freshCards.map(c => c.title).join('、')}</div>
-                                <div className="mt-0.5 text-[11px] text-[var(--bond-muted)]">不急，可以先放著；想演的時候再拿出來。</div>
+                        <PendingCard icon={Sparkle} title={`剛解鎖：${freshCards.map(c => c.title).join('、')}`} quote="不急，可以先放著；想演的時候再拿出來。"
+                            foot="事件卡" action="去看看" onClick={() => onOpenPact({ tab: 'milestone' })} />
+                    )}
+                    {notice && onOpenNotice && (
+                        <PendingCard icon={EnvelopeSimple} title={notice.label} quote={`「${notice.text}」`}
+                            foot={`心意 · ${notice.kind === 'slip' ? '紙條' : notice.kind === 'question' ? '問答' : '日記'}`} action="打開看看" onClick={() => onOpenNotice(notice)} />
+                    )}
+
+                    {/* 下一個紀念日 */}
+                    <section className="bond-panel px-5 py-4">
+                        <PanelLabel icon={CalendarBlank}>下一個紀念日</PanelLabel>
+                        {anniversary ? (
+                            <div className="bond-serif mt-2.5 text-[17px] font-semibold leading-snug">{anniversary.event.title}</div>
+                        ) : (
+                            <p className="mt-2.5 text-[13px] text-[var(--bond-muted)]">還沒有記下的紀念日。</p>
+                        )}
+                        <div className="mt-3 flex items-baseline justify-between gap-3 text-[12.5px]">
+                            <span className="text-[var(--bond-ink-2)] min-w-0 truncate">
+                                {anniversary ? `${anniversary.date.slice(5).replace('-', '/')} · ${anniversary.daysLeft === 0 ? '就是今天' : `還有 ${anniversary.daysLeft} 天`}` : ''}
+                            </span>
+                            <button type="button" className="shrink-0 text-[var(--bond-ink-2)]" onClick={onAddAnniversary}>{anniversary ? '到行事曆 ›' : '到行事曆加一個 ›'}</button>
+                        </div>
+                    </section>
+
+                    {recent && onOpenItem && (
+                        <section className="bond-panel px-5 py-4">
+                            <button type="button" onClick={() => onOpenItem(recent.key)} className="w-full text-left">
+                                <PanelLabel>{recent.favorite ? '最近拾光 · 收藏' : '最近拾光'}</PanelLabel>
+                                <div className="bond-serif mt-2.5 text-[17px] font-semibold leading-snug line-clamp-2">{itemHeadline(recent, 60)}</div>
+                                <div className="mt-3 flex items-baseline justify-between gap-3 text-[12.5px] text-[var(--bond-ink-2)]">
+                                    <span className="min-w-0 truncate">{formatEventDate(recent.eventDate)} · {ITEM_KIND[recent.kind]}</span>
+                                    <span className="shrink-0">回到那一天 ›</span>
+                                </div>
                             </button>
                         </section>
                     )}
 
                     {/* 此刻的我們 */}
-                    <section>
-                        <SectionLabel>{isPair ? '此 刻 的 他 們' : '此 刻 的 我 們'}</SectionLabel>
-                        <div className="space-y-4">
+                    <section className="bond-panel px-5 py-4">
+                        <PanelLabel>{isPair ? '此刻的他們' : '此刻的我們'}</PanelLabel>
+                        <div className="mt-3 space-y-4">
                             <div>
-                                <div className="text-[11px] text-[var(--bond-muted)] mb-1">{space.char.name} 寫的</div>
+                                <div className="text-[11.5px] text-[var(--bond-muted)] mb-1">{space.char.name} 寫的</div>
                                 {charText
                                     ? <p className="bond-serif text-[14.5px] leading-[1.9] whitespace-pre-wrap">{charText}</p>
                                     : <p className="text-[12.5px] text-[var(--bond-muted)]">還沒寫。</p>}
@@ -259,7 +291,7 @@ export const BondSpacePage: React.FC<{
                                 </button>
                             </div>
                             <div className="border-t bond-hair pt-4">
-                                <div className="text-[11px] text-[var(--bond-muted)] mb-1">{isPair ? `${space.other!.name} 寫的` : '我眼中的我們'}</div>
+                                <div className="text-[11.5px] text-[var(--bond-muted)] mb-1">{isPair ? `${space.other!.name} 寫的` : '我眼中的我們'}</div>
                                 {otherText
                                     ? <p className="bond-serif text-[14.5px] leading-[1.9] whitespace-pre-wrap">{otherText}</p>
                                     : <p className="text-[12.5px] text-[var(--bond-muted)]">{isPair ? '還沒寫。' : '寫一段你眼中的你們，TA 看得到。'}</p>}
@@ -276,79 +308,33 @@ export const BondSpacePage: React.FC<{
                         </div>
                     </section>
 
-                    {/* 親近與信任：此刻的我們旁邊，兩條細線＋層名 */}
+                    {/* 親近與信任 */}
                     {!isPair && onOpenFeeling && (
-                        <section>
-                            <SectionLabel>親 近 與 信 任</SectionLabel>
+                        <section className="bond-panel px-5 py-4">
                             <button type="button" onClick={onOpenFeeling} className="w-full text-left">
-                                {bond.feeling ? (
-                                    <>
-                                        <FeelingBars feeling={bond.feeling} route={bond.route} />
-                                        {bond.feeling.openHurts.some(h => !h.repairedAt) && (
-                                            <div className="mt-2 text-[11.5px] text-[var(--bond-accent)]">還有沒修好的事：{bond.feeling.openHurts.filter(h => !h.repairedAt).map(h => h.what).join('；')}</div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span className="text-[12.5px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]">{space.rightName}對你的親近和信任——還沒開始記</span>
-                                )}
+                                <PanelLabel>親近與信任</PanelLabel>
+                                <div className="mt-3">
+                                    {bond.feeling ? (
+                                        <>
+                                            <FeelingBars feeling={bond.feeling} route={bond.route} />
+                                            {bond.feeling.openHurts.some(h => !h.repairedAt) && (
+                                                <div className="mt-2 text-[11.5px] text-[var(--bond-accent)]">還有沒修好的事：{bond.feeling.openHurts.filter(h => !h.repairedAt).map(h => h.what).join('；')}</div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span className="text-[12.5px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]">{space.rightName}對你的親近和信任——還沒開始記</span>
+                                    )}
+                                </div>
                             </button>
                         </section>
                     )}
 
-                    {notice && onOpenNotice && (
-                        <section>
-                            <SectionLabel>最 近 值 得 留 意</SectionLabel>
-                            <button type="button" onClick={() => onOpenNotice(notice)} className="w-full text-left rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3">
-                                <div className="text-[11px] text-[var(--bond-accent)]">{notice.label}</div>
-                                <div className="bond-serif mt-1 text-[14.5px] leading-relaxed line-clamp-2">{notice.text}</div>
-                            </button>
-                        </section>
-                    )}
-
-                    {upcoming.length > 0 && onOpenPact && (
-                        <section>
-                            <SectionLabel>近 期 約 定</SectionLabel>
-                            <div className="divide-y bond-hair border-y">
-                                {upcoming.map(({ e, note }) => (
-                                    <button key={e.id} type="button" onClick={() => onOpenPact({ tab: 'promise', promiseId: e.id })} className="w-full py-2.5 flex items-baseline justify-between gap-3 text-left">
-                                        <span className="bond-serif text-[14px] min-w-0 truncate">{e.text}</span>
-                                        <span className="text-[11px] text-[var(--bond-muted)] shrink-0">{note}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* 下一個紀念日 */}
-                    <section>
-                        <SectionLabel>下 一 個 紀 念 日</SectionLabel>
-                        {anniversary ? (
-                            <div className="flex items-baseline justify-between gap-3">
-                                <div className="bond-serif text-[15px] min-w-0 truncate">{anniversary.event.title}</div>
-                                <div className="text-[12px] text-[var(--bond-ink-2)] shrink-0">{anniversary.date.slice(5).replace('-', '/')} · {anniversary.daysLeft === 0 ? '就是今天' : `還有 ${anniversary.daysLeft} 天`}</div>
-                            </div>
-                        ) : (
-                            <p className="text-[12.5px] text-[var(--bond-muted)]">還沒有記下的紀念日。</p>
-                        )}
-                        <button type="button" className="mt-2 text-[12px] text-[var(--bond-accent)]" onClick={onAddAnniversary}>到行事曆加一個 ›</button>
-                    </section>
-
-                    {recent && onOpenItem && (
-                        <section>
-                            <SectionLabel>最 近 拾 光</SectionLabel>
-                            <button type="button" onClick={() => onOpenItem(recent.key)} className="w-full text-left">
-                                <div className="text-[11px] text-[var(--bond-muted)]">{formatEventDate(recent.eventDate)}{recent.favorite ? ' · 收藏' : ''}</div>
-                                <div className="bond-serif mt-1 text-[14.5px] leading-relaxed">{itemHeadline(recent, 90)}</div>
-                            </button>
-                        </section>
-                    )}
-
-                    {/* 關係概覽：親近與信任（讀現成的量表／好感），角色 × 角色雙方怎麼看對方 */}
+                    {/* 近來：量表、好感；角色 × 角色雙方怎麼看對方 */}
                     {(meters.length > 0 || isPair) && (
-                        <section>
-                            <SectionLabel>{isPair ? '他 們 怎 麼 看 對 方' : '近 來'}</SectionLabel>
+                        <section className="bond-panel px-5 py-4">
+                            <PanelLabel>{isPair ? '他們怎麼看對方' : '近來'}</PanelLabel>
                             {!isPair && (
-                                <div className="divide-y bond-hair">
+                                <div className="mt-1 divide-y bond-hair">
                                     {meters.map(m => (
                                         <div key={m.id} className="py-2.5 flex items-baseline justify-between gap-3">
                                             <div className="text-[13px]">{m.title}</div>
@@ -358,7 +344,7 @@ export const BondSpacePage: React.FC<{
                                 </div>
                             )}
                             {isPair && (
-                                <div className="space-y-3">
+                                <div className="mt-3 space-y-3">
                                     {pairViews.map(v => (
                                         <div key={v.from.id} className="text-[13px] leading-relaxed">
                                             <span className="bond-serif">{v.from.name}</span>
@@ -377,8 +363,46 @@ export const BondSpacePage: React.FC<{
                             )}
                         </section>
                     )}
+
+                    {/* 近期約定：這期還沒做的、等你說好的，一行一個 */}
+                    {upcoming.length > 0 && onOpenPact && (
+                        <section className="pt-1 divide-y bond-hair">
+                            {upcoming.map(({ e, note }) => (
+                                <button key={e.id} type="button" onClick={() => onOpenPact({ tab: 'promise', promiseId: e.id })} className="w-full px-1 py-3 flex items-baseline justify-between gap-3 text-left">
+                                    <span className="min-w-0 truncate text-[13.5px] text-[var(--bond-ink-2)]">{note}<span className="mx-1 text-[var(--bond-rose)]">·</span><span className="text-[var(--bond-ink)]">{e.text}</span></span>
+                                    <span className="shrink-0 text-[14px] text-[var(--bond-ink-2)]">去看看 ›</span>
+                                </button>
+                            ))}
+                        </section>
+                    )}
                 </div>
             </div>
         </div>
     );
 };
+
+const ITEM_KIND: Record<TimelineItem['kind'], string> = { moment: '片刻', memory: '記憶', essay: '隨筆', milestone: '里程碑' };
+
+/** 白卡上的小標：可帶一個圖示 */
+const PanelLabel: React.FC<{ icon?: Icon; children: React.ReactNode }> = ({ icon: Ico, children }) => (
+    <div className="flex items-center gap-2 text-[13px] text-[var(--bond-ink-2)]">
+        {Ico && <Ico size={19} />}
+        <span>{children}</span>
+    </div>
+);
+
+/** 等你接住的一張：淡粉色塊，小標、標題、一句、底下來源與動作 */
+const PendingCard: React.FC<{ icon: Icon; title: string; quote?: string; foot: string; action: string; onClick: () => void; extra?: React.ReactNode }> = ({ icon: Ico, title, quote, foot, action, onClick, extra }) => (
+    <section className="bond-block bg-[var(--bond-block-blush)] px-5 py-4">
+        <button type="button" onClick={onClick} className="w-full text-left">
+            <PanelLabel icon={Ico}>等你接住</PanelLabel>
+            <div className="bond-serif mt-2.5 text-[17px] font-semibold leading-snug line-clamp-2">{title}</div>
+            {quote && <div className="mt-1.5 text-[13.5px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-2">{quote}</div>}
+            <div className="mt-3 flex items-baseline justify-between gap-3 text-[12.5px] text-[var(--bond-ink-2)]">
+                <span className="min-w-0 truncate">{foot}</span>
+                <span className="shrink-0">{action} ›</span>
+            </div>
+        </button>
+        {extra && <div className="mt-2">{extra}</div>}
+    </section>
+);

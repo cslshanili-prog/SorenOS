@@ -297,7 +297,7 @@ const WishDonePicker: React.FC<{ space: ResolvedSpace; characters: CharacterProf
                             return (
                                 <button key={it.key} type="button" onClick={() => setPicked(p => (on ? p.filter(x => x !== it.key) : [...p, it.key]))}
                                     className="w-full text-left py-3 flex gap-3" aria-pressed={on}>
-                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-white' : ''}`}>{on && <Check size={11} />}</span>
+                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : ''}`}>{on && <Check size={11} />}</span>
                                     <span className="min-w-0">
                                         <span className="block text-[10.5px] tracking-wider text-[var(--bond-muted)]">{formatEventDate(it.eventDate)} · {it.kind === 'moment' ? '片刻' : '記憶'}</span>
                                         <span className="bond-serif block mt-0.5 text-[13.5px] leading-relaxed">{(it.title ? `${it.title}：` : '') + it.text.replace(/\s+/g, ' ').slice(0, 70)}</span>
@@ -700,7 +700,7 @@ const MonthDots: React.FC<{ month: string; onMonth: (m: string) => void; done: S
                     const on = done.has(day);
                     const out = (start && day < start) || day > today;
                     return (
-                        <span key={day} className={`mx-auto h-6 w-6 rounded-full grid place-items-center text-[10.5px] ${on ? 'bg-[var(--bond-accent)] text-white' : out ? 'opacity-30' : 'text-[var(--bond-ink-2)]'} ${day === today && !on ? 'border border-[var(--bond-accent)]' : ''}`}>{i + 1}</span>
+                        <span key={day} className={`mx-auto h-6 w-6 rounded-full grid place-items-center text-[10.5px] ${on ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : out ? 'opacity-30' : 'text-[var(--bond-ink-2)]'} ${day === today && !on ? 'border border-[var(--bond-accent)]' : ''}`}>{i + 1}</span>
                     );
                 })}
             </div>

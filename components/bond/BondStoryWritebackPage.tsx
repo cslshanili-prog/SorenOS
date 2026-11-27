@@ -170,7 +170,7 @@ export const BondStoryWritebackPage: React.FC<{
                                 return (
                                     <div key={it.key} className={`py-3.5 flex gap-3 ${on ? '' : 'opacity-55'}`}>
                                         <button type="button" aria-pressed={on} aria-label={on ? '取消勾' : '勾起來'} onClick={() => toggle(it.key)}
-                                            className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[#fbf7f0]' : 'border-[var(--bond-rose)]'}`}>
+                                            className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'border-[var(--bond-rose)]'}`}>
                                             {on && <Check size={11} weight="bold" />}
                                         </button>
                                         <div className="min-w-0 flex-1 space-y-1.5">
@@ -280,7 +280,7 @@ export const BondStoryRetractPage: React.FC<{
                                 <div key={e.id} className={`py-3 flex gap-3 ${on ? '' : 'opacity-55'}`}>
                                     {mode === 'rewrite' && !dependent && (
                                         <button type="button" aria-pressed={on} aria-label={on ? '取消勾' : '勾起來'} onClick={() => toggle(e.id)}
-                                            className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[#fbf7f0]' : 'border-[var(--bond-rose)]'}`}>
+                                            className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'border-[var(--bond-rose)]'}`}>
                                             {on && <Check size={11} weight="bold" />}
                                         </button>
                                     )}

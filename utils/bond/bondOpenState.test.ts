@@ -73,3 +73,14 @@ describe('空間開了才有', () => {
         expect(isBondOpen(undefined)).toBe(false);
     });
 });
+
+describe('羈絆的淺色／深色', async () => {
+    const { resolveBondTheme } = await import('./theme');
+    it('自己選的優先；跟著手機看系統，系統主題開深色也算', () => {
+        expect(resolveBondTheme('dark', false)).toBe('dark');
+        expect(resolveBondTheme('light', true, true)).toBe('light');
+        expect(resolveBondTheme('system', true)).toBe('dark');
+        expect(resolveBondTheme('system', false, true)).toBe('dark');
+        expect(resolveBondTheme('system', false)).toBe('light');
+    });
+});

@@ -15,6 +15,9 @@ import { primaryCounter } from '../../utils/bond/spaces';
 import { routeLabel, stageLabel } from '../../utils/bond/routes';
 import { isOnStage } from '../../utils/castRole';
 import { personaNameForKey } from '../../utils/userPersona';
+import { BOND_THEME_LABEL, writeBondThemePref } from '../../utils/bond/theme';
+import { useBondThemePref } from './bondTheme';
+import { trackEvent } from '../../utils/analytics';
 
 export type SpaceKind = 'persona' | 'pair';
 type Toast = (m: string, t?: 'success' | 'error' | 'info') => void;
@@ -166,8 +169,27 @@ export const BondSwitcherPage: React.FC<{
                         )}
                     </section>
                 )}
+                <ThemeChoice />
             </div>
         </div>
+    );
+};
+
+/** 外觀：跟著手機／淺色／深色（只存這台裝置，plans/bond-look.md） */
+const ThemeChoice: React.FC = () => {
+    const pref = useBondThemePref();
+    return (
+        <section className="mt-10">
+            <SectionLabel>外 觀</SectionLabel>
+            <div className="flex gap-2">
+                {(['system', 'light', 'dark'] as const).map(p => (
+                    <button key={p} type="button" className="bond-chip" aria-pressed={pref === p}
+                        onClick={() => { writeBondThemePref(p); trackEvent('羁绊外观', { 外观: p === 'system' ? '跟手机' : p === 'light' ? '浅色' : '深色' }); }}>
+                        {BOND_THEME_LABEL[p]}
+                    </button>
+                ))}
+            </div>
+        </section>
     );
 };
 
