@@ -43,7 +43,7 @@ const ACTIVE_MS = 14 * 86400_000;
 const HEADER = '💌 [BondOutput]';
 let running = false;
 
-export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望' } as const;
+export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望', letter: '信' } as const;
 
 export interface BondOutputDone {
     bondId: string;

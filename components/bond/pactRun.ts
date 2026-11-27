@@ -9,6 +9,7 @@
  * - 背景系統一律過 isOnStage；小號不算（跟羈絆不單獨開小號的空間一致）。
  */
 import { lineGiftOrders, syncGiftPlans } from './giftRun';
+import { deliverDueLetters } from './letterRun';
 import { buildGiftViews, giftStats } from '../../utils/bond/gift';
 import { unlockEventCards } from './eventCardRun';
 import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, MallOrder, Message, UserProfile } from '../../types';
@@ -285,6 +286,7 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
         writeMap(SCAN_KEY, scan);
         // 珍藏（plans/bond-batch5.md 2.3、2.4）：買了打算送的、TA 送出了它在準備的，連回訂單；TA 的打算過期作廢
         await syncGiftPlans(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '禮物同步失敗', e));
+        await deliverDueLetters(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '送信失敗', e));
         return gains;
     } finally {
         running = false;

@@ -7,6 +7,7 @@
  */
 import type { BondEntry, BondLedgerRow, BondRecord, BondRoute, DiaryEntry, MallOrder } from '../../types';
 import { buildGiftViews, type GiftView } from './gift';
+import { awaitingReply, letterArrived, letterInTransit } from './letter';
 import { getLocalDateKey } from '../localDate';
 import { knownDiaries, knownHabits, knownMilestones, knownPromises, knownQuestions, knownSlips, knownWishes } from './visibility';
 import { milestoneLabel, repeatLabel } from './pact';
@@ -251,11 +252,12 @@ function giftLine(v: GiftView, otherName: string): string {
 function treasureLines(input: BondPromptInput): string[] {
     const entries = input.entries || [];
     const orders = input.giftOrders || [];
-    if (!orders.length && !entries.some(e => e.kind === 'gift')) return [];
+    const lines: string[] = [];
+    lines.push(...letterLines(input));
+    if (!orders.length && !entries.some(e => e.kind === 'gift')) return lines;
     const views = buildGiftViews({ orders, entries, forViewer: 'char', now: input.now });
     const real = views.filter(v => !v.secret && v.state !== 'planned').slice(0, PROMPT_GIFT_LIMIT);
     const secrets = views.filter(v => v.secret).sort((a, b) => a.at - b.at);
-    const lines: string[] = [];
     if (real.length) {
         lines.push('你們之間的禮物（真的送出、收到過的；不用每次提起，想到了自然帶到就好）：');
         for (const v of real) lines.push(giftLine(v, input.otherName));
@@ -267,6 +269,37 @@ function treasureLines(input: BondPromptInput): string[] {
             lines.push(`  - ${clip(oneLine(v.title), PROMPT_GIFT_CHARS)}${when ? `（打算${when}送）` : ''}`);
         }
     }
+    return lines;
+}
+
+export const PROMPT_LETTER_LIMIT = 3;
+export const PROMPT_LETTER_CHARS = 120;
+
+/**
+ * 信件（plans/bond-batch5.md 第 5 節）：最近幾封寄到了的（雙方的），對方在等你回的標出來；
+ * 你自己寄出、還在路上的你記得寄了。對方的草稿、還沒寄到的信一律不帶。沒有信就一行都不出。
+ */
+function letterLines(input: BondPromptInput): string[] {
+    const entries = input.entries || [];
+    const selfId = input.selfId;
+    const mine = (e: BondEntry) => (selfId ? e.author === selfId : e.author !== 'user');
+    const arrived = entries.filter(e => e.kind === 'letter' && letterArrived(e))
+        .sort((a, b) => (b.letter!.arrivedAt || 0) - (a.letter!.arrivedAt || 0)).slice(0, PROMPT_LETTER_LIMIT);
+    const onTheWay = entries.filter(e => e.kind === 'letter' && letterInTransit(e) && mine(e));
+    if (!arrived.length && !onTheWay.length) return [];
+    const other = input.otherName;
+    const lines = ['你們之間的信（真的寄到了的；你寫的你記得，對方寫的你讀過）：'];
+    for (const e of [...arrived].reverse()) {
+        const body = clip(oneLine(e.text), PROMPT_LETTER_CHARS);
+        const day = giftDay(e.letter!.arrivedAt!);
+        if (mine(e)) {
+            const read = e.letter!.readAt ? `${other}讀過了` : `${other}還沒打開`;
+            lines.push(`  - ${day}｜你寫給${other}：「${body}」（${read}）`);
+        } else {
+            lines.push(`  - ${day}｜${other}寫給你：「${body}」${awaitingReply(entries, e) ? `（${other}在等你回信）` : ''}`);
+        }
+    }
+    for (const e of onTheWay) lines.push(`  - 你寄給${other}的一封信還在路上，${other}還沒收到：「${clip(oneLine(e.text), 40)}」`);
     return lines;
 }
 

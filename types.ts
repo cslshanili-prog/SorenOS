@@ -6430,7 +6430,7 @@ export interface BondLedgerRow {
 
 /** 主動產出的類型（plans/bond-batch3.md 1.4） */
 /** 主動產出的種類；'wish' 是第 4 批加的（角色寫一個自己的願望） */
-export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay' | 'wish';
+export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay' | 'wish' | 'letter';
 
 export interface BondOutputSetting {
     enabled: boolean;
@@ -6451,7 +6451,7 @@ export interface BondOutputSetting {
 }
 
 export interface BondOutputEvent {
-    kind: 'daily_summary' | 'date_end' | 'moment' | 'note_received' | 'question_received';
+    kind: 'daily_summary' | 'date_end' | 'moment' | 'note_received' | 'question_received' | 'milestone' | 'anniversary' | 'silence' | 'letter_received';
     at: number;
     ref?: string;
 }
@@ -6564,7 +6564,32 @@ export interface BondEntry {
     eventCard?: BondEventCard;
     /** 珍藏（plans/bond-batch5.md 第 1 節）：禮物；text 是名稱或一句描述 */
     gift?: BondGift;
+    /** 珍藏：信件；text 是信文 */
+    letter?: BondLetter;
     updatedAt: number;
+}
+
+/**
+ * 信件（plans/bond-batch5.md 1.2）。寄件人是 entry.author（'user' 或角色 id）。
+ * 草稿＝status 'draft'、沒有 sentAt；寄出＝published＋sentAt；對方收到＝arrivedAt（馬上到的寄出就到，慢寄的到 deliverAt 由 tick 投遞）。
+ * 還沒到的信不算對方知道：不進收件人的提示詞、也不在收件人的清單上。
+ */
+export interface BondLetter {
+    /** 收件人：'user' 或角色 id */
+    to: string;
+    /** 信紙（交換日記那六種）、署名 */
+    paperStyle?: string;
+    signature?: string;
+    sentAt?: number;
+    /** 慢寄：預計這時候到（真實時間）；沒有＝寄出就到 */
+    deliverAt?: number;
+    /** 真的到了對方手上（聊天裡落「信到了」那張小卡的時間） */
+    arrivedAt?: number;
+    /** 收件人讀了（角色收的信，到了就算讀了） */
+    readAt?: number;
+    /** 回哪一封 */
+    replyTo?: string;
+    origin: 'manual' | 'reply' | 'output' | 'eventCard';
 }
 
 /**

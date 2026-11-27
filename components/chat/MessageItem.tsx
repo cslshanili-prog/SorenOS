@@ -1,5 +1,7 @@
 import { isUserVoiceMessage } from '../../utils/userVoice';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, bondRefOf } from '../../utils/bond/bondRef';
+import { bondLetterOf, letterCardLine, waxFor } from '../../utils/bond/letter';
+import { Envelope, ENVELOPE_CSS } from '../bond/treasure/Envelope';
 import { proposalStatus, type BondProposalMeta } from '../../utils/bond/pactTags';
 import { bondEntryById, onBondEntryRegistryChange } from '../../utils/bond/entryRegistry';
 import { repeatLabel } from '../../utils/bond/pact';
@@ -1086,6 +1088,44 @@ const BondProposalCard: React.FC<{
                 )}
             </div>
         </div>
+    );
+};
+
+/** 羈絆 · 珍藏的信封小卡（utils/bond/letter.ts）：寄出中／信到了；點了開羈絆那封信 */
+const BondLetterCard: React.FC<{
+    m: Message;
+    charName: string;
+    commonLayout: (content: React.ReactNode) => JSX.Element;
+    selectionMode: boolean;
+}> = ({ m, charName, commonLayout, selectionMode }) => {
+    const meta = bondLetterOf(m)!;
+    const [, bump] = React.useReducer((x: number) => x + 1, 0);
+    React.useEffect(() => onBondEntryRegistryChange(bump), []);
+    const entry = bondEntryById(meta.entryId);
+    const fromUser = meta.from === 'user';
+    const unread = !fromUser && meta.event === 'arrived' && !!entry?.letter && !entry.letter.readAt;
+    const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!entry || selectionMode) return;
+        window.dispatchEvent(new CustomEvent(BOND_REF_OPEN_EVENT, { detail: { bondId: meta.bondId, kind: 'letter', letterId: meta.entryId, excerpt: meta.excerpt } }));
+    };
+    const initial = Array.from((fromUser ? '你' : charName).trim())[0] || '・';
+    return commonLayout(
+        <button type="button" onClick={open} className="sully-bond-letter w-60 rounded-2xl overflow-hidden border border-[#e6dccf] bg-[#fbf7f0] shadow-sm text-left" style={{ fontFamily: "'Noto Serif TC', 'Songti TC', serif" }}>
+            <div className="px-4 pt-3.5 pb-3">
+                <div className="text-[10px] tracking-[0.25em] text-[#a1887f]">信</div>
+                <div className="mt-2 flex justify-center">
+                    <Envelope paperStyle={entry?.letter?.paperStyle} wax={waxFor(meta.entryId)} initial={initial} scale={0.6}
+                        postmark={meta.event === 'sent' && meta.deliverAt ? `寄出中\n預計\n${new Date(meta.deliverAt).getMonth() + 1}/${new Date(meta.deliverAt).getDate()}` : undefined} />
+                </div>
+                <div className="mt-2.5 text-[12.5px] text-[#4a4340] leading-relaxed">{letterCardLine(meta, charName)}</div>
+                {!entry ? <div className="mt-1 text-[10.5px] text-[#a1958c]">這封信已經不在了</div>
+                    : unread ? <div className="mt-1 text-[11px] text-[#8c4a52]">點開來拆</div>
+                    : fromUser && meta.event === 'sent' ? <div className="mt-1 text-[10.5px] text-[#a1958c]" style={{ fontFamily: 'var(--app-font)' }}>到之前 TA 不知道寫了什麼</div>
+                    : <div className="mt-1 text-[10.5px] text-[#a1958c] truncate">{meta.excerpt}</div>}
+            </div>
+            <style>{ENVELOPE_CSS}</style>
+        </button>
     );
 };
 
@@ -3648,6 +3688,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'persona_card') {
         return <PersonaSuspectCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolvePersonaReveal={onResolvePersonaReveal} />;
+    }
+
+    if (m.type === 'bond_invite' && bondLetterOf(m)) {
+        return <BondLetterCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} />;
     }
 
     if (m.type === 'bond_invite' && m.metadata?.bondProposal) {

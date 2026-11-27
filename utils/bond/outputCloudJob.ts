@@ -21,6 +21,8 @@ export const BOND_OUTPUT_KIND = 'bond-output';
 export const BOND_OUTPUT_RESULT_KIND = 'bond-output';
 /** worker 在 config-check 報這個，才認得「願望」這一種（第 4 批；舊 bundle 只認四種） */
 export const BOND_OUTPUT_WISH_CAPABILITY = 'bond-output:wish';
+/** 同上，「信」這一種（第 5 批） */
+export const BOND_OUTPUT_LETTER_CAPABILITY = 'bond-output:letter';
 
 /** standing job 的 key（一段關係一份，四種共用） */
 export const bondOutputJobKey = (bondId: string): string => `bond-output:${bondId}`;
@@ -28,7 +30,7 @@ export const bondOutputJobKey = (bondId: string): string => `bond-output:${bondI
 export const bondOutputJobId = (bondId: string, kind: BondOutputKind): string => `bond-output|${kind}|${bondId}`;
 export const parseBondOutputJobId = (raw: unknown): { bondId: string; kind: BondOutputKind } | null => {
     if (typeof raw !== 'string') return null;
-    const m = /^bond-output\|(diary|question|note|essay|wish)\|(.+)$/.exec(raw);
+    const m = /^bond-output\|(diary|question|note|essay|wish|letter)\|(.+)$/.exec(raw);
     return m ? { kind: m[1] as BondOutputKind, bondId: m[2] } : null;
 };
 /** 雲端自己記的寫過哪些（全部關係共用一行，跟 job 放同一個命名空間） */
@@ -293,7 +295,7 @@ export function buildBondOutputResult(args: Omit<BondOutputResult, 'resultKind' 
     return { resultKind: BOND_OUTPUT_RESULT_KIND, v: 1, ...args };
 }
 
-const KINDS = new Set(['diary', 'question', 'note', 'essay', 'wish']);
+const KINDS = new Set(['diary', 'question', 'note', 'essay', 'wish', 'letter']);
 
 export function parseBondOutputResult(raw: unknown): BondOutputResult | null {
     if (!isObj(raw) || raw.resultKind !== BOND_OUTPUT_RESULT_KIND || raw.v !== 1) return null;

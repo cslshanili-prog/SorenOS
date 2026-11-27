@@ -21,6 +21,7 @@ const KIND_HINT: Record<BondOutputKind, string> = {
     note: '你丟來的紙條先回；沒有就丟一張——可以只是一句話。',
     essay: '從還沒寫過的事裡挑一件寫感想，寫成草稿等你收下。',
     wish: '照人設和最近的事寫一個自己的願望，或想跟你一起做的事；寫了只是讓你看見，不等於約好。',
+    letter: '寫一封完整的信給你，偶爾慢慢寄；里程碑、紀念日、見面之後、很久沒說話、你的信到了，會提早寫。',
 };
 
 const STYLE_PLACEHOLDER: Record<BondOutputKind, string> = {
@@ -29,9 +30,10 @@ const STYLE_PLACEHOLDER: Record<BondOutputKind, string> = {
     note: '空著＝照角色個性，例如：像便利貼、一句話就好',
     essay: '空著＝照角色個性，例如：像散文、少一點形容詞',
     wish: '空著＝照角色個性，例如：很具體、像便條上的一句話',
+    letter: '空著＝照角色個性，例如：像老派的書信、會寫天氣和近況',
 };
 const DAY = 86400_000;
-const EVENT_LABEL = { diary: '日記', question: '問答', note: '紙條', essay: '隨筆', wish: '願望' } as const;
+const EVENT_LABEL = { diary: '日記', question: '問答', note: '紙條', essay: '隨筆', wish: '願望', letter: '信' } as const;
 
 const whenText = (ts: number | null) => {
     if (!ts) return '還沒排';
@@ -55,7 +57,7 @@ export const BondOutputSettingsPage: React.FC<{
     const patch = async (kind: BondOutputKind, p: Partial<BondOutputSetting>, action?: '开' | '关' | '暂停' | '改区间' | '改篇幅' | '改文风') => {
         const next = await updateBond(space.id, b => ({ ...b, output: { ...(b.output || {}), [kind]: { ...(b.output?.[kind] || {}), ...p } } }));
         setBond(next);
-        if (action) trackEvent('调整主动产出', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望' } as const)[kind], 动作: action });
+        if (action) trackEvent('调整主动产出', { 类型: ({ diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望', letter: '信' } as const)[kind], 动作: action });
     };
 
     const tryNow = async (kind: BondOutputKind) => {

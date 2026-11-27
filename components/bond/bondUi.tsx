@@ -6,6 +6,7 @@ import React from 'react';
 import { CaretLeft } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
 import { GIFTBOX_CSS } from './treasure/GiftBox';
+import { ENVELOPE_CSS } from './treasure/Envelope';
 
 export const BOND_CSS = `
 .bond-root {
@@ -45,7 +46,7 @@ export const BOND_CSS = `
 .bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
 `;
 
-export const BondStyle: React.FC = () => <style>{BOND_CSS + GIFTBOX_CSS}</style>;
+export const BondStyle: React.FC = () => <style>{BOND_CSS + GIFTBOX_CSS + ENVELOPE_CSS}</style>;
 
 /** 全螢幕頁的頂欄：返回、標題（襯線）、右邊放一顆動作 */
 export const BondHeader: React.FC<{ title: string; onBack: () => void; right?: React.ReactNode; backLabel?: string }> = ({ title, onBack, right, backLabel = '返回' }) => (

@@ -12,6 +12,8 @@ import { BondPhotoStrip } from './BondPhotoPicker';
 import { buildGiftViews, giftBucket, giftStats, giftWrapFor, type GiftBucket, type GiftView } from '../../utils/bond/gift';
 import { onGiftOrderRegistryChange } from '../../utils/bond/giftOrderRegistry';
 import { attributeGiftOrders, lineGiftOrders, syncGiftPlans } from './giftRun';
+import { LetterTab } from './BondLetterPages';
+import { unreadForUser } from '../../utils/bond/letter';
 import { formatEventDate } from '../../utils/bond/eventDate';
 import { getLocalDateKey } from '../../utils/localDate';
 
@@ -48,7 +50,7 @@ export function useGiftViews(space: ResolvedSpace): { views: GiftView[]; entries
 export function useGiftFreshDot(space: ResolvedSpace): boolean {
     const entries = useBondEntries(space.id);
     const orders = useLineGiftOrders(space);
-    return useMemo(() => buildGiftViews({ orders, entries, forViewer: 'user' }).some(v => giftIsFresh(v)), [orders, entries]);
+    return useMemo(() => buildGiftViews({ orders, entries, forViewer: 'user' }).some(v => giftIsFresh(v)) || unreadForUser(entries).length > 0, [orders, entries]);
 }
 
 /** TA 送的、送到了、你還沒拆的（一週以前的舊單當看過了，免得一打開滿滿都是小點；還在路上的等送到再拆） */
@@ -92,13 +94,17 @@ export const BondTreasurePage: React.FC<{
     onTab: (t: TreasureTab) => void;
     onOpenGift: (key: string) => void;
     onNewGift: (mode: 'given' | 'planned') => void;
-}> = ({ space, tabBar, header, tab, onTab, onOpenGift, onNewGift }) => {
+    onOpenLetter: (letterId: string) => void;
+    onWriteLetter: () => void;
+    onOpenSpecial: (key: string) => void;
+}> = ({ space, tabBar, header, tab, onTab, onOpenGift, onNewGift, onOpenLetter, onWriteLetter, onOpenSpecial }) => {
     const { views } = useGiftViews(space);
     const [filter, setFilter] = useState<GiftBucket | 'all'>('all');
     const name = space.rightName;
     const stats = useMemo(() => giftStats(views), [views]);
     const list = views.filter(v => filter === 'all' || giftBucket(v) === filter);
     const newDot = views.some(v => giftIsFresh(v));
+    const letterDot = unreadForUser(useBondEntries(space.id)).length > 0;
     const SUBTABS: Array<{ id: TreasureTab; label: string }> = [{ id: 'gift', label: '禮物' }, { id: 'letter', label: '信件' }, { id: 'capsule', label: '留給以後' }];
 
     return (
@@ -110,7 +116,7 @@ export const BondTreasurePage: React.FC<{
                     {SUBTABS.map(t => (
                         <button key={t.id} type="button" className="bond-chip relative" aria-pressed={tab === t.id} onClick={() => onTab(t.id)}>
                             {t.label}
-                            {t.id === 'gift' && newDot && tab !== 'gift' && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--bond-accent)]" aria-label="有新的" />}
+                            {((t.id === 'gift' && newDot) || (t.id === 'letter' && letterDot)) && tab !== t.id && <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--bond-accent)]" aria-label="有新的" />}
                         </button>
                     ))}
                 </div>
@@ -166,10 +172,9 @@ export const BondTreasurePage: React.FC<{
                     </div>
                 )}
 
-                {tab !== 'gift' && (
-                    <p className="px-8 py-16 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">
-                        {tab === 'letter' ? '信件在下一小批接上。' : '留給以後在下一小批接上。'}
-                    </p>
+                {tab === 'letter' && <LetterTab space={space} onOpen={onOpenLetter} onWrite={onWriteLetter} onOpenSpecial={onOpenSpecial} />}
+                {tab === 'capsule' && (
+                    <p className="px-8 py-16 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">留給以後在下一小批接上。</p>
                 )}
             </div>
         </div>

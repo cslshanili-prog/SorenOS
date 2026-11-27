@@ -12,7 +12,7 @@ import { lastRound, visibleAnswer } from './question';
 import type { TimelineItem } from './timeline';
 import type { GiftView } from './gift';
 
-export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'gift';
+export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'gift' | 'letter';
 /** 約定分頁的四種（第 4 批） */
 export type BondPactRefKind = Extract<BondRefKind, 'wish' | 'promise' | 'habit' | 'milestone'>;
 
@@ -33,6 +33,8 @@ export interface BondRefMeta {
     pactId?: string;
     /** 珍藏的一件禮物（第 5 批）：圖鑑上那格的 key（`o:訂單` 或 `e:卡`） */
     giftKey?: string;
+    /** 珍藏的一封信（那一串裡的哪一封） */
+    letterId?: string;
     title?: string;
     excerpt: string;
     /** 隨筆、日記那頁、紙條是誰寫的 */
@@ -43,7 +45,7 @@ export const BOND_REF_OPEN_EVENT = 'soren-open-bond-ref';
 
 export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = {
     moment: '片刻', memory: '記憶', essay: '隨筆', diary: '日記', question: '問答', note: '紙條',
-    wish: '願望', promise: '約定', habit: '默契', milestone: '里程碑', gift: '禮物',
+    wish: '願望', promise: '約定', habit: '默契', milestone: '里程碑', gift: '禮物', letter: '信',
 };
 
 const EXCERPT_MAX = 80;
@@ -162,4 +164,12 @@ export function bondRefFromGift(bondId: string, v: Pick<GiftView, 'key' | 'dir' 
     const last = v.followups[v.followups.length - 1];
     const parts = [day, v.occasion, items ? `裡面有${items}` : '', v.state === 'bought' ? '還在路上' : '', last ? `後來：${oneLine(last.text)}` : ''].filter(Boolean);
     return { bondId, kind: 'gift', giftKey: v.key, title: `${who}${clip(oneLine(v.title), 30)}`, excerpt: clip(parts.join('，') || oneLine(v.title), EXCERPT_MAX) };
+}
+
+/** 珍藏的一封信（寄到了的才能帶；摘要是開頭一段） */
+export function bondRefFromLetter(bondId: string, e: BondEntry, names: { user: string; char: string }): BondRefMeta | null {
+    if (e.kind !== 'letter' || !e.letter?.arrivedAt || !oneLine(e.text)) return null;
+    const who = e.author === 'user' ? `${names.user}寫給${names.char}的信` : `${names.char}寫給${names.user}的信`;
+    const d = new Date(e.letter.arrivedAt);
+    return { bondId, kind: 'letter', letterId: e.id, title: `${who}（${d.getMonth() + 1} 月 ${d.getDate()} 日）`, excerpt: clip(oneLine(e.text), EXCERPT_MAX) };
 }
