@@ -101,3 +101,42 @@ describe('故事回寫：寫成卡', () => {
         expect([countBucket(0), countBucket(1), countBucket(5)]).toEqual(['0', '1', '2+']);
     });
 });
+
+describe('故事回寫：刪改一章', async () => {
+    const { storyDerivatives, planStoryRetract, planDerivedRemoval } = await import('./derivation');
+    const { newStoryEntry } = await import('./story');
+    const story = { ...newStoryEntry({ bondId: 'pair~a~b', chapter: 1, title: 't', text: 'x', summary: 's', pov: 'narrator' }), id: 's1' };
+    story.story = { ...story.story!, derived: { topics: [{ charId: 'a', topicId: 't1' }], palace: [{ charId: 'b', nodeId: 'n1' }] } };
+    const plan = planStoryWriteback([
+        { key: '1', kind: 'moment', title: '', text: '片刻' },
+        { key: '2', kind: 'wish', owner: 'a', text: '願望' },
+    ], { bondId: 'pair~a~b', storyId: 's1', aId: 'a', bId: 'b', eventDate: { precision: 'unknown' }, now: 1 });
+    const [moment, wish] = plan.entries;
+    const both = { ...wish, sources: [...wish.sources, { type: 'memory' as const, charId: 'a', memoryId: 'm' }] };
+    const essay = { ...moment, id: 'essay1', kind: 'essay' as const, sources: [], links: [{ type: 'entry' as const, id: moment.id }] };
+    const all = [story, moment, both, essay];
+
+    it('列出長出來的、建在上面的、話題盒、記憶宮殿、承認卡', () => {
+        const d = storyDerivatives(all, story, [{ id: 'p', what: 'together', text: '', source: 'story', evidence: { storyId: 's1' }, key: 'k', at: 1 }]);
+        expect(d.entries.map(e => e.id)).toEqual([moment.id, both.id]);
+        expect(d.dependents.map(e => e.id)).toEqual(['essay1']);
+        expect(d.topics).toHaveLength(1);
+        expect(d.palace).toHaveLength(1);
+        expect(d.proposals).toHaveLength(1);
+    });
+
+    it('一起刪：另有來源的留著拆關聯；留著：全部拆關聯', () => {
+        const c = planStoryRetract(all, story, 'cascade', 5);
+        expect(c.deleteIds.sort()).toEqual(['essay1', moment.id, 's1'].sort());
+        expect(c.updates.map(e => [e.id, e.sources.length, e.orphanedLinks])).toEqual([[both.id, 1, [{ type: 'entry', id: 's1' }]]]);
+        const d = planStoryRetract(all, story, 'detach', 5);
+        expect(d.deleteIds).toEqual(['s1']);
+        expect(d.updates.map(e => e.id)).toEqual([moment.id, both.id]);
+    });
+
+    it('重新整理：只刪勾的（連同建在上面的）', () => {
+        const r = planDerivedRemoval(all, story, [moment.id], 5);
+        expect(r.deleteIds.sort()).toEqual(['essay1', moment.id].sort());
+        expect(r.updates).toEqual([]);
+    });
+});

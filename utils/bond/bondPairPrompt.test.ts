@@ -51,3 +51,34 @@ describe('角色之間的小按鈕：提示詞', () => {
         expect(cleanLong('```\n信\n```')).toBe('信');
     });
 });
+
+describe('角色之間：私下聊天的關係段', async () => {
+    const { bondPromptBlock } = await import('./prompt');
+    const { newStoryEntry } = await import('./story');
+    const { newPairDiary } = await import('./storyExtract');
+    const { newGift } = await import('./gift');
+    const base = (over: object) => ({ id: Math.random().toString(36), bondId: 'pair~a~b', author: 'a', text: '', eventDate: { precision: 'unknown' }, writtenAt: 1, sources: [], links: [], status: 'published', createdBy: 'ai', updatedAt: 1, ...over }) as any;
+    it('沒有卡時跟以前一樣；有故事、日記、問答、禮物時照 A／B 分邊', () => {
+        const input = { bond: undefined, selfName: 'Mio', otherName: 'Sully', selfIsCharId: false, entries: [], selfId: 'b', includeUserNotes: false };
+        expect(bondPromptBlock({ ...input, pair: { selfId: 'b', otherId: 'a', isA: false } })).toBe(bondPromptBlock(input));
+        let q = newQuestion({ bondId: 'pair~a~b', openedBy: 'user', prompt: '海還是山', origin: 'user' });
+        q = answerQuestion(q, pairSlot('a'), { text: '海', state: 'sealed' });
+        q = answerQuestion(q, pairSlot('b'), { text: '山', state: 'sealed' });
+        const entries = [
+            newStoryEntry({ bondId: 'pair~a~b', chapter: 1, title: '雨', text: 'x', summary: '共撐一把傘', pov: 'narrator' }),
+            newPairDiary({ bondId: 'pair~a~b', author: 'b', text: 'Mio 的心事', date: '2026-11-27' }),
+            newPairDiary({ bondId: 'pair~a~b', author: 'a', text: 'Sully 的心事', date: '2026-11-27' }),
+            q,
+            newGift({ bondId: 'pair~a~b', dir: 'in', state: 'given', title: '圍巾', text: '圍巾' }),
+            base({ kind: 'wish', author: 'b', text: '看海', wish: { owner: 'b', state: 'want' } }),
+        ];
+        const out = bondPromptBlock({ ...input, entries, pair: { selfId: 'b', otherId: 'a', isA: false } });
+        expect(out).toContain('第 1 章〈雨〉');
+        expect(out).toContain('共撐一把傘');
+        expect(out).toContain('Mio 的心事');
+        expect(out).not.toContain('Sully 的心事');
+        expect(out).toContain('「海還是山」你答：山；Sully答：海');
+        expect(out).toContain('你送Sully：圍巾');
+        expect(out).toContain('願望（你想）：看海');
+    });
+});

@@ -26,7 +26,8 @@ const Footer: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const SCENE_EVENT: Record<string, string> = { '日常': '日常', '約會／出遊': '约会', '節日': '节日', '吵架和好': '吵架和好', '意外': '意外', '深夜談心': '深夜' };
-const sceneEvent = (scene?: string) => (scene ? SCENE_EVENT[scene] || '自订' : '日常');
+export const storySceneEvent = (scene?: string) => (scene ? SCENE_EVENT[scene] || '自订' : '日常');
+const sceneEvent = storySceneEvent;
 
 /** 故事正文的閱讀排版：空行分段 */
 const StoryText: React.FC<{ text: string }> = ({ text }) => (
@@ -331,12 +332,17 @@ export const BondStoryReadPage: React.FC<{
     onDelete?: (entry: BondEntry) => void;
     /** 整理回寫（存下時先不寫的，之後從這裡補） */
     onWriteback?: (entryId: string) => void;
+    /** 重新整理回寫（已經整理過的：先列出舊的衍生物讓你選刪哪些） */
+    onRewrite?: (entryId: string) => void;
+    /** 剛改過內文：問一次要不要重新整理回寫 */
+    askRewrite?: boolean;
     addToast: Toast;
-}> = ({ space, characters, entryId, onBack, onOpen, onEdit, onWriteNext, onDelete, onWriteback, addToast }) => {
+}> = ({ space, characters, entryId, onBack, onOpen, onEdit, onWriteNext, onDelete, onWriteback, onRewrite, askRewrite, addToast }) => {
     const { entries } = useSpaceTimeline(space, characters);
     const entry = entries.find(e => e.id === entryId) || bondEntryById(entryId);
     const { prev, next } = chapterNeighbors(entries, entryId);
     const [confirm, setConfirm] = useState(false);
+    const [asking, setAsking] = useState(!!askRewrite);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     useEffect(() => { scrollRef.current?.scrollTo(0, 0); setConfirm(false); }, [entryId]);
 
@@ -364,6 +370,15 @@ export const BondStoryReadPage: React.FC<{
             <div ref={scrollRef} className="flex-1 overflow-y-auto no-scrollbar px-6 py-6">
                 <h2 className="bond-serif text-[19px] text-center">{entry.title}</h2>
                 <div className="mt-1 mb-6 text-center text-[11px] text-[var(--bond-muted)]">{formatEventDate(entry.eventDate)}・{pov}</div>
+                {asking && onRewrite && entry.story.extractedAt && (
+                    <div className="mb-6 rounded-xl border border-[var(--bond-line)] bg-[var(--bond-card)] px-4 py-3.5">
+                        <div className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">內容改了，要不要重新整理回寫？（之前長出來的片刻、約定、記憶照舊內文寫的）</div>
+                        <div className="mt-2.5 flex gap-2">
+                            <button type="button" className="bond-btn flex-1" onClick={() => setAsking(false)}>先不要</button>
+                            <button type="button" className="bond-btn bond-btn-primary flex-1" onClick={() => onRewrite(entry.id)}>要</button>
+                        </div>
+                    </div>
+                )}
                 <StoryText text={entry.text} />
                 {onWriteback && !entry.story.extractedAt && (
                     <div className="mt-10 rounded-xl border border-[var(--bond-line)] px-4 py-3.5 flex items-center gap-3">
@@ -378,9 +393,12 @@ export const BondStoryReadPage: React.FC<{
                     {next ? <button type="button" className="bond-btn" onClick={() => onOpen(next.id)}>{chapterLabel(next)}<CaretRight size={14} /></button>
                         : <button type="button" className="bond-btn bond-btn-primary" onClick={onWriteNext}><Feather size={14} />寫下一章</button>}
                 </div>
-                <div className="mt-8 border-t bond-hair pt-4">
+                <div className="mt-8 border-t bond-hair pt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                    {onRewrite && entry.story.extractedAt && !confirm && (
+                        <button type="button" className="text-[11.5px] text-[var(--bond-muted)] underline underline-offset-2" onClick={() => onRewrite(entry.id)}>重新整理回寫</button>
+                    )}
                     {!confirm ? (
-                        <button type="button" className="text-[11.5px] text-[var(--bond-muted)] underline underline-offset-2" onClick={() => setConfirm(true)}>刪掉這一章</button>
+                        <button type="button" className="text-[11.5px] text-[var(--bond-muted)] underline underline-offset-2" onClick={() => (onDelete ? onDelete(entry) : setConfirm(true))}>刪掉這一章</button>
                     ) : (
                         <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3">
                             <p className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">刪掉第 {entry.story.chapter} 章？之後的章節不會重新編號。</p>

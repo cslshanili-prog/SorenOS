@@ -55,7 +55,7 @@ import { appReturn, bondLaunch, mallLaunch, chatBondRefLaunch, chatJumpLaunch, d
 import { bondRefFromDiary, bondRefFromEssay, bondRefFromGift, bondRefFromLetter, bondRefFromCapsule, bondRefFromItem, bondRefFromPact, bondRefFromQuestion, bondRefFromSlip, type BondRefMeta } from '../utils/bond/bondRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
-import { BondStoryWritebackPage } from '../components/bond/BondStoryWritebackPage';
+import { BondStoryRetractPage, BondStoryWritebackPage } from '../components/bond/BondStoryWritebackPage';
 import {
     PairDiaryPage, PairGiftPage, PairHeartPage, PairLetterPage, PairLetterWritePage, PairPactEditPage, PairPactPage, PairQuestionNewPage, PairQuestionPage, PairTreasurePage,
 } from '../components/bond/BondPairPages';
@@ -103,7 +103,8 @@ type Page =
     | { page: 'route'; id: string; from: 'space' | 'list' }
     | { page: 'days'; id: string }
     | { page: 'mine'; id: string }
-    | { page: 'story'; id: string; entryId: string; exitOnBack?: boolean }
+    | { page: 'story'; id: string; entryId: string; exitOnBack?: boolean; askRewrite?: boolean }
+    | { page: 'story-retract'; id: string; entryId: string; mode: 'delete' | 'rewrite' }
     | { page: 'story-write'; id: string }
     | { page: 'story-list'; id: string }
     | { page: 'story-edit'; id: string; entryId: string }
@@ -287,7 +288,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit'
         || page.page === 'ledger' || page.page === 'achievements' || page.page === 'review' || page.page === 'feeling' || page.page === 'card' || page.page === 'card-new'
         || page.page === 'gift' || page.page === 'gift-edit' || page.page === 'letter' || page.page === 'letter-write' || page.page === 'special' || page.page === 'capsule' || page.page === 'capsule-seal'
-        || page.page === 'story' || page.page === 'story-write' || page.page === 'story-list' || page.page === 'story-edit' || page.page === 'story-writeback'
+        || page.page === 'story' || page.page === 'story-write' || page.page === 'story-list' || page.page === 'story-edit' || page.page === 'story-writeback' || page.page === 'story-retract'
         || page.page === 'pair-diary' || page.page === 'pair-question' || page.page === 'pair-question-new' || page.page === 'pair-pact-edit'
         || page.page === 'pair-gift' || page.page === 'pair-letter' || page.page === 'pair-letter-write') {
         const s = space(page.id);
@@ -663,7 +664,15 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })}
                         onEdit={entryId => setPage({ page: 'story-edit', id: s.id, entryId })}
                         onWriteNext={() => setPage({ page: 'story-write', id: s.id })}
-                        onWriteback={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })} addToast={addToast} />
+                        onWriteback={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })}
+                        onRewrite={entryId => setPage({ page: 'story-retract', id: s.id, entryId, mode: 'rewrite' })}
+                        onDelete={e => setPage({ page: 'story-retract', id: s.id, entryId: e.id, mode: 'delete' })}
+                        askRewrite={page.askRewrite} addToast={addToast} />
+                )}
+                {page.page === 'story-retract' && s.kind === 'pair' && (
+                    <BondStoryRetractPage space={s} entryId={page.entryId} mode={page.mode} updateCharacter={updateCharacter} remoteVectorConfig={remoteVectorConfig}
+                        onBack={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })}
+                        onDone={page.mode === 'delete' ? toSpace : () => setPage({ page: 'story-writeback', id: s.id, entryId: page.entryId })} addToast={addToast} />
                 )}
                 {page.page === 'story-list' && s.kind === 'pair' && (
                     <BondStoryListPage space={s} characters={chars} onBack={toSpace}
@@ -672,7 +681,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                 {page.page === 'story-edit' && s.kind === 'pair' && (
                     <BondStoryEditPage space={s} apiConfig={apiConfig} entryId={page.entryId}
                         onBack={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })}
-                        onSaved={entry => setPage({ page: 'story', id: s.id, entryId: entry.id })} addToast={addToast} />
+                        onSaved={(entry, textChanged) => setPage({ page: 'story', id: s.id, entryId: entry.id, askRewrite: textChanged && !!entry.story?.extractedAt })} addToast={addToast} />
                 )}
                 {page.page === 'route' && <BondRoutePage key={`${s.id}-${version}`} space={s} onBack={page.from === 'space' ? toSpace : () => setPage({ page: 'space', id: s.id })} addToast={addToast} />}
                 {page.page === 'days' && <BondDaysPage space={s} onBack={toSpace} updateLine={updateLine} addToast={addToast} />}

@@ -47,7 +47,7 @@ export async function generateOurNow(input: {
     const otherName = pair ? pair.other.name : user.name;
     const selfIsCharId = bond.charId === char.id;
     const system = pair
-        ? `${ContextBuilder.buildRoleSettingsContext(char)}\n${bondPromptBlock({ bond, selfName: char.name, otherName, selfIsCharId, entries: bondEntriesOf(bond.id), selfId: char.id, includeUserNotes: false })}`
+        ? `${ContextBuilder.buildRoleSettingsContext(char)}\n${bondPromptBlock({ bond, selfName: char.name, otherName, selfIsCharId, entries: bondEntriesOf(bond.id), selfId: char.id, includeUserNotes: false, pair: { selfId: char.id, otherId: pair.other.id, isA: selfIsCharId } })}`
         : ContextBuilder.buildCoreContext(char, user, true);
     const lock = bondFinalLock(bond, otherName);
     const prompt = buildOurNowPrompt({

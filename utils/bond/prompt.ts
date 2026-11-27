@@ -56,6 +56,11 @@ export interface BondPromptInput {
     giftOrders?: MallOrder[];
     /** 配送進度照這個時間算（測試用；沒給用現在） */
     now?: number;
+    /**
+     * 角色 × 角色（plans/bond-batch6.md 第 5 節）：「你」是哪一位、對方是哪一位、你是不是 A（bond.charId）。
+     * 給了就不走身份卡那套心意／約定／珍藏（那套的 user／char 是你和角色），改走 `pairEntryLines`。
+     */
+    pair?: { selfId: string; otherId: string; isA: boolean };
 }
 
 export const PROMPT_DIARY_CHARS = 200;
@@ -112,9 +117,78 @@ function entryLines(input: BondPromptInput): string[] {
             lines.push(`  - 關於 ${about}${title ? `〈${title}〉` : ''}：${clip(oneLine(e.text), PROMPT_ESSAY_CHARS)}`);
         }
     }
+    if (input.pair) {
+        lines.push(...pairEntryLines(input, input.pair));
+        return lines;
+    }
     lines.push(...heartLines(input));
     lines.push(...pactLines(input));
     lines.push(...treasureLines(input));
+    return lines;
+}
+
+/** 角色之間：最近幾章帶摘要 */
+export const PAIR_PROMPT_STORY_RECENT = 3;
+/** 角色之間：自己寫的日記帶最近幾篇 */
+export const PAIR_PROMPT_DIARY_RECENT = 2;
+
+/**
+ * 角色 × 角色的卡（plans/bond-batch6.md 第 5、6 節）：故事（最近三章摘要＋全部章節一行目錄）、自己寫的日記（最近兩篇）、
+ * 揭曉的問答、願望／約定／默契／里程碑、禮物與信。日記只有作者知道；信只有寫信的和收信的知道（就是你們兩個）。
+ * 沒有任何一樣就一行都不出。
+ */
+function pairEntryLines(input: BondPromptInput, pair: NonNullable<BondPromptInput['pair']>): string[] {
+    const { otherName } = input;
+    const all = (input.entries || []).filter(e => e.status === 'published');
+    const lines: string[] = [];
+    const who = (id: string) => (id === pair.selfId ? '你' : id === pair.otherId ? otherName : '');
+    const chapters = all.filter(e => e.kind === 'story' && e.story).sort((a, b) => a.story!.chapter - b.story!.chapter);
+    if (chapters.length) {
+        lines.push(`你們之間的故事（真的發生過的事，用戶不在場）：`);
+        lines.push(`  - 目錄：${chapters.map(e => `第 ${e.story!.chapter} 章〈${oneLine(e.title) || '無題'}〉`).join('、')}`);
+        for (const e of chapters.slice(-PAIR_PROMPT_STORY_RECENT)) {
+            lines.push(`  - 第 ${e.story!.chapter} 章〈${oneLine(e.title) || '無題'}〉${promptEventDate(e.eventDate)}｜${clip(oneLine(e.story!.summary), 200)}`);
+        }
+    }
+    const diaries = all.filter(e => e.kind === 'diary' && e.author === pair.selfId)
+        .sort((a, b) => (a.diary?.date || '').localeCompare(b.diary?.date || '') || a.writtenAt - b.writtenAt).slice(-PAIR_PROMPT_DIARY_RECENT);
+    if (diaries.length) {
+        lines.push(`你寫過的日記（只有你自己知道，是當時的心情）：`);
+        for (const d of diaries) lines.push(`  - ${promptEventDate(d.diary?.date ? { precision: 'day', date: d.diary.date } : d.eventDate)}｜${clip(oneLine(d.text), PROMPT_DIARY_CHARS)}`);
+    }
+    // 問答：A 的答案在 user 欄、B 的在 char 欄；只帶揭曉的
+    const mine = pair.isA ? 'user' : 'char', theirs = pair.isA ? 'char' : 'user';
+    const qs = all.filter(e => e.kind === 'question' && e.question?.rounds.some(r => r.revealedAt));
+    if (qs.length) {
+        lines.push(`你們各自答過、一起揭曉的題目：`);
+        for (const q of qs) {
+            const r = [...q.question!.rounds].reverse().find(x => x.revealedAt)!;
+            const a = r[mine]?.text, b = r[theirs]?.text;
+            lines.push(`  - 「${clip(oneLine(q.text), 80)}」你答：${a ? clip(oneLine(a), PROMPT_ANSWER_CHARS) : '（沒答）'}；${otherName}答：${b ? clip(oneLine(b), PROMPT_ANSWER_CHARS) : '（沒答）'}`);
+        }
+    }
+    const wishes = all.filter(e => e.kind === 'wish' && e.wish && e.wish.state !== 'shelved');
+    const promises = all.filter(e => e.kind === 'promise' && e.promise && (e.promise.state === 'active' || e.promise.state === 'done'));
+    const habits = all.filter(e => e.kind === 'habit' && e.habit?.state === 'active');
+    const milestones = all.filter(e => e.kind === 'milestone' && e.milestone).sort((a, b) => String(eventSortKey(a.eventDate)).localeCompare(String(eventSortKey(b.eventDate))));
+    if (wishes.length || promises.length || habits.length || milestones.length) {
+        lines.push(`你們之間說出口、說好的事：`);
+        for (const w of wishes) lines.push(`  - 願望（${w.wish!.owner === 'both' ? '你們兩個都想' : `${who(w.wish!.owner) || '某人'}想`}）：${clip(oneLine(w.text), 100)}${w.wish!.state === 'done' ? '（已經做到了）' : ''}`);
+        for (const p of promises) lines.push(`  - 約定（${repeatLabel(p.promise!.repeat)}）：${clip(oneLine(p.text), 100)}${p.promise!.state === 'done' ? '（做完了）' : ''}`);
+        for (const h of habits) lines.push(`  - 默契：${clip(oneLine(h.text), 100)}`);
+        for (const m of milestones) lines.push(`  - 里程碑 ${promptEventDate(m.eventDate)}：${milestoneLabel(m.milestone!.what, m.title)}${oneLine(m.text) ? `｜${clip(oneLine(m.text), 100)}` : ''}`);
+    }
+    const gifts = all.filter(e => e.kind === 'gift' && e.gift?.state === 'given');
+    // 信：寫信的是 A 就是 out
+    const letters = all.filter(e => e.kind === 'letter' && e.letter?.sentAt).sort((a, b) => (a.letter!.sentAt || 0) - (b.letter!.sentAt || 0)).slice(-3);
+    if (gifts.length || letters.length) {
+        lines.push(`你們之間的禮物與信：`);
+        for (const g of gifts) {
+            const fromSelf = (g.gift!.dir === 'out') === pair.isA;
+            lines.push(`  - ${fromSelf ? `你送${otherName}` : `${otherName}送你`}：${clip(oneLine(g.title || g.text), 40)}${g.gift!.occasion ? `（${oneLine(g.gift!.occasion)}）` : ''}`);
+        }
+        for (const l of letters) lines.push(`  - ${l.author === pair.selfId ? `你寫給${otherName}的信` : `${otherName}寫給你的信`}：${clip(oneLine(l.text), 80)}`);
+    }
     return lines;
 }
 

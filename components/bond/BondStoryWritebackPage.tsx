@@ -8,7 +8,12 @@ import { Check, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, CharacterProfile } from '../../types';
 import type { ResolvedSpace } from './space';
 import { BondHeader, SectionLabel } from './bondUi';
-import { useSpaceTimeline } from './useSpaceTimeline';
+import { useBondEntries, useSpaceTimeline } from './useSpaceTimeline';
+import { clearForRewrite, retractStory } from './storyRetract';
+import { storyDerivatives } from '../../utils/bond/derivation';
+import { trackEvent } from '../../utils/analytics';
+import type { RemoteVectorConfig } from '../../utils/memoryPalace/types';
+import { storySceneEvent } from './BondStoryPages';
 import { applyStoryWriteback, prepareStoryWriteback } from './storyWriteback';
 import { bondEntryById } from '../../utils/bond/entryRegistry';
 import { milestoneLabel, repeatLabel } from '../../utils/bond/pact';
@@ -191,6 +196,139 @@ export const BondStoryWritebackPage: React.FC<{
                 <button type="button" className="bond-btn flex-1" disabled={busy === 'save'} onClick={leave}>先不寫</button>
                 <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!items || !!busy}
                     onClick={() => void save()}>{busy === 'save' ? '寫進去…' : checked.size ? `寫進去（${[...checked].filter(k => items?.some(i => i.key === k)).length} 件）` : '都不寫'}</button>
+            </div>
+        </div>
+    );
+};
+
+// ─── 刪改一章（plans/bond-batch6.md 第 7 節） ─────────────────
+
+const ENTRY_KIND_LABEL: Partial<Record<BondEntry['kind'], string>> = {
+    moment: '片刻', milestone: '里程碑', wish: '願望', promise: '約定', habit: '默契', gift: '禮物', letter: '信', diary: '日記', essay: '隨筆', question: '問答',
+};
+
+/**
+ * mode 'delete'：刪一章，選「一起刪」或「留著，拆掉關聯」；
+ * mode 'rewrite'：重新整理回寫，先勾要刪掉的舊衍生物（預設全勾），刪完照現在的內文再抽一次清單。
+ */
+export const BondStoryRetractPage: React.FC<{
+    space: ResolvedSpace;
+    entryId: string;
+    mode: 'delete' | 'rewrite';
+    updateCharacter: Updater;
+    remoteVectorConfig?: RemoteVectorConfig;
+    onBack: () => void;
+    /** delete：刪完回首頁；rewrite：清完去整理回寫頁 */
+    onDone: () => void;
+    addToast: Toast;
+}> = ({ space, entryId, mode, updateCharacter, remoteVectorConfig, onBack, onDone, addToast }) => {
+    const entries = useBondEntries(space.id);
+    const story = entries.find(e => e.id === entryId) || bondEntryById(entryId);
+    const d = useMemo(() => (story ? storyDerivatives(entries, story, space.bond.syncPending || []) : null), [entries, story, space.bond.syncPending]);
+    const all = useMemo(() => (d ? [...d.entries, ...d.dependents] : []), [d]);
+    const [picked, setPicked] = useState<Set<string> | null>(null);
+    const [memories, setMemories] = useState(true);
+    const [busy, setBusy] = useState(false);
+    useEffect(() => { if (d && !picked) setPicked(new Set(d.entries.map(e => e.id))); }, [d, picked]);
+    if (!story?.story || !d) {
+        return (
+            <div className="absolute inset-0 flex flex-col bond-root">
+                <BondHeader title="故事" onBack={onBack} />
+                <div className="flex-1 grid place-items-center text-[13px] text-[var(--bond-muted)]">這一章已經不在了。</div>
+            </div>
+        );
+    }
+    const memCount = d.topics.length + d.palace.length;
+    const stageChanged = d.entries.some(e => e.kind === 'milestone' && !!e.milestone?.stageTo);
+    const nothing = !all.length && !memCount && !d.proposals.length;
+    const nameOf = (id: string) => (id === space.char.id ? space.char.name : id === space.other?.id ? space.other.name : '');
+    const toggle = (id: string) => setPicked(prev => { const next = new Set(prev || []); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+    const pov = story.story.pov === 'narrator' ? '旁白' : '角色';
+
+    const run = async (how: 'cascade' | 'detach' | 'rewrite') => {
+        setBusy(true);
+        try {
+            if (how === 'rewrite') {
+                await clearForRewrite({ space, story, entryIds: [...(picked || [])], memories, updateCharacter, remoteVectorConfig });
+            } else {
+                await retractStory({ space, story, mode: how, updateCharacter, remoteVectorConfig });
+                trackEvent('羁绊故事', { 动作: '删', 视角: pov, 场景: storySceneEvent(story.story!.scene) });
+                addToast(how === 'cascade' ? '這一章和長出來的都刪了' : '刪了這一章，其他的留著', 'success');
+            }
+            onDone();
+        } catch (e: any) {
+            addToast(`沒處理成功：${e?.message || e}`, 'error');
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="absolute inset-0 flex flex-col bond-root">
+            <BondHeader title={mode === 'delete' ? '刪掉這一章' : '重新整理回寫'} onBack={onBack} />
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5">
+                <p className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
+                    {mode === 'delete'
+                        ? nothing ? `刪掉〈${chapterLabel(story)}〉？之後的章節不會重新編號。` : `〈${chapterLabel(story)}〉長出了這些東西。刪這一章時，可以一起刪，也可以留著、拆掉跟這章的關聯。`
+                        : `照現在的內文重新整理一次。先勾要刪掉的舊東西（不勾的留著），刪完會再列一次新的清單讓你勾。`}
+                </p>
+                {all.length > 0 && (
+                    <div className="mt-5 divide-y bond-hair border-y">
+                        {all.map(e => {
+                            const dependent = !d.entries.includes(e);
+                            const on = mode === 'rewrite' ? !!picked?.has(e.id) : true;
+                            return (
+                                <div key={e.id} className={`py-3 flex gap-3 ${on ? '' : 'opacity-55'}`}>
+                                    {mode === 'rewrite' && !dependent && (
+                                        <button type="button" aria-pressed={on} aria-label={on ? '取消勾' : '勾起來'} onClick={() => toggle(e.id)}
+                                            className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[#fbf7f0]' : 'border-[var(--bond-rose)]'}`}>
+                                            {on && <Check size={11} weight="bold" />}
+                                        </button>
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <div className="text-[10.5px] text-[var(--bond-accent)]">
+                                            {ENTRY_KIND_LABEL[e.kind] || e.kind}{e.kind === 'diary' || e.kind === 'letter' ? `・${nameOf(e.author)}` : ''}
+                                            {dependent ? '・建在上面的' : ''}{e.sources.some(s => s.type !== 'story') ? '・另有來源，會留著' : ''}
+                                        </div>
+                                        <div className="mt-0.5 text-[13px] leading-relaxed line-clamp-2">{e.title ? `${e.title}：` : ''}{e.text}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                {memCount > 0 && (
+                    <label className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--bond-line)] px-3.5 py-3">
+                        {mode === 'rewrite' && <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--bond-accent)]" checked={memories} onChange={e => setMemories(e.target.checked)} />}
+                        <span className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
+                            兩人的記憶：話題盒 {d.topics.length} 條{d.palace.length ? `、記憶宮殿 ${d.palace.length} 條` : ''}。
+                            {mode === 'delete' ? '「一起刪」會刪掉；「留著」就當成他們一般的私下記憶。' : '勾了就撤掉，重新整理時再各寫一份。'}
+                        </span>
+                    </label>
+                )}
+                {d.proposals.length > 0 && <p className="mt-4 text-[11.5px] text-[var(--bond-muted)]">還沒確認的關係轉折 {d.proposals.length} 張，會一起收掉。</p>}
+                {stageChanged && <p className="mt-2 text-[11.5px] text-[var(--bond-muted)]">這一章確認過的階段不會改回去；要改去「路線」頁。</p>}
+            </div>
+            <div className="shrink-0 px-5 pt-3 border-t bond-hair flex gap-2" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 12px)' }}>
+                {mode === 'delete' ? (
+                    nothing ? (
+                        <>
+                            <button type="button" className="bond-btn flex-1" disabled={busy} onClick={onBack}>先不要</button>
+                            <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={busy} onClick={() => void run('cascade')}>刪掉</button>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" className="bond-btn flex-1" disabled={busy} onClick={() => void run('detach')}>留著，拆掉關聯</button>
+                            <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={busy} onClick={() => void run('cascade')}>一起刪</button>
+                        </>
+                    )
+                ) : (
+                    <>
+                        <button type="button" className="bond-btn flex-1" disabled={busy} onClick={onBack}>先不要</button>
+                        <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={busy} onClick={() => void run('rewrite')}>
+                            {busy ? '處理中…' : '刪掉勾的，重新整理'}
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );

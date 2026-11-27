@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPairContext } from './pairContext';
+import { formatPairContext, latestStoriesFor } from './pairContext';
 import { memberVisibleGroupMessages } from './groupChat/presence';
 import { buildSideMessagePrompt } from './sideMessage';
 
@@ -24,6 +24,20 @@ describe('你私下跟別人聊的', () => {
     });
     it('沒有就是空字串', () => {
         expect(formatPairContext({ selfId: 'c1', selfName: '阿澈', formatDate: String, sources: [] })).toBe('');
+    });
+    it('有故事的多一行最近一章；沒聊天只有故事也帶', () => {
+        const text = formatPairContext({
+            selfId: 'c1', selfName: '阿澈', formatDate: ts => `T${ts}`,
+            sources: [{ otherName: '林小姐', msgs: [], latestStory: { title: '雨', summary: '兩人共撐一把傘。' } }],
+        });
+        expect(text).toContain('你跟林小姐之間最近發生的事：〈雨〉兩人共撐一把傘。');
+        expect(text.trim().split('\n').filter(l => l.startsWith('[T'))).toEqual([]);
+    });
+    it('最近一章照章號挑、只挑跟自己有關的線', () => {
+        const st = (bondId: string, chapter: number) => ({ id: `${bondId}-${chapter}`, bondId, kind: 'story', status: 'published', story: { chapter, pov: 'narrator', summary: `${chapter}` } }) as any;
+        const map = latestStoriesFor('c1', [st('pair~c1~c3', 1), st('pair~c1~c3', 2), st('pair~c2~c3', 5)]);
+        expect([...map.keys()]).toEqual(['pair~c1~c3']);
+        expect(map.get('pair~c1~c3')?.story?.chapter).toBe(2);
     });
 });
 

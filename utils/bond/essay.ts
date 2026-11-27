@@ -291,7 +291,7 @@ export async function requestEssay(input: {
     if (!api.baseUrl || !api.apiKey) throw new Error('還沒設定 API');
     const otherName = pairOther ? pairOther.name : user?.name || '';
     const system = pairOther
-        ? `${ContextBuilder.buildRoleSettingsContext(writer)}\n${bondPromptBlock({ bond, selfName: writer.name, otherName, selfIsCharId: bond.charId === writer.id, entries: bondEntriesOf(bond.id), selfId: writer.id, includeUserNotes: false })}`
+        ? `${ContextBuilder.buildRoleSettingsContext(writer)}\n${bondPromptBlock({ bond, selfName: writer.name, otherName, selfIsCharId: bond.charId === writer.id, entries: bondEntriesOf(bond.id), selfId: writer.id, includeUserNotes: false, pair: { selfId: writer.id, otherId: pairOther.id, isA: bond.charId === writer.id } })}`
         : ContextBuilder.buildCoreContext(writer, user!, true);
     const lock = bondFinalLock(bond, otherName);
     const data = await safeFetchJson(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
