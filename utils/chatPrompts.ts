@@ -75,6 +75,7 @@ import { mirrorSceneNote } from './storyMirrorMeta';
 import { buildBondInvitePrompt, formatBondInviteRecord } from './bond/invite';
 import { buildPactProposalPrompt, formatBondProposalRecord, proposalStatus } from './bond/pactTags';
 import { bondLetterOf, formatBondLetterRecord } from './bond/letter';
+import { bondCapsuleOf, formatBondCapsuleRecord } from './bond/capsule';
 import { buildGiftPlanPrompt } from './bond/giftTags';
 import { bondEntryById } from './bond/entryRegistry';
 import { bondForChar } from './bond/registry';
@@ -1609,7 +1610,8 @@ ${voiceActingGuide()}`);
                     const prop = m.metadata?.bondProposal;
                     // 珍藏的信封小卡（utils/bond/letter.ts）：寄出中／信到了
                     const letter = bondLetterOf(m);
-                    content = `${timeStr} ${letter ? formatBondLetterRecord(letter) : prop ? formatBondProposalRecord(prop, proposalStatus(prop, bondEntryById(prop.entryId))) : formatBondInviteRecord(m.metadata?.bondInvite)}`;
+                    const capsuleCard = bondCapsuleOf(m);
+                    content = `${timeStr} ${capsuleCard ? formatBondCapsuleRecord(capsuleCard) : letter ? formatBondLetterRecord(letter) : prop ? formatBondProposalRecord(prop, proposalStatus(prop, bondEntryById(prop.entryId))) : formatBondInviteRecord(m.metadata?.bondInvite)}`;
                 }
                 else if (m.type === 'mall_order') {
                     // 購物中心卡片的記錄形態，跟轉帳同一個路數（見 utils/mallOrderFormat.ts 頭注）；

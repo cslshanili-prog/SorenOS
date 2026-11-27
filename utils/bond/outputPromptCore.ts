@@ -321,6 +321,42 @@ ${styleLine(input)}- signature 是信末的署名（照你平常怎麼稱呼自�
 只輸出 JSON，不要其他文字：{"text":"信的正文（用 \\n 分段，不含署名）","signature":"署名"}`;
 }
 
+/**
+ * 角色封一封「留給以後」（plans/bond-batch5.md 第 4 節）：寫給將來那個時候的對方；封面那句雙方都看得到、不洩漏內容。
+ * together＝對方也封了一封，兩封約好同時拆（你看不到對方寫什麼）。
+ */
+export function buildCharCapsulePrompt(input: OutputContext & {
+    /** 什麼時候打開（「2027 年 11 月 27 日」「關係走到『交往』」） */
+    when: string;
+    /** 為什麼這時候封（里程碑、事件卡、相識紀念日）；沒有就是對方邀你一起封 */
+    occasion?: string;
+    together?: boolean;
+    relationLine?: string;
+    chars?: [number, number];
+}): string {
+    return `你要寫一封「留給以後」的信給${input.otherName}：寫好就封起來，約好${input.when}才打開。${input.together ? `${input.otherName}也封了一封給你，兩封會一起拆；你看不到對方寫了什麼。` : ''}
+${input.relationLine ? `\n（你們的關係：${input.relationLine}）\n` : ''}${input.occasion ? `\n【這時候封的原因】${input.occasion}\n` : ''}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份寫：
+${GROUND_RULES(input)}
+- 寫給「打開那時候的${input.otherName}」：可以寫現在的你在想什麼、怕什麼、期待什麼，或想對那時候的對方說的話；不要預言那時候一定會怎樣。
+- 篇幅：${input.chars ? `大約 ${input.chars[0]}～${input.chars[1]} 字` : '大約 200～600 字'}，照你的個性。
+- cover 是寫在信封上的一句（雙方現在就看得到），像「等我們一起過完第一年再打開」；不要洩漏信的內容。
+- 照你們的關係寫，不是戀愛關係就不要寫曖昧的話。
+只輸出 JSON，不要其他文字：{"text":"信的正文（用 \\n 分段，不含署名）","cover":"信封上那句","signature":"署名"}`;
+}
+
+export function parseCapsule(raw: string): { text: string; cover?: string; signature?: string } | null {
+    const o = parseJsonObject(raw);
+    if (!o) return null;
+    const t = str(o.text);
+    if (!t) return null;
+    const cover = str(o.cover).slice(0, 40);
+    const sig = str(o.signature).slice(0, 30);
+    return { text: t.slice(0, 8000), ...(cover ? { cover } : {}), ...(sig ? { signature: sig } : {}) };
+}
+
 export function parseLetter(raw: string): { text: string; signature?: string } | null {
     const o = parseJsonObject(raw);
     if (o) {

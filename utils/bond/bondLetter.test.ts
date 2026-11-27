@@ -90,3 +90,52 @@ describe('TA 寫信', () => {
         expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(3, 'arrived', true)]), []).done).toBe(false);
     });
 });
+
+import { canOpen, capsuleList, capsulesNowDue, conditionMet, markDue, newCapsule, openCapsules, pairCapsules, yearLater } from './capsule';
+
+describe('留給以後', () => {
+    const ctx = { today: '2026-11-27', level: 3, stage: 'friend' as string, route: 'friendship' as const };
+    it('四種條件', () => {
+        expect(conditionMet({ kind: 'date', date: '2026-11-27' }, ctx)).toBe(true);
+        expect(conditionMet({ kind: 'date', date: '2026-11-28' }, ctx)).toBe(false);
+        expect(conditionMet({ kind: 'anniversary', eventId: 'e', date: '2026-11-01' }, ctx)).toBe(true);
+        expect(conditionMet({ kind: 'level', level: 4 }, ctx)).toBe(false);
+        expect(conditionMet({ kind: 'stage', stage: 'friend' }, ctx)).toBe(true);
+        expect(yearLater('2028-02-29')).toBe('2029-02-28');
+    });
+    it('到期只標記、不自動拆；你寫給 TA 的不能提前拆，TA 寫給你的可以（記提前）', () => {
+        const mine = newCapsule({ bondId: 'b', author: 'user', to: 'c1', text: '給一年後的你', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const theirs = newCapsule({ bondId: 'b', author: 'c1', to: 'user', text: '一年前的我', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        expect(capsulesNowDue([mine, theirs], ctx)).toEqual([]);
+        expect(canOpen(mine)).toEqual({ now: false, early: false });
+        expect(canOpen(theirs)).toEqual({ now: false, early: true });
+        const [o] = openCapsules([theirs], 5);
+        expect(o.capsule).toMatchObject({ openedAt: 5, openedEarly: true });
+        const due = markDue(mine, 9);
+        expect(canOpen(due).now).toBe(true);
+        expect(openCapsules([due], 10)[0].capsule!.openedEarly).toBeUndefined();
+    });
+    it('一起打開：兩封互指、清單合成一格', () => {
+        const a = newCapsule({ bondId: 'b', author: 'user', to: 'both', text: 'A', openWhen: { kind: 'level', level: 5 }, now: 1 });
+        const b = newCapsule({ bondId: 'b', author: 'c1', to: 'both', text: 'B', openWhen: { kind: 'date', date: '2030-01-01' }, now: 2 });
+        const [pa, pb] = pairCapsules(a, b);
+        expect(pb.capsule!.openWhen).toEqual(pa.capsule!.openWhen);
+        expect(capsuleList([pa, pb]).map(e => e.id)).toEqual([pa.id]);
+        expect(canOpen(pa).early).toBe(true);
+    });
+});
+
+describe('提示詞【你們的珍藏】留給以後', () => {
+    const bond = { id: 'b', kind: 'persona', charId: 'c1', personaKey: 'p1', stage: 'friend', openedAt: 1, openedBy: 'auto', routeLog: [], days: {} } as unknown as BondRecord;
+    it('你封的 TA 不知道內容；TA 封的 TA 記得；拆開的都知道', () => {
+        const mine = newCapsule({ bondId: 'b', author: 'user', to: 'c1', text: '秘密的內容', cover: '等一年', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const theirs = newCapsule({ bondId: 'b', author: 'c1', to: 'user', text: '一年前的我很怕', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const out = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1', entries: [mine, theirs] });
+        expect(out).toContain('Liora封給你的一封');
+        expect(out).toContain('封面寫著「等一年」');
+        expect(out).not.toContain('秘密的內容');
+        expect(out).toContain('你寫的是：「一年前的我很怕」');
+        const [opened] = openCapsules([mine], T);
+        expect(bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1', entries: [opened] })).toContain('提前拆了');
+    });
+});

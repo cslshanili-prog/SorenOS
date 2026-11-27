@@ -2,6 +2,8 @@ import { isUserVoiceMessage } from '../../utils/userVoice';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, bondRefOf } from '../../utils/bond/bondRef';
 import { bondLetterOf, letterCardLine, waxFor } from '../../utils/bond/letter';
 import { Envelope, ENVELOPE_CSS } from '../bond/treasure/Envelope';
+import { CAPSULE_CSS } from '../bond/treasure/CapsuleBand';
+import { bondCapsuleOf } from '../../utils/bond/capsule';
 import { proposalStatus, type BondProposalMeta } from '../../utils/bond/pactTags';
 import { bondEntryById, onBondEntryRegistryChange } from '../../utils/bond/entryRegistry';
 import { repeatLabel } from '../../utils/bond/pact';
@@ -1125,6 +1127,35 @@ const BondLetterCard: React.FC<{
                     : <div className="mt-1 text-[10.5px] text-[#a1958c] truncate">{meta.excerpt}</div>}
             </div>
             <style>{ENVELOPE_CSS}</style>
+        </button>
+    );
+};
+
+/** 羈絆 · 留給以後到期的小卡（utils/bond/capsule.ts）：點了開羈絆那封 */
+const BondCapsuleCard: React.FC<{ m: Message; commonLayout: (content: React.ReactNode) => JSX.Element; selectionMode: boolean }> = ({ m, commonLayout, selectionMode }) => {
+    const meta = bondCapsuleOf(m)!;
+    const [, bump] = React.useReducer((x: number) => x + 1, 0);
+    React.useEffect(() => onBondEntryRegistryChange(bump), []);
+    const entry = bondEntryById(meta.entryId);
+    const opened = !!entry?.capsule?.openedAt;
+    const open = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!entry || selectionMode) return;
+        window.dispatchEvent(new CustomEvent(BOND_REF_OPEN_EVENT, { detail: { bondId: meta.bondId, kind: 'capsule', capsuleId: meta.entryId, excerpt: meta.cover || '' } }));
+    };
+    return commonLayout(
+        <button type="button" onClick={open} className="sully-bond-capsule w-60 rounded-2xl overflow-hidden border border-[#e6dccf] bg-[#fbf7f0] shadow-sm text-left" style={{ fontFamily: "'Noto Serif TC', 'Songti TC', serif" }}>
+            <div className="px-4 pt-3.5 pb-3">
+                <div className="text-[10px] tracking-[0.25em] text-[#a1887f]">留 給 以 後</div>
+                <div className="mt-2 flex justify-center">
+                    <Envelope paperStyle={entry?.capsule?.paperStyle} wax={waxFor(meta.entryId)} initial="以" scale={0.6} stage={opened ? 'cracked' : 'closed'} className={opened ? 'capsule' : 'capsule due'}
+                        band={opened ? undefined : <div className="cap-band" aria-hidden="true"><span className="bl">留 給 以</span><span className="br">後</span></div>} />
+                </div>
+                <div className="mt-2.5 text-[12.5px] text-[#4a4340] leading-relaxed">{opened ? '那封已經拆開了' : '有一封信今天可以打開了'}</div>
+                {meta.cover && <div className="mt-1 text-[11px] text-[#a1958c] truncate">「{meta.cover}」</div>}
+                {!entry && <div className="mt-1 text-[10.5px] text-[#a1958c]">這封已經不在了</div>}
+            </div>
+            <style>{ENVELOPE_CSS + CAPSULE_CSS}</style>
         </button>
     );
 };
@@ -3688,6 +3719,10 @@ const MessageItem = React.memo(({
 
     if (m.type === 'persona_card') {
         return <PersonaSuspectCard m={m} charName={charName} commonLayout={commonLayout} selectionMode={selectionMode} onResolvePersonaReveal={onResolvePersonaReveal} />;
+    }
+
+    if (m.type === 'bond_invite' && bondCapsuleOf(m)) {
+        return <BondCapsuleCard m={m} commonLayout={commonLayout} selectionMode={selectionMode} />;
     }
 
     if (m.type === 'bond_invite' && bondLetterOf(m)) {

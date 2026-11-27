@@ -37,7 +37,9 @@ export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'm
     /** 珍藏（第 5 批）：直接開那件禮物 */
     giftKey?: string;
     /** 珍藏：直接開那封信 */
-    letterId?: string }>();
+    letterId?: string;
+    /** 珍藏：直接開那封留給以後 */
+    capsuleId?: string }>();
 /**
  * 從羈絆跳回當時那則訊息（plans/bond-batch2.md 6.1）：私聊收到就載入那則附近、捲過去閃一下。
  * 線不是現在的身份時，呼叫端先切身份（setActivePersonaId）再開聊天。

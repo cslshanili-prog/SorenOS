@@ -6323,6 +6323,8 @@ export interface BondRecord {
     outputLast?: Partial<Record<BondOutputKind, number>>;
     /** 有值得留下的事、還沒被寫進任何一份（事件觸發用） */
     outputEvents?: BondOutputEvent[];
+    /** 留給以後（第 5 批）：TA 在大日子封一封，看到哪個時間點了（里程碑事件、相識紀念日；第一次看到只記起點、不補以前的） */
+    charCapsuleCheckedAt?: number;
     /** 自己加的紙條標籤 */
     noteTags?: string[];
     /** 回顧與補算（2.6）：做過的時間；補算了過去的相處補到哪一天 */
@@ -6566,7 +6568,40 @@ export interface BondEntry {
     gift?: BondGift;
     /** 珍藏：信件；text 是信文 */
     letter?: BondLetter;
+    /** 珍藏：留給以後；text 是封存的內容 */
+    capsule?: BondCapsule;
     updatedAt: number;
+}
+
+/**
+ * 留給以後（plans/bond-batch5.md 1.3、第 4 節）：封起來、條件到了才拆。寫的人是 entry.author。
+ * 封著的時候連寫的人自己（你）也看不到內容；對方只知道有一封、封面那句和條件。
+ */
+export interface BondCapsule {
+    /** 給誰：'user'、角色 id、'both'（一起打開：兩人各寫一封、pairWith 互指，同時拆） */
+    to: string;
+    openWhen:
+        | { kind: 'date'; date: string }
+        /** 行事曆的紀念日：封的時候算好下一次是哪天（date） */
+        | { kind: 'anniversary'; eventId: string; title?: string; date: string }
+        | { kind: 'level'; level: number }
+        | { kind: 'stage'; stage: string; label?: string };
+    /** 封面那句（雙方都看得到） */
+    cover?: string;
+    paperStyle?: string;
+    signature?: string;
+    /** 一起附上的資料庫照片 */
+    photos?: string[];
+    sealedAt: number;
+    /** 條件達成的時間（tick 記；到這時才能照常拆） */
+    dueAt?: number;
+    openedAt?: number;
+    /** 沒到期就拆了 */
+    openedEarly?: boolean;
+    /** 一起打開：另一封的 id */
+    pairWith?: string;
+    /** 為什麼封的（TA 在大日子封的：里程碑、事件卡、相識紀念日） */
+    origin?: 'manual' | 'together' | 'milestone' | 'eventCard' | 'anniversary';
 }
 
 /**

@@ -137,7 +137,7 @@ export function planBackfillTemplateRows(bondId: string, day: string, facts: Day
 
 // ─── 成就（1.2b）───────────────────────────────────
 
-export type AchievementGroup = '第一次通话' | '第一次见面' | '第一次听歌' | '礼物' | '旅行' | '连续聊天' | '问答' | '日记' | '纸条' | '纪念日' | '里程碑' | '愿望' | '默契' | '信';
+export type AchievementGroup = '第一次通话' | '第一次见面' | '第一次听歌' | '礼物' | '旅行' | '连续聊天' | '问答' | '日记' | '纸条' | '纪念日' | '里程碑' | '愿望' | '默契' | '信' | '留给以后';
 
 export interface AchievementDef {
     /** 帳本的鍵 `ach:<key>` */
@@ -166,6 +166,8 @@ export interface AchievementStats {
     giftsWellUsed?: number;
     /** 信：雙方寄到的封數 */
     lettersExchanged?: number;
+    /** 留給以後：拆開過幾封 */
+    capsulesOpened?: number;
 }
 
 const ach = (key: string, periodKey: string, label: string, points: number, group: AchievementGroup): AchievementDef => ({ key: `ach:${key}`, periodKey, label, points, group });
@@ -214,6 +216,7 @@ export function achievedList(s: AchievementStats): AchievementDef[] {
     if ((s.giftsWellUsed ?? 0) >= 1) out.push(ach('gift-well-used', 'once', '被好好用著（一份禮物記了三筆後續）', 30, '礼物'));
     if ((s.lettersExchanged ?? 0) >= 1) out.push(ach('first-letter', 'once', '第一封信', 30, '信'));
     if ((s.lettersExchanged ?? 0) >= 10) out.push(ach('letters', 'n:10', '交換十封信', 100, '信'));
+    if ((s.capsulesOpened ?? 0) >= 1) out.push(ach('first-capsule', 'once', '第一次打開留給以後', 50, '留给以后'));
     const trips = [...s.trips].sort((a, b) => a.from.localeCompare(b.from));
     trips.forEach((t, i) => {
         if (i === 0) out.push(ach('first-trip', 'once', `第一次一起旅行（${t.destination}）`, 80, '旅行'));
@@ -244,6 +247,7 @@ export function allAchievementSlots(): Array<{ key: string; periodKey: string; l
         { key: 'ach:gift-well-used', periodKey: 'once', label: '被好好用著（一份禮物記了三筆後續）', points: 30 },
         { key: 'ach:first-letter', periodKey: 'once', label: '第一封信', points: 30 },
         { key: 'ach:letters', periodKey: 'n:10', label: '交換十封信', points: 100 },
+        { key: 'ach:first-capsule', periodKey: 'once', label: '第一次打開留給以後', points: 50 },
         { key: 'ach:first-trip', periodKey: 'once', label: '第一次一起旅行', points: 80 },
         { key: 'ach:trip', periodKey: '*', label: '之後每一趟一起旅行', points: 40 },
     ];

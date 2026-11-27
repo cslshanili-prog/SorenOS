@@ -10,6 +10,7 @@
  */
 import { lineGiftOrders, syncGiftPlans } from './giftRun';
 import { deliverDueLetters, markLetterOccasions } from './letterRun';
+import { charSealOnBigDays, checkDueCapsules } from './capsuleRun';
 import { lettersExchanged } from '../../utils/bond/letter';
 import { buildGiftViews, giftStats } from '../../utils/bond/gift';
 import { unlockEventCards } from './eventCardRun';
@@ -125,6 +126,7 @@ async function achievementStats(bondId: string, char: CharacterProfile, personaK
         habits: entries.filter(e => e.kind === 'habit' && e.habit?.state === 'active').length,
         ...giftAchievementStats(entries, lineGiftOrders(char, personaKey)),
         lettersExchanged: lettersExchanged(entries),
+        capsulesOpened: entries.filter(e => e.kind === 'capsule' && !!e.capsule?.openedAt).length,
     };
 }
 
@@ -290,6 +292,8 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
         await syncGiftPlans(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '禮物同步失敗', e));
         await deliverDueLetters(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '送信失敗', e));
         await markLetterOccasions(pactSpaces(scope.characters, scope.userProfileBase)).catch(() => undefined);
+        await checkDueCapsules(scope).catch(e => console.warn(HEADER, '留給以後到期判斷失敗', e));
+        await charSealOnBigDays(scope).catch(e => console.warn(HEADER, 'TA 封一封失敗', e));
         return gains;
     } finally {
         running = false;

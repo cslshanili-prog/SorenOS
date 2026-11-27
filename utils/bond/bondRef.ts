@@ -12,7 +12,7 @@ import { lastRound, visibleAnswer } from './question';
 import type { TimelineItem } from './timeline';
 import type { GiftView } from './gift';
 
-export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'gift' | 'letter';
+export type BondRefKind = 'moment' | 'memory' | 'essay' | 'diary' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'gift' | 'letter' | 'capsule';
 /** 約定分頁的四種（第 4 批） */
 export type BondPactRefKind = Extract<BondRefKind, 'wish' | 'promise' | 'habit' | 'milestone'>;
 
@@ -35,6 +35,8 @@ export interface BondRefMeta {
     giftKey?: string;
     /** 珍藏的一封信（那一串裡的哪一封） */
     letterId?: string;
+    /** 珍藏：拆開了的一封留給以後 */
+    capsuleId?: string;
     title?: string;
     excerpt: string;
     /** 隨筆、日記那頁、紙條是誰寫的 */
@@ -45,7 +47,7 @@ export const BOND_REF_OPEN_EVENT = 'soren-open-bond-ref';
 
 export const BOND_REF_KIND_LABEL: Record<BondRefKind, string> = {
     moment: '片刻', memory: '記憶', essay: '隨筆', diary: '日記', question: '問答', note: '紙條',
-    wish: '願望', promise: '約定', habit: '默契', milestone: '里程碑', gift: '禮物', letter: '信',
+    wish: '願望', promise: '約定', habit: '默契', milestone: '里程碑', gift: '禮物', letter: '信', capsule: '留給以後',
 };
 
 const EXCERPT_MAX = 80;
@@ -172,4 +174,12 @@ export function bondRefFromLetter(bondId: string, e: BondEntry, names: { user: s
     const who = e.author === 'user' ? `${names.user}寫給${names.char}的信` : `${names.char}寫給${names.user}的信`;
     const d = new Date(e.letter.arrivedAt);
     return { bondId, kind: 'letter', letterId: e.id, title: `${who}（${d.getMonth() + 1} 月 ${d.getDate()} 日）`, excerpt: clip(oneLine(e.text), EXCERPT_MAX) };
+}
+
+/** 拆開了的「留給以後」（封著的不能帶） */
+export function bondRefFromCapsule(bondId: string, e: BondEntry, names: { user: string; char: string }): BondRefMeta | null {
+    if (e.kind !== 'capsule' || !e.capsule?.openedAt || !oneLine(e.text)) return null;
+    const who = e.author === 'user' ? `${names.user}寫給以後的${names.char}` : `${names.char}寫給以後的${names.user}`;
+    const d = new Date(e.capsule.sealedAt);
+    return { bondId, kind: 'capsule', capsuleId: e.id, title: `${who}（${d.getFullYear()} 年 ${d.getMonth() + 1} 月封的）`, excerpt: clip(oneLine(e.text), EXCERPT_MAX) };
 }

@@ -8,6 +8,7 @@
 import type { BondEntry, BondLedgerRow, BondRecord, BondRoute, DiaryEntry, MallOrder } from '../../types';
 import { buildGiftViews, type GiftView } from './gift';
 import { awaitingReply, letterArrived, letterInTransit } from './letter';
+import { capsuleOpened, capsuleSealed, conditionText } from './capsule';
 import { getLocalDateKey } from '../localDate';
 import { knownDiaries, knownHabits, knownMilestones, knownPromises, knownQuestions, knownSlips, knownWishes } from './visibility';
 import { milestoneLabel, repeatLabel } from './pact';
@@ -254,6 +255,7 @@ function treasureLines(input: BondPromptInput): string[] {
     const orders = input.giftOrders || [];
     const lines: string[] = [];
     lines.push(...letterLines(input));
+    lines.push(...capsuleLines(input));
     if (!orders.length && !entries.some(e => e.kind === 'gift')) return lines;
     const views = buildGiftViews({ orders, entries, forViewer: 'char', now: input.now });
     const real = views.filter(v => !v.secret && v.state !== 'planned').slice(0, PROMPT_GIFT_LIMIT);
@@ -301,6 +303,36 @@ function letterLines(input: BondPromptInput): string[] {
     }
     for (const e of onTheWay) lines.push(`  - 你寄給${other}的一封信還在路上，${other}還沒收到：「${clip(oneLine(e.text), 40)}」`);
     return lines;
+}
+
+export const PROMPT_CAPSULE_OPENED_LIMIT = 3;
+
+/**
+ * 留給以後（plans/bond-batch5.md 第 5 節）：你封的你知道內容；對方封給你的你只知道有一封、封面、條件；
+ * 到期了還沒拆的提醒今天是約好的日子；拆開的雙方都知道（提前拆的寫出來）。沒有就一行都不出。
+ */
+function capsuleLines(input: BondPromptInput): string[] {
+    const entries = (input.entries || []).filter(e => e.kind === 'capsule' && e.capsule);
+    if (!entries.length) return [];
+    const selfId = input.selfId;
+    const mine = (e: BondEntry) => (selfId ? e.author === selfId : e.author !== 'user');
+    const other = input.otherName;
+    const lines: string[] = [];
+    for (const e of entries.filter(capsuleSealed)) {
+        const c = e.capsule!;
+        const cover = c.cover ? `；封面寫著「${clip(oneLine(c.cover), 40)}」` : '';
+        const due = c.dueAt ? `；條件已經到了（今天是你們約好打開它的日子），${other}還沒拆` : '';
+        if (mine(e)) lines.push(`  - 你封給${other}的一封，約好${conditionText(c.openWhen)}打開${cover}；你寫的是：「${clip(oneLine(e.text), PROMPT_LETTER_CHARS)}」${due}`);
+        else lines.push(`  - ${other}封給你的一封，約好${conditionText(c.openWhen)}打開${cover}；內容你還不知道${due}`);
+    }
+    const opened = entries.filter(capsuleOpened).sort((a, b) => b.capsule!.openedAt! - a.capsule!.openedAt!).slice(0, PROMPT_CAPSULE_OPENED_LIMIT).reverse();
+    for (const e of opened) {
+        const c = e.capsule!;
+        const early = c.openedEarly ? `（${other}等不及，提前拆了）` : '';
+        const who = mine(e) ? `你封給${other}的` : `${other}封給你的`;
+        lines.push(`  - ${giftDay(c.openedAt!)}拆開了${who}那封${early}：「${clip(oneLine(e.text), PROMPT_LETTER_CHARS)}」`);
+    }
+    return lines.length ? ['你們的「留給以後」（封起來、約好某個時候才打開的信）：', ...lines] : [];
 }
 
 const FRIENDSHIP_RULES = [

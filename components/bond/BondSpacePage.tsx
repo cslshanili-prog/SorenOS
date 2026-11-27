@@ -56,18 +56,22 @@ export const BondSpacePage: React.FC<{
     onOpenPact?: (to: { tab: 'promise' | 'milestone'; promiseId?: string }) => void;
     /** 珍藏（第 5 批）：打算送的快到了，點了開那件 */
     onOpenGift?: (key: string) => void;
+    /** 留給以後到期了：點了開那封 */
+    onOpenCapsule?: (id: string) => void;
     /** 親近與信任（plans/bond-batch4.md 4.1） */
     onOpenFeeling?: () => void;
     /** 同步承認的依據：跳回那段聊天或那天的總結 */
     onOpenSyncSource?: (p: BondSyncProposal) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenFeeling, onOpenSyncSource, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenCapsule, onOpenFeeling, onOpenSyncSource, addToast }) => {
     const notice = useHeartNotice(space);
     const ledger = useBondLedger(space.id);
     const pactEntries = useBondEntries(space.id);
     const points = useMemo(() => totalPoints(ledger), [ledger]);
     // 打算送的那天前三天提醒（plans/bond-batch5.md 2.3）；按「知道了」就不再出
     const dueGifts = useMemo(() => plansDueSoon(pactEntries, space.todayKey).filter(e => !e.gift?.remindedAt), [pactEntries, space.todayKey]);
+    // 留給以後：條件到了、還沒拆的（一起打開的只列你那封）
+    const dueCapsules = useMemo(() => pactEntries.filter(e => e.kind === 'capsule' && e.capsule?.dueAt && !e.capsule.openedAt && !(e.author !== 'user' && e.capsule.pairWith)), [pactEntries]);
     const freshCards = useMemo(() => pactEntries.filter(e => e.kind === 'eventCard' && e.eventCard?.state === 'unlocked' && !e.seenAt), [pactEntries]);
     // 近期共同約定（紀要 7.3 第 5 點）：這期還沒做的、TA 提了在等你的，最多 3 個
     const upcoming = useMemo(() => {
@@ -202,6 +206,16 @@ export const BondSpacePage: React.FC<{
                     {/* 同步承認（plans/bond-batch4.md 2.4）：聊天裡已經發生的，等你按「對」 */}
                     {!isPair && (bond.syncPending || []).map(p => (
                         <section key={p.id}><SyncProposalCard space={space} p={p} onOpenSource={onOpenSyncSource} addToast={addToast} /></section>
+                    ))}
+                    {/* 留給以後：今天可以打開了 */}
+                    {!isPair && onOpenCapsule && dueCapsules.map(e => (
+                        <section key={e.id}>
+                            <button type="button" onClick={() => onOpenCapsule(e.id)} className="w-full text-left rounded-xl border border-[var(--bond-rose)] bg-[var(--bond-accent-soft)] px-4 py-3">
+                                <div className="text-[11px] text-[var(--bond-accent)]">留給以後・今天可以打開了</div>
+                                <div className="bond-serif mt-1 text-[14.5px]">{e.capsule!.cover || (e.capsule!.to === 'both' ? '你們一起封的那兩封' : e.author === 'user' ? `你封給${space.rightName}的那封` : `${space.rightName}封給你的那封`)}</div>
+                                <div className="mt-0.5 text-[11px] text-[var(--bond-muted)]">不會自己拆開，等你按。</div>
+                            </button>
+                        </section>
                     ))}
                     {/* 打算送的快到了 */}
                     {!isPair && onOpenGift && dueGifts.map(e => (

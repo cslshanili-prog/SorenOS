@@ -29,6 +29,7 @@ import { mirrorSceneNote, mirrorWriterLabel } from './storyMirrorMeta';
 import { formatBondInviteRecord } from './bond/invite';
 import { formatBondProposalRecord, proposalStatus } from './bond/pactTags';
 import { bondLetterOf, formatBondLetterRecord } from './bond/letter';
+import { bondCapsuleOf, formatBondCapsuleRecord } from './bond/capsule';
 import { bondEntryById } from './bond/entryRegistry';
 /**
  * 總結器只在輸入確實含 SAR 雙軌記錄時收到這段硬邊界；普通聊天/總結提示詞保持原樣。
@@ -158,6 +159,8 @@ export function normalizeMessageContent(
         const prop = msg.metadata?.bondProposal;
         const letter = bondLetterOf(msg);
         if (letter) return formatBondLetterRecord(letter);
+        const capsuleCard = bondCapsuleOf(msg);
+        if (capsuleCard) return formatBondCapsuleRecord(capsuleCard);
         return prop ? formatBondProposalRecord(prop, proposalStatus(prop, bondEntryById(prop.entryId))) : formatBondInviteRecord(msg.metadata?.bondInvite);
     }
     if (type === 'char_call') return formatCharCallRecord(msg.metadata?.charCall);
