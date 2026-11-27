@@ -28,12 +28,14 @@ describe('角色提議約定／默契的標籤', () => {
         expect(guessCheck('每天睡前說晚安', { kind: 'daily' })).toMatchObject({ check: { kind: 'record', record: 'goodnight' }, templateId: 'goodnight' });
         expect(guessCheck('下次一起去看海', { kind: 'once' })).toEqual({ check: { kind: 'ai', hint: '下次一起去看海' } });
     });
-    it('有空間、不是小號、沒拉黑才教；教的那段只在那時出現', () => {
+    it('空間開著、不是小號、沒拉黑才教；教的那段只在那時出現', () => {
+        const open = { openState: { state: 'open' as const, at: 1, via: 'user' as const } };
         expect(canProposePact({}, undefined)).toBe(false);
-        expect(canProposePact({ altOf: 'x' }, {})).toBe(false);
-        expect(canProposePact({ chatBlock: { by: 'user' } as any }, {})).toBe(false);
+        expect(canProposePact({}, {})).toBe(false);
+        expect(canProposePact({ altOf: 'x' }, open)).toBe(false);
+        expect(canProposePact({ chatBlock: { by: 'user' } as any }, open)).toBe(false);
         expect(buildPactProposalPrompt({}, undefined, 'Liora')).toBe('');
-        expect(buildPactProposalPrompt({}, {}, 'Liora')).toContain('[[ACTION:BOND_PROMISE|約定的內容|頻率]]');
+        expect(buildPactProposalPrompt({}, open, 'Liora')).toContain('[[ACTION:BOND_PROMISE|約定的內容|頻率]]');
     });
     it('建出來的卡是提議中、角色那邊已經說好；你按好才成立，在羈絆答應也算', () => {
         const e = proposalEntry({ kind: 'promise', text: '每週通一次電話', freq: '每週' }, { bondId: 'c1::p1', charId: 'c1', now: 5 });

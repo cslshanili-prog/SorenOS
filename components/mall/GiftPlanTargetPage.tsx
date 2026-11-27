@@ -5,7 +5,7 @@
 import React, { useMemo, useState } from 'react';
 import { CaretLeft, MagnifyingGlass } from '@phosphor-icons/react';
 import type { CharacterProfile, MallProduct, UserProfile } from '../../types';
-import { listPersonaSpaces } from '../../utils/bond/spaces';
+import { listKnownPersonaSpaces } from '../../utils/bond/spaces';
 import { allRegisteredBonds } from '../../utils/bond/registry';
 import { personaNameForKey } from '../../utils/userPersona';
 import { EmojiTile } from './MallParts';
@@ -24,7 +24,7 @@ const GiftPlanTargetPage: React.FC<{
     const [q, setQ] = useState('');
     const rows = useMemo(() => {
         const ok = new Set(allowed);
-        const spaces = listPersonaSpaces(characters.filter(c => ok.has(c.id)), allRegisteredBonds());
+        const spaces = listKnownPersonaSpaces(characters.filter(c => ok.has(c.id)), allRegisteredBonds());
         const count = new Map<string, number>();
         for (const s of spaces) count.set(s.charId, (count.get(s.charId) || 0) + 1);
         return spaces.map(s => {

@@ -3,7 +3,7 @@
  * 灰粉／低彩度酒紅少量點綴。只套在 .bond-root 底下。
  */
 import React from 'react';
-import { CaretLeft } from '@phosphor-icons/react';
+import { CaretDown, CaretLeft } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
 import { GIFTBOX_CSS } from './treasure/GiftBox';
 import { ENVELOPE_CSS } from './treasure/Envelope';
@@ -50,15 +50,31 @@ export const BOND_CSS = `
 export const BondStyle: React.FC = () => <style>{BOND_CSS + GIFTBOX_CSS + ENVELOPE_CSS + CAPSULE_CSS}</style>;
 
 /** 全螢幕頁的頂欄：返回、標題（襯線）、右邊放一顆動作 */
-export const BondHeader: React.FC<{ title: string; onBack: () => void; right?: React.ReactNode; backLabel?: string }> = ({ title, onBack, right, backLabel = '返回' }) => (
-    <div className="shrink-0 flex items-center gap-2 px-3 pb-2 border-b bond-hair" style={{ paddingTop: 'calc(var(--safe-top, 0px) + 8px)' }}>
-        <button type="button" onClick={onBack} aria-label={backLabel} className="h-9 w-9 grid place-items-center rounded-full text-[var(--bond-ink-2)] active:bg-[var(--bond-paper-2)]">
-            <CaretLeft size={18} />
-        </button>
-        <h1 className="bond-serif flex-1 min-w-0 truncate text-[17px] tracking-wide">{title}</h1>
-        {right}
-    </div>
-);
+/**
+ * 空間的首頁與各分頁：點頂端的名字開切換頁（plans/bond-open-spaces.md）。BondApp 只在空間那幾個根頁給值，
+ * 子頁（讀一封信、改一個約定…）拿不到，標題照舊是字。
+ */
+export const BondSwitchContext = React.createContext<(() => void) | undefined>(undefined);
+
+export const BondHeader: React.FC<{ title: string; onBack: () => void; right?: React.ReactNode; backLabel?: string }> = ({ title, onBack, right, backLabel = '返回' }) => {
+    const onSwitch = React.useContext(BondSwitchContext);
+    return (
+        <div className="shrink-0 flex items-center gap-2 px-3 pb-2 border-b bond-hair" style={{ paddingTop: 'calc(var(--safe-top, 0px) + 8px)' }}>
+            <button type="button" onClick={onBack} aria-label={onSwitch ? '關閉' : backLabel} className="h-9 w-9 grid place-items-center rounded-full text-[var(--bond-ink-2)] active:bg-[var(--bond-paper-2)]">
+                <CaretLeft size={18} />
+            </button>
+            {onSwitch ? (
+                <button type="button" onClick={onSwitch} aria-label="切換空間" className="flex-1 min-w-0 flex items-center gap-1 text-left">
+                    <h1 className="bond-serif min-w-0 truncate text-[17px] tracking-wide">{title}</h1>
+                    <CaretDown size={13} className="shrink-0 text-[var(--bond-muted)]" />
+                </button>
+            ) : (
+                <h1 className="bond-serif flex-1 min-w-0 truncate text-[17px] tracking-wide">{title}</h1>
+            )}
+            {right}
+        </div>
+    );
+};
 
 /** 一個頭像；沒設頭像時用名字的第一個字（不顯示破圖） */
 export const BondAvatar: React.FC<{ value?: string; name?: string; size: number; className?: string; style?: React.CSSProperties }> = ({ value, name, size, className = '', style }) => {

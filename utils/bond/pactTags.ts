@@ -8,7 +8,8 @@
  * - 雲端兩條路由 worker 原樣直通（SOREN_PASSTHROUGH_TAG_RE），客戶端照這裡解析。
  * 純邏輯，有測試。
  */
-import type { BondEntry, BondPromiseRepeat, BondTaskCheck, CharacterProfile } from '../../types';
+import { isBondOpen } from './openState';
+import type { BondEntry, BondPromiseRepeat, BondRecord, BondTaskCheck, CharacterProfile } from '../../types';
 import { newHabit, newPromise, newWish, PROMISE_TEMPLATES, publishWish, repeatLabel } from './pact';
 
 const TAG_RE = /\[\[\s*(?:ACTION\s*[:：]\s*)?(BOND_PROMISE|羈絆約定|羁绊约定|BOND_HABIT|羈絆默契|羁绊默契)\s*(?:[|｜]([^\]\n]*))?\]\]/g;
@@ -89,8 +90,9 @@ export function guessCheck(text: string, repeat: BondPromiseRepeat): { check: Bo
 }
 
 /** 能不能教／收這兩個標籤：這條線有空間紀錄、不是小號、沒在拉黑中 */
-export function canProposePact(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: object | undefined): boolean {
-    return !char.altOf && !char.chatBlock && !!bond;
+export function canProposePact(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: Pick<BondRecord, 'openState'> | undefined): boolean {
+    // 空間開著才教、才收（plans/bond-open-spaces.md）；沒開、收起的不提議
+    return !char.altOf && !char.chatBlock && isBondOpen(bond);
 }
 
 /** 照標籤建「提議中」的卡：角色那邊已經說好，等你 */
@@ -136,7 +138,7 @@ export function proposalStatus(meta: BondProposalMeta, entry: BondEntry | undefi
 }
 
 /** 私聊教角色的那段（互動類）；沒空間、小號、拉黑中不教 */
-export function buildPactProposalPrompt(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: object | undefined, userName: string): string {
+export function buildPactProposalPrompt(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: Pick<BondRecord, 'openState'> | undefined, userName: string): string {
     if (!canProposePact(char, bond)) return '';
     return [
         '',

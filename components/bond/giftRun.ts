@@ -6,6 +6,7 @@
  * - TA 的打算 60 天沒送就作廢。
  * 純判斷在 utils/bond/gift.ts。
  */
+import { isBondOpen } from '../../utils/bond/openState';
 import type { APIConfig, BondGiftFollowupPending, BondSource, CharacterProfile, MallOrder, MemoryFragment, Message } from '../../types';
 import { DB } from '../../utils/db';
 import { lineFor, lineKey } from '../../utils/chatLine';
@@ -126,7 +127,7 @@ export async function checkGiftFollowupFromSummary(char: CharacterProfile, memor
     const pk = memory.personaKey || char.primaryPersonaKey;
     const bondId = personaBondId(char.id, pk);
     const bond = bondById(bondId);
-    if (!bond || bond.giftSummaryChecked?.[memory.id] || !(memory.summary || '').trim()) return 0;
+    if (!bond || !isBondOpen(bond) || bond.giftSummaryChecked?.[memory.id] || !(memory.summary || '').trim()) return 0;
     const views = giftsForSummary(buildGiftViews({ orders: lineGiftOrders(char, pk), entries: bondEntriesOf(bondId), forViewer: 'user' }));
     if (!views.length) return 0;
     const api = summaryApiOf(apiConfig);

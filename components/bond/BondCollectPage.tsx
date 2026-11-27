@@ -3,6 +3,7 @@
  * 可以往前往後多帶幾則、寫標題、讓 AI 濃縮一兩句「發生了什麼」、補一句想留著的原因、改日期（預設是那則的故事日期）。
  * 存的時候記來源（訊息 id＋原文快照），之後點得回去；原訊息刪了也讀得到快照。
  */
+import { ensureSpaceOpen } from '../../utils/bond/store';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CaretDown, CaretUp, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondEventDate, BondPromiseRepeat, BondSource, CharacterProfile, Message } from '../../types';
@@ -219,6 +220,12 @@ export const BondCollectPage: React.FC<{
         if (!date || !picked.length) return;
         setBusy('save');
         try {
+            // 從聊天收存＝你想留著：空間還沒開就幫你開（plans/bond-open-spaces.md）
+            const { opened } = await ensureSpaceOpen(request.bondId, 'collect');
+            if (opened) {
+                trackEvent('羁绊空间开关', { 动作: '开启', 类型: space.kind === 'pair' ? '角色之间' : '我和角色', 方式: '收存' });
+                addToast(`開了${space.kind === 'pair' ? `${space.leftName}和${space.rightName}` : `你和${space.rightName}`}的羈絆空間`, 'info');
+            }
             const now = Date.now();
             const at = picked[0].timestamp;
             const source: BondSource = request.kind === 'date'

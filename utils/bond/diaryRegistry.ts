@@ -44,3 +44,8 @@ export function dropDiaryFromRegistry(id: string): void {
 export function diariesOfBondSync(bondId: string | undefined | null): DiaryEntry[] {
     return bondId ? (__byBond.get(bondId) || []) : [];
 }
+
+/** 有交換日記的關係（空間搬遷用：寫過日記的空間算開著） */
+export function diaryBondIds(): string[] {
+    return [...__byBond.keys()];
+}

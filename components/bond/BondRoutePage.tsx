@@ -1,6 +1,7 @@
 /**
  * 路線設定頁（plans/bond-batch1.md 3.4）：路線四選一、階段、自訂名／稱謂；存的時候問「修正設定」還是「關係真的變了」。
  */
+import { isBondOpen, withOpenState } from '../../utils/bond/openState';
 import React, { useMemo, useState } from 'react';
 import type { BondRoute } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
@@ -40,7 +41,9 @@ export const BondRoutePage: React.FC<{ space: ResolvedSpace; onBack: () => void;
         setSaving(true);
         try {
             const next = applyRouteChange(bond, { route, stage, stageLabel: label, stageLabelOther: labelOther }, { kind, storyDay, note });
-            await saveBondRecord(next.openedBy === 'auto' && !space.saved ? { ...next, openedBy: 'user' } : next);
+            const withOwner = next.openedBy === 'auto' && !space.saved ? { ...next, openedBy: 'user' as const } : next;
+            // 設路線＝你要這段關係：還沒開的順手開（plans/bond-open-spaces.md）
+            await saveBondRecord(isBondOpen(withOwner) ? withOwner : withOpenState(withOwner, 'open', 'user'));
             trackEvent('设定羁绊路线', {
                 路线: route === 'romance' ? '恋爱' : route === 'friendship' ? '友情' : route === 'family' ? '亲情' : '未指定',
                 方式: kind === 'fix' ? '修正' : '转折',

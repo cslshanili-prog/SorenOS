@@ -1,13 +1,15 @@
 /**
  * 羈絆 App 要的清單與數字（plans/bond-batch1.md 3.2、3.3）。純邏輯，不碰資料庫。
  *
- * 空間不用先建：清單是「認識的線＋有訊息的角色私聊線＋表裡已有的」現排。
+ * 空間開了才有（plans/bond-open-spaces.md）：`listPersonaSpaces`／`listPairSpaces` 只回開著的，
+ * 背景功能（主動產出、約定判定、留給以後…）一律照它跑。要列「可以開哪些」用 `listKnownPersonaSpaces`。
  */
 import type { BondRecord, CalendarEvent, CharacterProfile } from '../../types';
 import { acquaintanceDays } from '../chatRelationship';
 import { nextOccurrenceDate } from '../anniversary';
 import { metDayLabel } from './routes';
 import { pairBondId, parseBondId, personaBondId } from './model';
+import { isBondOpen } from './openState';
 
 export interface PersonaSpaceEntry {
     id: string;
@@ -23,8 +25,19 @@ export interface PairSpaceEntry {
 
 type CharLike = Pick<CharacterProfile, 'id' | 'altOf' | 'knownPersonaKeys' | 'primaryPersonaKey'>;
 
-/** 身份卡 × 角色：每個角色認識的每張卡一段（小號不開） */
+/** 身份卡 × 角色：開著的空間（角色還在、不是小號） */
 export function listPersonaSpaces(chars: CharLike[], bonds: BondRecord[]): PersonaSpaceEntry[] {
+    const alive = new Set(chars.filter(c => !c.altOf).map(c => c.id));
+    const out: PersonaSpaceEntry[] = [];
+    for (const b of bonds) {
+        if (b.kind !== 'persona' || !isBondOpen(b) || !alive.has(b.charId) || !b.personaKey) continue;
+        out.push({ id: b.id, charId: b.charId, personaKey: b.personaKey });
+    }
+    return out;
+}
+
+/** 可以開的身份卡 × 角色：每個角色認識的每張卡一段（小號不開）＋表裡已有的；選對象、開新空間用 */
+export function listKnownPersonaSpaces(chars: CharLike[], bonds: BondRecord[]): PersonaSpaceEntry[] {
     const seen = new Set<string>();
     const out: PersonaSpaceEntry[] = [];
     for (const c of chars) {
@@ -47,10 +60,10 @@ export function listPersonaSpaces(chars: CharLike[], bonds: BondRecord[]): Perso
     return out;
 }
 
-/** 角色 × 角色：有訊息的角色私聊線＋表裡已有的；兩邊都還在、都不是小號 */
-export function listPairSpaces(pairLineIds: string[], bonds: BondRecord[], chars: CharLike[]): PairSpaceEntry[] {
+/** 角色 × 角色：開著的空間；兩邊都還在、都不是小號 */
+export function listPairSpaces(bonds: BondRecord[], chars: CharLike[]): PairSpaceEntry[] {
     const ok = new Set(chars.filter(c => !c.altOf).map(c => c.id));
-    const ids = new Set<string>([...pairLineIds, ...bonds.filter(b => b.kind === 'pair').map(b => b.id)]);
+    const ids = new Set<string>(bonds.filter(b => b.kind === 'pair' && isBondOpen(b)).map(b => b.id));
     const out: PairSpaceEntry[] = [];
     for (const id of ids) {
         const parsed = parseBondId(id);

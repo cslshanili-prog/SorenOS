@@ -2,7 +2,8 @@
  * 羈絆空間的讀寫（plans/bond-batch1.md 1.1）。寫完同步更新登記表，再發 BOND_CHANGE_EVENT
  * 讓 OSContext 打髒雲端（路線、此刻的我們都會進提示詞）。
  */
-import type { BondRecord } from '../../types';
+import type { BondOpenVia, BondRecord } from '../../types';
+import { isBondOpen, planOpenMigration, withOpenState } from './openState';
 import { DB } from '../db';
 import { blankBond } from './model';
 import { allRegisteredBonds, bondById, dropBondsFromRegistry, putBondInRegistry, setBondRegistry } from './registry';
@@ -58,4 +59,46 @@ export async function deleteBondsOfPersona(personaKey: string): Promise<void> {
     await DB.deleteBonds(ids);
     dropBondsFromRegistry(ids);
     announce(ids);
+}
+
+// ─── 空間開了才有（plans/bond-open-spaces.md） ─────────────────
+
+/** 開一個空間（已經開著就不動）；回傳開了沒、是不是這次才開的 */
+export async function ensureSpaceOpen(id: string, via: BondOpenVia): Promise<{ record: BondRecord; opened: boolean }> {
+    const cur = bondOrBlank(id);
+    if (isBondOpen(cur)) return { record: cur, opened: false };
+    const reopen = cur.openState?.state === 'closed';
+    const record = await saveBondRecord(withOpenState({
+        ...cur,
+        ...(cur.openedBy === 'auto' && !reopen ? { openedBy: via === 'invite' ? 'char' as const : 'user' as const, openedAt: Date.now() } : {}),
+    }, 'open', reopen ? 'reopen' : via));
+    return { record, opened: true };
+}
+
+/** 收起：資料留著、背景停掉 */
+export async function closeSpace(id: string): Promise<void> {
+    await updateBond(id, b => withOpenState(b, 'closed', b.openState?.via || 'user'));
+}
+
+/** 刪掉這筆空間紀錄（卡片、帳本、親近信任由呼叫的地方先刪） */
+export async function deleteBondRecord(id: string): Promise<void> {
+    await DB.deleteBonds([id]);
+    dropBondsFromRegistry([id]);
+    announce([id]);
+}
+
+/** 開機時：還沒有 openState 的舊空間，有內容的記成開著（idempotent，還原舊備份後再跑也對） */
+export async function migrateOpenStates(input: { entryBondIds: Map<string, number>; diaryCount: (id: string) => number }): Promise<number> {
+    const plan = planOpenMigration({
+        bonds: allRegisteredBonds(),
+        orphanIds: [...input.entryBondIds.keys()],
+        counts: id => ({ entries: input.entryBondIds.get(id) || 0, diaries: input.diaryCount(id) }),
+        blank: id => blankBond(id),
+    });
+    for (const b of plan) {
+        await DB.saveBond(b);
+        putBondInRegistry(b);
+    }
+    if (plan.length) announce(plan.map(b => b.id));
+    return plan.length;
 }

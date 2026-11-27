@@ -1,6 +1,6 @@
 /**
  * 角色邀請建立羈絆空間（plans/bond-batch1.md 3.5）：`[[ACTION:BOND_INVITE|一句話]]`。
- * 只在「這條線還沒有空間紀錄」時教；你按了「好」或「先不要」都會寫一筆紀錄，之後就不再教。
+ * 只在「這條線的空間還沒開」時教（空間開了才有，plans/bond-open-spaces.md）；你按了「先不要」、或自己收起過，就不再教。
  * 雲端那兩條路由 worker 原樣直通（SOREN_PASSTHROUGH_TAG_RE），客戶端照這裡解析。
  */
 import type { CharacterProfile } from '../../types';
@@ -18,9 +18,11 @@ export function extractBondInvite(text: string): { cleanedText: string; invite: 
     return { cleanedText: invite === null ? text : cleanedText, invite };
 }
 
-/** 這條線能不能教／收這個標籤：還沒有空間紀錄（按過好或先不要都會有一筆）、不是小號 */
+/** 這條線能不能教／收這個標籤：空間還沒開、沒收起過、沒按過「先不要」、不是小號 */
 export function canInviteBond(char: Pick<CharacterProfile, 'id' | 'primaryPersonaKey' | 'altOf'>): boolean {
-    return !char.altOf && !bondForChar(char);
+    if (char.altOf) return false;
+    const b = bondForChar(char);
+    return !b || (!b.openState && !b.inviteDeclinedAt);
 }
 
 /** 私聊教角色的那段（互動類） */
