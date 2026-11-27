@@ -849,7 +849,9 @@ export const BondMilestoneEditPage: React.FC<{
     addToast: Toast;
 }> = ({ space, entryId, onBack, onBringToChat, addToast }) => {
     const existing = entryId ? bondEntryById(entryId) : undefined;
-    const name = space.rightName;
+    const isPair = space.kind === 'pair' && !!space.other;
+    // 角色之間：你是讀者，補的里程碑作者記成你（'user'），兩人都記得
+    const name = isPair ? '他們' : space.rightName;
     const kinds = milestoneKindsFor(space.bond.route);
     const [what, setWhat] = useState(existing?.milestone?.what || kinds[0].id);
     const [title, setTitle] = useState(existing?.title || '');
@@ -868,7 +870,10 @@ export const BondMilestoneEditPage: React.FC<{
                 ? { ...existing, title: label || undefined, text: text.trim(), eventDate, milestone: { ...existing.milestone!, what }, updatedAt: Date.now() }
                 : newMilestone({ bondId: space.id, author: 'user', what, title: label, text, eventDate, via: 'manual' });
             if (anniversary && !unknownDay && !e.milestone!.anniversaryId) {
-                const ev = newEvent({
+                const ev = isPair ? newEvent({
+                    owner: charParticipant(space.char.id), kind: 'anniversary', title: `和${space.other!.name}${milestoneLabel(what, label)}紀念日`, start: day, allDay: true,
+                    participants: [charParticipant(space.other!.id)], repeat: 'yearly', charRemembers: true, source: 'user',
+                }) : newEvent({
                     owner: personaParticipant(space.personaKey), kind: 'anniversary', title: `${milestoneLabel(what, label)}紀念日`, start: day, allDay: true,
                     participants: [charParticipant(space.char.id)], repeat: 'yearly', charRemembers: true, source: 'user',
                 });
@@ -877,6 +882,7 @@ export const BondMilestoneEditPage: React.FC<{
             }
             await saveBondEntries([e]);
             addToast(existing ? '改好了' : '記下來了', 'success');
+            if (!existing && isPair) trackEvent('角色之间小按钮', { 动作: '里程碑' });
             onBack();
         } catch (err: any) {
             addToast(`沒存成功：${err?.message || err}`, 'error');
@@ -911,7 +917,7 @@ export const BondMilestoneEditPage: React.FC<{
                     <textarea className="bond-input bond-serif min-h-[110px] leading-relaxed" value={text} onChange={e => setText(e.target.value)}
                         placeholder="在哪裡、怎麼發生的、誰先開口……只寫真的發生過的" />
                 </section>
-                {existing && existing.milestone?.via !== 'manual' && <p className="text-[11px] text-[var(--bond-muted)]">這個里程碑是{existing.milestone?.via === 'eventCard' ? '事件卡' : existing.milestone?.via === 'chat' ? '聊天' : '紀錄'}留下的。</p>}
+                {existing && existing.milestone?.via !== 'manual' && <p className="text-[11px] text-[var(--bond-muted)]">這個里程碑是{existing.milestone?.via === 'eventCard' ? '事件卡' : existing.milestone?.via === 'chat' ? '聊天' : existing.milestone?.via === 'story' ? '故事' : '紀錄'}留下的。</p>}
                 {existing && (
                     <DeleteRow label="刪掉這個里程碑" warn={`刪掉？${name}之後就不會記得。${existing.milestone?.anniversaryId ? '紀念日留在行事曆。' : ''}`}
                         onDelete={async () => { await deleteBondEntries([existing.id]); onBack(); }} />

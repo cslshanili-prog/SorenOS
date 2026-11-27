@@ -185,7 +185,8 @@ export async function createCustomCard(bondId: string, custom: { title: string; 
 
 // ─── 同步承認（2.4）──────────────────────────────
 
-async function addProposal(bondId: string, p: Omit<BondSyncProposal, 'id' | 'at'>): Promise<void> {
+/** 加一張承認卡（同一個來源鍵、同一種轉折只留最新的一張）；角色之間的故事回寫也用它 */
+export async function addProposal(bondId: string, p: Omit<BondSyncProposal, 'id' | 'at'>): Promise<void> {
     await updateBond(bondId, b => ({
         ...b,
         syncPending: [...(b.syncPending || []).filter(x => x.key !== p.key && x.what !== p.what), { ...p, id: `sync_${Date.now().toString(36)}`, at: Date.now() }],
@@ -228,17 +229,24 @@ export async function checkSyncFromSummary(char: CharacterProfile, memory: Memor
 export async function acceptSync(space: ResolvedSpace, p: BondSyncProposal, anniversary: boolean): Promise<void> {
     const day = p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date) ? p.date : space.todayKey;
     const label = SYNC_KINDS[p.what]?.label || p.what;
+    const fromStory = p.source === 'story';
     if (p.stageTo || p.routeTo) {
-        await updateBond(space.id, b => applyRouteChange(b, { route: p.routeTo || b.route, stage: p.stageTo || b.stage }, { kind: 'turn', storyDay: day, note: `聊天裡已經${label}` }));
+        await updateBond(space.id, b => applyRouteChange(b, { route: p.routeTo || b.route, stage: p.stageTo || b.stage }, { kind: 'turn', storyDay: day, note: `${fromStory ? '故事裡' : '聊天裡已經'}${label}` }));
     }
     let ms = newMilestone({
-        bondId: space.id, author: 'user', what: p.what, text: p.text, eventDate: dayEventDate(day), via: p.source === 'summary' ? 'memory' : 'chat',
+        bondId: space.id, author: fromStory ? space.char.id : 'user', what: p.what, text: p.text, eventDate: dayEventDate(day),
+        via: fromStory ? 'story' : p.source === 'summary' ? 'memory' : 'chat',
         stageTo: p.stageTo,
-        sources: p.evidence.memoryId ? [{ type: 'memory', charId: space.char.id, memoryId: p.evidence.memoryId }]
+        sources: fromStory && p.evidence.storyId ? [{ type: 'story', entryId: p.evidence.storyId }]
+            : p.evidence.memoryId ? [{ type: 'memory', charId: space.char.id, memoryId: p.evidence.memoryId }]
             : p.evidence.messageIds?.length && p.evidence.lineId ? [{ type: 'message', lineId: p.evidence.lineId, messageIds: p.evidence.messageIds, snippet: p.text.slice(0, 60), at: Date.now() }] : [],
     });
     if (anniversary) {
-        const ev = newEvent({
+        // 角色之間：紀念日記在 A 的行事曆、B 是參與者（兩人都會記得）；身份卡 × 角色照舊是你的、TA 參與
+        const ev = space.kind === 'pair' && space.other ? newEvent({
+            owner: charParticipant(space.char.id), kind: 'anniversary', title: `和${space.other.name}${label}紀念日`, start: day, allDay: true,
+            participants: [charParticipant(space.other.id)], repeat: 'yearly', charRemembers: true, source: 'user',
+        }) : newEvent({
             owner: personaParticipant(space.personaKey), kind: 'anniversary', title: `${label}紀念日`, start: day, allDay: true,
             participants: [charParticipant(space.char.id)], repeat: 'yearly', charRemembers: true, source: 'user',
         });
@@ -247,10 +255,12 @@ export async function acceptSync(space: ResolvedSpace, p: BondSyncProposal, anni
     }
     await saveBondEntries([ms]);
     await updateBond(space.id, b => ({ ...b, syncPending: (b.syncPending || []).filter(x => x.id !== p.id) }));
-    trackEvent('同步承认关系', { 结果: '对', 来源: p.source === 'summary' ? '每日总结' : '改关系' });
+    trackEvent('同步承认关系', { 结果: '对', 来源: syncSourceLabel(p) });
 }
+
+const syncSourceLabel = (p: BondSyncProposal) => (p.source === 'summary' ? '每日总结' : p.source === 'story' ? '故事' : '改关系');
 
 export async function rejectSync(space: ResolvedSpace, p: BondSyncProposal): Promise<void> {
     await updateBond(space.id, b => ({ ...b, syncPending: (b.syncPending || []).filter(x => x.id !== p.id) }));
-    trackEvent('同步承认关系', { 结果: '不是', 来源: p.source === 'summary' ? '每日总结' : '改关系' });
+    trackEvent('同步承认关系', { 结果: '不是', 来源: syncSourceLabel(p) });
 }

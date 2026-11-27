@@ -167,7 +167,7 @@ describe('importDateStorySummary（走真庫）', () => {
             const emb = { baseUrl: 'https://e.test/v1', apiKey: 'k', model: 'emb', dimensions: 8 };
             const llm = { baseUrl: 'https://l.test/v1', apiKey: 'k', model: 'l' };
             const result = await importDateStorySummary({ charId: 'palace1', content: ' 他們在雨夜的書店和好了。 ', happenedAt: 1234, final: true, tags: ['雨夜書店'] }, emb, llm);
-            expect(result).toEqual({ stored: 1, skipped: 0 });
+            expect(result).toEqual({ stored: 1, skipped: 0, nodeId: expect.stringMatching(/^mn_date_/) });
             const nodes = await MemoryNodeDB.getByCharId('palace1');
             expect(nodes).toHaveLength(1);
             expect(nodes[0]).toMatchObject({ content: '他們在雨夜的書店和好了。', room: 'bedroom', importance: 8, createdAt: 1234, embedded: true });

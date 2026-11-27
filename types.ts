@@ -1112,6 +1112,8 @@ export interface ConvTopic {
     createdAt: number;
     /** 這條記憶濃縮了多少條原文（信息用） */
     span?: number;
+    /** 角色之間：從哪一章故事回寫來的（羈絆時間線不重複列；刪那一章時照它撤回，plans/bond-batch6.md 2.3） */
+    storyId?: string;
 }
 
 export interface PhoneContact {
@@ -6310,6 +6312,10 @@ export interface BondRecord {
     inviteDeclinedAt?: number;
     /** pair：私聊整理時自動留日記（預設開，plans/bond.md 0.3） */
     pairAutoDiary?: boolean;
+    /** 角色之間：讀者視角的概覽（plans/bond-batch6.md 第 1 節）；chapter 是寫的時候讀到第幾章 */
+    pairOverview?: { text: string; at: number; chapter: number };
+    /** 角色之間：寫故事頁上次填的（篇幅、文風、視角） */
+    pairStoryPrefs?: { words?: [number, number]; style?: string; pov?: string };
     /**
      * 拾光時間線上「羈絆這邊的標記」（plans/bond-batch2.md 1.2）：鍵是記憶 id（MemoryFragment.id，
      * pair 是話題盒 id）。不改記憶本身；記憶的正文、日期要改走神經鏈接同一條路。
@@ -6370,8 +6376,8 @@ export interface BondSyncProposal {
     routeTo?: BondRoute;
     date?: string;
     text: string;
-    source: 'relationship' | 'summary';
-    evidence: { lineId?: string; messageIds?: number[]; memoryId?: string };
+    source: 'relationship' | 'summary' | 'story';
+    evidence: { lineId?: string; messageIds?: number[]; memoryId?: string; /** 角色之間：哪一章故事 */ storyId?: string };
     /** 去重用的來源鍵 */
     key: string;
     at: number;
@@ -6535,18 +6541,41 @@ export type BondSource =
     | { type: 'message'; lineId: string; messageIds: number[]; snippet: string; at: number }
     | { type: 'date'; storyId: string; charId: string; messageIds: number[]; snippet: string; at: number }
     | { type: 'memory'; charId: string; memoryId: string }
-    | { type: 'photo'; galleryId: string };
+    | { type: 'photo'; galleryId: string }
+    /** 角色之間：從哪一章故事長出來的（plans/bond-batch6.md 2.3） */
+    | { type: 'story'; entryId: string };
 
 /** 一張卡建在什麼上面（隨筆 → 片刻／記憶；後記 → 原隨筆）；撤回時用來找誰依賴誰 */
 export type BondLink =
     | { type: 'entry'; id: string }
     | { type: 'memory'; charId: string; memoryId: string };
 
+/** 角色之間的一章故事（plans/bond-batch6.md 2.5） */
+export interface BondStory {
+    chapter: number;
+    /** 'narrator'＝旁白；否則是角色 id */
+    pov: string;
+    direction?: string;
+    scene?: string;
+    words?: [number, number];
+    /** 存下時寫的 80～150 字摘要（之後的章節、概覽、提示詞讀它） */
+    summary: string;
+    /** 獨立一篇：寫的時候沒帶前情 */
+    standalone?: boolean;
+    /** 回寫各區的時間（重新整理會更新） */
+    extractedAt?: number;
+    /** 回寫時寫到卡片以外的地方（話題盒、記憶宮殿），刪改這一章時照它撤回（plans/bond-batch6.md 第 7 節） */
+    derived?: {
+        topics?: Array<{ charId: string; topicId: string }>;
+        palace?: Array<{ charId: string; nodeId: string }>;
+    };
+}
+
 /** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule';
+    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule' | 'story' | 'diary';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6588,6 +6617,16 @@ export interface BondEntry {
     letter?: BondLetter;
     /** 珍藏：留給以後；text 是封存的內容 */
     capsule?: BondCapsule;
+    /** 角色之間：一章故事（plans/bond-batch6.md 2.5）；text 是全文、title 是章名 */
+    story?: BondStory;
+    /** 角色之間：一篇日記（作者是角色 id；不是交換日記那張表）；text 是內容 */
+    diary?: {
+        date: string;
+        /** story＝故事回寫、button＝你按「讓某某寫一篇」、auto＝私下聊滿一大段自動寫的 */
+        origin?: 'story' | 'button' | 'auto';
+        /** auto：那段私下聊天整理成的話題盒 id */
+        fromTopics?: string[];
+    };
     updatedAt: number;
 }
 
@@ -6642,7 +6681,8 @@ export interface BondLetter {
     readAt?: number;
     /** 回哪一封 */
     replyTo?: string;
-    origin: 'manual' | 'reply' | 'output' | 'eventCard';
+    /** story＝角色之間的故事裡寫了一封信，回寫時由寄信的那位另外寫全文 */
+    origin: 'manual' | 'reply' | 'output' | 'eventCard' | 'story';
 }
 
 /**
@@ -6650,7 +6690,7 @@ export interface BondLetter {
  * 你在那件上補了東西才寫一張卡，用 orderId 疊上去。
  */
 export interface BondGift {
-    /** 'out'＝你送 TA、'in'＝TA 送你 */
+    /** 'out'＝你送 TA、'in'＝TA 送你；角色之間：'out'＝bond.charId 那位送另一位、'in'＝另一位送他 */
     dir: 'out' | 'in';
     /** 打算送 → 已買 → 已送；TA 送的一出現就是 given。連了訂單的照訂單配送進度算，這格只是快照 */
     state: 'planned' | 'bought' | 'given';
@@ -6753,7 +6793,7 @@ export interface BondMilestone {
     /** 什麼事（內建清單的 id 或 'custom'） */
     what: string;
     /** 怎麼記下來的 */
-    via: 'manual' | 'eventCard' | 'chat' | 'memory' | 'review' | 'streak' | 'achievement';
+    via: 'manual' | 'eventCard' | 'chat' | 'memory' | 'review' | 'streak' | 'achievement' | 'story';
     /** 那時把階段改成什麼（有改才有） */
     stageTo?: string;
     /** 同時記成的紀念日（行事曆 CalendarEvent id） */

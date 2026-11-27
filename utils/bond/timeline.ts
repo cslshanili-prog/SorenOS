@@ -111,6 +111,8 @@ export function buildTimeline(input: BuildTimelineInput): TimelineItem[] {
     }
     for (const side of input.topics || []) {
         for (const t of side.list) {
+            // 故事回寫的那條是同一件事的記憶，時間線上已經有那一章長出來的片刻，不重複列
+            if (t.storyId) continue;
             const key = `t:${side.ownerId}:${t.id}`;
             const d: BondEventDate = { precision: 'day', date: getLocalDateKey(new Date(t.createdAt)) };
             items.push({

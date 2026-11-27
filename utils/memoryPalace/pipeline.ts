@@ -2382,6 +2382,8 @@ export interface DateStorySummaryImportResult {
     stored: number;
     skipped: number;
     error?: 'lock' | 'empty' | string;
+    /** 寫進去的那個節點（stored > 0 才有；角色之間的故事記下來，撤回時照它刪） */
+    nodeId?: string;
 }
 
 /**
@@ -2449,7 +2451,7 @@ export async function importDateStorySummary(
                 console.warn(`🏰 [DateSummary] 鞏固失敗，記憶已寫入: ${error?.message || error}`);
             }
         }
-        return { stored: result.stored, skipped: result.skipped };
+        return { stored: result.stored, skipped: result.skipped, ...(result.stored > 0 ? { nodeId: node.id } : {}) };
     } catch (error: any) {
         return { stored: 0, skipped: 0, error: error?.message || String(error) };
     } finally {

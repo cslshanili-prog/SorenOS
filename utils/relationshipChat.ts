@@ -19,7 +19,7 @@ import { withApiCallMeta, type ApiCallMeta } from './apiCallLog';
 import { bondForPair } from './bond/registry';
 import { bondFinalLock, bondPromptBlock } from './bond/prompt';
 import { bondEntriesOf } from './bond/entryRegistry';
-import { pairBondId } from './bond/model';
+import { pairBondId, parseBondId } from './bond/model';
 export interface MiniApiConfig {
     baseUrl: string;
     apiKey: string;
@@ -314,6 +314,8 @@ async function buildSpeakerContext(
         bond: pairBond, selfName: speaker.name, otherName, selfIsCharId: pairBond ? pairBond.charId === speaker.id : undefined,
         // 片刻雙方都知道；隨筆只帶自己寫的；你（讀者）補的那句角色不知道
         entries: bondEntriesOf(pairBondId(speaker.id, otherId)), selfId: speaker.id, includeUserNotes: false,
+        // 故事、日記、問答、約定、禮物與信照角色之間那套（plans/bond-batch6.md 第 5 節）
+        pair: { selfId: speaker.id, otherId, isA: parseBondId(pairBondId(speaker.id, otherId))?.charId === speaker.id },
     });
     const lock = bondFinalLock(pairBond, otherName);
     return `${core}${block ? `\n${block}` : ''}${lock ? `\n${lock}\n` : ''}`;

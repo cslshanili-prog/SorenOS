@@ -55,6 +55,12 @@ import { appReturn, bondLaunch, mallLaunch, chatBondRefLaunch, chatJumpLaunch, d
 import { bondRefFromDiary, bondRefFromEssay, bondRefFromGift, bondRefFromLetter, bondRefFromCapsule, bondRefFromItem, bondRefFromPact, bondRefFromQuestion, bondRefFromSlip, type BondRefMeta } from '../utils/bond/bondRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
+import { BondStoryRetractPage, BondStoryWritebackPage } from '../components/bond/BondStoryWritebackPage';
+import {
+    PairDiaryPage, PairGiftPage, PairHeartPage, PairLetterPage, PairLetterWritePage, PairPactEditPage, PairPactPage, PairQuestionNewPage, PairQuestionPage, PairTreasurePage,
+} from '../components/bond/BondPairPages';
+import type { StorySide } from '../utils/bond/storyExtract';
+import { BondStoryComposePage, BondStoryEditPage, BondStoryListPage, BondStoryReadPage, PairStoryHome } from '../components/bond/BondStoryPages';
 import { trackEvent } from '../utils/analytics';
 
 type Page =
@@ -97,6 +103,20 @@ type Page =
     | { page: 'route'; id: string; from: 'space' | 'list' }
     | { page: 'days'; id: string }
     | { page: 'mine'; id: string }
+    | { page: 'story'; id: string; entryId: string; exitOnBack?: boolean; askRewrite?: boolean }
+    | { page: 'story-retract'; id: string; entryId: string; mode: 'delete' | 'rewrite' }
+    | { page: 'story-write'; id: string }
+    | { page: 'story-list'; id: string }
+    | { page: 'story-edit'; id: string; entryId: string }
+    | { page: 'story-writeback'; id: string; entryId: string }
+    // 角色之間的心意、約定、珍藏（plans/bond-batch6.md 第 3 節）
+    | { page: 'pair-diary'; id: string; entryId: string }
+    | { page: 'pair-question'; id: string; entryId: string }
+    | { page: 'pair-question-new'; id: string }
+    | { page: 'pair-pact-edit'; id: string; entryId: string }
+    | { page: 'pair-gift'; id: string; entryId: string }
+    | { page: 'pair-letter'; id: string; entryId: string }
+    | { page: 'pair-letter-write'; id: string; from: StorySide; replyToId?: string }
     | { page: 'create' };
 
 // 交換日記搬進羈絆（plans/bond-batch3.md 第 4 節）：日記頁還是原本那一份，嵌進來用
@@ -267,7 +287,10 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
         || page.page === 'wish' || page.page === 'wish-edit' || page.page === 'promise' || page.page === 'promise-edit'
         || page.page === 'habit' || page.page === 'habit-edit' || page.page === 'milestone-edit'
         || page.page === 'ledger' || page.page === 'achievements' || page.page === 'review' || page.page === 'feeling' || page.page === 'card' || page.page === 'card-new'
-        || page.page === 'gift' || page.page === 'gift-edit' || page.page === 'letter' || page.page === 'letter-write' || page.page === 'special' || page.page === 'capsule' || page.page === 'capsule-seal') {
+        || page.page === 'gift' || page.page === 'gift-edit' || page.page === 'letter' || page.page === 'letter-write' || page.page === 'special' || page.page === 'capsule' || page.page === 'capsule-seal'
+        || page.page === 'story' || page.page === 'story-write' || page.page === 'story-list' || page.page === 'story-edit' || page.page === 'story-writeback' || page.page === 'story-retract'
+        || page.page === 'pair-diary' || page.page === 'pair-question' || page.page === 'pair-question-new' || page.page === 'pair-pact-edit'
+        || page.page === 'pair-gift' || page.page === 'pair-letter' || page.page === 'pair-letter-write') {
         const s = space(page.id);
         if (!s) {
             return (
@@ -323,6 +346,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                 {page.page === 'item' && (
                     <BondItemPage space={s} itemKey={page.key} characters={chars} onBack={page.exitOnBack ? closeApp : toMoments}
                         onOpenSource={src => void openSource(s.id, page.key, src)}
+                        onOpenStory={s.kind === 'pair' ? entryId => setPage({ page: 'story', id: s.id, entryId }) : undefined}
                         onOpenMemory={(charId, where) => openMemory(s.id, page.key, charId, where)}
                         onEditMoment={entryId => setPage({ page: 'moment-edit', id: s.id, entryId, key: page.key })}
                         onEditMemory={memoryId => setPage({ page: 'memory-edit', id: s.id, memoryId, key: page.key })}
@@ -563,7 +587,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                 {page.page === 'milestone-edit' && (
                     <BondMilestoneEditPage onBringToChat={bringPact} key={page.entryId || 'new'} space={s} entryId={page.entryId} onBack={page.exitOnBack ? closeApp : () => (page.from === 'moments' ? toMoments() : toPact('milestone'))} addToast={addToast} />
                 )}
-                {page.page === 'space' && page.tab !== 'moments' && !((page.tab === 'heart' || page.tab === 'pact' || page.tab === 'treasure') && s.kind === 'persona') && (
+                {page.page === 'space' && page.tab !== 'moments' && !(page.tab === 'heart' || page.tab === 'pact' || page.tab === 'treasure') && (
                     <BondSpacePage key={`${s.id}-${version}`} space={s} characters={chars} events={events} apiConfig={apiConfig}
                         tabBar={tabBar('us')} onOpenItem={openItem} onOpenNotice={openNotice}
                         onBack={back}
@@ -579,7 +603,85 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                             else if (p.evidence.memoryId) openMemory(s.id, '', s.char.id, 'link');
                         }}
                         onOpenPact={s.kind === 'persona' ? to => (to.promiseId ? setPage({ page: 'promise', id: s.id, entryId: to.promiseId }) : toPact(to.tab)) : undefined}
+                        onOpenStory={s.kind === 'pair' ? entryId => setPage({ page: 'story', id: s.id, entryId }) : undefined}
+                        storySlot={s.kind === 'pair' ? (
+                            <PairStoryHome space={s} characters={chars} apiConfig={apiConfig}
+                                onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })}
+                                onWrite={() => setPage({ page: 'story-write', id: s.id })}
+                                onList={() => setPage({ page: 'story-list', id: s.id })} addToast={addToast} />
+                        ) : undefined}
                         addToast={addToast} />
+                )}
+                {page.page === 'story-write' && s.kind === 'pair' && (
+                    <BondStoryComposePage space={s} characters={chars} apiConfig={apiConfig} onBack={toSpace}
+                        onSaved={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {page.page === 'story-writeback' && s.kind === 'pair' && (
+                    <BondStoryWritebackPage space={s} characters={chars} entryId={page.entryId} apiConfig={apiConfig} updateCharacter={updateCharacter}
+                        onDone={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'space' && page.tab === 'heart' && (
+                    <PairHeartPage space={s} characters={chars} apiConfig={apiConfig} header={<BondHeader title={`${s.leftName} & ${s.rightName}`} onBack={back} />}
+                        tabBar={tabBar('heart')} sub={page.heart === 'question' ? 'question' : 'diary'} onSub={t => toHeart(t)}
+                        onOpenDiary={entryId => setPage({ page: 'pair-diary', id: s.id, entryId })}
+                        onOpenQuestion={entryId => setPage({ page: 'pair-question', id: s.id, entryId })}
+                        onNewQuestion={() => setPage({ page: 'pair-question-new', id: s.id })} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'pair-diary' && <PairDiaryPage space={s} entryId={page.entryId} onBack={() => toHeart('diary')} addToast={addToast} />}
+                {s.kind === 'pair' && page.page === 'pair-question-new' && (
+                    <PairQuestionNewPage space={s} characters={chars} apiConfig={apiConfig} onBack={() => toHeart('question')}
+                        onDone={entryId => setPage({ page: 'pair-question', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'pair-question' && (
+                    <PairQuestionPage space={s} characters={chars} apiConfig={apiConfig} entryId={page.entryId} onBack={() => toHeart('question')} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'space' && page.tab === 'pact' && (
+                    <PairPactPage space={s} characters={chars} apiConfig={apiConfig} header={<BondHeader title={`${s.leftName} & ${s.rightName}`} onBack={back} />}
+                        tabBar={tabBar('pact')} onOpenEntry={entryId => setPage({ page: 'pair-pact-edit', id: s.id, entryId })}
+                        onOpenMilestone={entryId => setPage({ page: 'milestone-edit', id: s.id, ...(entryId ? { entryId } : {}) })} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'pair-pact-edit' && <PairPactEditPage space={s} entryId={page.entryId} onBack={() => toPact('wish')} addToast={addToast} />}
+                {s.kind === 'pair' && page.page === 'space' && page.tab === 'treasure' && (
+                    <PairTreasurePage space={s} header={<BondHeader title={`${s.leftName} & ${s.rightName}`} onBack={back} />} tabBar={tabBar('treasure')}
+                        sub={page.treasure === 'letter' ? 'letter' : 'gift'} onSub={t => (t === 'letter' ? toLetters() : toGifts())}
+                        onOpenGift={entryId => setPage({ page: 'pair-gift', id: s.id, entryId })}
+                        onOpenLetter={entryId => setPage({ page: 'pair-letter', id: s.id, entryId })}
+                        onWriteLetter={from => setPage({ page: 'pair-letter-write', id: s.id, from })} />
+                )}
+                {s.kind === 'pair' && page.page === 'pair-gift' && <PairGiftPage space={s} entryId={page.entryId} onBack={toGifts} addToast={addToast} />}
+                {s.kind === 'pair' && page.page === 'pair-letter-write' && (
+                    <PairLetterWritePage space={s} characters={chars} apiConfig={apiConfig} from={page.from} replyToId={page.replyToId}
+                        onBack={page.replyToId ? () => setPage({ page: 'pair-letter', id: s.id, entryId: page.replyToId! }) : toLetters}
+                        onDone={entryId => setPage({ page: 'pair-letter', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {s.kind === 'pair' && page.page === 'pair-letter' && (
+                    <PairLetterPage space={s} entryId={page.entryId} onBack={toLetters}
+                        onReply={(from, replyToId) => setPage({ page: 'pair-letter-write', id: s.id, from, replyToId })}
+                        onOpen={entryId => setPage({ page: 'pair-letter', id: s.id, entryId })} addToast={addToast} />
+                )}
+                {page.page === 'story' && s.kind === 'pair' && (
+                    <BondStoryReadPage space={s} characters={chars} entryId={page.entryId} onBack={page.exitOnBack ? closeApp : toSpace}
+                        onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })}
+                        onEdit={entryId => setPage({ page: 'story-edit', id: s.id, entryId })}
+                        onWriteNext={() => setPage({ page: 'story-write', id: s.id })}
+                        onWriteback={entryId => setPage({ page: 'story-writeback', id: s.id, entryId })}
+                        onRewrite={entryId => setPage({ page: 'story-retract', id: s.id, entryId, mode: 'rewrite' })}
+                        onDelete={e => setPage({ page: 'story-retract', id: s.id, entryId: e.id, mode: 'delete' })}
+                        askRewrite={page.askRewrite} addToast={addToast} />
+                )}
+                {page.page === 'story-retract' && s.kind === 'pair' && (
+                    <BondStoryRetractPage space={s} entryId={page.entryId} mode={page.mode} updateCharacter={updateCharacter} remoteVectorConfig={remoteVectorConfig}
+                        onBack={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })}
+                        onDone={page.mode === 'delete' ? toSpace : () => setPage({ page: 'story-writeback', id: s.id, entryId: page.entryId })} addToast={addToast} />
+                )}
+                {page.page === 'story-list' && s.kind === 'pair' && (
+                    <BondStoryListPage space={s} characters={chars} onBack={toSpace}
+                        onOpen={entryId => setPage({ page: 'story', id: s.id, entryId })} onWrite={() => setPage({ page: 'story-write', id: s.id })} />
+                )}
+                {page.page === 'story-edit' && s.kind === 'pair' && (
+                    <BondStoryEditPage space={s} apiConfig={apiConfig} entryId={page.entryId}
+                        onBack={() => setPage({ page: 'story', id: s.id, entryId: page.entryId })}
+                        onSaved={(entry, textChanged) => setPage({ page: 'story', id: s.id, entryId: entry.id, askRewrite: textChanged && !!entry.story?.extractedAt })} addToast={addToast} />
                 )}
                 {page.page === 'route' && <BondRoutePage key={`${s.id}-${version}`} space={s} onBack={page.from === 'space' ? toSpace : () => setPage({ page: 'space', id: s.id })} addToast={addToast} />}
                 {page.page === 'days' && <BondDaysPage space={s} onBack={toSpace} updateLine={updateLine} addToast={addToast} />}
@@ -832,7 +934,8 @@ const HeartTabs: React.FC<{ space: ResolvedSpace; value: BondTab; onChange: (t: 
     const entries = useBondEntries(space.id);
     const pactDot = space.kind === 'persona' && value !== 'pact' && pactNeedsYou(entries);
     const giftDot = useGiftFreshDot(space) && space.kind === 'persona' && value !== 'treasure';
-    return <BondTabs value={value} onChange={onChange} tabs={bondTabsFor(space.kind)} dots={{ heart: !!notice && value !== 'heart', pact: pactDot, treasure: giftDot }} />;
+    return <BondTabs value={value} onChange={onChange} tabs={bondTabsFor(space.kind)} dots={{ heart: !!notice && value !== 'heart', pact: pactDot, treasure: giftDot }}
+        labels={space.kind === 'pair' ? { us: '他們' } : undefined} />;
 };
 
 export default BondApp;
