@@ -4551,6 +4551,8 @@ export interface MallOrder {
     paidAt?: number;
     /** 代付被拒＝取消 */
     cancelledAt?: number;
+    /** 卡片落在哪條私聊線（utils/chatLine.ts 的 lineKey；羈絆的禮物圖鑑照它分線）。舊單沒有，圖鑑第一次讀時照卡片補上 */
+    lineKey?: string;
 }
 
 /** 身份卡/真實身份的性別選項，純展示 + 會發給 AI，跟 SimGender（彼方小人）是兩套獨立的枚舉。 */
@@ -6524,7 +6526,7 @@ export type BondLink =
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard';
+    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6560,7 +6562,47 @@ export interface BondEntry {
     habit?: BondHabit;
     milestone?: BondMilestone;
     eventCard?: BondEventCard;
+    /** 珍藏（plans/bond-batch5.md 第 1 節）：禮物；text 是名稱或一句描述 */
+    gift?: BondGift;
     updatedAt: number;
+}
+
+/**
+ * 禮物（plans/bond-batch5.md 1.1）。購物中心的送禮單不另存一份：圖鑑照訂單現排，
+ * 你在那件上補了東西才寫一張卡，用 orderId 疊上去。
+ */
+export interface BondGift {
+    /** 'out'＝你送 TA、'in'＝TA 送你 */
+    dir: 'out' | 'in';
+    /** 打算送 → 已買 → 已送；TA 送的一出現就是 given。連了訂單的照訂單配送進度算，這格只是快照 */
+    state: 'planned' | 'bought' | 'given';
+    items?: Array<{ name: string; qty?: number; emoji?: string; shop?: string; price?: number }>;
+    orderId?: string;
+    /** 聊天裡那張購物卡（跳回原文用） */
+    messageId?: number;
+    /** 資料庫照片 id */
+    photos?: string[];
+    occasion?: string;
+    /** 收到時的反應（TA 那句、或你寫的） */
+    reaction?: string;
+    /** 打算送：哪天（日期 key）、從誰的願望來、對到購物中心哪件商品 */
+    plannedFor?: string;
+    fromWishId?: string;
+    productName?: string;
+    followups?: BondGiftFollowup[];
+    boughtAt?: number;
+    givenAt?: number;
+    /** TA 偷偷打算的：送出前你看不到；送出時記「準備了幾天」 */
+    secret?: { plannedAt: number; when?: string; revealedAt?: number };
+}
+
+export interface BondGiftFollowup {
+    id: string;
+    at: number;
+    /** 'user' 或角色 id */
+    by: string;
+    text: string;
+    source?: BondSource;
 }
 
 /** 願望（plans/bond-batch4.md 1.1，紀要 3.5）：看見不等於答應；談妥才變成共同約定 */

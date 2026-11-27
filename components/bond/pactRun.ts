@@ -8,6 +8,7 @@
  *   丟了（換裝置、還原備份）就從今天重新判，帳本照 id 去重，不會重複加分。
  * - 背景系統一律過 isOnStage；小號不算（跟羈絆不單獨開小號的空間一致）。
  */
+import { syncGiftPlans } from './giftRun';
 import { unlockEventCards } from './eventCardRun';
 import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, Message, UserProfile } from '../../types';
 import { DB } from '../../utils/db';
@@ -273,6 +274,8 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
             if (scored.length || levelUp) gains.push({ bondId, charId: char.id, charName: char.name, rows: scored, ...(levelUp ? { levelUp } : {}) });
         }
         writeMap(SCAN_KEY, scan);
+        // 珍藏（plans/bond-batch5.md 2.3、2.4）：買了打算送的、TA 送出了它在準備的，連回訂單；TA 的打算過期作廢
+        await syncGiftPlans(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '禮物同步失敗', e));
         return gains;
     } finally {
         running = false;

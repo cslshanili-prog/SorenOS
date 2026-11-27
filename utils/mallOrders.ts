@@ -113,6 +113,8 @@ export interface NewMallOrderInput {
     /** 當下就付了（代付請求不傳） */
     paidAt?: number;
     createdAt?: number;
+    /** 卡片落在哪條私聊線（羈絆的禮物圖鑑照它分線） */
+    lineKey?: string;
 }
 
 export function createMallOrder(input: NewMallOrderInput): MallOrder {
@@ -131,6 +133,7 @@ export function createMallOrder(input: NewMallOrderInput): MallOrder {
         charName: input.charName,
         createdAt,
         paidAt: input.paidAt,
+        ...(input.lineKey ? { lineKey: input.lineKey } : {}),
     };
 }
 

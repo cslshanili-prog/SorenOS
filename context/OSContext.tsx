@@ -124,6 +124,7 @@ import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBon
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
+import { refreshGiftOrderRegistry } from '../components/bond/giftRun';
 import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
@@ -2565,7 +2566,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
-  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); }, []);
+  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); void refreshGiftOrderRegistry(); }, []);
   // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
   const diaryRegistryLoadedRef = useRef(false);
   useEffect(() => {
