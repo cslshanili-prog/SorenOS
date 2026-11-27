@@ -6,13 +6,21 @@
  * - TA 的打算 60 天沒送就作廢。
  * 純判斷在 utils/bond/gift.ts。
  */
-import type { BondSource, CharacterProfile, MallOrder, Message } from '../../types';
+import type { APIConfig, BondGiftFollowupPending, BondSource, CharacterProfile, MallOrder, MemoryFragment, Message } from '../../types';
 import { DB } from '../../utils/db';
 import { lineFor, lineKey } from '../../utils/chatLine';
 import { setGiftOrderRegistry, giftOrdersOfChar } from '../../utils/bond/giftOrderRegistry';
 import { allRegisteredBondEntries, bondEntriesOf } from '../../utils/bond/entryRegistry';
 import { deleteBondEntries, saveBondEntries } from '../../utils/bond/entries';
-import { expiredSecretIds, giftOrdersFor, matchOrderToPlan, orderGiftDir } from '../../utils/bond/gift';
+import {
+    addFollowup, buildGiftSummaryPrompt, buildGiftViews, dropGiftPending, expiredSecretIds, giftOrdersFor, giftsForSummary, matchOrderToPlan, orderGiftDir,
+    overlayForOrder, parseGiftSummary, withGiftSummaryChecked,
+} from '../../utils/bond/gift';
+import { personaBondId } from '../../utils/bond/model';
+import { bondById } from '../../utils/bond/registry';
+import { updateBond } from '../../utils/bond/store';
+import { globalMeterApi } from '../../utils/apiCenter';
+import { extractContent, safeFetchJson } from '../../utils/safeApi';
 import { trackEvent } from '../../utils/analytics';
 
 export async function refreshGiftOrderRegistry(): Promise<void> {
@@ -104,4 +112,57 @@ export async function giftCardContext(char: CharacterProfile, orderId: string): 
         source: { type: 'message', lineId: hit.lineKey, messageIds: [hit.messageId], snippet: reply || '[購物中心卡片]', at: hit.message.timestamp },
         ...(reply ? { reply } : {}),
     };
+}
+
+// ─── 每日總結對禮物後續（plans/bond-batch5.md 第 6 節）────────────
+
+const summaryApiOf = (apiConfig: APIConfig) => globalMeterApi(apiConfig) || (apiConfig.baseUrl && apiConfig.apiKey ? { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model } : null);
+
+/**
+ * 那天的總結寫好時：副 API 對一下這條線圖鑑裡已經送出的禮物，提到哪件後來怎麼了就放進 `giftFollowupPending`，
+ * 珍藏分頁上方問你要不要記進後續（先問你，不自動寫）。同一筆總結只對一次；沒有羈絆空間、圖鑑是空的就不問。
+ */
+export async function checkGiftFollowupFromSummary(char: CharacterProfile, memory: MemoryFragment, userName: string, apiConfig: APIConfig): Promise<number> {
+    const pk = memory.personaKey || char.primaryPersonaKey;
+    const bondId = personaBondId(char.id, pk);
+    const bond = bondById(bondId);
+    if (!bond || bond.giftSummaryChecked?.[memory.id] || !(memory.summary || '').trim()) return 0;
+    const views = giftsForSummary(buildGiftViews({ orders: lineGiftOrders(char, pk), entries: bondEntriesOf(bondId), forViewer: 'user' }));
+    if (!views.length) return 0;
+    const api = summaryApiOf(apiConfig);
+    if (!api) return 0;
+    const data = await safeFetchJson(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
+        body: JSON.stringify({
+            model: api.model,
+            messages: [{ role: 'user', content: buildGiftSummaryPrompt({ summary: memory.summary, date: String(memory.date || '').slice(0, 10), gifts: views, leftName: userName, rightName: char.name }) }],
+            temperature: 0.2, max_tokens: 600,
+        }),
+    }, 1, 90_000, { appName: '羈絆', charId: char.id, charName: char.name, purpose: '禮物後續' });
+    const found = parseGiftSummary(extractContent(data), views).map(f => ({ giftKey: f.gift.key, giftTitle: f.gift.title, text: f.text }));
+    const date = /^\d{4}-\d{2}-\d{2}/.test(String(memory.date || '')) ? String(memory.date).slice(0, 10) : undefined;
+    await updateBond(bondId, b => withGiftSummaryChecked(b, memory.id, found, date));
+    return found.length;
+}
+
+/** 你按「記進去」：疊在那件上（購物中心的單第一次補東西先開一張疊上去的卡），來源記那筆總結 */
+export async function acceptGiftPending(space: { id: string; char: CharacterProfile; personaKey?: string }, p: BondGiftFollowupPending, text?: string): Promise<boolean> {
+    const views = buildGiftViews({ orders: lineGiftOrders(space.char, space.personaKey), entries: bondEntriesOf(space.id), forViewer: 'user' });
+    const v = views.find(x => x.key === p.giftKey || (x.entry && `e:${x.entry.id}` === p.giftKey));
+    const now = Date.now();
+    if (v) {
+        const base = v.entry || (v.order ? overlayForOrder(space.id, v.order, now) : undefined);
+        if (base) {
+            const source: BondSource | undefined = p.memoryId ? { type: 'memory', charId: space.char.id, memoryId: p.memoryId } : undefined;
+            await saveBondEntries([addFollowup(base, { by: 'user', text: (text ?? p.text).trim() || p.text, ...(source ? { source } : {}) }, now)]);
+            trackEvent('羁绊礼物', { 动作: '后续', 方向: v.dir === 'out' ? '我送' : 'TA送', 来源: '每日总结' });
+        }
+    }
+    await updateBond(space.id, b => dropGiftPending(b, p.id, now));
+    return !!v;
+}
+
+export async function dismissGiftPending(bondId: string, id: string): Promise<void> {
+    await updateBond(bondId, b => dropGiftPending(b, id));
 }

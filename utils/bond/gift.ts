@@ -6,7 +6,7 @@
  * - 手記的（購物中心以外的禮物）、打算送的、TA 偷偷準備的，是卡片本身。
  * - **知情**：你打算送的不給 TA 看；TA 偷偷準備、還沒送出的不給你看（`forViewer`）。
  */
-import type { BondEntry, BondGift, BondGiftFollowup, MallOrder } from '../../types';
+import type { BondEntry, BondGift, BondGiftFollowup, BondGiftFollowupPending, BondRecord, MallOrder } from '../../types';
 import { mallOrderProgress } from '../mallOrders';
 import { newBondEntryId } from './ids';
 
@@ -302,4 +302,78 @@ export function giftWrapFor(key: string): { wrap: GiftWrap; ribbon: GiftRibbon }
     for (const ch of key) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
     const n = h >>> 0;
     return { wrap: GIFT_WRAPS[n % GIFT_WRAPS.length], ribbon: GIFT_RIBBONS[Math.floor(n / 7) % GIFT_RIBBONS.length] };
+}
+
+// ─── 每日總結對禮物後續（第 6 節）─────────────────
+
+/** 一次給 AI 對的圖鑑最多幾件（最近的先） */
+export const SUMMARY_GIFT_LIMIT = 20;
+/** 記得對過哪幾筆總結：留最近幾筆 */
+export const SUMMARY_CHECKED_KEEP = 120;
+/** 等你確認的最多留幾筆（舊的先丟） */
+export const FOLLOWUP_PENDING_MAX = 12;
+
+/** 能對的：已經送出去的（打算送的、還在路上的、TA 還沒揭曉的都不算） */
+export function giftsForSummary(views: GiftView[]): GiftView[] {
+    return views.filter(v => v.state === 'given' && !v.secret).slice(0, SUMMARY_GIFT_LIMIT);
+}
+
+export function buildGiftSummaryPrompt(args: { summary: string; date: string; gifts: Array<Pick<GiftView, 'title' | 'dir'>>; leftName: string; rightName: string }): string {
+    const { leftName: L, rightName: R } = args;
+    return [
+        `下面是 ${L} 和 ${R} 某一天的總結，還有兩人之間送過的禮物。`,
+        '看總結裡有沒有提到清單上哪一件禮物後來怎麼了（戴著、用著、帶去哪、壞了、收起來、又提起它…）。',
+        '每件寫一句後來怎麼了（第三人稱、用名字，只寫總結裡有的，不補沒寫的事）。只是剛好說到同類的東西、對不上是哪一件的不要算。',
+        '沒有就回空陣列。',
+        '只輸出 JSON 陣列：[{"gift":"G1","text":"…"}]',
+        '',
+        '【禮物】',
+        ...args.gifts.map((g, i) => `G${i + 1} ${g.dir === 'out' ? `${L}送給${R}` : `${R}送給${L}`}：${g.title}`),
+        '',
+        `【${args.date} 的總結】`,
+        args.summary.trim(),
+    ].join('\n');
+}
+
+/** 解析：G 編號換回那件；對不上的、沒寫內容的丟掉；同一件只留第一句 */
+export function parseGiftSummary<T extends Pick<GiftView, 'key' | 'title'>>(raw: string, gifts: T[]): Array<{ gift: T; text: string }> {
+    const s = String(raw || '');
+    const start = s.indexOf('[');
+    const end = s.lastIndexOf(']');
+    if (start < 0 || end <= start) return [];
+    let arr: unknown;
+    try { arr = JSON.parse(s.slice(start, end + 1)); } catch { return []; }
+    if (!Array.isArray(arr)) return [];
+    const out: Array<{ gift: T; text: string }> = [];
+    for (const item of arr) {
+        if (!item || typeof item !== 'object') continue;
+        const o = item as Record<string, unknown>;
+        const m = /^G?(\d+)$/i.exec(String(o.gift ?? '').trim());
+        const gift = m ? gifts[Number(m[1]) - 1] : undefined;
+        const text = String(o.text || '').trim().replace(/^["「『]|["」』]$/g, '');
+        if (!gift || !text || out.some(x => x.gift.key === gift.key)) continue;
+        out.push({ gift, text: text.slice(0, 160) });
+    }
+    return out;
+}
+
+/** 記下這筆總結對過了；有抓到的放進待確認（同一件同一句不重複，最多留幾筆） */
+export function withGiftSummaryChecked(
+    b: BondRecord, memoryId: string, found: Array<{ giftKey: string; giftTitle: string; text: string }>, date: string | undefined, now = Date.now(),
+): BondRecord {
+    const checked = Object.entries({ ...(b.giftSummaryChecked || {}), [memoryId]: now })
+        .sort((x, y) => y[1] - x[1]).slice(0, SUMMARY_CHECKED_KEEP);
+    const pending = [...(b.giftFollowupPending || [])];
+    found.forEach((f, i) => {
+        if (pending.some(p => p.giftKey === f.giftKey && p.text === f.text)) return;
+        const item: BondGiftFollowupPending = {
+            id: `gp-${now.toString(36)}-${i}`, giftKey: f.giftKey, giftTitle: f.giftTitle, text: f.text, memoryId, ...(date ? { date } : {}), at: now,
+        };
+        pending.push(item);
+    });
+    return { ...b, giftSummaryChecked: Object.fromEntries(checked), giftFollowupPending: pending.slice(-FOLLOWUP_PENDING_MAX), updatedAt: now };
+}
+
+export function dropGiftPending(b: BondRecord, id: string, now = Date.now()): BondRecord {
+    return { ...b, giftFollowupPending: (b.giftFollowupPending || []).filter(p => p.id !== id), updatedAt: now };
 }

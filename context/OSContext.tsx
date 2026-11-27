@@ -124,7 +124,7 @@ import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBon
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
-import { refreshGiftOrderRegistry } from '../components/bond/giftRun';
+import { checkGiftFollowupFromSummary, refreshGiftOrderRegistry } from '../components/bond/giftRun';
 import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
@@ -2694,6 +2694,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         void settleFeelingFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('💗 [BondFeeling] 總結結算失敗', e));
         // 同步承認：那天的總結裡有沒有已經發生的關係轉折（plans/bond-batch4.md 2.4）
         if (isOnStage(c)) void checkSyncFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🤝 [BondSync] 總結判斷失敗', e));
+        // 禮物後續：總結提到圖鑑裡哪件後來怎麼了，先放進待確認，珍藏分頁問你（plans/bond-batch5.md 第 6 節）
+        if (isOnStage(c)) void checkGiftFollowupFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🎁 [BondGift] 總結對禮物失敗', e));
       }
     }
   }, [characters]);

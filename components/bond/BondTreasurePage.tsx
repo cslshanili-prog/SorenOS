@@ -11,7 +11,7 @@ import { GiftBox } from './treasure/GiftBox';
 import { BondPhotoStrip } from './BondPhotoPicker';
 import { buildGiftViews, giftBucket, giftStats, giftWrapFor, type GiftBucket, type GiftView } from '../../utils/bond/gift';
 import { onGiftOrderRegistryChange } from '../../utils/bond/giftOrderRegistry';
-import { attributeGiftOrders, lineGiftOrders, syncGiftPlans } from './giftRun';
+import { acceptGiftPending, attributeGiftOrders, dismissGiftPending, lineGiftOrders, syncGiftPlans } from './giftRun';
 import { LetterTab } from './BondLetterPages';
 import { CapsuleTab } from './BondCapsulePages';
 import { unreadForUser } from '../../utils/bond/letter';
@@ -51,8 +51,9 @@ export function useGiftViews(space: ResolvedSpace): { views: GiftView[]; entries
 export function useGiftFreshDot(space: ResolvedSpace): boolean {
     const entries = useBondEntries(space.id);
     const orders = useLineGiftOrders(space);
-    return useMemo(() => buildGiftViews({ orders, entries, forViewer: 'user' }).some(v => giftIsFresh(v)) || unreadForUser(entries).length > 0
-        || entries.some(e => e.kind === 'capsule' && !!e.capsule?.dueAt && !e.capsule.openedAt), [orders, entries]);
+    const pending = (space.bond.giftFollowupPending || []).length;
+    return useMemo(() => pending > 0 || buildGiftViews({ orders, entries, forViewer: 'user' }).some(v => giftIsFresh(v)) || unreadForUser(entries).length > 0
+        || entries.some(e => e.kind === 'capsule' && !!e.capsule?.dueAt && !e.capsule.openedAt), [orders, entries, pending]);
 }
 
 /** TA 送的、送到了、你還沒拆的（一週以前的舊單當看過了，免得一打開滿滿都是小點；還在路上的等送到再拆） */
@@ -88,6 +89,40 @@ export const GiftArt: React.FC<{ view: GiftView; size: number }> = ({ view, size
     return <GiftBox wrap={wrap} ribbon={ribbon} size={size} faded={view.state === 'planned'} />;
 };
 
+/** 每日總結抓到的禮物後續：要記進去嗎（可以先改一下那句）；不自動寫 */
+const GiftPendingCards: React.FC<{ space: ResolvedSpace; views: GiftView[]; onOpen: (key: string) => void }> = ({ space, views, onOpen }) => {
+    const pending = space.bond.giftFollowupPending || [];
+    const [edit, setEdit] = useState<Record<string, string>>({});
+    const [busy, setBusy] = useState<string | null>(null);
+    if (!pending.length) return null;
+    return (
+        <div className="mt-4 space-y-2.5">
+            {pending.map(p => {
+                const v = views.find(x => x.key === p.giftKey);
+                const text = edit[p.id] ?? p.text;
+                return (
+                    <div key={p.id} className="rounded-xl border border-[var(--bond-rose)] bg-[var(--bond-card)] px-4 py-3">
+                        <div className="text-[11px] tracking-[0.2em] text-[var(--bond-accent)]">要 記 進 後 續 嗎</div>
+                        <div className="mt-1 text-[12px] text-[var(--bond-muted)]">
+                            {p.date ? `${formatEventDate({ precision: 'day', date: p.date })}的總結提到` : '總結提到'}
+                            {v ? <button type="button" className="mx-1 underline underline-offset-2 text-[var(--bond-ink-2)]" onClick={() => onOpen(v.key)}>{v.title}</button> : <span className="mx-1">{p.giftTitle}</span>}
+                            {!v && '（這件已經不在圖鑑裡了）'}
+                        </div>
+                        <textarea className="bond-input bond-serif mt-2 min-h-[56px] text-[13.5px] leading-relaxed" value={text} maxLength={160}
+                            onChange={e => setEdit(prev => ({ ...prev, [p.id]: e.target.value }))} />
+                        <div className="mt-2 flex gap-2">
+                            <button type="button" className="bond-btn flex-1" disabled={busy === p.id}
+                                onClick={async () => { setBusy(p.id); await dismissGiftPending(space.id, p.id).catch(() => undefined); setBusy(null); }}>不用</button>
+                            <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={busy === p.id || !v || !text.trim()}
+                                onClick={async () => { setBusy(p.id); await acceptGiftPending(space, p, text).catch(() => undefined); setBusy(null); }}>記進去</button>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 export const BondTreasurePage: React.FC<{
     space: ResolvedSpace;
     tabBar: React.ReactNode;
@@ -108,7 +143,7 @@ export const BondTreasurePage: React.FC<{
     const name = space.rightName;
     const stats = useMemo(() => giftStats(views), [views]);
     const list = views.filter(v => filter === 'all' || giftBucket(v) === filter);
-    const newDot = views.some(v => giftIsFresh(v));
+    const newDot = views.some(v => giftIsFresh(v)) || (space.bond.giftFollowupPending || []).length > 0;
     const treasureEntries = useBondEntries(space.id);
     const letterDot = unreadForUser(treasureEntries).length > 0;
     const capsuleDot = treasureEntries.some(e => e.kind === 'capsule' && e.capsule?.dueAt && !e.capsule.openedAt);
@@ -140,6 +175,7 @@ export const BondTreasurePage: React.FC<{
                                 <span className="min-w-0"><span className="bond-serif block text-[13.5px]">打算送</span><span className="block text-[11px] text-[var(--bond-muted)] truncate">只有你看得到</span></span>
                             </button>
                         </div>
+                        <GiftPendingCards space={space} views={views} onOpen={onOpenGift} />
                         {(stats.given > 0 || stats.received > 0) && (
                             <p className="mt-4 text-[12px] text-[var(--bond-ink-2)]">
                                 你送了 {stats.given} 件、收到 {stats.received} 件

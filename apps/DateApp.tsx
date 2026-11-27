@@ -81,7 +81,9 @@ import {
 } from '../utils/dateHistory';
 import { BUILTIN_PRESET, sceneDefault } from '../utils/presetBinding';
 
-import { bondForChar } from '../utils/bond/registry';
+import { bondById, bondForChar } from '../utils/bond/registry';
+import { updateBond } from '../utils/bond/store';
+import { withOutputEvent } from '../utils/bond/output';
 import { bondFinalLock } from '../utils/bond/prompt';
 /** 上次自己選的開場方式（赴約那次臨時用的「我走過去」不算）。 */
 const loadRememberedOpening = (): DateOpeningMode => {
@@ -624,6 +626,16 @@ const DateApp: React.FC = () => {
         openApp(AppID.Bond);
     };
 
+    /**
+     * 見面結束了（存檔離開、完結故事）：記成這條線的事件，日記、隨筆、願望、信可以提早寫（plans/bond-batch3.md 1.5）。
+     * 快速離開是掛起，不算結束；沒有羈絆空間的不開。
+     */
+    const noteDateEnded = (c: CharacterProfile) => {
+        const bondId = bondIdForChar(c);
+        if (!bondById(bondId)) return;
+        void updateBond(bondId, b => withOutputEvent(b, { kind: 'date_end', at: Date.now() })).catch(() => undefined);
+    };
+
     /** 見面選單「回桌面」「去私聊」：先掛起，再走 */
     const handleQuickLeave = (target: DateQuickLeaveTarget) => {
         if (!char) return;
@@ -668,6 +680,7 @@ const DateApp: React.FC = () => {
                 updateCharacter(c.id, { ...done.charPatch, ...timeForNext });
             }
             trackEvent('完结线下故事', { 方式: withSummary ? '完结并总结' : '直接结束', 入口: entry });
+            noteDateEnded(c);
             if (activeStoryRef.current?.id === story.id) setActiveStory(null);
             return true;
         } catch (e: any) {
@@ -1287,6 +1300,7 @@ const DateApp: React.FC = () => {
         if (char) {
             updateCharacter(char.id, { savedDateState: finalState });
             addToast('進度已保存', 'success');
+            if (activeStoryRef.current) noteDateEnded(char);
         }
         // 來自聊天：退出見面回聊天
         if (cameFromChat) { returnToChat(); return; }

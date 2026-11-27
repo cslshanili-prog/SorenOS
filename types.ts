@@ -6339,7 +6339,25 @@ export interface BondRecord {
     syncPending?: BondSyncProposal[];
     /** 同一段聊天／同一筆總結看到的關係變化只問一次：來源鍵 → 問過的時間 */
     syncAsked?: Record<string, number>;
+    /** 每日總結提到圖鑑裡的禮物、等你確認要不要記進後續的（plans/bond-batch5.md 第 6 節；先問你，不自動寫） */
+    giftFollowupPending?: BondGiftFollowupPending[];
+    /** 對過禮物的總結：記憶 id → 對過的時間（同一筆只對一次，留最近的一些） */
+    giftSummaryChecked?: Record<string, number>;
     updatedAt: number;
+}
+
+/** 每日總結抓到的一筆禮物後續（等你按「記進去」） */
+export interface BondGiftFollowupPending {
+    id: string;
+    /** 圖鑑那件的 key（'o:<orderId>' 或 'e:<entryId>'） */
+    giftKey: string;
+    /** 抓到時那件叫什麼（那件刪了也看得懂） */
+    giftTitle: string;
+    text: string;
+    memoryId?: string;
+    /** 總結那天 */
+    date?: string;
+    at: number;
 }
 
 /** 同步承認（plans/bond-batch4.md 2.4）：看起來聊天裡已經發生了，等你按「對」 */
