@@ -6,7 +6,7 @@
  * - TA 的打算 60 天沒送就作廢。
  * 純判斷在 utils/bond/gift.ts。
  */
-import type { CharacterProfile, MallOrder, Message } from '../../types';
+import type { BondSource, CharacterProfile, MallOrder, Message } from '../../types';
 import { DB } from '../../utils/db';
 import { lineFor, lineKey } from '../../utils/chatLine';
 import { setGiftOrderRegistry, giftOrdersOfChar } from '../../utils/bond/giftOrderRegistry';
@@ -83,4 +83,25 @@ export async function syncGiftPlans(spaces: Array<{ bondId: string; char: Pick<C
     const expired = expiredSecretIds(allRegisteredBondEntries(), now);
     if (expired.length) await deleteBondEntries(expired);
     return revealed;
+}
+
+/**
+ * 一張送禮單在聊天裡的那張卡：跳回原文用的來源、TA 收到（或送出）時接著說的第一句。
+ * 找不到卡（刪了）回 null。
+ */
+export async function giftCardContext(char: CharacterProfile, orderId: string): Promise<{ source: BondSource; reply?: string } | null> {
+    const map = await attributeGiftOrders(char);
+    const hit = map.get(orderId);
+    if (!hit) return null;
+    const arg = hit.lineKey.includes('::') ? { charId: char.id, personaKey: hit.lineKey.split('::')[1] } : char.id;
+    const msgs = await DB.getMessagesByCharId(arg as any, true).catch(() => [] as Message[]);
+    const sorted = [...msgs].sort((a, b) => a.id - b.id);
+    const at = sorted.findIndex(m => m.id === hit.messageId);
+    const after = at >= 0 ? sorted.slice(at + 1, at + 8) : [];
+    const firstReply = after.find(m => m.role === 'assistant' && m.type === 'text' && String(m.content || '').trim());
+    const reply = firstReply ? String(firstReply.content).split('%%BILINGUAL%%')[0].replace(/\[\[[^\]]*\]\]/g, '').trim().slice(0, 160) : undefined;
+    return {
+        source: { type: 'message', lineId: hit.lineKey, messageIds: [hit.messageId], snippet: reply || '[購物中心卡片]', at: hit.message.timestamp },
+        ...(reply ? { reply } : {}),
+    };
 }

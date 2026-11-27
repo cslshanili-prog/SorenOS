@@ -377,7 +377,7 @@ export interface ImageGenPreset {
 }
 
 /** 會生圖的地方（各處畫風那張表的每一列，utils/imageStyle.ts 的 IMAGE_FEATURES） */
-export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library';
+export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library' | 'bondGift';
 
 /** 生圖 API 庫裡的一組 */
 export interface ImageApiPreset {

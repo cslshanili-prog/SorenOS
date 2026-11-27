@@ -28,7 +28,9 @@ export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'm
     /** 心意（第 3 批）：直接開哪一格、哪一題、哪張紙條、哪天的日記 */
     heart?: 'diary' | 'question' | 'note'; questionId?: string; slipId?: string; diaryDate?: string;
     /** 約定（第 4 批）：直接開那張願望、約定、默契、里程碑 */
-    pact?: { kind: 'wish' | 'promise' | 'habit' | 'milestone'; entryId: string } }>();
+    pact?: { kind: 'wish' | 'promise' | 'habit' | 'milestone'; entryId: string };
+    /** 珍藏（第 5 批）：直接開那件禮物 */
+    giftKey?: string }>();
 /**
  * 從羈絆跳回當時那則訊息（plans/bond-batch2.md 6.1）：私聊收到就載入那則附近、捲過去閃一下。
  * 線不是現在的身份時，呼叫端先切身份（setActivePersonaId）再開聊天。

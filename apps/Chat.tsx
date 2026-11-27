@@ -1638,7 +1638,7 @@ const Chat: React.FC = () => {
         if (bondRef) {
             metadata = { ...(metadata || {}), bondRef };
             setBondRefDraft(null);
-            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条', wish: '愿望', promise: '约定', habit: '默契', milestone: '里程碑' } as const;
+            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条', wish: '愿望', promise: '约定', habit: '默契', milestone: '里程碑', gift: '礼物' } as const;
             trackEvent('带去聊聊', { 类型: kindLabel[bondRef.kind] });
         }
         const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
@@ -3274,6 +3274,7 @@ const Chat: React.FC = () => {
             bondLaunch.request({
                 bondId: ref.bondId,
                 ...(ref.pactId && (ref.kind === 'wish' || ref.kind === 'promise' || ref.kind === 'habit' || ref.kind === 'milestone') ? { pact: { kind: ref.kind, entryId: ref.pactId } }
+                    : ref.giftKey ? { giftKey: ref.giftKey }
                     : ref.essayId ? { essayId: ref.essayId }
                     : ref.itemKey ? { itemKey: ref.itemKey }
                     : ref.questionId ? { heart: 'question' as const, questionId: ref.questionId }
