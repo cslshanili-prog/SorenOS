@@ -90,3 +90,42 @@ describe('手記、打算送、TA 的打算', () => {
         expect(giftWrapFor('o:abc')).toEqual(giftWrapFor('o:abc'));
     });
 });
+
+import { bondPromptBlock } from './prompt';
+import { extractGiftPlanTag, buildGiftPlanPrompt } from './giftTags';
+import type { BondRecord } from '../../types';
+
+describe('TA 偷偷準備的標籤', () => {
+    it('剝掉標籤、收第一個；沒寫東西不算', () => {
+        const r = extractGiftPlanTag('好啊，那下次見。\n[[ACTION:BOND_GIFT_PLAN|一條深藍色圍巾|下次見面]]\n[[BOND_GIFT_PLAN|書]]');
+        expect(r.cleanedText).toBe('好啊，那下次見。');
+        expect(r.plan).toEqual({ what: '一條深藍色圍巾', when: '下次見面' });
+        expect(extractGiftPlanTag('嗯[[BOND_GIFT_PLAN|]]').plan).toBeNull();
+        expect(extractGiftPlanTag('沒有標籤').cleanedText).toBe('沒有標籤');
+    });
+    it('沒空間、小號、拉黑中不教', () => {
+        expect(buildGiftPlanPrompt({}, undefined, 'Liora')).toBe('');
+        expect(buildGiftPlanPrompt({ altOf: 'c0' }, {}, 'Liora')).toBe('');
+        expect(buildGiftPlanPrompt({}, {}, 'Liora')).toContain('BOND_GIFT_PLAN');
+    });
+});
+
+describe('提示詞【你們的珍藏】', () => {
+    const bond = { id: 'b', kind: 'persona', charId: 'c1', personaKey: 'p1', stage: 'friend', openedAt: 1, openedBy: 'auto', routeLog: [], days: {} } as unknown as BondRecord;
+    const now = 1000 + 3 * DAY;
+    it('沒有禮物一字不差；只有你打算送的也一字不差（驚喜）', () => {
+        const base = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [], selfId: 'c1' });
+        const plan = newGift({ bondId: 'b', dir: 'out', state: 'planned', text: '黑膠唱片', now: 1 });
+        expect(bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [plan], selfId: 'c1', giftOrders: [], now })).toBe(base);
+        expect(base).toBe('');
+    });
+    it('送出、收到的照方向寫；後續帶最後一筆；自己偷偷準備的另一段', () => {
+        const o = order({});
+        const e = addFollowup(overlayForOrder('b', o, 5), { by: 'user', text: '每天早上都用' }, 6);
+        const secret = newSecretPlan({ bondId: 'b', charId: 'c1', what: '一束尤加利', when: '她生日', entries: [], now: 2 })!;
+        const out = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [e, secret], selfId: 'c1', giftOrders: [o], now });
+        expect(out).toContain('Liora送你的：手沖壺；後來：每天早上都用');
+        expect(out).toContain('你在偷偷準備送Liora的');
+        expect(out).toContain('  - 一束尤加利（打算她生日送）');
+    });
+});

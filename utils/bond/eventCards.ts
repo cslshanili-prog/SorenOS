@@ -106,7 +106,7 @@ export function setCardState(e: BondEntry, state: NonNullable<BondEntry['eventCa
     return { ...e, eventCard: { ...e.eventCard!, state }, updatedAt: now };
 }
 
-export function startCard(e: BondEntry, venue: 'chat' | 'date', context: { wishIds: string[]; itemKeys: string[] }, now = Date.now()): BondEntry {
+export function startCard(e: BondEntry, venue: 'chat' | 'date', context: { wishIds: string[]; itemKeys: string[]; giftKeys?: string[] }, now = Date.now()): BondEntry {
     return { ...e, eventCard: { ...e.eventCard!, state: 'playing', venue, startedAt: now, context }, updatedAt: now };
 }
 
@@ -129,11 +129,14 @@ export function finishCard(e: BondEntry, result: 'yes' | 'notYet' | 'other', not
 export function buildEventScene(input: {
     title: string; theme: string; otherName: string; venue: 'chat' | 'date';
     wishes: string[]; moments: string[]; milestones: string[];
+    /** 珍藏（第 5 批）：跟這一刻相關的禮物（已寫好誰送誰） */
+    gifts?: string[];
 }): string {
     const bits: string[] = [];
     if (input.milestones.length) bits.push(`你們之前的轉折：${input.milestones.join('；')}`);
     if (input.wishes.length) bits.push(`你們想做的事：${input.wishes.join('；')}`);
     if (input.moments.length) bits.push(`你們一起經歷過：${input.moments.join('；')}`);
+    if (input.gifts?.length) bits.push(`你們之間的禮物：${input.gifts.join('；')}`);
     return `【這一刻】這可能是一個「${input.title}」的時刻——${input.theme}。${bits.length ? `\n${bits.join('\n')}` : ''}
 這只是一個機會，不是劇本：要不要開口、怎麼說、答不答應，都照你自己的個性、你對${input.otherName}現在的感受和你們現在的關係來；你可以猶豫、可以拒絕、可以要時間，不一定今天就要發生。不要提到「事件」「卡片」這類東西，也不要替${input.otherName}說話或決定。`;
 }

@@ -160,6 +160,14 @@ export function newGift(input: {
     };
 }
 
+/** 購物中心商品頁的「打算送 TA」：照那件商品記一張打算送（買了照品名連回訂單） */
+export function plannedGiftFromProduct(bondId: string, p: { name: string; price?: number; emoji?: string; shop?: string }, now = Date.now()): BondEntry {
+    return newGift({
+        bondId, dir: 'out', state: 'planned', title: p.name, text: p.name, productName: p.name,
+        items: [{ name: p.name, price: p.price ?? 0, qty: 1, ...(p.emoji ? { emoji: p.emoji } : {}), ...(p.shop ? { shop: p.shop } : {}) }], now,
+    });
+}
+
 /** 在訂單那件上第一次補東西：寫一張疊上去的卡 */
 export function overlayForOrder(bondId: string, order: MallOrder, now = Date.now()): BondEntry {
     const dir = orderGiftDir(order) || 'out';
@@ -245,6 +253,40 @@ export function plansDueSoon(entries: BondEntry[], todayKey: string): BondEntry[
         const d = Date.parse(`${g.plannedFor}T00:00:00`);
         return Number.isFinite(d) && d - t >= 0 && d - t <= 3 * DAY;
     });
+}
+
+// ─── 事件卡帶禮物（plans/bond-batch5.md 2.5） ────────────────
+
+const SCENE_OCCASION: Array<{ re: RegExp; occasion: string }> = [
+    { re: /生日/, occasion: '生日' },
+    { re: /紀念|週年|周年|一週年|一年/, occasion: '紀念日' },
+    { re: /道歉|和好|談開|好好談|修復/, occasion: '道歉' },
+    { re: /節|聖誕|新年|情人/, occasion: '節日' },
+];
+const JEWELRY = /戒指|項鍊|項鏈|手鍊|手鏈|耳環|手環|胸針|飾品|首飾/;
+const VOW = /求婚|告白|表白|訂婚|結婚|交往/;
+
+/** 開演時預設帶的禮物：場合對得上的先、求婚告白帶飾品、其餘照新舊；最多 limit 件（你可以再勾掉） */
+export function giftsForScene(views: GiftView[], card: { title: string; theme: string }, limit = 2): GiftView[] {
+    const text = `${card.title} ${card.theme}`;
+    const want = SCENE_OCCASION.find(o => o.re.test(text))?.occasion;
+    const vow = VOW.test(text);
+    return views
+        .filter(v => !v.secret && v.state !== 'planned')
+        .map(v => {
+            const names = [v.title, ...v.items.map(i => i.name)].join(' ');
+            const score = (want && v.occasion === want ? 2 : 0) + (vow && JEWELRY.test(names) ? 2 : 0) + (v.followups.length ? 0.5 : 0);
+            return { v, score };
+        })
+        .sort((a, b) => b.score - a.score || b.v.at - a.v.at)
+        .slice(0, limit)
+        .map(x => x.v);
+}
+
+/** 一件禮物寫進情境的那一句（給角色看：「你」＝角色） */
+export function giftSceneText(v: Pick<GiftView, 'dir' | 'title' | 'occasion'>, userName: string): string {
+    const who = v.dir === 'out' ? `${userName}送你的` : `你送${userName}的`;
+    return `${who}${v.title.replace(/\s+/g, ' ').slice(0, 30)}${v.occasion ? `（${v.occasion}）` : ''}`;
 }
 
 // ─── 圖樣 ──────────────────────────────────────────

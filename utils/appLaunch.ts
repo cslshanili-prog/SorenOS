@@ -23,6 +23,11 @@ const oneShot = <T>() => {
 
 export const calendarLaunch = oneShot<{ tab: 'theirs' }>();
 export const memoryPalaceLaunch = oneShot<{ charId: string }>();
+/**
+ * 購物中心（桌面那個）：從羈絆的「打算送」按「去買」（plans/bond-batch5.md 2.3）——
+ * 那件放進購物車、給誰預設 TA、留言預設是你寫的那句；這張單記在那條線上（lineKey），卡片也寫進那條線的私聊。
+ */
+export const mallLaunch = oneShot<{ recipientCharId: string; lineKey: string; productName?: string; note?: string }>();
 /** 羈絆：直接進某段關係的空間（plans/bond-batch1.md 3.1）；page 'route' 是直接開路線設定頁 */
 export const bondLaunch = oneShot<{ bondId: string; page?: 'home' | 'route' | 'moments' | 'collect'; collect?: BondCollectRequest; itemKey?: string; essayId?: string;
     /** 心意（第 3 批）：直接開哪一格、哪一題、哪張紙條、哪天的日記 */

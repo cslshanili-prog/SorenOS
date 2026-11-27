@@ -174,6 +174,8 @@ import { resolveBondProposal } from '../utils/bond/pactActions';
 import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch } from '../utils/appLaunch';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, type BondRefMeta } from '../utils/bond/bondRef';
 import { bondIdForChar } from '../utils/bond/model';
+import { plannedGiftFromProduct } from '../utils/bond/gift';
+import { saveBondEntry } from '../utils/bond/entries';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -5274,6 +5276,14 @@ const Chat: React.FC = () => {
                 addToast={addToast}
                 apiConfig={apiConfig}
                 apiPresets={apiPresets}
+                // 送給這個角色的單記在現在這條線（羈絆的禮物圖鑑照線分）
+                orderLineKey={() => { if (!char) return undefined; const f = lineMsgFields(char); return f.personaKey ? `${f.charId}::${f.personaKey}` : f.charId; }}
+                onPlanGift={char && !char.altOf ? p => {
+                    void saveBondEntry(plannedGiftFromProduct(bondIdForChar(char), p)).then(() => {
+                        trackEvent('羁绊礼物', { 动作: '打算', 方向: '我送', 来源: '购物' });
+                        addToast(`記下了：打算送${char.name}（在羈絆的珍藏裡，只有你看得到）`, 'success');
+                    }).catch(e => addToast(`沒記成功：${e?.message || e}`, 'error'));
+                } : undefined}
             />
 
             {/* 🦌 瑞幸小程序 - 與麥當勞同構 */}

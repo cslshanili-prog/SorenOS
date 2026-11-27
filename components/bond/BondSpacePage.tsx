@@ -6,6 +6,8 @@ import React, { useMemo, useState } from 'react';
 import { CaretRight, PencilSimple, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondSyncProposal, CalendarEvent, CharacterProfile } from '../../types';
 import { AvatarPair, BondHeader, SectionLabel } from './bondUi';
+import { patchGift, plansDueSoon } from '../../utils/bond/gift';
+import { saveBondEntry } from '../../utils/bond/entries';
 import { useHeartNotice, type HeartNotice } from './BondHeartPage';
 import type { ResolvedSpace } from './space';
 import { ROUTE_LABEL, routeLabel, stageLabel, suggestBond } from '../../utils/bond/routes';
@@ -52,16 +54,20 @@ export const BondSpacePage: React.FC<{
     onOpenNotice?: (n: HeartNotice) => void;
     /** 約定（plans/bond-batch4.md 4.3）：Lv. 點了去里程碑頁、近期約定點了去那個約定 */
     onOpenPact?: (to: { tab: 'promise' | 'milestone'; promiseId?: string }) => void;
+    /** 珍藏（第 5 批）：打算送的快到了，點了開那件 */
+    onOpenGift?: (key: string) => void;
     /** 親近與信任（plans/bond-batch4.md 4.1） */
     onOpenFeeling?: () => void;
     /** 同步承認的依據：跳回那段聊天或那天的總結 */
     onOpenSyncSource?: (p: BondSyncProposal) => void;
     addToast: (m: string, t?: 'success' | 'error' | 'info') => void;
-}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenFeeling, onOpenSyncSource, addToast }) => {
+}> = ({ space, characters, events, apiConfig, onBack, onOpenRoute, onOpenDays, onEditMine, onAddAnniversary, tabBar, onOpenItem, onOpenNotice, onOpenPact, onOpenGift, onOpenFeeling, onOpenSyncSource, addToast }) => {
     const notice = useHeartNotice(space);
     const ledger = useBondLedger(space.id);
     const pactEntries = useBondEntries(space.id);
     const points = useMemo(() => totalPoints(ledger), [ledger]);
+    // 打算送的那天前三天提醒（plans/bond-batch5.md 2.3）；按「知道了」就不再出
+    const dueGifts = useMemo(() => plansDueSoon(pactEntries, space.todayKey).filter(e => !e.gift?.remindedAt), [pactEntries, space.todayKey]);
     const freshCards = useMemo(() => pactEntries.filter(e => e.kind === 'eventCard' && e.eventCard?.state === 'unlocked' && !e.seenAt), [pactEntries]);
     // 近期共同約定（紀要 7.3 第 5 點）：這期還沒做的、TA 提了在等你的，最多 3 個
     const upcoming = useMemo(() => {
@@ -196,6 +202,17 @@ export const BondSpacePage: React.FC<{
                     {/* 同步承認（plans/bond-batch4.md 2.4）：聊天裡已經發生的，等你按「對」 */}
                     {!isPair && (bond.syncPending || []).map(p => (
                         <section key={p.id}><SyncProposalCard space={space} p={p} onOpenSource={onOpenSyncSource} addToast={addToast} /></section>
+                    ))}
+                    {/* 打算送的快到了 */}
+                    {!isPair && onOpenGift && dueGifts.map(e => (
+                        <section key={e.id} className="rounded-xl border border-dashed border-[var(--bond-rose)] px-4 py-3">
+                            <button type="button" onClick={() => onOpenGift(`e:${e.id}`)} className="w-full text-left">
+                                <div className="text-[11px] text-[var(--bond-accent)]">打算 {Number(e.gift!.plannedFor!.slice(5, 7))}/{Number(e.gift!.plannedFor!.slice(8, 10))} 送的，還沒買</div>
+                                <div className="bond-serif mt-1 text-[14.5px]">{e.title || e.text}</div>
+                            </button>
+                            <button type="button" className="mt-1 text-[11px] text-[var(--bond-muted)] underline underline-offset-2"
+                                onClick={() => void saveBondEntry(patchGift(e, { remindedAt: Date.now() }))}>知道了</button>
+                        </section>
                     ))}
                     {/* 剛解鎖的事件卡 */}
                     {!isPair && onOpenPact && freshCards.length > 0 && (

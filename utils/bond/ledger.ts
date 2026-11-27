@@ -160,6 +160,10 @@ export interface AchievementStats {
     milestones: number;
     wishesDone: number;
     habits: number;
+    /** 珍藏（第 5 批）：送到了的禮物件數（購物中心＋手記）、一件記了三筆以上後續的件數 */
+    giftsGiven?: number;
+    giftsReceived?: number;
+    giftsWellUsed?: number;
 }
 
 const ach = (key: string, periodKey: string, label: string, points: number, group: AchievementGroup): AchievementDef => ({ key: `ach:${key}`, periodKey, label, points, group });
@@ -200,8 +204,12 @@ export function achievedList(s: AchievementStats): AchievementDef[] {
     if (first('call')) out.push(ach('first-call', 'once', '第一次通話', 30, '第一次通话'));
     if (first('date')) out.push(ach('first-date', 'once', '第一次見面', 50, '第一次见面'));
     if (first('music')) out.push(ach('first-music', 'once', '第一次一起聽歌', 20, '第一次听歌'));
-    if (first('giftIn')) out.push(ach('first-gift-in', 'once', '第一次收到禮物', 30, '礼物'));
-    if (first('giftOut')) out.push(ach('first-gift-out', 'once', '第一次送出禮物', 30, '礼物'));
+    // 手記的禮物（購物中心以外的）也算第一次
+    if (first('giftIn') || (s.giftsReceived ?? 0) >= 1) out.push(ach('first-gift-in', 'once', '第一次收到禮物', 30, '礼物'));
+    if (first('giftOut') || (s.giftsGiven ?? 0) >= 1) out.push(ach('first-gift-out', 'once', '第一次送出禮物', 30, '礼物'));
+    if ((s.giftsGiven ?? 0) >= 10) out.push(ach('gifts-out', 'n:10', '送出十件禮物', 100, '礼物'));
+    if ((s.giftsReceived ?? 0) >= 10) out.push(ach('gifts-in', 'n:10', '收到十件禮物', 100, '礼物'));
+    if ((s.giftsWellUsed ?? 0) >= 1) out.push(ach('gift-well-used', 'once', '被好好用著（一份禮物記了三筆後續）', 30, '礼物'));
     const trips = [...s.trips].sort((a, b) => a.from.localeCompare(b.from));
     trips.forEach((t, i) => {
         if (i === 0) out.push(ach('first-trip', 'once', `第一次一起旅行（${t.destination}）`, 80, '旅行'));
@@ -227,6 +235,9 @@ export function allAchievementSlots(): Array<{ key: string; periodKey: string; l
         { key: 'ach:first-music', periodKey: 'once', label: '第一次一起聽歌', points: 20 },
         { key: 'ach:first-gift-in', periodKey: 'once', label: '第一次收到禮物', points: 30 },
         { key: 'ach:first-gift-out', periodKey: 'once', label: '第一次送出禮物', points: 30 },
+        { key: 'ach:gifts-out', periodKey: 'n:10', label: '送出十件禮物', points: 100 },
+        { key: 'ach:gifts-in', periodKey: 'n:10', label: '收到十件禮物', points: 100 },
+        { key: 'ach:gift-well-used', periodKey: 'once', label: '被好好用著（一份禮物記了三筆後續）', points: 30 },
         { key: 'ach:first-trip', periodKey: 'once', label: '第一次一起旅行', points: 80 },
         { key: 'ach:trip', periodKey: '*', label: '之後每一趟一起旅行', points: 40 },
     ];

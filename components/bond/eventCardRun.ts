@@ -69,7 +69,11 @@ export async function unlockEventCards(bondId: string, level: number): Promise<B
 
 // ─── 開演 ─────────────────────────────────────────
 
-export interface ScenePicks { wishIds: string[]; itemTexts: Array<{ key: string; text: string }> }
+export interface ScenePicks {
+    wishIds: string[]; itemTexts: Array<{ key: string; text: string }>;
+    /** 珍藏（第 5 批）：帶進去的禮物，text 已寫好誰送誰 */
+    giftTexts?: Array<{ key: string; text: string }>;
+}
 
 export function sceneTextFor(space: ResolvedSpace, card: BondEntry, picks: ScenePicks): string {
     const entries = bondEntriesOf(space.id);
@@ -78,13 +82,14 @@ export function sceneTextFor(space: ResolvedSpace, card: BondEntry, picks: Scene
     return buildEventScene({
         title: card.title || '', theme: card.text, otherName: space.leftName, venue: card.eventCard!.venue || 'chat',
         wishes, moments: picks.itemTexts.map(i => i.text.replace(/\s+/g, ' ').slice(0, 60)), milestones,
+        gifts: (picks.giftTexts || []).map(g => g.text),
     });
 }
 
 /** 在私聊開演：下一輪帶情境 */
 export async function startInChat(space: ResolvedSpace, card: BondEntry, picks: ScenePicks): Promise<void> {
     const text = sceneTextFor(space, card, picks);
-    await saveBondEntries([startCard(card, 'chat', { wishIds: picks.wishIds, itemKeys: picks.itemTexts.map(i => i.key) })]);
+    await saveBondEntries([startCard(card, 'chat', { wishIds: picks.wishIds, itemKeys: picks.itemTexts.map(i => i.key), ...(picks.giftTexts?.length ? { giftKeys: picks.giftTexts.map(g => g.key) } : {}) })]);
     await updateBond(space.id, b => ({ ...b, eventScene: { entryId: card.id, cardId: card.eventCard!.cardId, text, at: Date.now() } }));
     trackEvent('事件卡', { 动作: '开演', 路线: routeTag(space.bond.route), 结果: '无' });
 }
@@ -92,7 +97,7 @@ export async function startInChat(space: ResolvedSpace, card: BondEntry, picks: 
 /** 在見面開演：情境放進下一場故事的大綱（呼叫端負責寫線上的 dateScenario、開見面） */
 export async function startInDate(space: ResolvedSpace, card: BondEntry, picks: ScenePicks): Promise<string> {
     const text = sceneTextFor(space, card, picks);
-    await saveBondEntries([startCard(card, 'date', { wishIds: picks.wishIds, itemKeys: picks.itemTexts.map(i => i.key) })]);
+    await saveBondEntries([startCard(card, 'date', { wishIds: picks.wishIds, itemKeys: picks.itemTexts.map(i => i.key), ...(picks.giftTexts?.length ? { giftKeys: picks.giftTexts.map(g => g.key) } : {}) })]);
     trackEvent('事件卡', { 动作: '开演', 路线: routeTag(space.bond.route), 结果: '无' });
     return `${space.char.name}和${space.leftName}的這一場：${text.replace(/^【這一刻】/, '')}`;
 }

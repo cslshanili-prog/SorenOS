@@ -5,7 +5,9 @@
  *   現有提示詞一字不差（測試鎖著）。
  * - 友情、親情的鎖定除了在段落裡，系統提示詞最後還要再出現一次（bondFinalLock），預設改不掉。
  */
-import type { BondEntry, BondLedgerRow, BondRecord, BondRoute, DiaryEntry } from '../../types';
+import type { BondEntry, BondLedgerRow, BondRecord, BondRoute, DiaryEntry, MallOrder } from '../../types';
+import { buildGiftViews, type GiftView } from './gift';
+import { getLocalDateKey } from '../localDate';
 import { knownDiaries, knownHabits, knownMilestones, knownPromises, knownQuestions, knownSlips, knownWishes } from './visibility';
 import { milestoneLabel, repeatLabel } from './pact';
 import { donePeriod, ledgerKeyOf, promiseStartDay, streakOf, totalPoints } from './ledger';
@@ -45,6 +47,13 @@ export interface BondPromptInput {
     ledger?: BondLedgerRow[];
     /** 你裝置的今天（'YYYY-MM-DD'），判「這期做了沒」用；沒給就不寫這期的狀態 */
     today?: string;
+    /**
+     * 這條線的送禮單（plans/bond-batch5.md 第 5 節，購物中心的單，照線篩好）。
+     * 禮物從單＋卡（entries 裡的 gift）現排；你打算送的不帶（驚喜），角色自己偷偷準備的只進角色的提示詞。
+     */
+    giftOrders?: MallOrder[];
+    /** 配送進度照這個時間算（測試用；沒給用現在） */
+    now?: number;
 }
 
 export const PROMPT_DIARY_CHARS = 200;
@@ -103,6 +112,7 @@ function entryLines(input: BondPromptInput): string[] {
     }
     lines.push(...heartLines(input));
     lines.push(...pactLines(input));
+    lines.push(...treasureLines(input));
     return lines;
 }
 
@@ -209,6 +219,52 @@ function pactLines(input: BondPromptInput): string[] {
         for (const m of milestones) {
             const body = oneLine(m.text);
             lines.push(`  - ${promptEventDate(m.eventDate)}｜${milestoneLabel(m.milestone!.what, m.title)}${body ? `：${clip(body, PROMPT_PACT_CHARS)}` : ''}`);
+        }
+    }
+    return lines;
+}
+
+export const PROMPT_GIFT_LIMIT = 6;
+export const PROMPT_GIFT_CHARS = 60;
+
+const giftDay = (at: number) => promptEventDate({ precision: 'day', date: getLocalDateKey(new Date(at)) });
+
+/** 一件禮物寫給角色看（「你」＝角色；dir out＝對方送你、in＝你送對方） */
+function giftLine(v: GiftView, otherName: string): string {
+    const who = v.dir === 'out' ? `${otherName}送你的` : `你送給${otherName}的`;
+    const items = v.items.map(i => oneLine(i.name)).filter(n => n && n !== v.title).slice(0, 3);
+    const notes = [
+        v.occasion ? `${v.occasion}的禮物` : '',
+        items.length ? `裡面還有${items.join('、')}` : '',
+        v.state === 'bought' ? '還在配送中，還沒送到' : '',
+        v.preparedDays && v.dir === 'in' ? `你偷偷準備了 ${v.preparedDays} 天` : '',
+    ].filter(Boolean);
+    const last = v.followups[v.followups.length - 1];
+    const after = last ? `；後來：${clip(oneLine(last.text), PROMPT_GIFT_CHARS)}` : '';
+    return `  - ${giftDay(v.at)}｜${who}：${clip(oneLine(v.title), PROMPT_GIFT_CHARS)}${notes.length ? `（${notes.join('，')}）` : ''}${after}`;
+}
+
+/**
+ * 珍藏（plans/bond-batch5.md 第 5 節）：最近幾件禮物、你自己在偷偷準備的。沒有就一行都不出。
+ * 對方打算送你的（驚喜）在 buildGiftViews 的 'char' 視角裡就不會出現。
+ */
+function treasureLines(input: BondPromptInput): string[] {
+    const entries = input.entries || [];
+    const orders = input.giftOrders || [];
+    if (!orders.length && !entries.some(e => e.kind === 'gift')) return [];
+    const views = buildGiftViews({ orders, entries, forViewer: 'char', now: input.now });
+    const real = views.filter(v => !v.secret && v.state !== 'planned').slice(0, PROMPT_GIFT_LIMIT);
+    const secrets = views.filter(v => v.secret).sort((a, b) => a.at - b.at);
+    const lines: string[] = [];
+    if (real.length) {
+        lines.push('你們之間的禮物（真的送出、收到過的；不用每次提起，想到了自然帶到就好）：');
+        for (const v of real) lines.push(giftLine(v, input.otherName));
+    }
+    if (secrets.length) {
+        lines.push(`你在偷偷準備送${input.otherName}的（${input.otherName}還不知道；別說破，想好時機就用購物送出去，不送也可以）：`);
+        for (const v of secrets) {
+            const when = v.entry?.gift?.secret?.when;
+            lines.push(`  - ${clip(oneLine(v.title), PROMPT_GIFT_CHARS)}${when ? `（打算${when}送）` : ''}`);
         }
     }
     return lines;

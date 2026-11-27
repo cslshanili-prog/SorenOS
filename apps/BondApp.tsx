@@ -43,12 +43,12 @@ import { listPairSpaces, listPersonaSpaces, primaryCounter } from '../utils/bond
 import { routeLabel, stageLabel } from '../utils/bond/routes';
 import { pairBondId, parseBondId, personaBondId } from '../utils/bond/model';
 import { bondOrBlank, saveBondRecord, updateBond } from '../utils/bond/store';
-import { withLineFields, lineFor, lineView, lineMsgFields } from '../utils/chatLine';
+import { withLineFields, lineFor, lineKey, lineView, lineMsgFields } from '../utils/chatLine';
 import { globalPersonaKey, personaAvatarForKey, personaNameForKey, REAL_IDENTITY_PERSONA_ID } from '../utils/userPersona';
 import { personaOptions } from '../utils/calendarView';
 import { isOnStage } from '../utils/castRole';
 import { loadCalendarEvents } from '../utils/calendarEvents';
-import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch, dateJumpLaunch, memoryPalaceLaunch, pairChatLaunch } from '../utils/appLaunch';
+import { appReturn, bondLaunch, mallLaunch, chatBondRefLaunch, chatJumpLaunch, dateJumpLaunch, memoryPalaceLaunch, pairChatLaunch } from '../utils/appLaunch';
 import { bondRefFromDiary, bondRefFromEssay, bondRefFromGift, bondRefFromItem, bondRefFromPact, bondRefFromQuestion, bondRefFromSlip, type BondRefMeta } from '../utils/bond/bondRef';
 import { characterLaunch } from '../utils/characterLaunch';
 import { DB } from '../utils/db';
@@ -441,11 +441,18 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                             const ref = bondRefFromGift(s.id, v, { user: s.leftName, char: s.rightName });
                             if (!ref) { addToast('打算送的還不能帶（TA 還不知道）', 'info'); return; }
                             void bringToChat(s.id, ref, () => { bondLaunch.request({ bondId: s.id, giftKey: v.key }); openApp(AppID.Bond); });
+                        }}
+                        onGoBuy={v => {
+                            const g = v.entry?.gift;
+                            const note = v.entry && v.entry.text && v.entry.text !== v.title ? v.entry.text : undefined;
+                            mallLaunch.request({ recipientCharId: s.char.id, lineKey: lineKey(lineFor(s.char, s.personaKey)), productName: g?.productName || v.title, ...(note ? { note } : {}) });
+                            appReturn.set(AppID.Mall, () => { bondLaunch.request({ bondId: s.id, giftKey: v.key }); openApp(AppID.Bond); });
+                            openApp(AppID.Mall);
                         }} />
                 )}
                 {page.page === 'gift-edit' && s.kind === 'persona' && (
                     <BondGiftEditPage key={page.entryId || page.mode} space={s} entryId={page.entryId} mode={page.mode}
-                        fromWish={page.fromWishId ? bondEntryById(page.fromWishId) : undefined} addToast={addToast}
+                        fromWish={page.fromWishId ? bondEntryById(page.fromWishId) : undefined} events={events} addToast={addToast}
                         onBack={() => (page.back ? setPage({ page: 'gift', id: s.id, key: page.back.key }) : page.fromWishId ? setPage({ page: 'wish', id: s.id, entryId: page.fromWishId }) : toGifts())}
                         onDone={key => setPage({ page: 'gift', id: s.id, key })} />
                 )}
@@ -470,7 +477,9 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                     <BondWishPage onBringToChat={bringPact} key={page.entryId} space={s} characters={chars} apiConfig={apiConfig} entryId={page.entryId} onBack={page.exitOnBack ? closeApp : () => toPact('wish')}
                         onEdit={() => setPage({ page: 'wish-edit', id: s.id, entryId: page.entryId })}
                         onMakePromise={() => setPage({ page: 'promise-edit', id: s.id, fromWishId: page.entryId })}
-                        onOpenPromise={entryId => setPage({ page: 'promise', id: s.id, entryId })} addToast={addToast} />
+                        onOpenPromise={entryId => setPage({ page: 'promise', id: s.id, entryId })}
+                        onPlanGift={s.kind === 'persona' ? () => setPage({ page: 'gift-edit', id: s.id, mode: 'planned', fromWishId: page.entryId }) : undefined}
+                        onOpenGift={s.kind === 'persona' ? key => setPage({ page: 'gift', id: s.id, key }) : undefined} addToast={addToast} />
                 )}
                 {page.page === 'wish-edit' && (
                     <BondWishComposePage space={s} entryId={page.entryId} addToast={addToast}
@@ -508,6 +517,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onEditMine={() => setPage({ page: 'mine', id: s.id })}
                         onAddAnniversary={() => { appReturn.set(AppID.Calendar, () => openApp(AppID.Bond)); bondLaunch.request({ bondId: s.id }); openApp(AppID.Calendar); }}
                         onOpenFeeling={s.kind === 'persona' ? () => setPage({ page: 'feeling', id: s.id }) : undefined}
+                        onOpenGift={s.kind === 'persona' ? key => setPage({ page: 'gift', id: s.id, key }) : undefined}
                         onOpenSyncSource={p => {
                             if (p.evidence.messageIds?.length && p.evidence.lineId) void openSource(s.id, undefined, { type: 'message', lineId: p.evidence.lineId, messageIds: p.evidence.messageIds, snippet: p.text, at: p.at });
                             else if (p.evidence.memoryId) openMemory(s.id, '', s.char.id, 'link');

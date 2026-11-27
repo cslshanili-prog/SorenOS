@@ -75,6 +75,9 @@ import { relationshipChangeBlocked } from './bond/guard';
 import { canInviteBond, extractBondInvite } from './bond/invite';
 import { bondIdForChar } from './bond/model';
 import { canProposePact, extractPactTags, proposalEntry, proposalMeta, type PactProposalTag } from './bond/pactTags';
+import { extractGiftPlanTag, type GiftPlanTag } from './bond/giftTags';
+import { newSecretPlan } from './bond/gift';
+import { trackEvent } from './analytics';
 import { bondForChar } from './bond/registry';
 import { bondEntriesOf } from './bond/entryRegistry';
 import { saveBondEntry } from './bond/entries';
@@ -937,6 +940,13 @@ export async function applyAssistantPostProcessing(
         }
         return r.cleanedText;
     };
+    // TA 偷偷準備的禮物（plans/bond-batch5.md 2.4）：標籤剝掉、你看不到；同一道門，一輪一個
+    let pendingGiftPlan: GiftPlanTag | null = null;
+    const consumeGiftPlanTag = (content: string): string => {
+        const r = extractGiftPlanTag(content);
+        if (r.plan && !pendingGiftPlan && canProposePact(char, bondForChar(char))) pendingGiftPlan = r.plan;
+        return r.cleanedText;
+    };
 
     let pendingBlockUser: { reason: string } | null = null;
     const consumeBlockUser = (content: string): string => {
@@ -960,6 +970,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeSide(aiContent);
     aiContent = consumeBondInvite(aiContent);
     aiContent = consumePactTags(aiContent);
+    aiContent = consumeGiftPlanTag(aiContent);
     // 在任何 lead-in/二輪渲染之前先剝掉仿卡片文本，防止它被 chunkText 拆成灰色普通氣泡。
     const mimickedXhsShares = extractMimickedXhsShares(aiContent);
     aiContent = mimickedXhsShares.cleanedContent;
@@ -2459,6 +2470,7 @@ export async function applyAssistantPostProcessing(
     aiContent = consumeSide(aiContent);
     aiContent = consumeBondInvite(aiContent);
     aiContent = consumePactTags(aiContent);
+    aiContent = consumeGiftPlanTag(aiContent);
 
     // ─── Step 3: ChatParser.parseAndExecuteActions ───
     // mcdInheritMeta 一起傳下去：戳一戳 / 轉帳卡 / 音樂卡 / 新聞卡 / 日程系統提示 / 生活記錄卡
@@ -2635,6 +2647,20 @@ export async function applyAssistantPostProcessing(
             setMessages(await DB.getRecentMessagesByCharId(lineArgOf(char), 200));
         } catch (e) {
             console.warn('[bond] 角色提議沒存成', e);
+        }
+    }
+
+    // TA 偷偷準備的禮物：只存一張秘密的卡，聊天裡什麼都不落
+    if (pendingGiftPlan) {
+        try {
+            const bondId = bondIdForChar(char);
+            const plan = newSecretPlan({ bondId, charId: char.id, what: (pendingGiftPlan as GiftPlanTag).what, when: (pendingGiftPlan as GiftPlanTag).when, entries: bondEntriesOf(bondId) });
+            if (plan) {
+                await saveBondEntry(plan);
+                trackEvent('羁绊礼物', { 动作: '打算', 方向: 'TA送', 来源: 'TA准备' });
+            }
+        } catch (e) {
+            console.warn('[bond] 角色的禮物打算沒存成', e);
         }
     }
 

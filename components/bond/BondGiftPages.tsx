@@ -3,14 +3,16 @@
  * 購物中心的單沒有卡時，第一次補東西才寫一張疊上去的卡（overlayForOrder）。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowUUpLeft, ChatCircleText, Images, Sparkle, Trash } from '@phosphor-icons/react';
-import type { APIConfig, BondEntry, BondSource, GalleryImage } from '../../types';
+import { ArrowUUpLeft, ChatCircleText, Images, ShoppingBag, Sparkle, Trash } from '@phosphor-icons/react';
+import type { APIConfig, BondEntry, BondSource, CalendarEvent, GalleryImage } from '../../types';
+import { upcomingAnniversaries } from '../../utils/bond/spaces';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { GiftBox } from './treasure/GiftBox';
 import { BondPhotoPicker, BondPhotoStrip, BOND_PHOTO_LIMIT } from './BondPhotoPicker';
 import { giftIsFresh, giftSubline, useGiftViews } from './BondTreasurePage';
 import { giftCardContext } from './giftRun';
+import { refreshAchievements } from './pactRun';
 import {
     addFollowup, giftWrapFor, markGiven, newGift, overlayForOrder, patchGift, removeFollowup, type GiftView,
 } from '../../utils/bond/gift';
@@ -52,10 +54,13 @@ export const BondGiftPage: React.FC<{
     onEdit: (entryId: string) => void;
     onOpenSource: (src: BondSource) => void;
     onBringToChat?: (view: GiftView) => void;
+    /** 打算送的「去買」：開購物中心、那件放進購物車 */
+    onGoBuy?: (view: GiftView) => void;
     addToast: Toast;
-}> = ({ space, giftKey, apiConfig, onBack, onEdit, onOpenSource, onBringToChat, addToast }) => {
+}> = ({ space, giftKey, apiConfig, onBack, onEdit, onOpenSource, onBringToChat, onGoBuy, addToast }) => {
     const { views } = useGiftViews(space);
-    const view = views.find(v => v.key === giftKey);
+    // 打算送的買了之後，那張卡疊到訂單上（key 從 e: 變 o:）：照卡 id 也認得出來
+    const view = views.find(v => v.key === giftKey) || (giftKey.startsWith('e:') ? views.find(v => v.entry?.id === giftKey.slice(2)) : undefined);
     const name = space.rightName;
     const [opened, setOpened] = useState<boolean>(() => !(view && giftIsFresh(view)));
     const [card, setCard] = useState<{ source: BondSource; reply?: string } | null>(null);
@@ -100,6 +105,7 @@ export const BondGiftPage: React.FC<{
         try {
             const e = await ensureEntry(space, view);
             await saveBondEntry(fn(e));
+            void refreshAchievements(space).catch(() => undefined);
             if (okText) addToast(okText, 'success');
         } catch (err: any) {
             addToast(`沒存成功：${err?.message || err}`, 'error');
@@ -260,8 +266,11 @@ export const BondGiftPage: React.FC<{
             <Footer>
                 {card?.source && <button type="button" className="bond-btn flex-1" onClick={() => onOpenSource(card.source)}><ArrowUUpLeft size={14} />回到那時</button>}
                 {onBringToChat && view.state !== 'planned' && <button type="button" className="bond-btn flex-1" onClick={() => onBringToChat(view)}><ChatCircleText size={14} />帶去聊聊</button>}
+                {manual && view.state === 'planned' && view.dir === 'out' && onGoBuy && (
+                    <button type="button" className="bond-btn bond-btn-primary flex-1" onClick={() => onGoBuy(view)}><ShoppingBag size={14} />去買</button>
+                )}
                 {manual && view.state !== 'given' && view.dir === 'out' && (
-                    <button type="button" className="bond-btn bond-btn-primary flex-1" onClick={() => void save(e => markGiven(e), '記成送出了')}>送出了</button>
+                    <button type="button" className={`bond-btn flex-1 ${onGoBuy && view.state === 'planned' ? '' : 'bond-btn-primary'}`} onClick={() => void save(e => markGiven(e), '記成送出了')}>{view.state === 'planned' ? '送出了（沒走購物中心）' : '送出了'}</button>
                 )}
             </Footer>
             {picking && <BondPhotoPicker initial={view.photos} onBack={() => setPicking(false)} onDone={ids => {
@@ -281,10 +290,12 @@ export const BondGiftEditPage: React.FC<{
     mode: 'given' | 'planned';
     /** 從願望來的（願望頁「我想送這個」） */
     fromWish?: BondEntry;
+    /** 行事曆的事件（打算哪天送可以直接選一個紀念日） */
+    events?: CalendarEvent[];
     onBack: () => void;
     onDone: (giftKey: string) => void;
     addToast: Toast;
-}> = ({ space, entryId, mode, fromWish, onBack, onDone, addToast }) => {
+}> = ({ space, entryId, mode, fromWish, events, onBack, onDone, addToast }) => {
     const existing = entryId ? bondEntryById(entryId) : undefined;
     const g = existing?.gift;
     const planned = existing ? g?.state === 'planned' : mode === 'planned';
@@ -305,6 +316,7 @@ export const BondGiftEditPage: React.FC<{
         if (!planned) return;
         DB.getAllMallProducts().then(ps => setProducts(ps.map(p => p.name))).catch(() => undefined);
     }, [planned]);
+    const anniversaries = useMemo(() => (planned && events ? upcomingAnniversaries(events, { charIds: [space.char.id], personaKey: space.personaKey }, space.todayKey, 4) : []), [planned, events, space]);
     const productHits = useMemo(() => {
         const q = productName.trim();
         return q ? products.filter(p => p.includes(q) && p !== q).slice(0, 5) : [];
@@ -330,6 +342,7 @@ export const BondGiftEditPage: React.FC<{
                 trackEvent('羁绊礼物', { 动作: planned ? '打算' : '记下', 方向: (planned ? 'out' : dir) === 'out' ? '我送' : 'TA送', 来源: '手记' });
             }
             const saved = await saveBondEntry(e);
+            void refreshAchievements(space).catch(() => undefined);
             addToast(existing ? '改好了' : planned ? `記下了，只有你看得到` : '記下了', 'success');
             onDone(`e:${saved.id}`);
         } catch (err: any) {
@@ -367,7 +380,17 @@ export const BondGiftEditPage: React.FC<{
                     <>
                         <section>
                             <SectionLabel>打 算 哪 天 送</SectionLabel>
-                            <input type="date" className="bond-input" value={plannedFor} onChange={e => setPlannedFor(e.target.value)} />
+                            <input type="date" className="bond-input" value={plannedFor} min={space.todayKey} onChange={e => setPlannedFor(e.target.value)} />
+                            {anniversaries.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {anniversaries.map(a => (
+                                        <button key={a.event.id + a.date} type="button" className="bond-chip" aria-pressed={plannedFor === a.date}
+                                            onClick={() => { setPlannedFor(a.date); if (!occasion) setOccasion(/生日/.test(a.event.title) ? '生日' : '紀念日'); }}>
+                                            {a.event.title}・{Number(a.date.slice(5, 7))}/{Number(a.date.slice(8, 10))}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             <p className="mt-1.5 text-[11px] text-[var(--bond-muted)]">可以不填；填了，前三天提醒你一次。</p>
                         </section>
                         <section>

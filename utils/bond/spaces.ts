@@ -96,6 +96,11 @@ export interface NextAnniversary {
  * 下一個紀念日：參與者或擁有者有這個角色的（身份卡 × 角色：也要有那張卡或沒指定卡；角色 × 角色：兩人都在）。
  */
 export function nextAnniversary(events: CalendarEvent[], who: { charIds: string[]; personaKey?: string }, todayKey: string): NextAnniversary | null {
+    return upcomingAnniversaries(events, who, todayKey, 1)[0] || null;
+}
+
+/** 接下來的幾個紀念日（打算送禮選日子用，plans/bond-batch5.md 2.3）；近的在前 */
+export function upcomingAnniversaries(events: CalendarEvent[], who: { charIds: string[]; personaKey?: string }, todayKey: string, limit = 5): NextAnniversary[] {
     const people = (e: CalendarEvent) => [e.owner, ...(e.participants || [])];
     const hasChar = (e: CalendarEvent, id: string) => people(e).some(p => p.kind !== 'persona' && p.id === id);
     const personaOk = (e: CalendarEvent) => {
@@ -103,7 +108,7 @@ export function nextAnniversary(events: CalendarEvent[], who: { charIds: string[
         const personas = people(e).filter(p => p.kind === 'persona');
         return !personas.length || personas.some(p => p.id === who.personaKey);
     };
-    let best: NextAnniversary | null = null;
+    const out: NextAnniversary[] = [];
     for (const e of events) {
         if (e.kind !== 'anniversary') continue;
         if (!who.charIds.every(id => hasChar(e, id)) || !personaOk(e)) continue;
@@ -111,7 +116,8 @@ export function nextAnniversary(events: CalendarEvent[], who: { charIds: string[
         const date = nextOccurrenceDate({ date: anchor, repeatAnnually: e.repeat === 'yearly' }, todayKey);
         if (date < todayKey) continue;
         const daysLeft = (acquaintanceDays(todayKey, date) ?? 1) - 1;
-        if (!best || date < best.date) best = { event: e, date, daysLeft };
+        out.push({ event: e, date, daysLeft });
     }
-    return best;
+    // 同一天先到先列（跟原本 nextAnniversary 取第一個最早的一樣）
+    return out.map((x, i) => ({ x, i })).sort((a, b) => (a.x.date < b.x.date ? -1 : a.x.date > b.x.date ? 1 : a.i - b.i)).map(v => v.x).slice(0, limit);
 }

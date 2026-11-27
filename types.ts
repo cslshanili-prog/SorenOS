@@ -6578,6 +6578,8 @@ export interface BondGift {
     state: 'planned' | 'bought' | 'given';
     items?: Array<{ name: string; qty?: number; emoji?: string; shop?: string; price?: number }>;
     orderId?: string;
+    /** 打算送的前三天在首頁提醒過、你按了「知道了」 */
+    remindedAt?: number;
     /** 聊天裡那張購物卡（跳回原文用） */
     messageId?: number;
     /** 資料庫照片 id */
@@ -6686,5 +6688,5 @@ export interface BondEventCard {
     /** 演過的每一次（還沒、換方向的也留著） */
     history?: Array<{ result: 'yes' | 'notYet' | 'other'; at: number; note?: string; venue?: 'chat' | 'date' }>;
     /** 開演時帶進去的願望、拾光（你可以勾掉） */
-    context?: { wishIds?: string[]; itemKeys?: string[] };
+    context?: { wishIds?: string[]; itemKeys?: string[]; giftKeys?: string[] };
 }

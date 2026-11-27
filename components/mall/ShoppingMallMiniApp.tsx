@@ -47,6 +47,8 @@ export interface MallSendOrderInput {
     paidAt?: number;
     /** 收件的角色（gift）；桌面入口靠它知道卡片要寫進誰的私聊 */
     recipientCharId?: string;
+    /** 這張單記在哪條線（chatLine 的 lineKey）；卡片寫進那條線的私聊 */
+    lineKey?: string;
 }
 
 interface ShoppingMallMiniAppProps {
@@ -68,11 +70,17 @@ interface ShoppingMallMiniAppProps {
     /** 聊天預設 API，購物中心沒有獨立配置時跟隨這個。 */
     apiConfig: APIConfig;
     apiPresets: ApiPreset[];
+    /** 送給這個角色的單記在哪條線（羈絆的禮物圖鑑照線分，見 plans/bond-batch5.md 1.1）；沒給的照聊天卡片補 */
+    orderLineKey?: (charId: string) => string | undefined;
+    /** 商品頁「打算送 TA」（記進羈絆，先不買） */
+    onPlanGift?: (product: MallProduct) => void;
+    /** 一打開就把這件放進購物車（羈絆「打算送」的「去買」） */
+    launch?: { recipientCharId: string; productName?: string; note?: string } | null;
 }
 
 type Tab = 'home' | 'cart' | 'orders' | 'me';
 
-const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charId, charName, recipients, userBalance, onSendOrder, addToast, apiConfig, apiPresets }) => {
+const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose, charId, charName, recipients, userBalance, onSendOrder, addToast, apiConfig, apiPresets, orderLineKey, onPlanGift, launch }) => {
     const standalone = !charId;
     const [kind, setKind] = useState<MallKind>('food');
     const [tab, setTab] = useState<Tab>('home');
@@ -266,6 +274,28 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
         }
     };
 
+    // 羈絆「去買」：資料讀進來後放進購物車、給誰預設 TA、留言預設那句；找不到那件就幫你搜
+    const [launchDone, setLaunchDone] = useState(false);
+    useEffect(() => {
+        if (!loaded || !launch || launchDone) return;
+        setLaunchDone(true);
+        setRecipient(launch.recipientCharId);
+        if (launch.note) setNote(launch.note);
+        const want = (launch.productName || '').trim();
+        // 只找目錄裡看得到的（分類還在的）
+        const cats = new Set(categories.map(c => c.id));
+        const visible = products.filter(p => cats.has(p.categoryId));
+        const hit = want ? (visible.find(p => p.name === want) || visible.find(p => p.kind === 'shop' && (p.name.includes(want) || want.includes(p.name)))) : undefined;
+        if (hit) {
+            setKind(hit.kind);
+            setCarts(prev => ({ ...prev, [hit.kind]: addToCart(prev[hit.kind], hit.id) }));
+            setTab('cart');
+        } else {
+            setKind('shop');
+            if (want) { setQuery(want); addToast('購物中心裡沒找到這件，搜搜看，或自己加一件', 'info'); }
+        }
+    }, [loaded, launch, launchDone, products]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // ─── 結帳：先存訂單（代付結算要靠 orderId 找回它），落卡失敗就把訂單刪掉 ───
     const checkout = async () => {
         if (cartLines.length === 0 || busy) return;
@@ -280,6 +310,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             kind, items: items.map(({ name, price, qty, emoji, shop }) => ({ name, price, qty, emoji, shop })), note,
             buyer: 'user', recipient: toChar ? 'char' : 'user', payer: daifu ? 'char' : 'user',
             charId: orderCharId, charName: orderCharId ? nameOf(orderCharId) : undefined, paidAt, createdAt: paidAt,
+            ...(toChar && orderLineKey?.(toChar) ? { lineKey: orderLineKey(toChar) } : {}),
         });
         setBusy(true);
         try {
@@ -287,6 +318,7 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
             const ok = await onSendOrder({
                 mallKind: kind, mode: daifu ? 'daifu' : toChar ? 'gift' : 'self',
                 items, note: order.note, total: order.total, orderId: order.id, paidAt, recipientCharId: toChar ?? undefined,
+                ...(order.lineKey ? { lineKey: order.lineKey } : {}),
             });
             if (!ok) { await DB.deleteMallOrder(order.id); return; }
             setOrders(prev => [...prev, order]);
@@ -476,7 +508,8 @@ const ShoppingMallMiniApp: React.FC<ShoppingMallMiniAppProps> = ({ open, onClose
                 inCart={sheet?.mode === 'view' ? cartQty(sheet.product.id) : 0}
                 onClose={() => setSheet(null)}
                 onAddToCart={p => { addOne(p); addToast(`已加入：${p.name}`, 'success'); }}
-                onToggleFavorite={toggleFavorite} onTogglePinned={togglePinned} onSave={saveProduct} onDelete={deleteProduct} />
+                onToggleFavorite={toggleFavorite} onTogglePinned={togglePinned} onSave={saveProduct} onDelete={deleteProduct}
+                onPlanGift={onPlanGift ? p => { setSheet(null); onPlanGift(p); } : undefined} />
 
             <Modal isOpen={showPlus} title={kind === 'food' ? '外賣' : '購物'} onClose={() => setShowPlus(false)}>
                 <div className="space-y-2.5">

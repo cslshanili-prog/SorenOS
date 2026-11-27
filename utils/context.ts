@@ -51,6 +51,8 @@ import { bondForChar, bondForPair } from './bond/registry';
 import { bondPromptBlock, pairRouteNote } from './bond/prompt';
 import { diariesOfBondSync } from './bond/diaryRegistry';
 import { bondLedgerOf } from './bond/ledgerRegistry';
+import { giftOrdersOfLine } from './bond/giftOrderRegistry';
+import { lineFor, lineKey } from './chatLine';
 import { getLocalDateKey } from './localDate';
 import { bondEntriesOf } from './bond/entryRegistry';
 import { bondIdForChar } from './bond/model';
@@ -368,6 +370,8 @@ export const ContextBuilder = {
             diaries: diariesOfBondSync(bondIdForChar(char)),
             // 第 4 批：等級、約定這期做了沒（期照你裝置的日期）
             ledger: bondLedgerOf(bondIdForChar(char)), today: getLocalDateKey(),
+            // 第 5 批：這條線的送禮單（禮物圖鑑從單＋卡現排；你打算送的不帶）
+            giftOrders: giftOrdersOfLine(char.id, lineKey(lineFor(char, lineViewPersonaKey(char)))),
         });
 
         // 4a. 你身邊的人：自己的關係清單＋別人記到你的（關係線第 6 批）

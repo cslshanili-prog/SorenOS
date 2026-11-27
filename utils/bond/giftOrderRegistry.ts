@@ -35,6 +35,11 @@ export function giftOrdersOfChar(charId: string): MallOrder[] {
     return [...__orders.values()].filter(o => o.charId === charId);
 }
 
+/** 一條線的送禮單（lineKey 照 chatLine 的 lineKey；舊單沒記線的算主線） */
+export function giftOrdersOfLine(charId: string, lineKey: string): MallOrder[] {
+    return giftOrdersOfChar(charId).filter(o => (o.lineKey || charId) === lineKey);
+}
+
 export function onGiftOrderRegistryChange(fn: () => void): () => void {
     listeners.add(fn);
     return () => { listeners.delete(fn); };

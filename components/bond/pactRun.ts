@@ -8,9 +8,10 @@
  *   丟了（換裝置、還原備份）就從今天重新判，帳本照 id 去重，不會重複加分。
  * - 背景系統一律過 isOnStage；小號不算（跟羈絆不單獨開小號的空間一致）。
  */
-import { syncGiftPlans } from './giftRun';
+import { lineGiftOrders, syncGiftPlans } from './giftRun';
+import { buildGiftViews, giftStats } from '../../utils/bond/gift';
 import { unlockEventCards } from './eventCardRun';
-import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, Message, UserProfile } from '../../types';
+import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, MallOrder, Message, UserProfile } from '../../types';
 import { DB } from '../../utils/db';
 import { withLineFields, lineFor } from '../../utils/chatLine';
 import { isOnStage } from '../../utils/castRole';
@@ -95,6 +96,13 @@ function groupByDay(msgs: Message[]): Map<string, Message[]> {
     return out;
 }
 
+/** 珍藏的成就（plans/bond-batch5.md 第 7 節）：照圖鑑算，送到了才算 */
+function giftAchievementStats(entries: BondEntry[], orders: MallOrder[]): Pick<AchievementStats, 'giftsGiven' | 'giftsReceived' | 'giftsWellUsed'> {
+    const views = buildGiftViews({ orders, entries, forViewer: 'user' });
+    const st = giftStats(views);
+    return { giftsGiven: st.given, giftsReceived: st.received, giftsWellUsed: views.filter(v => v.followups.length >= 3).length };
+}
+
 /** 成就要看的統計（帳本裡的事實＋各處的紀錄） */
 async function achievementStats(bondId: string, char: CharacterProfile, personaKey: string | undefined, rows: BondLedgerRow[], ctx: { trips: Awaited<ReturnType<typeof DB.getAllTrips>>; events: Awaited<ReturnType<typeof loadCalendarEvents>> }): Promise<AchievementStats> {
     const entries = bondEntriesOf(bondId);
@@ -113,6 +121,7 @@ async function achievementStats(bondId: string, char: CharacterProfile, personaK
         milestones: entries.filter(e => e.kind === 'milestone' && e.status === 'published').length,
         wishesDone: entries.filter(e => e.kind === 'wish' && e.wish?.state === 'done').length,
         habits: entries.filter(e => e.kind === 'habit' && e.habit?.state === 'active').length,
+        ...giftAchievementStats(entries, lineGiftOrders(char, personaKey)),
     };
 }
 

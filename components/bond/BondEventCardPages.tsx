@@ -3,6 +3,8 @@
  * 主題、會帶進去的願望與回憶（可以勾掉）、在哪演、開演；演過的整理結果、你選成了／還沒／換個方向；先放著。
  * 另有自訂事件卡（只能記里程碑，不改階段）、同步承認卡（首頁用）。
  */
+import { useGiftViews } from './BondTreasurePage';
+import { giftSceneText, giftsForScene } from '../../utils/bond/gift';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChatCircleText, Check, Coffee, Flag, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondSyncProposal, CharacterProfile } from '../../types';
@@ -86,6 +88,10 @@ export const BondEventCardPage: React.FC<{
     const moments = useMemo(() => items.filter(i => !i.hidden && i.kind !== 'essay').slice(0, 8), [items]);
     const [wishIds, setWishIds] = useState<string[] | null>(null);
     const [itemKeys, setItemKeys] = useState<string[] | null>(null);
+    // 珍藏（第 5 批）：跟這一刻相關的禮物（場合對得上的、求婚告白帶飾品），預設帶 2 件、可以勾掉
+    const { views: giftViews } = useGiftViews(space);
+    const giftChoices = useMemo(() => (space.kind === 'persona' ? giftViews.filter(v => !v.secret && v.state !== 'planned').slice(0, 8) : []), [giftViews, space.kind]);
+    const [giftKeys, setGiftKeys] = useState<string[] | null>(null);
     const [venue, setVenue] = useState<'chat' | 'date'>(card?.eventCard?.venue || def?.venue || 'chat');
     const [busy, setBusy] = useState(false);
     const [judge, setJudge] = useState<CardJudge | null>(null);
@@ -100,13 +106,17 @@ export const BondEventCardPage: React.FC<{
     const itemPick = itemKeys ?? (moments.filter(m => m.favorite).slice(0, 3).map(m => m.key).concat(moments.slice(0, 2).map(m => m.key))).filter((k, i, a) => a.indexOf(k) === i).slice(0, 3);
     const title = card?.title || def?.title || '事件卡';
     const theme = card?.text || def?.theme || '';
+    const giftPick = giftKeys ?? giftsForScene(giftChoices, { title, theme }).map(v => v.key);
     const ec = card?.eventCard;
 
     const start = async () => {
         if (!card) return;
         setBusy(true);
         try {
-            const picks = { wishIds: wishPick, itemTexts: moments.filter(m => itemPick.includes(m.key)).map(m => ({ key: m.key, text: (m.title ? `${m.title}：` : '') + m.text })) };
+            const picks = {
+                wishIds: wishPick, itemTexts: moments.filter(m => itemPick.includes(m.key)).map(m => ({ key: m.key, text: (m.title ? `${m.title}：` : '') + m.text })),
+                giftTexts: giftChoices.filter(v => giftPick.includes(v.key)).map(v => ({ key: v.key, text: giftSceneText(v, space.leftName) })),
+            };
             if (venue === 'chat') {
                 await startInChat(space, card, picks);
                 addToast('下一輪私聊會帶著這一刻', 'success');
@@ -192,6 +202,17 @@ export const BondEventCardPage: React.FC<{
                                                     <span className="min-w-0 text-[12.5px] leading-relaxed"><span className="text-[var(--bond-muted)]">{formatEventDate(m.eventDate)}　</span>{((m.title ? `${m.title}：` : '') + m.text).slice(0, 60)}</span>
                                                 </button>
                                             );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
+                            {giftChoices.length > 0 && (
+                                <section>
+                                    <SectionLabel>帶 進 去 的 禮 物</SectionLabel>
+                                    <div className="flex flex-wrap gap-2">
+                                        {giftChoices.map(v => {
+                                            const on = giftPick.includes(v.key);
+                                            return <button key={v.key} type="button" className="bond-chip" aria-pressed={on} onClick={() => setGiftKeys(on ? giftPick.filter(x => x !== v.key) : [...giftPick, v.key])}>{v.dir === 'out' ? '你送的' : `${space.rightName}送的`}・{v.title.slice(0, 14)}</button>;
                                         })}
                                     </div>
                                 </section>

@@ -74,6 +74,7 @@ import { mirrorSceneNote } from './storyMirrorMeta';
 
 import { buildBondInvitePrompt, formatBondInviteRecord } from './bond/invite';
 import { buildPactProposalPrompt, formatBondProposalRecord, proposalStatus } from './bond/pactTags';
+import { buildGiftPlanPrompt } from './bond/giftTags';
 import { bondEntryById } from './bond/entryRegistry';
 import { bondForChar } from './bond/registry';
 // 語音格式指導按當前 TTS 服務商二選一：用 MiniMax 才注入 MiniMax 那套（含 <#秒#> 停頓標記），
@@ -465,6 +466,8 @@ export const ChatPrompts = {
         add('interact', buildBondInvitePrompt(char, userProfile.name));
         // 羈絆 · 約定：有空間時教角色可以提議約定、確認默契（plans/bond-batch4.md 1.7）
         add('interact', buildPactProposalPrompt(char, bondForChar(char), userProfile.name));
+        // 羈絆 · 珍藏：有空間時教角色可以偷偷準備禮物（plans/bond-batch5.md 2.4）
+        add('interact', buildGiftPlanPrompt(char, bondForChar(char), userProfile.name));
         // 關係線第 7 批 · 本人私聊教「你的小號」：小號加你好友（ALT_ADD）、自己開小號（OPEN_ALT），見 utils/altFriend.ts
         if (isPersonaLinesEnabled() && !char.altOf) add('interact', buildOwnerAltPrompt(char, getRegisteredCharacters<CharacterProfile>(), userProfile.name));
         if (isPersonaLinesEnabled() && char.altOf) add('interact', buildAltSelfRevealPrompt(char, getCharNameById(char.altOf) || '本人', userProfile.name));
