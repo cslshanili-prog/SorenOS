@@ -51,6 +51,8 @@ export const BondOutputSettingsPage: React.FC<{
 }> = ({ space, apiConfig, onBack, addToast }) => {
     const [bond, setBond] = useState(space.bond);
     const [busy, setBusy] = useState<BondOutputKind | null>(null);
+    // 「信」第一次打開：先填幾天一封、幾字（plans/bond-batch5.md 3.3，Liora 定的：不給預先填好的數字）
+    const [letterSetup, setLetterSetup] = useState(false);
     const name = space.rightName;
     const cloudKinds = bondOutputCloudKinds(space.id);
 
@@ -76,6 +78,10 @@ export const BondOutputSettingsPage: React.FC<{
     return (
         <div className="absolute inset-0 flex flex-col bond-root">
             <BondHeader title="主動產出" onBack={onBack} />
+            {letterSetup && (
+                <LetterSetupPage name={name} onBack={() => setLetterSetup(false)}
+                    onSave={async (everyDays, chars) => { await patch('letter', { enabled: true, everyDays, chars }, '开'); setLetterSetup(false); addToast(`好，${name}大約每 ${everyDays[0]}～${everyDays[1]} 天寫一封`, 'success'); }} />
+            )}
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 space-y-8">
                 <p className="text-[12px] leading-relaxed text-[var(--bond-ink-2)]">
                     {name}會照這裡的節奏自己寫：有值得留下的事會提早，沒有就到點寫一份。每段關係一天最多 {OUTPUT_LIMITS.perBondPerDay} 份、兩份至少隔 {OUTPUT_LIMITS.minGapMs / 3600_000} 小時；所有關係加起來一天最多 {OUTPUT_LIMITS.allPerDay} 份。沒改過的類型，最近 14 天有聊過才會開始寫。
@@ -88,7 +94,10 @@ export const BondOutputSettingsPage: React.FC<{
                     return (
                         <section key={kind}>
                             <SectionLabel right={
-                                <button type="button" className="bond-chip" aria-pressed={on} onClick={() => patch(kind, { enabled: !on }, on ? '关' : '开')}>{on ? '開著' : '關著'}</button>
+                                <button type="button" className="bond-chip" aria-pressed={on} onClick={() => {
+                                    if (kind === 'letter' && !on && !(own?.everyDays && own?.chars)) { setLetterSetup(true); return; }
+                                    void patch(kind, { enabled: !on }, on ? '关' : '开');
+                                }}>{on ? '開著' : '關著'}</button>
                             }>{OUTPUT_KIND_LABEL[kind]}</SectionLabel>
                             <p className="text-[11.5px] leading-relaxed text-[var(--bond-muted)]">{KIND_HINT[kind]}</p>
                             {on && (
@@ -202,3 +211,46 @@ const StyleBox: React.FC<{ value: string; title: string; placeholder: string; on
             className="bond-input w-full resize-none leading-relaxed" onBlur={() => onCommit(draft.trim())} onCommit={v => onCommit(v.trim())} />
     );
 };
+
+/** 「信」第一次打開的設定（全螢幕）：幾天一封、幾字到幾字都由你填，沒有預先填好的數字 */
+const LetterSetupPage: React.FC<{ name: string; onBack: () => void; onSave: (everyDays: [number, number], chars: [number, number]) => void }> = ({ name, onBack, onSave }) => {
+    const [d1, setD1] = useState('');
+    const [d2, setD2] = useState('');
+    const [c1, setC1] = useState('');
+    const [c2, setC2] = useState('');
+    const num = (v: string) => (v.trim() === '' ? NaN : Math.round(Number(v)));
+    const days = [num(d1), num(d2)];
+    const chars = [num(c1), num(c2)];
+    const daysOk = days.every(n => Number.isFinite(n) && n >= 1 && n <= 60);
+    const charsOk = chars.every(n => Number.isFinite(n) && n >= OUTPUT_CHARS_LIMIT[0] && n <= OUTPUT_CHARS_LIMIT[1]);
+    const box = (v: string, set: (s: string) => void, label: string, width = 76) => (
+        <input type="number" inputMode="numeric" aria-label={label} placeholder="?" className="bond-input text-center" style={{ width, flex: 'none' }} value={v} onChange={e => set(e.target.value)} />
+    );
+    return (
+        <div className="absolute inset-0 z-20 flex flex-col bond-root">
+            <BondHeader title={`${name}的信`} onBack={onBack} backLabel="取消" />
+            <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-6 space-y-7">
+                <p className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
+                    {name}會自己寫信給你：比紙條長、比聊天慢，偶爾慢慢寄、過幾天才到。多久一封、寫多長，你來定。
+                </p>
+                <section className="space-y-2">
+                    <SectionLabel>多 久 一 封</SectionLabel>
+                    <div className="flex items-center gap-2">{box(d1, setD1, '最少幾天', 64)}<span className="text-[12px] text-[var(--bond-muted)]">～</span>{box(d2, setD2, '最多幾天', 64)}<span className="text-[12px] text-[var(--bond-muted)]">天一封</span></div>
+                    <p className="text-[11px] text-[var(--bond-muted)]">1～60 天。在這個區間裡挑一天寫；里程碑、紀念日、見面之後、很久沒說話、你的信到了，會提早。</p>
+                </section>
+                <section className="space-y-2">
+                    <SectionLabel>寫 多 長</SectionLabel>
+                    <div className="flex items-center gap-2">{box(c1, setC1, '最少幾字')}<span className="text-[12px] text-[var(--bond-muted)]">～</span>{box(c2, setC2, '最多幾字')}<span className="text-[12px] text-[var(--bond-muted)]">字</span></div>
+                    <p className="text-[11px] text-[var(--bond-muted)]">{OUTPUT_CHARS_LIMIT[0]}～{OUTPUT_CHARS_LIMIT[1]} 字。話少的角色還是可能寫得短一點。</p>
+                </section>
+                <p className="text-[11px] leading-relaxed text-[var(--bond-muted)]">之後在這頁照樣能改；投遞時段預設晚上 20:00～23:30，信到了會在私聊落一張信封。</p>
+            </div>
+            <div className="shrink-0 px-5 pt-3 border-t bond-hair flex gap-2" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 12px)' }}>
+                <button type="button" className="bond-btn flex-1" onClick={onBack}>取消</button>
+                <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!daysOk || !charsOk}
+                    onClick={() => onSave([Math.min(days[0], days[1]), Math.max(days[0], days[1])], [Math.min(chars[0], chars[1]), Math.max(chars[0], chars[1])])}>打開</button>
+            </div>
+        </div>
+    );
+};
+

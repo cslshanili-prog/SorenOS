@@ -290,6 +290,49 @@ export function parseCharWish(raw: string): { wish: string; together: boolean } 
     return { wish: wish.slice(0, 200), together: str(o.owner) === 'both' };
 }
 
+/**
+ * 角色寫一封信（plans/bond-batch5.md 第 3 節）：回信（帶這一串的全文）或主動寫一封（帶最近的信、這次為什麼提筆）。
+ * 信比紙條長、比聊天慢：寫給對方一個人看的完整書信，照角色的口吻；不寫成聊天訊息、不用表情符號堆。
+ */
+export function buildCharLetterPrompt(input: OutputContext & {
+    /** 回信：這一串（舊到新，含對方最後那封）；沒有＝主動寫 */
+    thread?: Array<{ fromName: string; text: string; date?: string }>;
+    /** 主動寫：你們最近的信（一封一行的摘要） */
+    recentLetters?: string;
+    /** 這次為什麼提筆（里程碑、紀念日、見面之後、很久沒說話）；沒有就是想寫 */
+    occasion?: string;
+    relationLine?: string;
+    chars?: [number, number];
+    style?: string;
+}): string {
+    const thread = (input.thread || []).map(t => `—— ${t.fromName}${t.date ? `（${t.date}）` : ''}：\n${t.text}`).join('\n\n');
+    const replying = !!thread;
+    return `${replying ? `${input.otherName}寫了一封信給你，你要回信。` : `你想寫一封信給${input.otherName}。`}信跟聊天不一樣：是寫給對方一個人看的、比較完整、比較慢的話，可以說平常聊天說不出口的、也可以只是近況。
+${input.relationLine ? `\n（你們的關係：${input.relationLine}）\n` : ''}${input.occasion ? `\n【這次提筆的原因】${input.occasion}\n` : ''}
+${replying ? `【這一串信（舊到新，最後一封是${input.otherName}剛寄來的）】\n${thread}\n` : input.recentLetters ? `【你們之前的信】\n${input.recentLetters}\n` : ''}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份寫${replying ? '回信' : '這封信'}：
+${GROUND_RULES(input)}
+- 篇幅：${input.chars ? `大約 ${input.chars[0]}～${input.chars[1]} 字` : '大約 300～800 字'}，照你的個性；話少的人寫信也可以短、可以笨拙，但要是你會寫的信。
+- 寫成一封信：可以有稱呼、分段、近況、想說的話，結尾自然收住；不要寫成一則則聊天訊息，不要用顏文字、表情符號湊。${replying ? `\n- 回應${input.otherName}信裡真的寫到的事，不要只說謝謝。` : ''}
+- 照你們的關係寫，不是戀愛關係就不要寫曖昧的話。
+${styleLine(input)}- signature 是信末的署名（照你平常怎麼稱呼自己，可以只是名字）。
+只輸出 JSON，不要其他文字：{"text":"信的正文（用 \\n 分段，不含署名）","signature":"署名"}`;
+}
+
+export function parseLetter(raw: string): { text: string; signature?: string } | null {
+    const o = parseJsonObject(raw);
+    if (o) {
+        const t = str(o.text);
+        if (!t) return null;
+        const sig = str(o.signature).slice(0, 30);
+        return { text: t.slice(0, 8000), ...(sig ? { signature: sig } : {}) };
+    }
+    const t = String(raw || '').trim();
+    return t && !t.startsWith('{') ? { text: t.slice(0, 8000) } : null;
+}
+
 export function parseNotice(raw: string): string {
     const o = parseJsonObject(raw);
     return o ? str(o.notice).slice(0, 200) : '';

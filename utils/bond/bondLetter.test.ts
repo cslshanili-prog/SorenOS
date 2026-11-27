@@ -68,3 +68,25 @@ describe('提示詞【你們的珍藏】信件', () => {
         expect(out).toContain('你寄給Liora的一封信還在路上');
     });
 });
+
+import { buildCharLetterPrompt, parseLetter } from './outputPromptCore';
+import { dayFacts, checkDay } from './taskCheck';
+
+describe('TA 寫信', () => {
+    it('回信帶整串、主動寫帶提筆原因；解析署名', () => {
+        const reply = buildCharLetterPrompt({ selfName: 'Sully', otherName: 'Liora', thread: [{ fromName: 'Liora', text: '下雪了' }], chars: [300, 500] });
+        expect(reply).toContain('你要回信');
+        expect(reply).toContain('下雪了');
+        expect(reply).toContain('300～500 字');
+        const fresh = buildCharLetterPrompt({ selfName: 'Sully', otherName: 'Liora', occasion: '今天是你們的紀念日。' });
+        expect(fresh).toContain('今天是你們的紀念日');
+        expect(parseLetter('{"text":"親愛的你\\n今天","signature":"S."}')).toEqual({ text: '親愛的你\n今天', signature: 'S.' });
+        expect(parseLetter('{"signature":"S."}')).toBeNull();
+    });
+    it('任務「寫一封信」：你寄出那天算；慢寄的到了那天不重算', () => {
+        const m = (id: number, ev: 'sent' | 'arrived', slow?: boolean) => ({ id, role: 'user' as const, type: 'bond_invite' as const, content: '', metadata: { bondLetter: { event: ev, ...(slow ? { slow } : {}) } } });
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(1, 'arrived')]), []).done).toBe(true);
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(2, 'sent', true)]), []).done).toBe(true);
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(3, 'arrived', true)]), []).done).toBe(false);
+    });
+});

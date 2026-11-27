@@ -17,6 +17,7 @@ import { useBondEntries } from '../components/bond/useSpaceTimeline';
 import { BondTreasurePage, useGiftFreshDot, type TreasureTab } from '../components/bond/BondTreasurePage';
 import { BondGiftEditPage, BondGiftPage } from '../components/bond/BondGiftPages';
 import { BondLetterComposePage, BondLetterPage, BondSpecialMomentPage } from '../components/bond/BondLetterPages';
+import { askLetterReply } from '../components/bond/letterRun';
 import { BondAchievementsPage, BondLedgerPage, BondReviewPage } from '../components/bond/BondLedgerPages';
 import { BondFeelingPage } from '../components/bond/BondFeelingPage';
 import { BondCustomCardPage, BondEventCardPage } from '../components/bond/BondEventCardPages';
@@ -79,7 +80,7 @@ type Page =
     | { page: 'diary'; id: string; date?: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'question'; id: string; entryId: string; from?: 'home'; autoAsk?: boolean; exitOnBack?: boolean }
     | { page: 'question-new'; id: string }
-    | { page: 'output'; id: string }
+    | { page: 'output'; id: string; from?: 'letter' }
     | { page: 'slip'; id: string; entryId: string; from?: 'home'; exitOnBack?: boolean }
     | { page: 'slip-edit'; id: string; entryId?: string; replyTo?: string }
     | { page: 'item'; id: string; key: string; exitOnBack?: boolean }
@@ -399,7 +400,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onBack={() => (page.exitOnBack ? closeApp() : page.from === 'home' ? toHome() : toHeart('question'))} addToast={addToast} />
                 )}
                 {page.page === 'output' && s.kind === 'persona' && (
-                    <BondOutputSettingsPage key={`${s.id}-${version}`} space={s} apiConfig={apiConfig} onBack={() => toHeart('diary')} addToast={addToast} />
+                    <BondOutputSettingsPage key={`${s.id}-${version}`} space={s} apiConfig={apiConfig} onBack={() => (page.from === 'letter' ? toLetters() : toHeart('diary'))} addToast={addToast} />
                 )}
                 {page.page === 'question-new' && (
                     <BondQuestionComposePage space={s} apiConfig={apiConfig} onBack={() => toHeart('question')}
@@ -439,7 +440,8 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onNewGift={mode => setPage({ page: 'gift-edit', id: s.id, mode })}
                         onOpenLetter={letterId => setPage({ page: 'letter', id: s.id, letterId })}
                         onWriteLetter={() => setPage({ page: 'letter-write', id: s.id })}
-                        onOpenSpecial={key => setPage({ page: 'special', id: s.id, key })} />
+                        onOpenSpecial={key => setPage({ page: 'special', id: s.id, key })}
+                        onOpenLetterSettings={() => setPage({ page: 'output', id: s.id, from: 'letter' })} />
                 )}
                 {page.page === 'letter' && s.kind === 'persona' && (
                     <BondLetterPage key={page.letterId} space={s} letterId={page.letterId} addToast={addToast}
@@ -447,6 +449,12 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
                         onOpen={letterId => setPage({ page: 'letter', id: s.id, letterId })}
                         onReply={letterId => setPage({ page: 'letter-write', id: s.id, replyTo: letterId })}
                         onEditDraft={entryId => setPage({ page: 'letter-write', id: s.id, entryId })}
+                        onAskReply={async e => {
+                            const { reply, usedDefault } = await askLetterReply(s, e, apiConfig);
+                            addToast(`${s.rightName}回信了`, 'success');
+                            if (usedDefault) addToast('這次照 300～800 字寫；想調整，到「主動產出」的「信」設定篇幅', 'info');
+                            setPage({ page: 'letter', id: s.id, letterId: reply.id });
+                        }}
                         onBringToChat={e => {
                             const ref = bondRefFromLetter(s.id, e, { user: s.leftName, char: s.rightName });
                             if (!ref) { addToast('寄到了的信才能帶', 'info'); return; }

@@ -97,7 +97,8 @@ export const BondTreasurePage: React.FC<{
     onOpenLetter: (letterId: string) => void;
     onWriteLetter: () => void;
     onOpenSpecial: (key: string) => void;
-}> = ({ space, tabBar, header, tab, onTab, onOpenGift, onNewGift, onOpenLetter, onWriteLetter, onOpenSpecial }) => {
+    onOpenLetterSettings: () => void;
+}> = ({ space, tabBar, header, tab, onTab, onOpenGift, onNewGift, onOpenLetter, onWriteLetter, onOpenSpecial, onOpenLetterSettings }) => {
     const { views } = useGiftViews(space);
     const [filter, setFilter] = useState<GiftBucket | 'all'>('all');
     const name = space.rightName;
@@ -172,7 +173,7 @@ export const BondTreasurePage: React.FC<{
                     </div>
                 )}
 
-                {tab === 'letter' && <LetterTab space={space} onOpen={onOpenLetter} onWrite={onWriteLetter} onOpenSpecial={onOpenSpecial} />}
+                {tab === 'letter' && <LetterTab space={space} onOpen={onOpenLetter} onWrite={onWriteLetter} onOpenSpecial={onOpenSpecial} onOpenSettings={onOpenLetterSettings} />}
                 {tab === 'capsule' && (
                     <p className="px-8 py-16 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">留給以後在下一小批接上。</p>
                 )}

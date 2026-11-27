@@ -77,7 +77,9 @@ export const LetterTab: React.FC<{
     onOpen: (letterId: string) => void;
     onWrite: () => void;
     onOpenSpecial: (key: string) => void;
-}> = ({ space, onOpen, onWrite, onOpenSpecial }) => {
+    /** 主動產出「信」的設定 */
+    onOpenSettings: () => void;
+}> = ({ space, onOpen, onWrite, onOpenSpecial, onOpenSettings }) => {
     const entries = useBondEntries(space.id);
     const letters = useMemo(() => lettersForUser(entries), [entries]);
     const drafts = letters.filter(e => e.status === 'draft');
@@ -89,6 +91,15 @@ export const LetterTab: React.FC<{
                 <Feather size={16} className="text-[var(--bond-accent)] shrink-0" />
                 <span className="min-w-0"><span className="bond-serif block text-[13.5px]">寫一封信給{space.rightName}</span><span className="block text-[11px] text-[var(--bond-muted)] truncate">可以馬上寄到，也可以慢慢寄</span></span>
             </button>
+            {(() => {
+                const own = space.bond.output?.letter;
+                const on = own?.enabled === true;
+                return (
+                    <button type="button" onClick={onOpenSettings} className="mt-2 w-full text-left text-[11.5px] text-[var(--bond-muted)]">
+                        {space.rightName}主動寫信：{on && own?.everyDays ? `大約每 ${own.everyDays[0]}～${own.everyDays[1]} 天一封` : '關著'}<span className="ml-1 text-[var(--bond-accent)]">設定 ›</span>
+                    </button>
+                );
+            })()}
             {drafts.length > 0 && (
                 <section className="mt-5">
                     <SectionLabel>草 稿</SectionLabel>

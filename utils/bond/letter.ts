@@ -162,6 +162,12 @@ export function awaitingReply(entries: BondEntry[], e: BondEntry): boolean {
     return !entries.some(x => isLetter(x) && x.letter!.replyTo === e.id && x.author !== e.author && letterSent(x));
 }
 
+/** 你寄給 TA、寄到了、TA 還沒回的（舊的先回） */
+export function lettersAwaitingCharReply(entries: BondEntry[]): BondEntry[] {
+    return entries.filter(e => isLetter(e) && e.author === 'user' && awaitingReply(entries, e))
+        .sort((a, b) => (a.letter!.arrivedAt || 0) - (b.letter!.arrivedAt || 0));
+}
+
 /** 你收到、還沒讀的 */
 export const unreadForUser = (entries: BondEntry[]): BondEntry[] => entries.filter(e => isLetter(e) && e.letter!.to === 'user' && letterArrived(e) && !e.letter!.readAt);
 
@@ -185,12 +191,15 @@ export interface BondLetterMeta {
     from: string;
     excerpt: string;
     deliverAt?: number;
+    /** 這封是慢寄的（「信到了」那張不算寄出那天） */
+    slow?: boolean;
 }
 
 export function letterMeta(e: BondEntry, event: BondLetterMeta['event']): BondLetterMeta {
     return {
         bondId: e.bondId, entryId: e.id, event, from: e.author, excerpt: letterExcerpt(e.text, 30),
         ...(event === 'sent' && e.letter?.deliverAt ? { deliverAt: e.letter.deliverAt } : {}),
+        ...(e.letter?.deliverAt ? { slow: true } : {}),
     };
 }
 

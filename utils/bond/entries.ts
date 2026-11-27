@@ -3,7 +3,7 @@
  * 再發 BOND_CHANGE_EVENT（帶 bondId），讓 OSContext 把相關角色的雲端狀態打髒——已收存的片刻、
  * 已收下的隨筆會進提示詞。
  */
-import type { BondEntry } from '../../types';
+import type { BondEntry, BondOutputEvent } from '../../types';
 import { DB } from '../db';
 import { parseBondId } from './model';
 import { allRegisteredBondEntries, bondEntryById, dropBondEntriesFromRegistry, putBondEntriesInRegistry, setBondEntryRegistry } from './entryRegistry';
@@ -31,10 +31,14 @@ export async function saveBondEntries(entries: BondEntry[]): Promise<BondEntry[]
     const now = Date.now();
     const next = entries.map(e => ({ ...e, updatedAt: now }));
     // 主動產出的事件（plans/bond-batch3.md 1.5）：你剛收存的片刻、剛投遞的紙條、剛送出的題，讓角色提早寫一份
-    const events = next.flatMap(e => {
+    const events = next.flatMap((e): Array<{ bondId: string; ev: BondOutputEvent }> => {
         const prev = bondEntryById(e.id);
-        if (e.author !== 'user' || e.status !== 'published' || prev?.status === 'published') return [];
-        const kind = e.kind === 'moment' ? 'moment' as const : e.kind === 'note' ? 'note_received' as const : e.kind === 'question' ? 'question_received' as const : null;
+        if (e.author !== 'user') return [];
+        // 第 5 批：你寫的信寄到 TA 手上（慢寄的到了那一刻），TA 的信可以提早寫
+        if (e.kind === 'letter') return e.letter?.arrivedAt && !prev?.letter?.arrivedAt ? [{ bondId: e.bondId, ev: { kind: 'letter_received' as const, at: now, ref: e.id } }] : [];
+        if (e.status !== 'published' || prev?.status === 'published') return [];
+        const kind = e.kind === 'moment' ? 'moment' as const : e.kind === 'note' ? 'note_received' as const : e.kind === 'question' ? 'question_received' as const
+            : e.kind === 'milestone' ? 'milestone' as const : null;
         return kind ? [{ bondId: e.bondId, ev: { kind, at: now, ref: e.id } }] : [];
     });
     await DB.saveBondEntries(next);

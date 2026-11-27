@@ -6656,7 +6656,7 @@ export type BondPromiseRepeat =
 
 /** 共同約定的完成依據（plans/bond-batch4.md 1.2；自動判定在第 4b 批） */
 export type BondTaskCheck =
-    | { kind: 'record'; record: 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'gift'; min?: number }
+    | { kind: 'record'; record: 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'gift' | 'letter'; min?: number }
     | { kind: 'manual' }
     | { kind: 'ai'; hint: string }
     | { kind: 'keyword'; words: string[]; both: boolean };

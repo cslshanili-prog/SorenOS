@@ -29,7 +29,7 @@ import { bondById } from '../../utils/bond/registry';
 import { refreshBondEntryRegistry } from '../../utils/bond/entries';
 import { refreshDiaryRegistry } from '../../utils/bond/diaryStore';
 import {
-    BOND_OUTPUT_KIND, BOND_OUTPUT_TEMPERATURE, BOND_OUTPUT_WISH_CAPABILITY, bondOutputFireTime, bondOutputJobId, bondOutputJobKey, buildBondOutputJob,
+    BOND_OUTPUT_KIND, BOND_OUTPUT_TEMPERATURE, BOND_OUTPUT_WISH_CAPABILITY, BOND_OUTPUT_LETTER_CAPABILITY, bondOutputFireTime, bondOutputJobId, bondOutputJobKey, buildBondOutputJob,
     nextFireLocal, parseBondOutputResult, type BondOutputJob, type BondOutputJobKind,
 } from '../../utils/bond/outputCloudJob';
 import { trackEvent } from '../../utils/analytics';
@@ -113,15 +113,18 @@ export async function syncBondOutputCloud(scope: { characters: CharacterProfile[
             const wanted = new Map<BondOutputKind, { fireAt: string; maxTokens: number }>();
             // 「願望」是第 4 批加的：舊 worker 不認得這一種，就只在本機寫
             const wishOk = gate === 'ok' && await ActiveMsgClient.probeBackgroundJobKind(BOND_OUTPUT_WISH_CAPABILITY) === 'supported';
+            // 「信」是第 5 批加的，同上
+            const letterOk = gate === 'ok' && await ActiveMsgClient.probeBackgroundJobKind(BOND_OUTPUT_LETTER_CAPABILITY) === 'supported';
             if (gate === 'ok') {
                 for (const kind of OUTPUT_KINDS) {
                     if (kind === 'wish' && !wishOk) continue;
+                    if (kind === 'letter' && !letterOk) continue;
                     const own = space.bond.output?.[kind];
                     const setting = resolveOutputSetting(space.bond, kind);
                     const on = own && typeof own.enabled === 'boolean' ? own.enabled : setting.enabled && cand.recentlyActive;
                     if (on) wanted.set(kind, {
                         fireAt: bondOutputFireTime(cand.bondId, kind, setting.window),
-                        maxTokens: outputMaxTokens(resolveOutputChars(space.bond, kind), kind === 'essay' ? 2000 : 1500),
+                        maxTokens: outputMaxTokens(resolveOutputChars(space.bond, kind), kind === 'essay' || kind === 'letter' ? 2000 : 1500),
                     });
                 }
             }

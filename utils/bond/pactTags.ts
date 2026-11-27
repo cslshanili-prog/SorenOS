@@ -76,6 +76,7 @@ const TEMPLATE_HINTS: Array<{ id: string; re: RegExp }> = [
     { id: 'photo', re: /照片|拍照|自拍/ },
     { id: 'music', re: /聽歌|听歌|一起聽|一起听/ },
     { id: 'gift', re: /禮物|礼物/ },
+    { id: 'letter', re: /寫信|写信|一封信|寄信/ },
 ];
 
 export function guessCheck(text: string, repeat: BondPromiseRepeat): { check: BondTaskCheck; points?: number; templateId?: string } {

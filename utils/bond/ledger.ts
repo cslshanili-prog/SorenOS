@@ -113,7 +113,7 @@ export function planDayRows(input: DayRowsInput): BondLedgerRow[] {
 
 export const FACT_LABEL: Record<FactKind, string> = {
     chat: '聊了幾句', deepChat: '好好聊了一陣', goodnight: '互道晚安', photo: '分享了照片', call: '通了電話',
-    date: '見了面', music: '一起聽了歌', giftIn: '收到禮物', giftOut: '送出禮物',
+    date: '見了面', music: '一起聽了歌', giftIn: '收到禮物', giftOut: '送出禮物', letterOut: '寄了一封信',
 };
 
 /**
@@ -125,7 +125,7 @@ export function planBackfillTemplateRows(bondId: string, day: string, facts: Day
     for (const t of PROMISE_TEMPLATES) {
         if (!templateIds.includes(t.id) || t.check.kind !== 'record') continue;
         const rec = t.check.record;
-        const hit = rec === 'gift' ? (facts.hits.giftIn || facts.hits.giftOut) : facts.hits[rec];
+        const hit = rec === 'gift' ? (facts.hits.giftIn || facts.hits.giftOut) : rec === 'letter' ? facts.hits.letterOut : facts.hits[rec];
         if (!hit) continue;
         const id = ledgerRowId(bondId, `tpl:${t.id}`, day);
         if (existing.has(id)) continue;
@@ -137,7 +137,7 @@ export function planBackfillTemplateRows(bondId: string, day: string, facts: Day
 
 // ─── 成就（1.2b）───────────────────────────────────
 
-export type AchievementGroup = '第一次通话' | '第一次见面' | '第一次听歌' | '礼物' | '旅行' | '连续聊天' | '问答' | '日记' | '纸条' | '纪念日' | '里程碑' | '愿望' | '默契';
+export type AchievementGroup = '第一次通话' | '第一次见面' | '第一次听歌' | '礼物' | '旅行' | '连续聊天' | '问答' | '日记' | '纸条' | '纪念日' | '里程碑' | '愿望' | '默契' | '信';
 
 export interface AchievementDef {
     /** 帳本的鍵 `ach:<key>` */
@@ -164,6 +164,8 @@ export interface AchievementStats {
     giftsGiven?: number;
     giftsReceived?: number;
     giftsWellUsed?: number;
+    /** 信：雙方寄到的封數 */
+    lettersExchanged?: number;
 }
 
 const ach = (key: string, periodKey: string, label: string, points: number, group: AchievementGroup): AchievementDef => ({ key: `ach:${key}`, periodKey, label, points, group });
@@ -210,6 +212,8 @@ export function achievedList(s: AchievementStats): AchievementDef[] {
     if ((s.giftsGiven ?? 0) >= 10) out.push(ach('gifts-out', 'n:10', '送出十件禮物', 100, '礼物'));
     if ((s.giftsReceived ?? 0) >= 10) out.push(ach('gifts-in', 'n:10', '收到十件禮物', 100, '礼物'));
     if ((s.giftsWellUsed ?? 0) >= 1) out.push(ach('gift-well-used', 'once', '被好好用著（一份禮物記了三筆後續）', 30, '礼物'));
+    if ((s.lettersExchanged ?? 0) >= 1) out.push(ach('first-letter', 'once', '第一封信', 30, '信'));
+    if ((s.lettersExchanged ?? 0) >= 10) out.push(ach('letters', 'n:10', '交換十封信', 100, '信'));
     const trips = [...s.trips].sort((a, b) => a.from.localeCompare(b.from));
     trips.forEach((t, i) => {
         if (i === 0) out.push(ach('first-trip', 'once', `第一次一起旅行（${t.destination}）`, 80, '旅行'));
@@ -238,6 +242,8 @@ export function allAchievementSlots(): Array<{ key: string; periodKey: string; l
         { key: 'ach:gifts-out', periodKey: 'n:10', label: '送出十件禮物', points: 100 },
         { key: 'ach:gifts-in', periodKey: 'n:10', label: '收到十件禮物', points: 100 },
         { key: 'ach:gift-well-used', periodKey: 'once', label: '被好好用著（一份禮物記了三筆後續）', points: 30 },
+        { key: 'ach:first-letter', periodKey: 'once', label: '第一封信', points: 30 },
+        { key: 'ach:letters', periodKey: 'n:10', label: '交換十封信', points: 100 },
         { key: 'ach:first-trip', periodKey: 'once', label: '第一次一起旅行', points: 80 },
         { key: 'ach:trip', periodKey: '*', label: '之後每一趟一起旅行', points: 40 },
     ];

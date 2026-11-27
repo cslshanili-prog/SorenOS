@@ -15,7 +15,7 @@
  * 往這裡加代碼前先確認：不 import 任何帶瀏覽器依賴的模塊。`pnpm build:workers` 會把這份打進 amsg worker bundle。
  */
 import type { BondOutputKind, BondOutputSetting } from '../../types';
-import { buildDiaryPrompt, parseCharAsk, parseCharWish, parseDiary, parseNotice, parseSlip, type OutputContext } from './outputPromptCore';
+import { buildDiaryPrompt, parseCharAsk, parseCharWish, parseDiary, parseLetter, parseNotice, parseSlip, type OutputContext } from './outputPromptCore';
 
 export const BOND_OUTPUT_KIND = 'bond-output';
 export const BOND_OUTPUT_RESULT_KIND = 'bond-output';
@@ -267,6 +267,7 @@ export function bondOutputLooksValid(kind: BondOutputKind, raw: string, tags: st
     if (kind === 'question') return !!parseCharAsk(raw);
     if (kind === 'note') return !!parseSlip(raw, tags);
     if (kind === 'wish') return !!parseCharWish(raw);
+    if (kind === 'letter') return !!parseLetter(raw);
     return /"text"\s*:/.test(raw);
 }
 
