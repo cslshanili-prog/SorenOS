@@ -6658,6 +6658,11 @@ export interface BondGift {
     orderId?: string;
     /** 打算送的前三天在首頁提醒過、你按了「知道了」 */
     remindedAt?: number;
+    /**
+     * 購物中心那張單算不算禮物（你手動改過才有）：true＝算（外賣也收進圖鑑），false＝不算（移出圖鑑）。
+     * 沒改過照預設：商城買的算、外賣不算（日常互相點吃的是照顧，不是要留著的禮物）。
+     */
+    counts?: boolean;
     /** 聊天裡那張購物卡（跳回原文用） */
     messageId?: number;
     /** 資料庫照片 id */

@@ -176,6 +176,9 @@ import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, type BondRefMeta } from '../u
 import { bondIdForChar } from '../utils/bond/model';
 import { plannedGiftFromProduct } from '../utils/bond/gift';
 import { saveBondEntry } from '../utils/bond/entries';
+import { BOND_GIFT_COUNT_EVENT, orderGiftDir, withOrderCounts } from '../utils/bond/gift';
+import { giftOrderById } from '../utils/bond/giftOrderRegistry';
+import { allRegisteredBondEntries } from '../utils/bond/entryRegistry';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -3291,6 +3294,25 @@ const Chat: React.FC = () => {
         };
         window.addEventListener(BOND_REF_OPEN_EVENT, onOpen);
         return () => window.removeEventListener(BOND_REF_OPEN_EVENT, onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // 購物卡上按「算禮物／不算禮物」：寫在這條線的羈絆空間（有疊上去的卡就改那張）
+    useEffect(() => {
+        const onCount = (e: Event) => {
+            const d = (e as CustomEvent<{ orderId: string; counts: boolean }>).detail;
+            const c = charRef.current;
+            const order = giftOrderById(d?.orderId);
+            if (!c || !order || !orderGiftDir(order)) return;
+            const entry = allRegisteredBondEntries().find(x => x.kind === 'gift' && x.gift?.orderId === order.id);
+            const bondId = entry?.bondId || bondIdForChar(c);
+            void saveBondEntry(withOrderCounts(bondId, order, entry, d.counts)).then(() => {
+                addToast(d.counts ? '收進羈絆的禮物圖鑑了' : '從禮物圖鑑拿出來了', 'success');
+                trackEvent('羁绊礼物', { 动作: d.counts ? '算进' : '移出', 方向: orderGiftDir(order) === 'out' ? '我送' : 'TA送', 来源: order.kind === 'food' ? '外卖' : '购物' });
+            }).catch(err => addToast(`沒存成功：${err?.message || err}`, 'error'));
+        };
+        window.addEventListener(BOND_GIFT_COUNT_EVENT, onCount);
+        return () => window.removeEventListener(BOND_GIFT_COUNT_EVENT, onCount);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { formatMoney } from '../../utils/realBalance';
 import { mallOrderTitle, nextProgressChangeAt, progressLine } from '../../utils/mallOrders';
 import type { Message } from '../../types';
+import { BOND_GIFT_COUNT_EVENT, orderCountsAsGift, orderGiftDir } from '../../utils/bond/gift';
+import { giftOrderById, onGiftOrderRegistryChange } from '../../utils/bond/giftOrderRegistry';
+import { allRegisteredBondEntries, onBondEntryRegistryChange } from '../../utils/bond/entryRegistry';
 
 export interface MallOrderItem {
     name: string;
@@ -66,6 +69,25 @@ function useProgressTick(target: { kind: 'shop' | 'food'; paidAt?: number; cance
     return now;
 }
 
+/** 這張單在羈絆的禮物圖鑑裡算不算（你送 TA、TA 送你的單才有）；登記表變了跟著更新 */
+function useGiftCount(orderId: string | undefined): { eligible: boolean; counted: boolean } {
+    const read = () => {
+        const order = giftOrderById(orderId);
+        if (!order || !orderGiftDir(order) || order.cancelledAt) return { eligible: false, counted: false };
+        const entry = allRegisteredBondEntries().find(e => e.kind === 'gift' && e.gift?.orderId === order.id);
+        return { eligible: true, counted: orderCountsAsGift(order, entry) };
+    };
+    const [state, setState] = useState(read);
+    useEffect(() => {
+        const update = () => setState(read());
+        update();
+        const offA = onGiftOrderRegistryChange(update);
+        const offB = onBondEntryRegistryChange(update);
+        return () => { offA(); offB(); };
+    }, [orderId]); // eslint-disable-line react-hooks/exhaustive-deps
+    return state;
+}
+
 const MallOrderCard: React.FC<{
     m: Message;
     isUser: boolean;
@@ -86,6 +108,8 @@ const MallOrderCard: React.FC<{
     const now = useProgressTick(deliveryTarget);
     const line = progressLine(deliveryTarget, now, charName);
     const total = meta.total ?? items.reduce((s, i) => s + i.price * i.qty, 0);
+    const gift = useGiftCount(meta.orderId);
+    const setCounts = (counts: boolean) => window.dispatchEvent(new CustomEvent(BOND_GIFT_COUNT_EVENT, { detail: { orderId: meta.orderId, counts } }));
 
     return commonLayout(
         <div className="w-72 rounded-2xl overflow-hidden border border-slate-200 shadow-sm bg-white">
@@ -134,6 +158,13 @@ const MallOrderCard: React.FC<{
             )}
             {status === 'sent' && mode === 'gift' && isUser && meta.acknowledged && (
                 <div className="px-4 pb-3 text-[10px] text-slate-500 text-center">{charName}已收下</div>
+            )}
+            {gift.eligible && status !== 'pending' && status !== 'declined' && (
+                <div className="px-4 py-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <span className="text-[10.5px] text-slate-400">{gift.counted ? '🎁 在羈絆的禮物圖鑑裡' : kind === 'food' ? '外賣不算禮物' : '沒算進禮物圖鑑'}</span>
+                    <button type="button" className="text-[10.5px] font-bold text-slate-600 underline underline-offset-2"
+                        onClick={e => { e.stopPropagation(); setCounts(!gift.counted); }}>{gift.counted ? '不算禮物' : '算禮物'}</button>
+                </div>
             )}
         </div>
     );

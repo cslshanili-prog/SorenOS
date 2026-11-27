@@ -47,6 +47,24 @@ export function orderGiftDir(o: Pick<MallOrder, 'buyer' | 'recipient' | 'payer'>
     return null; // 給自己的、代付（你請 TA 付錢買給你自己）都不是禮物
 }
 
+/** 聊天的購物卡按「算禮物／不算」：卡片發事件，私聊頁照目前這條線的羈絆空間寫（detail：orderId、counts） */
+export const BOND_GIFT_COUNT_EVENT = 'soren-bond-gift-count';
+
+/**
+ * 購物中心這張單算不算禮物：你手動改過照你的（`gift.counts`），沒改過的商城買的算、外賣不算。
+ * 外賣是日常互相點吃的，算照顧不算禮物；特地訂的生日蛋糕這種你可以在聊天的購物卡上「算禮物」。
+ */
+export function orderCountsAsGift(o: Pick<MallOrder, 'kind'>, entry?: Pick<BondEntry, 'gift'>): boolean {
+    const c = entry?.gift?.counts;
+    if (c === true || c === false) return c;
+    return o.kind !== 'food';
+}
+
+/** 改一張單算不算禮物：有疊上去的卡就改那張，沒有就開一張（只記這個選擇） */
+export function withOrderCounts(bondId: string, order: MallOrder, entry: BondEntry | undefined, counts: boolean, now = Date.now()): BondEntry {
+    return patchGift(entry || overlayForOrder(bondId, order, now), { counts }, now);
+}
+
 /** 這條線的送禮單：角色對、線對、是禮物 */
 export function giftOrdersFor(orders: MallOrder[], charId: string, lineKey: string): MallOrder[] {
     return orders.filter(o => o.charId === charId && (o.lineKey || charId) === lineKey && !!orderGiftDir(o));
@@ -81,6 +99,7 @@ export function buildGiftViews(input: {
         const p = mallOrderProgress(o, now);
         if (p.stage === 'cancelled' || p.stage === 'awaiting-payment') continue;
         const entry = byOrder.get(o.id);
+        if (!orderCountsAsGift(o, entry)) continue; // 外賣、你移出圖鑑的：不算（疊上去的卡下面也不會再列）
         const g = entry?.gift;
         const state: GiftState = p.stage === 'delivered' ? 'given' : 'bought';
         const at = state === 'given' ? (p.deliveredAt || o.paidAt || o.createdAt) : (o.paidAt || o.createdAt);
@@ -221,6 +240,8 @@ export function matchOrderToPlan(order: MallOrder, entries: BondEntry[], now = D
     const g = hit.gift!;
     return patchGift(hit, {
         orderId: order.id, state: 'bought', boughtAt: order.paidAt || now,
+        // 你打算送的、TA 準備的，走外賣送出也是那份禮物
+        ...(order.kind === 'food' ? { counts: true } : {}),
         ...(g.secret ? { secret: { ...g.secret, revealedAt: order.paidAt || now } } : {}),
     }, now);
 }
