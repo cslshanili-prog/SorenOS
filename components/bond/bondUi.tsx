@@ -99,7 +99,8 @@ export const BOND_TABS: Array<{ id: BondTab; label: string }> = [
     { id: 'treasure', label: '珍藏' },
 ];
 /** 角色之間的空間沒有心意、約定、珍藏（第 6 批） */
-export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart', 'pact', 'treasure']);
+/** 分頁：身份卡 × 角色和角色 × 角色一樣五個（角色之間的「我們」叫「他們」，plans/bond-batch6.md 第 3 節） */
+export const bondTabsFor = (_kind: 'persona' | 'pair'): BondTab[] => ['us', 'moments', 'heart', 'pact', 'treasure'];
 export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void; tabs?: BondTab[]; dots?: Partial<Record<BondTab, boolean>>; labels?: Partial<Record<BondTab, string>> }> = ({ value, onChange, tabs, dots, labels }) => (
     <div className="shrink-0 flex gap-5 px-5 border-b bond-hair" role="tablist">
         {BOND_TABS.filter(t => !tabs || tabs.includes(t.id)).map(t => (

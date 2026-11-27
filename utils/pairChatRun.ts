@@ -10,6 +10,9 @@ import {
     serializeTurns, summarizeConversation, topicText, type MiniApiConfig, type RealConversationResult,
 } from './relationshipChat';
 import { newPairMessages, pairLineId, pairSpeakerOf, pairTranscript } from './pairLine';
+import { isOnStage } from './castRole';
+import { getLocalDateKey } from './localDate';
+import { nowInTimeZone, resolveCharTimeZone } from './timezone';
 
 type Updater = (id: string, updates: (prev: CharacterProfile) => Partial<CharacterProfile>) => void;
 
@@ -153,6 +156,13 @@ export async function archivePairIfNeeded(args: {
     }));
     push(a, b, aTopics);
     push(b, a, bTopics);
+    // 羈絆第 6 批：這段關係沒關掉自動日記、兩人都在戲上時，各留一篇日記（來源記這段的話題盒）
+    if (isOnStage(a) && isOnStage(b) && (aTopics.length || bTopics.length)) {
+        const date = getLocalDateKey(nowInTimeZone(resolveCharTimeZone(a)));
+        void import('../components/bond/pairRun').then(m => m.autoPairDiaries({
+            a, b, aTopicIds: aTopics.map(t => t.id), bTopicIds: bTopics.map(t => t.id), date, apiConfig: api as any,
+        })).catch(e => console.warn('[角色私聊] 自動日記沒寫成', e));
+    }
     // 也送進兩邊各自的記憶宮殿（開了記憶宮殿、設了 Embedding 的才送），之後跟你聊到相關的事召回得到
     void sendPairTopicsToPalace(a, b, aTopics, api);
     void sendPairTopicsToPalace(b, a, bTopics, api);

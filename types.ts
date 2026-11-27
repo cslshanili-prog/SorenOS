@@ -6620,7 +6620,13 @@ export interface BondEntry {
     /** 角色之間：一章故事（plans/bond-batch6.md 2.5）；text 是全文、title 是章名 */
     story?: BondStory;
     /** 角色之間：一篇日記（作者是角色 id；不是交換日記那張表）；text 是內容 */
-    diary?: { date: string };
+    diary?: {
+        date: string;
+        /** story＝故事回寫、button＝你按「讓某某寫一篇」、auto＝私下聊滿一大段自動寫的 */
+        origin?: 'story' | 'button' | 'auto';
+        /** auto：那段私下聊天整理成的話題盒 id */
+        fromTopics?: string[];
+    };
     updatedAt: number;
 }
 

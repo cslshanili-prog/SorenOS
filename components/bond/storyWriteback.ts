@@ -40,7 +40,7 @@ async function ask(api: Api, messages: Array<{ role: string; content: string }>,
 }
 
 /** 用這個角色自己的主 API、帶他的人設寫 */
-async function askAs(char: CharacterProfile, apiConfig: APIConfig, prompt: string, maxTokens: number, purpose: string, signal?: AbortSignal): Promise<string> {
+export async function askAs(char: CharacterProfile, apiConfig: APIConfig, prompt: string, maxTokens: number, purpose: string, signal?: AbortSignal): Promise<string> {
     const api = resolveCharacterChatApi(char, apiConfig);
     if (!api.baseUrl || !api.apiKey) throw new Error('還沒設定 API');
     return ask(api, [

@@ -319,7 +319,7 @@ export function planStoryWriteback(items: StoryWriteItem[], ctx: {
             }
             case 'diary':
                 if (!it.text.trim()) break;
-                out.entries.push(stamp(newPairDiary({ bondId: ctx.bondId, author: idOf(it.side), text: it.text, date: day, now })));
+                out.entries.push(stamp(newPairDiary({ bondId: ctx.bondId, author: idOf(it.side), text: it.text, date: day, origin: 'story', now })));
                 break;
             case 'memory':
                 if (it.text.trim()) out.memories.push({ side: it.side, text: it.text.trim() });
@@ -330,7 +330,10 @@ export function planStoryWriteback(items: StoryWriteItem[], ctx: {
 }
 
 /** 角色之間的一篇日記（作者是角色 id；第 6c 批的小按鈕、自動日記也用它） */
-export function newPairDiary(input: { bondId: string; author: string; text: string; date?: string; title?: string; now?: number }): BondEntry {
+export function newPairDiary(input: {
+    bondId: string; author: string; text: string; date?: string; title?: string; now?: number;
+    origin?: NonNullable<BondEntry['diary']>['origin']; fromTopics?: string[];
+}): BondEntry {
     const now = input.now ?? Date.now();
     const date = input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? input.date : undefined;
     return {
@@ -338,7 +341,7 @@ export function newPairDiary(input: { bondId: string; author: string; text: stri
         ...(input.title?.trim() ? { title: input.title.trim() } : {}),
         text: input.text.trim(), eventDate: date ? { precision: 'day', date } : { precision: 'unknown' },
         writtenAt: now, sources: [], links: [], status: 'published', createdBy: 'ai', updatedAt: now,
-        diary: { date: date || '' },
+        diary: { date: date || '', ...(input.origin ? { origin: input.origin } : {}), ...(input.fromTopics?.length ? { fromTopics: input.fromTopics } : {}) },
     };
 }
 
