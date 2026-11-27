@@ -101,7 +101,7 @@ const GiftPendingCards: React.FC<{ space: ResolvedSpace; views: GiftView[]; onOp
                 const v = views.find(x => x.key === p.giftKey);
                 const text = edit[p.id] ?? p.text;
                 return (
-                    <div key={p.id} className="rounded-xl border border-[var(--bond-rose)] bg-[var(--bond-card)] px-4 py-3">
+                    <div key={p.id} className="bond-block bg-[var(--bond-block-blush)] px-4 py-3.5">
                         <div className="text-[11px] tracking-[0.2em] text-[var(--bond-accent)]">要 記 進 後 續 嗎</div>
                         <div className="mt-1 text-[12px] text-[var(--bond-muted)]">
                             {p.date ? `${formatEventDate({ precision: 'day', date: p.date })}的總結提到` : '總結提到'}
@@ -166,7 +166,7 @@ export const BondTreasurePage: React.FC<{
                 {tab === 'gift' && (
                     <div className="px-5 pt-4 pb-12">
                         <div className="grid grid-cols-2 gap-2">
-                            <button type="button" onClick={() => onNewGift('given')} className="flex items-center gap-2 rounded-xl border bond-hair bg-[var(--bond-card)] px-3.5 py-3 text-left">
+                            <button type="button" onClick={() => onNewGift('given')} className="flex items-center gap-2 rounded-[18px] bg-[var(--bond-block-mist)] px-3.5 py-3 text-left">
                                 <Gift size={16} className="text-[var(--bond-accent)] shrink-0" />
                                 <span className="min-w-0"><span className="bond-serif block text-[13.5px]">記一件禮物</span><span className="block text-[11px] text-[var(--bond-muted)] truncate">手作的、路上買的…</span></span>
                             </button>

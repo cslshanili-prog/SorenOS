@@ -133,7 +133,7 @@ export const PairHeartPage: React.FC<{
                         {diaries.length === 0 ? (
                             <div className="mt-10 text-center text-[13px] text-[var(--bond-muted)]">還沒有日記。</div>
                         ) : (
-                            <div className="mt-4 divide-y bond-hair border-y">
+                            <div className="mt-4 bond-panel px-4 divide-y bond-hair">
                                 {diaries.map(e => (
                                     <button key={e.id} type="button" className="w-full text-left py-3.5" onClick={() => onOpenDiary(e.id)}>
                                         <div className="flex items-center gap-2 text-[11px] text-[var(--bond-muted)]">
@@ -155,7 +155,7 @@ export const PairHeartPage: React.FC<{
                         {questions.length === 0 ? (
                             <div className="mt-10 text-center text-[13px] text-[var(--bond-muted)]">還沒問過他們。</div>
                         ) : (
-                            <div className="mt-4 divide-y bond-hair border-y">
+                            <div className="mt-4 bond-panel px-4 divide-y bond-hair">
                                 {questions.map(q => {
                                     const fresh = !q.seenAt && !!lastRound(q.question)?.revealedAt;
                                     return (
@@ -410,23 +410,23 @@ export const PairPactPage: React.FC<{
                     <div className="flex flex-wrap gap-2 mb-2">
                         {sidesOf(space).map(({ side, char }) => <SmallBtn key={side} busy={busy === side} onClick={() => void wish(side)}>讓{char.name}說一個願望</SmallBtn>)}
                     </div>
-                    {wishes.length ? <div className="divide-y bond-hair border-y">{wishes.map(e => row(e, e.wish!.owner === 'both' ? '他們兩人的' : `${nameOfId(space, e.wish!.owner)}的`, () => onOpenEntry(e.id)))}</div>
+                    {wishes.length ? <div className="bond-panel px-4 divide-y bond-hair">{wishes.map(e => row(e, e.wish!.owner === 'both' ? '他們兩人的' : `${nameOfId(space, e.wish!.owner)}的`, () => onOpenEntry(e.id)))}</div>
                         : <Empty>還沒有願望。</Empty>}
                 </section>
                 <section>
                     <SectionLabel>約 定</SectionLabel>
-                    {promises.length ? <div className="divide-y bond-hair border-y">{promises.map(e => row(e, `${repeatLabel(e.promise!.repeat)}・${PROMISE_STATE_LABEL[e.promise!.state]}`, () => onOpenEntry(e.id)))}</div>
+                    {promises.length ? <div className="bond-panel px-4 divide-y bond-hair">{promises.map(e => row(e, `${repeatLabel(e.promise!.repeat)}・${PROMISE_STATE_LABEL[e.promise!.state]}`, () => onOpenEntry(e.id)))}</div>
                         : <Empty>還沒有說好的約定。</Empty>}
                 </section>
                 <section>
                     <SectionLabel>默 契</SectionLabel>
-                    {habits.length ? <div className="divide-y bond-hair border-y">{habits.map(e => row(e, e.habit!.state === 'active' ? '他們的默契' : HABIT_STATE_LABEL[e.habit!.state], () => onOpenEntry(e.id)))}</div>
+                    {habits.length ? <div className="bond-panel px-4 divide-y bond-hair">{habits.map(e => row(e, e.habit!.state === 'active' ? '他們的默契' : HABIT_STATE_LABEL[e.habit!.state], () => onOpenEntry(e.id)))}</div>
                         : <Empty>還沒有默契。</Empty>}
                 </section>
                 <section>
                     <SectionLabel>里 程 碑</SectionLabel>
                     <button type="button" className="bond-btn text-[12.5px] mb-2" onClick={() => onOpenMilestone()}><Plus size={13} />補一個里程碑</button>
-                    {milestones.length ? <div className="divide-y bond-hair border-y">{milestones.map(e => row(e, `${milestoneLabel(e.milestone!.what, e.title)}・${formatEventDate(e.eventDate)}`, () => onOpenMilestone(e.id)))}</div>
+                    {milestones.length ? <div className="bond-panel px-4 divide-y bond-hair">{milestones.map(e => row(e, `${milestoneLabel(e.milestone!.what, e.title)}・${formatEventDate(e.eventDate)}`, () => onOpenMilestone(e.id)))}</div>
                         : <Empty>還沒有里程碑。</Empty>}
                 </section>
             </div>
@@ -517,7 +517,7 @@ export const PairTreasurePage: React.FC<{
                         </div>
                         <p className="mt-2 text-[11px] leading-relaxed text-[var(--bond-muted)]">寄出就到；收信的人可以回信。</p>
                         {letters.length === 0 ? <div className="mt-10 text-center text-[13px] text-[var(--bond-muted)]">還沒有信。</div> : (
-                            <div className="mt-4 divide-y bond-hair border-y">
+                            <div className="mt-4 bond-panel px-4 divide-y bond-hair">
                                 {letters.map(e => (
                                     <button key={e.id} type="button" className="w-full text-left py-3.5 flex items-center gap-3" onClick={() => onOpenLetter(e.id)}>
                                         <EnvelopeIcon size={20} className="shrink-0 text-[var(--bond-accent)]" />
@@ -666,7 +666,7 @@ export const PairLetterPage: React.FC<{
                         {thread.length > 1 && (
                             <section>
                                 <SectionLabel>這 一 串</SectionLabel>
-                                <div className="divide-y bond-hair border-y">
+                                <div className="bond-panel px-4 divide-y bond-hair">
                                     {thread.map(e => (
                                         <button key={e.id} type="button" disabled={e.id === entry.id} className="w-full text-left py-2.5 text-[12.5px] disabled:opacity-60" onClick={() => onOpen(e.id)}>
                                             {nameOfId(space, e.author)} → {nameOfId(space, e.letter!.to)}：<span className="bond-serif">{e.text.replace(/\s+/g, ' ').slice(0, 30)}…</span>

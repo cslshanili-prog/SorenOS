@@ -62,7 +62,11 @@ export async function unlockEventCards(bondId: string, level: number): Promise<B
     const defs = cardsToUnlock(bondEntriesOf(bondId), bond.route, level, hurt);
     if (!defs.length) return [];
     const now = Date.now();
-    const cards = defs.map(def => newEventCardEntry({ bondId, def, id: newBondEntryId(), now }));
+    // 一開始就能演的（Lv.1 的「好好談一次」）不算新解鎖，不在分頁上點小點；有傷提早開的照樣算新的
+    const cards = defs.map(def => {
+        const e = newEventCardEntry({ bondId, def, id: newBondEntryId(), now });
+        return def.unlock <= 1 ? { ...e, seenAt: now } : e;
+    });
     await saveBondEntries(cards);
     for (const _ of cards) trackEvent('事件卡', { 动作: '解锁', 路线: routeTag(bond.route), 结果: '无' });
     return cards;

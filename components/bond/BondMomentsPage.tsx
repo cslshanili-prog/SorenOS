@@ -91,7 +91,7 @@ export const BondMomentsPage: React.FC<{
             <div className="flex-1 overflow-y-auto no-scrollbar">
                 {onPick && (
                     <button type="button" onClick={onPick}
-                        className="mx-5 mt-4 w-[calc(100%-2.5rem)] flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                        className="mx-5 mt-4 w-[calc(100%-2.5rem)] flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
                         <span>
                             <span className="bond-serif block text-[14px]">從最近的聊天挑幾件</span>
                             <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">AI 先挑，你勾了才收存</span>
@@ -115,7 +115,7 @@ export const BondMomentsPage: React.FC<{
                     <div className="px-5 pb-10">
                         {onChooseEssay && (
                             <button type="button" onClick={onChooseEssay}
-                                className="mb-4 w-full flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                                className="mb-4 w-full flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
                                 <span>
                                     <span className="bond-serif block text-[14px]">{isPair ? '讓他們寫一篇' : `讓 ${space.rightName} 寫一篇`}</span>
                                     <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">從還沒寫過的事裡自己挑一件</span>
@@ -128,7 +128,7 @@ export const BondMomentsPage: React.FC<{
                                 還沒有隨筆。點進時間線上的一件事，可以請{isPair ? '他們' : ` ${space.rightName} `}就那件事寫一篇。
                             </div>
                         ) : (
-                            <div className="divide-y bond-hair border-y">
+                            <div className="bond-panel px-4 divide-y bond-hair">
                                 {essays.map(e => (
                                     <button key={e.id} type="button" onClick={() => onOpenEssay?.(e.id)} className="w-full text-left py-3.5">
                                         <div className="text-[11px] text-[var(--bond-muted)]">
@@ -153,7 +153,7 @@ export const BondMomentsPage: React.FC<{
                         {groups.map(g => (
                             <section key={g.key || 'unknown'} className="mt-4">
                                 <div className="px-5"><SectionLabel>{formatMonthKey(g.key)}</SectionLabel></div>
-                                <div className="mx-5 divide-y bond-hair border-y">
+                                <div className="mx-5 bond-panel px-4 divide-y bond-hair">
                                     {g.items.map(it => (
                                         <button key={it.key} type="button" onClick={() => onOpenItem(it.key)}
                                             className={`w-full text-left py-3.5 flex gap-4 ${it.hidden ? 'opacity-50' : ''}`}>

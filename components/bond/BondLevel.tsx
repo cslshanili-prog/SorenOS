@@ -21,13 +21,13 @@ export const LevelMark: React.FC<{ points: number; onClick?: () => void }> = ({ 
 export const LevelPanel: React.FC<{ points: number; children?: React.ReactNode }> = ({ points, children }) => {
     const info = levelInfo(points);
     return (
-        <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-4">
+        <div className="bond-block bg-[var(--bond-block-sand)] px-5 py-5">
             <div className="flex items-baseline justify-between">
                 <div className="bond-serif text-[26px] tracking-wider">Lv.{info.level}</div>
                 <div className="text-[11.5px] text-[var(--bond-muted)]">累積 {info.points} 分 · 再 {info.need} 分到 Lv.{info.level + 1}</div>
             </div>
-            <div className="mt-2 h-[3px] w-full rounded-full bg-[var(--bond-line)] overflow-hidden">
-                <div className="h-full bg-[var(--bond-accent)]" style={{ width: `${Math.round(info.progress * 100)}%` }} />
+            <div className="mt-3 h-[7px] w-full rounded-full bg-[var(--bond-track)] overflow-hidden">
+                <div className="h-full rounded-full bg-[var(--bond-accent)]" style={{ width: `${Math.round(info.progress * 100)}%` }} />
             </div>
             <div className="mt-2 text-[10.5px] text-[var(--bond-muted)]">一起經歷過的事累積起來的；等級只解鎖事件的機會，不會改變你們是什麼關係。</div>
             {children && <div className="mt-3 flex flex-wrap gap-2">{children}</div>}
