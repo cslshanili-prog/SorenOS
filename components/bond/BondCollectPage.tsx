@@ -11,12 +11,15 @@ import { BondDateField } from './BondDateField';
 import type { ResolvedSpace } from './space';
 import { DB } from '../../utils/db';
 import {
-    buildCollectSnippet, buildMomentSummaryPrompt, buildPactFillPrompt, cleanSummary, defaultEventDate, extendSelection, lineArgFromKey, messagePlainText, parsePactFill, sortById,
+    buildCollectSnippet, buildGiftFillPrompt, buildMomentSummaryPrompt, buildPactFillPrompt, cleanSummary, defaultEventDate, extendSelection, lineArgFromKey, messagePlainText, parseGiftFill, parsePactFill, sortById,
     type BondCollectRequest, type CollectKind,
 } from '../../utils/bond/collect';
 import { collectedPactEntry, parseRepeat } from '../../utils/bond/pactTags';
 import { repeatLabel } from '../../utils/bond/pact';
 import { newBondEntryId, saveBondEntry } from '../../utils/bond/entries';
+import { newGift } from '../../utils/bond/gift';
+import { GIFT_OCCASIONS } from './BondGiftPages';
+import { refreshAchievements } from './pactRun';
 import { parsePairLineId, pairSpeakerOf } from '../../utils/pairLine';
 import { makeChatClock, makeDateClock } from '../../utils/dateStoryTime';
 import { getLocalDateKey } from '../../utils/localDate';
@@ -41,7 +44,7 @@ export function collectTextOf(kind: BondCollectRequest['kind']): (m: Pick<Messag
 
 const SOURCE_EVENT = { chat: '私聊', date: '见面', pair: '角色私聊' } as const;
 
-const KIND_LABEL: Record<CollectKind, string> = { moment: '片刻', wish: '願望', promise: '約定', habit: '默契' };
+const KIND_LABEL: Record<CollectKind, string> = { moment: '片刻', wish: '願望', promise: '約定', habit: '默契', gift: '禮物' };
 const SIMPLE_REPEATS: BondPromiseRepeat[] = [{ kind: 'once' }, { kind: 'daily' }, { kind: 'weekly' }, { kind: 'monthly' }];
 const sameRepeat = (a: BondPromiseRepeat, b: BondPromiseRepeat) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -88,6 +91,9 @@ export const BondCollectPage: React.FC<{
     const [kind, setKind] = useState<CollectKind>('moment');
     const [owner, setOwner] = useState<'user' | 'char' | 'both' | null>(null);
     const [repeat, setRepeat] = useState<BondPromiseRepeat>({ kind: 'once' });
+    // 收成禮物（第 5 批）：誰送誰、是什麼、場合
+    const [giftDir, setGiftDir] = useState<'out' | 'in' | null>(null);
+    const [occasion, setOccasion] = useState('');
 
     useEffect(() => {
         let alive = true;
@@ -123,10 +129,13 @@ export const BondCollectPage: React.FC<{
     // 願望預設是說出口的那方：選到的第一則是誰說的
     const defaultOwner: 'user' | 'char' = picked.find(m => request.messageIds.includes(m.id))?.role === 'user' ? 'user' : 'char';
     const wishOwner = owner || defaultOwner;
+    // 禮物預設照說出口的那方：你說「我織了圍巾給你」是你送的
+    const dirOfGift: 'out' | 'in' = giftDir || (defaultOwner === 'user' ? 'out' : 'in');
 
     const summarize = async () => {
         const api = globalMeterApi(apiConfig) || (apiConfig.baseUrl && apiConfig.apiKey ? { baseUrl: apiConfig.baseUrl, apiKey: apiConfig.apiKey, model: apiConfig.model } : null);
         if (!api) { addToast('還沒設定 API', 'error'); return; }
+        if (kind === 'gift') { await fillGift(api); return; }
         if (kind !== 'moment') { await fillPact(api); return; }
         setBusy('summary');
         try {
@@ -150,9 +159,37 @@ export const BondCollectPage: React.FC<{
         }
     };
 
+    /** AI 幫忙填禮物：誰送誰、什麼、場合、一兩句；看不出來的留空 */
+    const fillGift = async (api: { baseUrl: string; apiKey: string; model: string }) => {
+        setBusy('summary');
+        try {
+            const data = await safeFetchJson(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${api.apiKey}` },
+                body: JSON.stringify({
+                    model: api.model,
+                    messages: [{ role: 'user', content: buildGiftFillPrompt({ snippet, leftName: space.leftName, rightName: space.rightName }) }],
+                    temperature: 0.3,
+                    max_tokens: 300,
+                }),
+            }, 1, 60_000, { appName: '羈絆', charId: space.char.id, charName: space.char.name, purpose: '收存禮物' });
+            const out = parseGiftFill(extractContent(data));
+            if (!out) throw new Error('這段看不太出來，自己寫寫看');
+            if (out.title) setTitle(out.title);
+            if (out.text) setText(out.text);
+            if (out.dir) setGiftDir(out.dir);
+            if (out.occasion) setOccasion(out.occasion);
+            if (!out.title) addToast('看不出是什麼東西，留給你補', 'info');
+        } catch (e: any) {
+            addToast(e?.message || '沒寫出來', 'error');
+        } finally {
+            setBusy(null);
+        }
+    };
+
     /** AI 幫忙填願望、約定、默契的欄位：只照那幾則寫，看不出來的留空讓你補 */
     const fillPact = async (api: { baseUrl: string; apiKey: string; model: string }) => {
-        if (kind === 'moment') return;
+        if (kind === 'moment' || kind === 'gift') return;
         setBusy('summary');
         try {
             const data = await safeFetchJson(`${api.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
@@ -187,6 +224,19 @@ export const BondCollectPage: React.FC<{
             const source: BondSource = request.kind === 'date'
                 ? { type: 'date', storyId: request.storyId || '', charId: request.charId, messageIds: ids, snippet, at }
                 : { type: 'message', lineId: request.lineId, messageIds: ids, snippet, at };
+            if (kind === 'gift') {
+                const base = newGift({
+                    bondId: request.bondId, dir: dirOfGift, state: 'given', title: title.trim(),
+                    text: text.trim() || title.trim(), occasion, givenAt: at, now,
+                    items: title.trim() ? [{ name: title.trim(), price: 0, qty: 1 }] : undefined,
+                });
+                const entry = await saveBondEntry({ ...base, eventDate: date, sources: [source] });
+                trackEvent('羁绊礼物', { 动作: '记下', 方向: dirOfGift === 'out' ? '我送' : 'TA送', 来源: '收存' });
+                void refreshAchievements(space).catch(() => undefined);
+                addToast('收存好了，在羈絆的珍藏裡', 'success');
+                onDone(entry);
+                return;
+            }
             if (kind !== 'moment') {
                 const entry = await saveBondEntry(collectedPactEntry({
                     kind, bondId: request.bondId, charId: space.char.id, text: text.trim(), owner: wishOwner, repeat, source, now,
@@ -251,7 +301,48 @@ export const BondCollectPage: React.FC<{
                     {after > 0 && <button type="button" className="bond-chip mt-2 ml-2" onClick={() => setAfter(a => Math.max(0, a - 1))}>少帶一則</button>}
                 </section>
 
-                {kind !== 'moment' && (
+                {kind === 'gift' && (
+                    <>
+                        <section>
+                            <SectionLabel right={
+                                <button type="button" onClick={summarize} disabled={!!busy || !picked.length} className="text-[11.5px] text-[var(--bond-accent)] inline-flex items-center gap-1 disabled:opacity-40">
+                                    <Sparkle size={12} />{busy === 'summary' ? '寫著…' : '讓 AI 幫我填'}
+                                </button>
+                            }>誰 送 誰</SectionLabel>
+                            <div className="flex flex-wrap gap-2">
+                                {([['out', `我送${space.rightName}`], ['in', `${space.rightName}送我`]] as const).map(([v, label]) => (
+                                    <button key={v} type="button" className="bond-chip" aria-pressed={dirOfGift === v} onClick={() => setGiftDir(v)}>{label}</button>
+                                ))}
+                            </div>
+                            <div className="mt-1.5 text-[11px] text-[var(--bond-muted)]">購物中心買的會自己出現在圖鑑，這裡收的是其他的禮物。</div>
+                        </section>
+                        <section>
+                            <SectionLabel>是 什 麼</SectionLabel>
+                            <input className="bond-input bond-serif" value={title} maxLength={40} placeholder="像「手織的圍巾」" onChange={e => setTitle(e.target.value)} />
+                        </section>
+                        <section>
+                            <SectionLabel>場 合</SectionLabel>
+                            <div className="flex flex-wrap gap-2">
+                                {GIFT_OCCASIONS.map(o => (
+                                    <button key={o} type="button" className="bond-chip" aria-pressed={occasion === o} onClick={() => setOccasion(occasion === o ? '' : o)}>{o}</button>
+                                ))}
+                                {occasion && !GIFT_OCCASIONS.includes(occasion) && <button type="button" className="bond-chip" aria-pressed onClick={() => setOccasion('')}>{occasion}</button>}
+                            </div>
+                        </section>
+                        <section>
+                            <SectionLabel>那 時 候</SectionLabel>
+                            <textarea className="bond-input bond-serif min-h-[84px] leading-relaxed" value={text} maxLength={300}
+                                placeholder="可以不填；只寫發生了什麼" onChange={e => setText(e.target.value)} />
+                        </section>
+                        {date && (
+                            <section>
+                                <SectionLabel>什 麼 時 候</SectionLabel>
+                                <BondDateField value={date} onChange={setDate} todayKey={space.todayKey} />
+                            </section>
+                        )}
+                    </>
+                )}
+                {kind !== 'moment' && kind !== 'gift' && (
                     <>
                         {kind === 'wish' && (
                             <section>
@@ -318,7 +409,7 @@ export const BondCollectPage: React.FC<{
             </div>
             <div className="shrink-0 px-5 pt-3 border-t bond-hair flex gap-2" style={{ paddingBottom: 'calc(var(--safe-bottom, 0px) + 12px)' }}>
                 <button type="button" className="bond-btn flex-1" onClick={() => onDone(null)}>取消</button>
-                <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!date || !picked.length || !!busy || (kind === 'moment' ? periodMissingLabel : !text.trim())} onClick={save}>
+                <button type="button" className="bond-btn bond-btn-primary flex-1" disabled={!date || !picked.length || !!busy || (kind === 'moment' ? periodMissingLabel : kind === 'gift' ? !title.trim() : !text.trim())} onClick={save}>
                     {busy === 'save' ? '存檔中…' : '收存'}
                 </button>
             </div>

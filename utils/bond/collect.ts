@@ -109,15 +109,29 @@ export interface MomentCandidate {
     /** 對應到哪幾則訊息（給 AI 的編號是 1 起算的序號，這裡已換回訊息 id） */
     messageIds: number[];
     /** 收成什麼（第 4 批；沒寫就是片刻） */
-    kind?: CollectKind;
+    kind?: PickKind;
     /** 願望：誰的（說出口的那方） */
     owner?: 'user' | 'char' | 'both';
     /** 約定：頻率原文 */
     freq?: string;
+    /** 禮物（第 5 批）：誰送誰（out＝左邊送右邊）、場合 */
+    dir?: 'out' | 'in';
+    occasion?: string;
+    /** 禮物後續：圖鑑裡那件的 key（給 AI 的是 G 編號，這裡已換回） */
+    giftKey?: string;
 }
 
-/** 收存頁能收成的四種（第 4 批：願望、約定、默契只在身份卡 × 角色） */
-export type CollectKind = 'moment' | 'wish' | 'promise' | 'habit';
+/** 收存頁能收成的幾種（第 4 批：願望、約定、默契只在身份卡 × 角色；第 5 批多禮物） */
+export type CollectKind = 'moment' | 'wish' | 'promise' | 'habit' | 'gift';
+/** 挑幾件能挑出來的：收存頁那幾種，再加「禮物後續」（說到圖鑑裡已經有的那件） */
+export type PickKind = CollectKind | 'giftFollowup';
+
+/** 挑幾件時給 AI 對的圖鑑：每件一個 G 編號 */
+export interface PickGiftRef {
+    key: string;
+    title: string;
+    dir: 'out' | 'in';
+}
 
 /** 給 AI 看的清單：每則一行「#序號 名字：內容」 */
 export function numberedTranscript(
@@ -132,7 +146,7 @@ export function numberedTranscript(
     }).join('\n');
 }
 
-export function buildMomentPickPrompt(args: { transcript: string; leftName: string; rightName: string; count?: number; withPact?: boolean }): string {
+export function buildMomentPickPrompt(args: { transcript: string; leftName: string; rightName: string; count?: number; withPact?: boolean; gifts?: PickGiftRef[] }): string {
     const n = args.count || 5;
     if (args.withPact) return buildPickWithPactPrompt({ ...args, count: n });
     return [
@@ -148,8 +162,9 @@ export function buildMomentPickPrompt(args: { transcript: string; leftName: stri
 }
 
 /** 身份卡 × 角色：除了片刻，也挑願望、約定、默契（plans/bond-batch4.md 4e）；你勾了才存 */
-function buildPickWithPactPrompt(args: { transcript: string; leftName: string; rightName: string; count: number }): string {
+function buildPickWithPactPrompt(args: { transcript: string; leftName: string; rightName: string; count: number; gifts?: PickGiftRef[] }): string {
     const { leftName: L, rightName: R } = args;
+    const gifts = (args.gifts || []).slice(0, PICK_GIFT_LIMIT);
     return [
         `下面是 ${L} 和 ${R} 最近的對話，每則前面有編號。`,
         `從裡面挑出最多 ${args.count} 件值得留下來的事，每件標一種：`,
@@ -157,20 +172,33 @@ function buildPickWithPactPrompt(args: { transcript: string; leftName: string; r
         `- wish：有人說出口想做的事、想要的東西（還沒說好一起做）；owner 寫說出口的那方：user＝${L}、char＝${R}、both＝兩人都說想`,
         `- promise：兩人說好要做的事（一次或固定做的）；freq 寫「一次」「每天」「每週」「每週三」「每月」「每 3 天」「每年」其中一種`,
         `- habit：兩人之間不用說也會這樣的習慣（例如誰先說晚安），要對話裡真的看得出來`,
-        '每件寫：一個短標題（十個字內）、一兩句內容（片刻寫發生了什麼；願望、約定、默契直接寫那件事本身）、對應的訊息編號。只寫對話裡有的，不補沒發生的事；看不出來的欄位留空。',
+        `- gift：一份真的送出或收到的禮物（自己做的、路上買的、寄來的…，對話裡講到購物中心訂單的不算）；dir 寫 out＝${L}送給${R}、in＝${R}送給${L}；title 寫那樣東西；occasion 寫場合（生日、紀念日、道歉、想到你…，看不出來留空）`,
+        ...(gifts.length ? [
+            `- gift_followup：說到下面清單裡某一件已經送過的禮物後來怎麼了（戴著、用壞了、收進抽屜…）；gift 寫那件的編號，text 寫一句後來怎麼了`,
+            '清單裡已經有的禮物不要再挑成 gift；只是說到它就挑成 gift_followup。',
+        ] : []),
+        '每件寫：一個短標題（十個字內）、一兩句內容（片刻寫發生了什麼；願望、約定、默契直接寫那件事本身；禮物寫誰送了什麼）、對應的訊息編號。只寫對話裡有的，不補沒發生的事；看不出來的欄位留空。',
         '沒有值得留的就回空陣列。',
-        '只輸出 JSON 陣列：[{"kind":"moment","title":"…","text":"…","refs":[3,4]},{"kind":"promise","title":"…","text":"…","freq":"每天","refs":[7]}]',
+        '只輸出 JSON 陣列：[{"kind":"moment","title":"…","text":"…","refs":[3,4]},{"kind":"promise","title":"…","text":"…","freq":"每天","refs":[7]},{"kind":"gift","dir":"in","title":"圍巾","occasion":"","text":"…","refs":[9]}]',
+        ...(gifts.length ? [
+            '',
+            '【已經在圖鑑裡的禮物】',
+            ...gifts.map((g, i) => `G${i + 1} ${g.dir === 'out' ? `${L}送給${R}` : `${R}送給${L}`}：${g.title}`),
+        ] : []),
         '',
         '【對話】',
         args.transcript,
     ].join('\n');
 }
 
-const COLLECT_KINDS: CollectKind[] = ['moment', 'wish', 'promise', 'habit'];
+/** 挑幾件給 AI 對的圖鑑最多幾件（最近的先） */
+export const PICK_GIFT_LIMIT = 20;
+const COLLECT_KINDS: CollectKind[] = ['moment', 'wish', 'promise', 'habit', 'gift'];
+const asDir = (v: unknown): 'out' | 'in' | undefined => (v === 'out' || v === 'in' ? v : undefined);
 const asOwner = (v: unknown): MomentCandidate['owner'] => (v === 'user' || v === 'char' || v === 'both' ? v : undefined);
 
-/** 解析挑選結果；編號換回訊息 id，對不上的丟掉 */
-export function parseMomentPick(raw: string, msgs: Array<{ id: number }>): MomentCandidate[] {
+/** 解析挑選結果；編號換回訊息 id，對不上的丟掉；禮物後續的 G 編號換回圖鑑的 key，對不上就整件丟掉 */
+export function parseMomentPick(raw: string, msgs: Array<{ id: number }>, gifts: PickGiftRef[] = []): MomentCandidate[] {
     const s = String(raw || '');
     const start = s.indexOf('[');
     const end = s.lastIndexOf(']');
@@ -186,8 +214,21 @@ export function parseMomentPick(raw: string, msgs: Array<{ id: number }>): Momen
         if (!text) continue;
         const refs = Array.isArray(o.refs) ? o.refs : [];
         const ids = refs.map(r => Number(r)).filter(n => Number.isInteger(n) && n >= 1 && n <= msgs.length).map(n => msgs[n - 1].id);
-        const kind = COLLECT_KINDS.includes(o.kind as CollectKind) ? o.kind as CollectKind : undefined;
         const cand: MomentCandidate = { title: String(o.title || '').trim().slice(0, 30), text, messageIds: [...new Set(ids)].sort((a, b) => a - b) };
+        if (o.kind === 'gift_followup' || o.kind === 'giftFollowup') {
+            const m = /^G?(\d+)$/i.exec(String(o.gift ?? '').trim());
+            const ref = m ? gifts.slice(0, PICK_GIFT_LIMIT)[Number(m[1]) - 1] : undefined;
+            if (!ref) continue;
+            out.push({ ...cand, kind: 'giftFollowup', giftKey: ref.key, dir: ref.dir, title: cand.title || ref.title });
+            continue;
+        }
+        const kind = COLLECT_KINDS.includes(o.kind as CollectKind) ? o.kind as CollectKind : undefined;
+        if (kind === 'gift') {
+            const dir = asDir(o.dir);
+            const occasion = typeof o.occasion === 'string' ? o.occasion.trim().slice(0, 20) : '';
+            out.push({ ...cand, kind: 'gift', ...(dir ? { dir } : {}), ...(occasion ? { occasion } : {}) });
+            continue;
+        }
         if (kind && kind !== 'moment') {
             cand.kind = kind;
             if (kind === 'wish') { const owner = asOwner(o.owner); if (owner) cand.owner = owner; }
@@ -206,7 +247,7 @@ export function unscannedMessages<T extends { id: number }>(msgs: T[], lastScanI
 
 // ── AI：收成願望、約定、默契時幫忙填欄位（plans/bond-batch4.md 4e） ──
 
-export function buildPactFillPrompt(args: { kind: Exclude<CollectKind, 'moment'>; snippet: string; leftName: string; rightName: string }): string {
+export function buildPactFillPrompt(args: { kind: Exclude<CollectKind, 'moment' | 'gift'>; snippet: string; leftName: string; rightName: string }): string {
     const { leftName: L, rightName: R } = args;
     const ask = args.kind === 'wish'
         ? [`這段對話裡有人說出想做的事或想要的東西。寫出那個願望本身（一句，像「想一起去看極光」），再判斷是誰說出口的：user＝${L}、char＝${R}、both＝兩人都說想。`,
@@ -239,6 +280,42 @@ export function parsePactFill(raw: string): { text: string; owner?: 'user' | 'ch
         const freq = typeof o.freq === 'string' && o.freq.trim() ? o.freq.trim() : undefined;
         if (!text && !owner && !freq) return null;
         return { text, ...(owner ? { owner } : {}), ...(freq ? { freq } : {}) };
+    } catch {
+        return null;
+    }
+}
+
+// ── AI：收成禮物時幫忙填（plans/bond-batch5.md 第 6 節） ──
+
+export interface GiftFill { title: string; dir?: 'out' | 'in'; occasion?: string; text: string }
+
+export function buildGiftFillPrompt(args: { snippet: string; leftName: string; rightName: string }): string {
+    const { leftName: L, rightName: R } = args;
+    return [
+        `下面是 ${L} 和 ${R} 的一段對話，裡面說到一份禮物。`,
+        `寫出：title＝那樣東西（幾個字，像「手織圍巾」）；dir＝誰送誰（out＝${L}送給${R}、in＝${R}送給${L}）；occasion＝場合（生日、紀念日、節日、道歉、辛苦了、想到你、沒有理由，或對話裡講的別的場合）；text＝一兩句發生了什麼（第三人稱、用名字，只寫事實）。`,
+        '只照這段對話寫，看不出來的欄位留空字串，不要補對話裡沒有的事。',
+        '只輸出 JSON：{"title":"…","dir":"in","occasion":"…","text":"…"}',
+        '',
+        '【對話】',
+        args.snippet,
+    ].join('\n');
+}
+
+export function parseGiftFill(raw: string): GiftFill | null {
+    const s = String(raw || '');
+    const start = s.indexOf('{');
+    const end = s.lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    try {
+        const o = JSON.parse(s.slice(start, end + 1)) as Record<string, unknown>;
+        const clean = (v: unknown) => String(v ?? '').trim().replace(/^["「『]|["」』]$/g, '');
+        const title = clean(o.title).slice(0, 40);
+        const text = clean(o.text);
+        const occasion = clean(o.occasion).slice(0, 20);
+        const dir = asDir(o.dir);
+        if (!title && !text && !dir && !occasion) return null;
+        return { title, text, ...(dir ? { dir } : {}), ...(occasion ? { occasion } : {}) };
     } catch {
         return null;
     }
