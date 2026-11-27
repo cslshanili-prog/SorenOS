@@ -9,9 +9,9 @@ import { SAR_UPDATE_KEY, SAR_CHANGELOG, sarLaunch } from '../utils/sarUpdate';
 
 import React from 'react';
 import {
-    AirplaneTilt, ArrowRight, Archive, ArrowsLeftRight, BellRinging, BookOpenText, Briefcase, CalendarBlank, ChatTeardropDots, Clock, Coffee, FileText, FolderOpen, PaperPlaneTilt, PaintBrush, SlidersHorizontal, SmileyWink, Sparkle, Translate, UsersThree, VideoCamera, Wallet,
+    AirplaneTilt, ArrowRight, BookmarkSimple, ClockCounterClockwise, Gift, LinkSimple, NotePencil, Archive, ArrowsLeftRight, BellRinging, BookOpenText, Briefcase, CalendarBlank, ChatTeardropDots, Clock, Coffee, FileText, FolderOpen, PaperPlaneTilt, PaintBrush, SlidersHorizontal, SmileyWink, Sparkle, Translate, UsersThree, VideoCamera, Wallet,
 } from '@phosphor-icons/react';
-import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, CHANGELOG_SOREN_2026_11_15, CHANGELOG_SOREN_2026_11_18, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
+import { CHANGELOG_SOREN_2026_11_10, CHANGELOG_SOREN_2026_11_14, CHANGELOG_SOREN_2026_11_15, CHANGELOG_SOREN_2026_11_18, CHANGELOG_SOREN_2026_11_28, FAQ_TARGET_CHANGELOG_LIST } from '../utils/sorenChangelog';
 import { useOS } from '../context/OSContext';
 import { AppID } from '../types';
 import { trackEvent } from '../utils/analytics';
@@ -44,6 +44,8 @@ export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_14 = 'soren_update_2026_11_14
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_15 = 'soren_update_2026_11_15_v3_seen';
 /** S4.0：行事曆、時間系統、裝扮、聊天語言、聲音、群聊節奏 */
 export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_18 = 'soren_update_2026_11_18_v4_seen';
+/** S4.9：羈絆（六批＋開空間＋外觀） */
+export const UPDATE_NOTIFICATION_KEY_SOREN_2026_11_28 = 'soren_update_2026_11_28_bond_seen';
 
 export const FAQ_TARGET_SECTION_KEY = 'sullyos_faq_target_section';
 export const CHANGELOG_2026_04 = 'changelog-2026-04';
@@ -662,6 +664,25 @@ const SOREN_RELEASE_S4: SorenRelease = {
     primary: { label: '打開行事曆', appId: AppID.Calendar },
 };
 
+/** S4.9：羈絆（11/26～11/28 六批，加上開了才有、外觀改版） */
+const SOREN_RELEASE_S4_9: SorenRelease = {
+    seenKey: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_28,
+    changelogId: CHANGELOG_SOREN_2026_11_28,
+    label: 'SOREN S4.9 · ALMANAC',
+    eyebrow: '新 App：羈絆',
+    title: <>一段關係，<br />有自己的房間。</>,
+    lede: '你的身份卡和一位角色、或兩位角色之間，可以開一個專屬空間。開了才有，不會自動把每個角色排進來。',
+    features: [
+        { icon: LinkSimple, eyebrow: '我們', text: '路線與階段、相識第幾天、等級和下一個里程碑；選了友情或親情，角色在哪裡都不會往戀愛走。' },
+        { icon: ClockCounterClockwise, eyebrow: '拾光', text: '每日總結串成時間線，從聊天收存片刻、請 TA 寫隨筆，再帶回私聊聊聊。' },
+        { icon: NotePencil, eyebrow: '心意', text: '交換日記搬進來了；盲答的問答、心靈角落的紙條。TA 也會照你設的頻率自己寫。' },
+        { icon: BookmarkSimple, eyebrow: '約定', text: '願望、約定、默契、里程碑；完成會升等級、解鎖事件卡，演成了由你確認才改階段。' },
+        { icon: Gift, eyebrow: '珍藏與他們的故事', text: '禮物圖鑑、慢寄的信、留給以後；兩位角色之間你當讀者，一章一章寫他們的故事。' },
+    ],
+    note: <>以前就有內容的空間會自己留著。要讓角色在 App 關著時也寫日記、寫信，記得到設定頁<b>重新部署一次 Worker</b>。</>,
+    primary: { label: '打開羈絆', appId: AppID.Bond },
+};
+
 /**
  * Soren 從上游分出來（2026-09-14）之後的第一則更新提醒：一次講這兩個月，點進去是更新日誌清單
  * （五篇，見 utils/sorenChangelog.ts）。舊的上游提醒都先從隊列拿下來了。
@@ -780,10 +801,10 @@ const SARUpdateAnnouncement: React.FC<UpdatePopupProps> = ({ onDone, onExit }) =
 // 2026-11-10：換成 Soren 自己那則，上游的舊提醒（SAR、聯網說明、Live2D）先拿下來不彈；
 // 元件和 key 留著（備份相容、舊的 QA 腳本還引用），要放回來就加回這個陣列。
 const UPDATE_QUEUE: { key: string; render: (props: UpdatePopupProps) => React.ReactNode }[] = [
-    // S4.0 取代 S3.0 那則（一路取代上來）：只彈最新這一則，舊的都在更新日誌清單裡
-    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_18, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S4} /> },
+    // S4.9（羈絆）取代 S4.0 那則（一路取代上來）：只彈最新這一則，舊的都在更新日誌清單裡
+    { key: UPDATE_NOTIFICATION_KEY_SOREN_2026_11_28, render: (props) => <SorenUpdatePopup {...props} release={SOREN_RELEASE_S4_9} /> },
 ];
-void SOREN_RELEASE_S1; void SOREN_RELEASE_S2;
+void SOREN_RELEASE_S1; void SOREN_RELEASE_S2; void SOREN_RELEASE_S3; void SOREN_RELEASE_S4;
 // 拿下來的那幾則，先標成用到，免得被當成死碼清掉
 void SARUpdateAnnouncement; void NetworkTransitNoticePopup; void Live2DUpdatePopup; void SAR_UPDATE_KEY;
 
