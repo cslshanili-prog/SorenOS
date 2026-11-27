@@ -16,6 +16,7 @@ import {
 } from '../../utils/bond/letter';
 import { bondEntryById } from '../../utils/bond/entryRegistry';
 import { deleteBondEntries, saveBondEntry } from '../../utils/bond/entries';
+import { trackEvent } from '../../utils/analytics';
 import { useBlobRefUrl } from '../../utils/blobRef';
 
 type Toast = (m: string, t?: 'success' | 'error' | 'info') => void;
@@ -194,6 +195,11 @@ export const BondLetterPage: React.FC<{
             setStage('read');
         }
         await saveBondEntry(markLetterRead(e));
+        trackEvent('羁绊信件', {
+            动作: '读', 谁: '角色',
+            方式: e.letter?.deliverAt && e.letter.sentAt && e.letter.deliverAt > e.letter.sentAt ? '慢寄' : '马上',
+            来源: e.letter?.origin === 'output' ? '主动' : e.letter?.origin === 'eventCard' ? '事件' : '请TA回',
+        });
     };
 
     const canReply = !mine && letterArrived(e) && last?.id === e.id;

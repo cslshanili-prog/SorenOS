@@ -55,7 +55,7 @@ export async function postUserLetter(space: { id: string; char: CharacterProfile
 export async function postCharLetter(space: { id: string; char: CharacterProfile; personaKey?: string }, letter: BondEntry, slowDays: number, source: '请TA回' | '主动', announce = true): Promise<BondEntry> {
     const sent = await saveBondEntry(sendLetter(letter, slowDays));
     if (sent.letter!.arrivedAt) await announceArrival(space, sent, announce);
-    trackEvent('羁绊信件', { 动作: source === '请TA回' ? '请TA回' : '寄出', 谁: '角色', 方式: slowDays > 0 ? '慢寄' : '马上', 来源: source === '请TA回' ? '自己写' : '主动' });
+    trackEvent('羁绊信件', { 动作: source === '请TA回' ? '请TA回' : '寄出', 谁: '角色', 方式: slowDays > 0 ? '慢寄' : '马上', 来源: source });
     return sent;
 }
 

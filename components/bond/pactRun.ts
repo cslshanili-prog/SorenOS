@@ -62,7 +62,7 @@ const writeMap = (key: string, map: Record<string, string | number>) => {
     try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* 存不了下次從今天重判，帳本照 id 去重 */ }
 };
 
-export const RECORD_ANALYTICS: Record<string, string> = { chat: '聊几句', deepChat: '深聊', goodnight: '晚安', photo: '照片', call: '通话', date: '见面', music: '听歌', gift: '礼物' };
+export const RECORD_ANALYTICS: Record<string, string> = { chat: '聊几句', deepChat: '深聊', goodnight: '晚安', photo: '照片', call: '通话', date: '见面', music: '听歌', gift: '礼物', letter: '写信' };
 const CHECK_ANALYTICS = { record: '记录', keyword: '关键字', ai: 'AI', manual: '手动' } as const;
 
 export interface PactGain {
