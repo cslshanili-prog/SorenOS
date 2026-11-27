@@ -18,6 +18,8 @@ export interface SorenChangelogEntry {
 /** 更新提醒點「看看更新日誌」：打開使用幫助的更新日誌清單（不是某一篇） */
 export const FAQ_TARGET_CHANGELOG_LIST = 'changelog-list';
 
+export const CHANGELOG_SOREN_2026_11_28 = 'changelog-soren-2026-11-28';
+export const CHANGELOG_SOREN_2026_11_26 = 'changelog-soren-2026-11-26';
 export const CHANGELOG_SOREN_2026_11_22 = 'changelog-soren-2026-11-22';
 export const CHANGELOG_SOREN_2026_11_19 = 'changelog-soren-2026-11-19';
 export const CHANGELOG_SOREN_2026_11_18_API = 'changelog-soren-2026-11-18-api';
@@ -33,6 +35,22 @@ export const CHANGELOG_SOREN_2026_09_30 = 'changelog-soren-2026-09-30';
 export const CHANGELOG_SOREN_2026_09_23 = 'changelog-soren-2026-09-23';
 
 export const SOREN_CHANGELOG_ENTRIES: SorenChangelogEntry[] = [
+    {
+        id: CHANGELOG_SOREN_2026_11_28,
+        title: '2026 年 11 月 28 日 · S4.9 羈絆',
+        subtitle: '新 App「羈絆」：你的身份卡和角色、或兩位角色之間的專屬空間，開了才有 · 路線與階段（友情／親情不會被帶成戀愛）· 拾光時間線、收存片刻、角色隨筆、帶去聊聊 · 心意：日記搬進來、盲答問答、紙條 · 約定：願望、約定、默契、里程碑、積點等級、事件卡、親近與信任 · 珍藏：禮物圖鑑、慢寄的信、留給以後 · 他們的故事 · 角色自己寫（本機＋雲端）· 淺色／深色',
+        date: '2026-11-28',
+        src: 'changelogs/2026-11-28.html',
+        accent: 'from-pink-50 to-purple-50 border-pink-200',
+    },
+    {
+        id: CHANGELOG_SOREN_2026_11_26,
+        title: '2026 年 11 月 26 日 · 角色名片、朋友圈 API、備份不再被關掉',
+        subtitle: '點角色頭像看心聲、此刻、情緒和今天的日程 · 朋友圈可以單獨指定一組 API · 設置頁同類收成一張卡、彈窗放大、調用記錄不再記錯人 · 備份邊壓邊寫，iPhone 不再跑到最後被關掉，還原也一段一段讀；補上漏打包的表 · 配角取代 NPC · iPhone 匯出回來放大、小屋生活動態出不來修好了',
+        date: '2026-11-26',
+        src: 'changelogs/2026-11-26.html',
+        accent: 'from-teal-50 to-emerald-50 border-teal-200',
+    },
     {
         id: CHANGELOG_SOREN_2026_11_22,
         title: '2026 年 11 月 22 日 · S4.3 角色的別名、身份、簡介',
