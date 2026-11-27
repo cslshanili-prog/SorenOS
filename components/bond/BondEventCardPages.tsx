@@ -5,7 +5,7 @@
  */
 import { useGiftViews } from './BondTreasurePage';
 import { giftSceneText, giftsForScene } from '../../utils/bond/gift';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChatCircleText, Check, Coffee, Flag, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondSyncProposal, CharacterProfile } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
@@ -18,7 +18,7 @@ import { totalPoints } from '../../utils/bond/ledger';
 import { stageLabel, stagesOf } from '../../utils/bond/routes';
 import { milestoneLabel } from '../../utils/bond/pact';
 import { formatEventDate } from '../../utils/bond/eventDate';
-import { saveBondEntry } from '../../utils/bond/entries';
+import { saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { acceptSync, applyCardResult, createCustomCard, judgeCard, rejectSync, setAsideCard, startInChat, startInDate, type CardJudge } from './eventCardRun';
 
 type Toast = (m: string, t?: 'success' | 'error' | 'info') => void;
@@ -47,14 +47,22 @@ export const EventCardList: React.FC<{ space: ResolvedSpace; onOpen: (key: strin
     for (const e of cards.filter(c => c.eventCard!.cardId === 'custom')) rows.push({ key: e.id, title: e.title || '自訂', state: e.eventCard!.state, note: `自訂 · ${VENUE_LABEL[e.eventCard!.venue || 'chat']}` });
     const order: Record<string, number> = { playing: 0, unlocked: 1, setAside: 2, locked: 3, done: 4 };
     rows.sort((a, b) => order[a.state] - order[b.state]);
+    // 清單看過就算看過了：這次還標「新」，存下 seenAt 讓分頁上的小點消掉（以前要點進那張卡才消）
+    const freshIds = useRef<Set<string>>(new Set());
+    rows.forEach(r => { if (r.fresh) freshIds.current.add(r.key); });
+    const unseen = cards.filter(c => !c.seenAt && c.eventCard!.state === 'unlocked');
+    useEffect(() => {
+        if (unseen.length) void saveBondEntries(unseen.map(c => ({ ...c, seenAt: Date.now() })));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unseen.map(c => c.id).join(',')]);
     return (
         <section className="mt-6">
             <SectionLabel right={<button type="button" className="text-[11.5px] text-[var(--bond-accent)]" onClick={onNewCustom}>自訂一張</button>}>事 件 卡</SectionLabel>
             <p className="mb-2 text-[11px] text-[var(--bond-muted)]">等級只解鎖機會、不換身份；演成了由你確認，才會記下來、改階段。</p>
-            <div className="divide-y bond-hair border-y">
+            <div className="bond-panel px-4 divide-y bond-hair">
                 {rows.map(r => (
                     <button key={r.key} type="button" onClick={() => onOpen(r.key)} className={`w-full py-3 flex items-center justify-between gap-3 text-left ${r.state === 'locked' ? 'opacity-55' : ''}`}>
-                        <span className="bond-serif text-[14px]">{r.title}{r.fresh && <span className="ml-1.5 text-[10.5px] text-[var(--bond-accent)]">新</span>}</span>
+                        <span className="bond-serif text-[14px]">{r.title}{freshIds.current.has(r.key) && <span className="ml-1.5 text-[10.5px] text-[var(--bond-accent)]">新</span>}</span>
                         <span className="text-[11px] text-[var(--bond-muted)] shrink-0">{r.blocked ? '還不能演' : STATE_LABEL[r.state]} · {r.note}</span>
                     </button>
                 ))}
@@ -170,7 +178,7 @@ export const BondEventCardPage: React.FC<{
                     {!card && <p className="text-[12.5px] text-[var(--bond-muted)]">你們到 Lv.{def?.unlock} 會解鎖這張卡（現在 Lv.{level}）。</p>}
 
                     {card && av === 'hurt' && (
-                        <section className="rounded-xl border bond-hair bg-[var(--bond-accent-soft)] px-4 py-3">
+                        <section className="bond-block bg-[var(--bond-block-blush)] px-4 py-3">
                             <div className="text-[13px]">先把沒修好的事談開，這張卡才開放演。</div>
                             <button type="button" className="mt-2 text-[11.5px] text-[var(--bond-accent)]" onClick={onOpenFeeling}>看那件事 ›</button>
                         </section>
@@ -193,12 +201,12 @@ export const BondEventCardPage: React.FC<{
                             {moments.length > 0 && (
                                 <section>
                                     <SectionLabel>帶 進 去 的 回 憶</SectionLabel>
-                                    <div className="divide-y bond-hair border-y">
+                                    <div className="bond-panel px-4 divide-y bond-hair">
                                         {moments.map(m => {
                                             const on = itemPick.includes(m.key);
                                             return (
                                                 <button key={m.key} type="button" aria-pressed={on} onClick={() => setItemKeys(on ? itemPick.filter(x => x !== m.key) : [...itemPick, m.key])} className="w-full py-2.5 flex gap-3 text-left">
-                                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-white' : ''}`}>{on && <Check size={11} />}</span>
+                                                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border bond-hair grid place-items-center ${on ? 'bg-[var(--bond-accent)] text-[var(--bond-on-accent)]' : ''}`}>{on && <Check size={11} />}</span>
                                                     <span className="min-w-0 text-[12.5px] leading-relaxed"><span className="text-[var(--bond-muted)]">{formatEventDate(m.eventDate)}　</span>{((m.title ? `${m.title}：` : '') + m.text).slice(0, 60)}</span>
                                                 </button>
                                             );
@@ -244,7 +252,7 @@ export const BondEventCardPage: React.FC<{
                                     {ec!.venue === 'chat' ? <button type="button" className="bond-btn" onClick={onGoChat}>回私聊</button> : <button type="button" className="bond-btn" onClick={() => onGoDate('')}>回見面</button>}
                                 </div>
                             ) : (
-                                <div className="mt-3 rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-4 space-y-3">
+                                <div className="mt-3 bond-panel px-4 py-4 space-y-3">
                                     <div className="flex gap-2">
                                         {(['yes', 'notYet', 'other'] as const).map(r => <button key={r} type="button" className="bond-chip" aria-pressed={pick === r} onClick={() => setPick(r)}>{RESULT_LABEL[r]}</button>)}
                                     </div>
@@ -267,7 +275,7 @@ export const BondEventCardPage: React.FC<{
                     {ec?.history?.length ? (
                         <section>
                             <SectionLabel>演 過 的</SectionLabel>
-                            <div className="divide-y bond-hair border-y">
+                            <div className="bond-panel px-4 divide-y bond-hair">
                                 {[...ec.history].reverse().map((h, i) => (
                                     <div key={i} className="py-2.5 text-[12.5px]">
                                         <span className="text-[var(--bond-muted)]">{new Date(h.at).toLocaleDateString()} · {VENUE_LABEL[h.venue || 'chat']} · </span>{RESULT_LABEL[h.result]}
@@ -321,7 +329,7 @@ export const SyncProposalCard: React.FC<{ space: ResolvedSpace; p: BondSyncPropo
     const day = p.date ? `${Number(p.date.slice(5, 7))} 月 ${Number(p.date.slice(8, 10))} 日` : '最近';
     const stageName = (id?: string) => (id ? stagesOf(p.routeTo || space.bond.route).find(o => o.id === id)?.label || id : '');
     return (
-        <div className="rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3.5">
+        <div className="bond-block bg-[var(--bond-block-blush)] px-5 py-4">
             <div className="text-[13.5px] leading-relaxed">
                 {p.source === 'story'
                     ? <>這一章裡{space.kind === 'pair' ? '他們' : '你們'}<span className="bond-serif text-[var(--bond-accent)]">〈{label}〉</span>，要記成{space.kind === 'pair' ? '他們' : '你們'}現在的{p.stageTo ? '階段' : '里程碑'}嗎？</>

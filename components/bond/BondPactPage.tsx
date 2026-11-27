@@ -33,7 +33,7 @@ export function pactNeedsYou(entries: BondEntry[]): boolean {
 }
 
 const Card: React.FC<{ title: string; hint: string; icon: React.ReactNode; onClick: () => void }> = ({ title, hint, icon, onClick }) => (
-    <button type="button" onClick={onClick} className="w-full flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+    <button type="button" onClick={onClick} className="w-full flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
         <span>
             <span className="bond-serif block text-[14px]">{title}</span>
             <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">{hint}</span>
@@ -110,7 +110,7 @@ export const BondPactPage: React.FC<{
 
                 {askReview && (
                     <div className="px-5 pt-4">
-                        <button type="button" onClick={onOpenReview} className="w-full text-left rounded-xl border bond-hair bg-[var(--bond-accent-soft)] px-4 py-3">
+                        <button type="button" onClick={onOpenReview} className="w-full text-left bond-block bg-[var(--bond-block-blush)] px-4 py-3">
                             <span className="bond-serif block text-[14px]">你們已經相處一陣子了</span>
                             <span className="block mt-0.5 text-[11.5px] text-[var(--bond-ink-2)]">回顧一下發生過的大事、補算過去的相處，或從現在開始算。</span>
                         </button>
@@ -131,7 +131,7 @@ export const BondPactPage: React.FC<{
                             const list = wishes.filter(w => wishFilter === 'all' || wishBucket(w) === wishFilter);
                             if (!list.length) return <Empty>還沒有願望。看見願望不等於答應；談好了才變成約定。</Empty>;
                             return (
-                                <div className="mt-4 divide-y bond-hair border-y">
+                                <div className="mt-4 bond-panel px-4 divide-y bond-hair">
                                     {list.map(w => (
                                         <button key={w.id} type="button" onClick={() => onOpenWish(w.id)} className="w-full text-left py-3.5">
                                             <div className="flex items-center gap-2 text-[10.5px] tracking-wider text-[var(--bond-muted)]">
@@ -166,7 +166,7 @@ export const BondPactPage: React.FC<{
                                 return (
                                     <section key={sec.key} className="mt-6">
                                         <SectionLabel>{sec.label}</SectionLabel>
-                                        <div className="divide-y bond-hair border-y">
+                                        <div className="bond-panel px-4 divide-y bond-hair">
                                             {list.map(p => {
                                                 const waiting = promiseWaitingOn(p);
                                                 const pr = p.promise!;
@@ -177,7 +177,7 @@ export const BondPactPage: React.FC<{
                                                 return (
                                                     <button key={p.id} type="button" onClick={() => onOpenPromise(p.id)} className="w-full text-left py-3.5 flex gap-3">
                                                         {live && (
-                                                            <span className={`mt-1 h-5 w-5 shrink-0 rounded-full border grid place-items-center ${doneNow ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-white' : 'bond-hair'}`}
+                                                            <span className={`mt-1 h-5 w-5 shrink-0 rounded-full border grid place-items-center ${doneNow ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'bond-hair'}`}
                                                                 aria-label={doneNow ? `${periodWord(pr.repeat)}做到了` : `${periodWord(pr.repeat)}還沒`}>
                                                                 {doneNow && <Check size={12} weight="bold" />}
                                                             </span>
@@ -252,7 +252,7 @@ export const BondPactPage: React.FC<{
                         {milestones.length === 0 ? (
                             <Empty>還沒有里程碑。</Empty>
                         ) : (
-                            <div className="mt-5 divide-y bond-hair border-y">
+                            <div className="mt-5 bond-panel px-4 divide-y bond-hair">
                                 {milestones.map(m => (
                                     <button key={m.id} type="button" onClick={() => onOpenMilestone(m.id)} className="w-full text-left py-3.5 flex gap-4">
                                         <div className="w-24 shrink-0 pt-0.5 text-[11px] text-[var(--bond-muted)] leading-snug whitespace-nowrap">{formatEventDate(m.eventDate)}</div>

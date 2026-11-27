@@ -136,7 +136,7 @@ export const BondHeartPage: React.FC<{
                 {heart === 'diary' && (
                     <div className="px-5 pt-4 pb-12">
                         <button type="button" onClick={() => onOpenDiary()}
-                            className="w-full flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                            className="w-full flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
                             <span>
                                 <span className="bond-serif block text-[14px]">寫今天的日記</span>
                                 <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">誰先寫都行；你的那頁按「發布」{name}才看得到</span>
@@ -148,7 +148,7 @@ export const BondHeartPage: React.FC<{
                         ) : diaries.length === 0 ? (
                             <p className="py-12 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">還沒有日記。以前在交換日記寫的也會出現在這裡。</p>
                         ) : (
-                            <div className="mt-5 divide-y bond-hair border-y">
+                            <div className="mt-5 bond-panel px-4 divide-y bond-hair">
                                 {diaries.map(d => {
                                     const w = diaryWriters(d);
                                     const preview = (d.charPage && !pageEmpty(d.charPage) ? d.charPage.text : d.userPage.text).replace(/\s+/g, ' ').slice(0, 60);
@@ -174,14 +174,14 @@ export const BondHeartPage: React.FC<{
                 {heart === 'question' && (
                     <div className="px-5 pt-4 pb-12">
                         <div className="flex gap-2">
-                            <button type="button" onClick={onNewQuestion} className="flex-1 flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                            <button type="button" onClick={onNewQuestion} className="flex-1 flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
                                 <span>
                                     <span className="bond-serif block text-[14px]">出一題</span>
                                     <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">自己想，或看推薦</span>
                                 </span>
                                 <Plus size={16} className="text-[var(--bond-accent)]" />
                             </button>
-                            <button type="button" onClick={askTa} disabled={asking} className="flex-1 flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left disabled:opacity-60">
+                            <button type="button" onClick={askTa} disabled={asking} className="flex-1 flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left disabled:opacity-60">
                                 <span>
                                     <span className="bond-serif block text-[14px]">{asking ? `${name}在想…` : `請 ${name} 出一題`}</span>
                                     <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">TA 先答、封存</span>
@@ -199,7 +199,7 @@ export const BondHeartPage: React.FC<{
                                 return (
                                     <section key={bucket} className="mt-6">
                                         <SectionLabel>{label}</SectionLabel>
-                                        <div className="divide-y bond-hair border-y">
+                                        <div className="bond-panel px-4 divide-y bond-hair">
                                             {list.map(q => <QuestionRow key={q.id} q={q} name={name} onOpen={() => onOpenQuestion(q.id)} />)}
                                         </div>
                                     </section>
@@ -211,7 +211,7 @@ export const BondHeartPage: React.FC<{
 
                 {heart === 'note' && (
                     <div className="px-5 pt-4 pb-12">
-                        <button type="button" onClick={onNewSlip} className="w-full flex items-center justify-between rounded-xl border bond-hair bg-[var(--bond-card)] px-4 py-3 text-left">
+                        <button type="button" onClick={onNewSlip} className="w-full flex items-center justify-between rounded-[18px] bg-[var(--bond-block-mist)] px-4 py-3.5 text-left">
                             <span>
                                 <span className="bond-serif block text-[14px]">寫一張紙條</span>
                                 <span className="block mt-0.5 text-[11.5px] text-[var(--bond-muted)]">投遞了{name}才知道；草稿只有你看得到</span>
@@ -221,7 +221,7 @@ export const BondHeartPage: React.FC<{
                         {slips.length === 0 ? (
                             <p className="py-12 text-center text-[12.5px] leading-relaxed text-[var(--bond-muted)]">心靈角落還空著。吐槽、掛念、當面沒說出口的話，都可以丟進來。</p>
                         ) : (
-                            <div className="mt-5 divide-y bond-hair border-y">
+                            <div className="mt-5 bond-panel px-4 divide-y bond-hair">
                                 {slips.map(s => <SlipRow key={s.id} s={s} name={name} replies={slipReplies(entries, s.id).length} onOpen={() => onOpenSlip(s.id)} />)}
                             </div>
                         )}

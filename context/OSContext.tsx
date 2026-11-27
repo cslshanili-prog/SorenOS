@@ -127,6 +127,9 @@ import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerReg
 import { checkGiftFollowupFromSummary, refreshGiftOrderRegistry } from '../components/bond/giftRun';
 import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
+import { diariesOfBondSync, diaryBondIds } from '../utils/bond/diaryRegistry';
+import { migrateOpenStates } from '../utils/bond/store';
+import { allRegisteredBondEntries } from '../utils/bond/entryRegistry';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
 import { gainToastText, runPactTick } from '../components/bond/pactRun';
 import { settleFeelingFromSummary } from '../components/bond/feelingRun';
@@ -2572,7 +2575,16 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     if (diaryRegistryLoadedRef.current || !characters.length) return;
     diaryRegistryLoadedRef.current = true;
-    void refreshDiaryRegistry(characters);
+    // 羈絆空間開了才有（plans/bond-open-spaces.md）：日記讀完後，舊空間有內容的記成開著
+    void refreshDiaryRegistry(characters)
+      .then(() => Promise.all([refreshBondRegistry(), refreshBondEntryRegistry()]))
+      .then(() => {
+        const counts = new Map<string, number>();
+        for (const e of allRegisteredBondEntries()) counts.set(e.bondId, (counts.get(e.bondId) || 0) + 1);
+        for (const id of diaryBondIds()) if (!counts.has(id)) counts.set(id, 0);
+        return migrateOpenStates({ entryBondIds: counts, diaryCount: id => diariesOfBondSync(id).length });
+      })
+      .catch(e => console.warn('[羈絆] 空間開啟狀態搬遷失敗', e));
   }, [characters]);
   // 上次備份途中分頁被系統關掉（多半是手機記憶體不夠）：那時候什麼都來不及記，靠開始時留的字條認出來
   // （utils/backupRunState.ts，plans/backup-streaming.md 第 4.6 節）。開機就寫一筆記錄；

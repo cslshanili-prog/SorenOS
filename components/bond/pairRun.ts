@@ -20,6 +20,7 @@ import { newLetter, sendLetter } from '../../utils/bond/letter';
 import { saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { bondEntriesOf } from '../../utils/bond/entryRegistry';
 import { bondOrBlank } from '../../utils/bond/store';
+import { isBondOpen } from '../../utils/bond/openState';
 import { pairBondId } from '../../utils/bond/model';
 import { trackEvent } from '../../utils/analytics';
 import {
@@ -77,7 +78,7 @@ export async function autoPairDiaries(input: {
 }): Promise<void> {
     const bondId = pairBondId(input.a.id, input.b.id);
     const bond = bondOrBlank(bondId);
-    if (bond.pairAutoDiary === false) return;
+    if (bond.pairAutoDiary === false || !isBondOpen(bond)) return;
     const entries = bondEntriesOf(bondId);
     const one = async (self: CharacterProfile, other: CharacterProfile, topicIds: string[]) => {
         if (!topicIds.length) return null;

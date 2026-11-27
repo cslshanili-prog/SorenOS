@@ -212,7 +212,7 @@ export const BondPickPage: React.FC<{
                                     <button key={i} type="button" aria-pressed={on}
                                         onClick={() => setChosen(prev => { const next = new Set(prev); if (next.has(i)) next.delete(i); else next.add(i); return next; })}
                                         className="w-full text-left py-4 flex gap-3">
-                                        <span className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[#fbf7f0]' : 'border-[var(--bond-rose)]'}`}>
+                                        <span className={`mt-1 h-4 w-4 shrink-0 rounded-[4px] border grid place-items-center ${on ? 'bg-[var(--bond-accent)] border-[var(--bond-accent)] text-[var(--bond-on-accent)]' : 'border-[var(--bond-rose)]'}`}>
                                             {on && <Check size={11} weight="bold" />}
                                         </span>
                                         <span className="min-w-0 flex-1">

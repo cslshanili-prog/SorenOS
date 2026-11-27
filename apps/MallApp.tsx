@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ensureSpaceOpen } from '../utils/bond/store';
 import { useOS } from '../context/OSContext';
 import ShoppingMallMiniApp, { type MallSendOrderInput } from '../components/mall/ShoppingMallMiniApp';
 import { DB } from '../utils/db';
@@ -71,6 +72,7 @@ const MallApp: React.FC = () => {
                 onBack={() => setPlanning(null)}
                 onPick={async t => {
                     try {
+                        await ensureSpaceOpen(t.bondId, 'user');
                         await saveBondEntry(plannedGiftFromProduct(t.bondId, planning));
                         trackEvent('羁绊礼物', { 动作: '打算', 方向: '我送', 来源: '购物' });
                         addToast(`記下了：打算送${t.charName}（在羈絆的珍藏裡，只有你看得到）`, 'success');

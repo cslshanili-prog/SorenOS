@@ -33,7 +33,7 @@ export function extractGiftPlanTag(text: string): { cleanedText: string; plan: G
 }
 
 /** 私聊系統提示詞那段（沒空間、小號、拉黑中不教） */
-export function buildGiftPlanPrompt(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: object | undefined, userName: string): string {
+export function buildGiftPlanPrompt(char: Pick<CharacterProfile, 'altOf' | 'chatBlock'>, bond: Parameters<typeof canProposePact>[1], userName: string): string {
     if (!canProposePact(char, bond)) return '';
     return [
         '',

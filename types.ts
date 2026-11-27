@@ -6303,6 +6303,11 @@ export interface BondRecord {
     stageLabelOther?: string;
     openedAt: number;
     openedBy: 'auto' | 'user' | 'char';
+    /**
+     * 空間開了沒（plans/bond-open-spaces.md）：開了才列在羈絆、背景功能（主動產出、約定判定、承認關係…）才跑。
+     * 沒有這格＝沒開（表裡有紀錄也不算，背景寫進來的不代表你開了）。'closed'＝你收起了，資料留著、背景停掉。
+     */
+    openState?: { state: 'open' | 'closed'; at: number; via: BondOpenVia };
     routeLog: BondRouteChange[];
     days: BondDays;
     ourNow?: BondOurNow;
@@ -6367,6 +6372,9 @@ export interface BondGiftFollowupPending {
 }
 
 /** 同步承認（plans/bond-batch4.md 2.4）：看起來聊天裡已經發生了，等你按「對」 */
+/** 空間怎麼開的：你按＋開／角色邀請你答應／從聊天收存／舊資料搬遷（有內容的算開著）／收起後再開 */
+export type BondOpenVia = 'user' | 'invite' | 'collect' | 'migrate' | 'reopen';
+
 export interface BondSyncProposal {
     id: string;
     /** 里程碑種類（together、proposal、married、bestFriends、reconciled…） */

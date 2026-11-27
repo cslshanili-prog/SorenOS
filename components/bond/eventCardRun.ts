@@ -8,6 +8,7 @@
  * - 同步承認：角色改了「認為的關係」或每日總結寫好時，副 API 看那段有沒有已經發生的轉折，
  *   有而且跟現在不同就排一張卡等你按「對」。
  */
+import { isBondOpen } from '../../utils/bond/openState';
 import type { APIConfig, BondEntry, BondSyncProposal, CharacterProfile, Message, MemoryFragment } from '../../types';
 import type { ResolvedSpace } from './space';
 import { DB } from '../../utils/db';
@@ -61,7 +62,11 @@ export async function unlockEventCards(bondId: string, level: number): Promise<B
     const defs = cardsToUnlock(bondEntriesOf(bondId), bond.route, level, hurt);
     if (!defs.length) return [];
     const now = Date.now();
-    const cards = defs.map(def => newEventCardEntry({ bondId, def, id: newBondEntryId(), now }));
+    // 一開始就能演的（Lv.1 的「好好談一次」）不算新解鎖，不在分頁上點小點；有傷提早開的照樣算新的
+    const cards = defs.map(def => {
+        const e = newEventCardEntry({ bondId, def, id: newBondEntryId(), now });
+        return def.unlock <= 1 ? { ...e, seenAt: now } : e;
+    });
     await saveBondEntries(cards);
     for (const _ of cards) trackEvent('事件卡', { 动作: '解锁', 路线: routeTag(bond.route), 结果: '无' });
     return cards;
@@ -198,6 +203,8 @@ export async function addProposal(bondId: string, p: Omit<BondSyncProposal, 'id'
 export async function checkSyncFromChat(char: CharacterProfile, personaKey: string | undefined, userName: string, apiConfig: APIConfig): Promise<void> {
     const bondId = personaBondId(char.id, personaKey || char.primaryPersonaKey);
     const bond = bondOrBlank(bondId);
+    // 空間開了才有（plans/bond-open-spaces.md）：沒開、收起的不問
+    if (!isBondOpen(bond)) return;
     const msgs = (await DB.getRecentMessagesByCharId(lineArgOf(char, personaKey) as any, 40, true).catch(() => [] as Message[]))
         .filter(m => m.role !== 'system' && m.type !== 'system');
     if (!msgs.length) return;
@@ -216,6 +223,7 @@ export async function checkSyncFromChat(char: CharacterProfile, personaKey: stri
 export async function checkSyncFromSummary(char: CharacterProfile, memory: MemoryFragment, userName: string, apiConfig: APIConfig): Promise<void> {
     const bondId = personaBondId(char.id, memory.personaKey || char.primaryPersonaKey);
     const bond = bondOrBlank(bondId);
+    if (!isBondOpen(bond)) return;
     const key = `mem:${memory.id}`;
     if (bond.syncAsked?.[key] || !(memory.summary || '').trim()) return;
     const raw = await ask(apiConfig, char, buildSyncPrompt({ leftName: userName, rightName: char.name, stageText: stageLabel(bond), material: `［${memory.date}］${memory.summary.trim()}`, kind: 'summary' }), '同步承認');

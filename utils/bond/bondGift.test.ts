@@ -104,10 +104,12 @@ describe('TA 偷偷準備的標籤', () => {
         expect(extractGiftPlanTag('嗯[[BOND_GIFT_PLAN|]]').plan).toBeNull();
         expect(extractGiftPlanTag('沒有標籤').cleanedText).toBe('沒有標籤');
     });
-    it('沒空間、小號、拉黑中不教', () => {
+    it('沒空間（沒開）、小號、拉黑中不教', () => {
+        const open = { openState: { state: 'open' as const, at: 1, via: 'user' as const } };
         expect(buildGiftPlanPrompt({}, undefined, 'Liora')).toBe('');
-        expect(buildGiftPlanPrompt({ altOf: 'c0' }, {}, 'Liora')).toBe('');
-        expect(buildGiftPlanPrompt({}, {}, 'Liora')).toContain('BOND_GIFT_PLAN');
+        expect(buildGiftPlanPrompt({}, {}, 'Liora')).toBe('');
+        expect(buildGiftPlanPrompt({ altOf: 'c0' }, open, 'Liora')).toBe('');
+        expect(buildGiftPlanPrompt({}, open, 'Liora')).toContain('BOND_GIFT_PLAN');
     });
 });
 

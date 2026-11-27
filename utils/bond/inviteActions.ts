@@ -6,6 +6,7 @@
 import type { Message } from '../../types';
 import { DB } from '../db';
 import { bondOrBlank, saveBondRecord } from './store';
+import { withOpenState } from './openState';
 
 export async function resolveBondInvite(msg: Message, action: 'accepted' | 'declined', now = Date.now()): Promise<string | null> {
     const bondId: string | undefined = msg.metadata?.bondInvite?.bondId;
@@ -13,7 +14,8 @@ export async function resolveBondInvite(msg: Message, action: 'accepted' | 'decl
     await DB.updateMessageMetadata(msg.id, prev => ({ ...prev, bondInvite: { ...(prev?.bondInvite || {}), status: action, resolvedAt: now } }));
     const cur = bondOrBlank(bondId);
     if (action === 'accepted') {
-        await saveBondRecord({ ...cur, openedBy: 'char', openedAt: now, inviteDeclinedAt: undefined });
+        // 答應了＝這個空間開了（plans/bond-open-spaces.md）
+        await saveBondRecord(withOpenState({ ...cur, openedBy: 'char', openedAt: now, inviteDeclinedAt: undefined }, 'open', 'invite', now));
     } else {
         await saveBondRecord({ ...cur, inviteDeclinedAt: now });
     }

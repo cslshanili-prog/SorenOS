@@ -43,7 +43,7 @@ export const BondPhotoPicker: React.FC<{
                                 <button key={p.id} type="button" onClick={() => toggle(p.id)} aria-pressed={on}
                                     className={`relative aspect-square overflow-hidden bg-[var(--bond-paper-2)] ${on ? 'ring-[3px] ring-inset ring-[var(--bond-accent)]' : ''}`}>
                                     <TokenImg value={p.url} className="h-full w-full object-cover" loading="lazy" alt="" />
-                                    {on && <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[var(--bond-accent)] text-[#fbf7f0]"><Check size={11} weight="bold" /></span>}
+                                    {on && <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[var(--bond-accent)] text-[var(--bond-on-accent)]"><Check size={11} weight="bold" /></span>}
                                 </button>
                             );
                         })}
