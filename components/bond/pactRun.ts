@@ -8,8 +8,13 @@
  *   丟了（換裝置、還原備份）就從今天重新判，帳本照 id 去重，不會重複加分。
  * - 背景系統一律過 isOnStage；小號不算（跟羈絆不單獨開小號的空間一致）。
  */
+import { lineGiftOrders, syncGiftPlans } from './giftRun';
+import { deliverDueLetters, markLetterOccasions } from './letterRun';
+import { charSealOnBigDays, checkDueCapsules } from './capsuleRun';
+import { lettersExchanged } from '../../utils/bond/letter';
+import { buildGiftViews, giftStats } from '../../utils/bond/gift';
 import { unlockEventCards } from './eventCardRun';
-import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, Message, UserProfile } from '../../types';
+import type { APIConfig, BondEntry, BondLedgerRow, BondPromiseRepeat, CharacterProfile, MallOrder, Message, UserProfile } from '../../types';
 import { DB } from '../../utils/db';
 import { withLineFields, lineFor } from '../../utils/chatLine';
 import { isOnStage } from '../../utils/castRole';
@@ -57,7 +62,7 @@ const writeMap = (key: string, map: Record<string, string | number>) => {
     try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* 存不了下次從今天重判，帳本照 id 去重 */ }
 };
 
-export const RECORD_ANALYTICS: Record<string, string> = { chat: '聊几句', deepChat: '深聊', goodnight: '晚安', photo: '照片', call: '通话', date: '见面', music: '听歌', gift: '礼物' };
+export const RECORD_ANALYTICS: Record<string, string> = { chat: '聊几句', deepChat: '深聊', goodnight: '晚安', photo: '照片', call: '通话', date: '见面', music: '听歌', gift: '礼物', letter: '写信' };
 const CHECK_ANALYTICS = { record: '记录', keyword: '关键字', ai: 'AI', manual: '手动' } as const;
 
 export interface PactGain {
@@ -94,6 +99,13 @@ function groupByDay(msgs: Message[]): Map<string, Message[]> {
     return out;
 }
 
+/** 珍藏的成就（plans/bond-batch5.md 第 7 節）：照圖鑑算，送到了才算 */
+function giftAchievementStats(entries: BondEntry[], orders: MallOrder[]): Pick<AchievementStats, 'giftsGiven' | 'giftsReceived' | 'giftsWellUsed'> {
+    const views = buildGiftViews({ orders, entries, forViewer: 'user' });
+    const st = giftStats(views);
+    return { giftsGiven: st.given, giftsReceived: st.received, giftsWellUsed: views.filter(v => v.followups.length >= 3).length };
+}
+
 /** 成就要看的統計（帳本裡的事實＋各處的紀錄） */
 async function achievementStats(bondId: string, char: CharacterProfile, personaKey: string | undefined, rows: BondLedgerRow[], ctx: { trips: Awaited<ReturnType<typeof DB.getAllTrips>>; events: Awaited<ReturnType<typeof loadCalendarEvents>> }): Promise<AchievementStats> {
     const entries = bondEntriesOf(bondId);
@@ -112,6 +124,9 @@ async function achievementStats(bondId: string, char: CharacterProfile, personaK
         milestones: entries.filter(e => e.kind === 'milestone' && e.status === 'published').length,
         wishesDone: entries.filter(e => e.kind === 'wish' && e.wish?.state === 'done').length,
         habits: entries.filter(e => e.kind === 'habit' && e.habit?.state === 'active').length,
+        ...giftAchievementStats(entries, lineGiftOrders(char, personaKey)),
+        lettersExchanged: lettersExchanged(entries),
+        capsulesOpened: entries.filter(e => e.kind === 'capsule' && !!e.capsule?.openedAt).length,
     };
 }
 
@@ -273,6 +288,12 @@ export async function runPactTick(scope: { characters: CharacterProfile[]; userP
             if (scored.length || levelUp) gains.push({ bondId, charId: char.id, charName: char.name, rows: scored, ...(levelUp ? { levelUp } : {}) });
         }
         writeMap(SCAN_KEY, scan);
+        // 珍藏（plans/bond-batch5.md 2.3、2.4）：買了打算送的、TA 送出了它在準備的，連回訂單；TA 的打算過期作廢
+        await syncGiftPlans(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '禮物同步失敗', e));
+        await deliverDueLetters(pactSpaces(scope.characters, scope.userProfileBase)).catch(e => console.warn(HEADER, '送信失敗', e));
+        await markLetterOccasions(pactSpaces(scope.characters, scope.userProfileBase)).catch(() => undefined);
+        await checkDueCapsules(scope).catch(e => console.warn(HEADER, '留給以後到期判斷失敗', e));
+        await charSealOnBigDays(scope).catch(e => console.warn(HEADER, 'TA 封一封失敗', e));
         return gains;
     } finally {
         running = false;
@@ -345,7 +366,7 @@ export function previewBackfill(days: Map<string, { facts: DayFacts }>, today: s
         firstDay: past.map(([d]) => d).sort()[0],
         byTemplate: PROMISE_TEMPLATES.map(t => {
             const rec = t.check.kind === 'record' ? t.check.record : null;
-            const n = past.filter(([d, v]) => rec && !recorded(`tpl:${t.id}`, d) && (rec === 'gift' ? (v.facts.hits.giftIn || v.facts.hits.giftOut) : v.facts.hits[rec])).length;
+            const n = past.filter(([d, v]) => rec && !recorded(`tpl:${t.id}`, d) && (rec === 'gift' ? (v.facts.hits.giftIn || v.facts.hits.giftOut) : rec === 'letter' ? v.facts.hits.letterOut : v.facts.hits[rec])).length;
             return { id: t.id, days: n, points: n * t.points };
         }),
     };

@@ -174,6 +174,8 @@ import { resolveBondProposal } from '../utils/bond/pactActions';
 import { appReturn, bondLaunch, chatBondRefLaunch, chatJumpLaunch } from '../utils/appLaunch';
 import { BOND_REF_KIND_LABEL, BOND_REF_OPEN_EVENT, type BondRefMeta } from '../utils/bond/bondRef';
 import { bondIdForChar } from '../utils/bond/model';
+import { plannedGiftFromProduct } from '../utils/bond/gift';
+import { saveBondEntry } from '../utils/bond/entries';
 const CollaborationWindow = React.lazy(() => import('../features/collaboration/CollaborationWindow'));
 
 const HISTORY_WINDOW_RADIUS = 25;
@@ -1638,7 +1640,7 @@ const Chat: React.FC = () => {
         if (bondRef) {
             metadata = { ...(metadata || {}), bondRef };
             setBondRefDraft(null);
-            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条', wish: '愿望', promise: '约定', habit: '默契', milestone: '里程碑' } as const;
+            const kindLabel = { moment: '片刻', memory: '记忆', essay: '随笔', diary: '日记', question: '问答', note: '纸条', wish: '愿望', promise: '约定', habit: '默契', milestone: '里程碑', gift: '礼物', letter: '信', capsule: '留给以后' } as const;
             trackEvent('带去聊聊', { 类型: kindLabel[bondRef.kind] });
         }
         const msgPayload: any = { ...lineMsgFields(char), role: 'user', type, content: storedContent, metadata };
@@ -3274,6 +3276,9 @@ const Chat: React.FC = () => {
             bondLaunch.request({
                 bondId: ref.bondId,
                 ...(ref.pactId && (ref.kind === 'wish' || ref.kind === 'promise' || ref.kind === 'habit' || ref.kind === 'milestone') ? { pact: { kind: ref.kind, entryId: ref.pactId } }
+                    : ref.letterId ? { letterId: ref.letterId }
+                    : ref.capsuleId ? { capsuleId: ref.capsuleId }
+                    : ref.giftKey ? { giftKey: ref.giftKey }
                     : ref.essayId ? { essayId: ref.essayId }
                     : ref.itemKey ? { itemKey: ref.itemKey }
                     : ref.questionId ? { heart: 'question' as const, questionId: ref.questionId }
@@ -5273,6 +5278,14 @@ const Chat: React.FC = () => {
                 addToast={addToast}
                 apiConfig={apiConfig}
                 apiPresets={apiPresets}
+                // 送給這個角色的單記在現在這條線（羈絆的禮物圖鑑照線分）
+                orderLineKey={() => { if (!char) return undefined; const f = lineMsgFields(char); return f.personaKey ? `${f.charId}::${f.personaKey}` : f.charId; }}
+                onPlanGift={char && !char.altOf ? p => {
+                    void saveBondEntry(plannedGiftFromProduct(bondIdForChar(char), p)).then(() => {
+                        trackEvent('羁绊礼物', { 动作: '打算', 方向: '我送', 来源: '购物' });
+                        addToast(`記下了：打算送${char.name}（在羈絆的珍藏裡，只有你看得到）`, 'success');
+                    }).catch(e => addToast(`沒記成功：${e?.message || e}`, 'error'));
+                } : undefined}
             />
 
             {/* 🦌 瑞幸小程序 - 與麥當勞同構 */}

@@ -377,7 +377,7 @@ export interface ImageGenPreset {
 }
 
 /** 會生圖的地方（各處畫風那張表的每一列，utils/imageStyle.ts 的 IMAGE_FEATURES） */
-export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library';
+export type ImageFeature = 'chatPhoto' | 'moments' | 'ootd' | 'dateMoment' | 'avatar' | 'library' | 'bondGift';
 
 /** 生圖 API 庫裡的一組 */
 export interface ImageApiPreset {
@@ -4551,6 +4551,8 @@ export interface MallOrder {
     paidAt?: number;
     /** 代付被拒＝取消 */
     cancelledAt?: number;
+    /** 卡片落在哪條私聊線（utils/chatLine.ts 的 lineKey；羈絆的禮物圖鑑照它分線）。舊單沒有，圖鑑第一次讀時照卡片補上 */
+    lineKey?: string;
 }
 
 /** 身份卡/真實身份的性別選項，純展示 + 會發給 AI，跟 SimGender（彼方小人）是兩套獨立的枚舉。 */
@@ -6321,6 +6323,8 @@ export interface BondRecord {
     outputLast?: Partial<Record<BondOutputKind, number>>;
     /** 有值得留下的事、還沒被寫進任何一份（事件觸發用） */
     outputEvents?: BondOutputEvent[];
+    /** 留給以後（第 5 批）：TA 在大日子封一封，看到哪個時間點了（里程碑事件、相識紀念日；第一次看到只記起點、不補以前的） */
+    charCapsuleCheckedAt?: number;
     /** 自己加的紙條標籤 */
     noteTags?: string[];
     /** 回顧與補算（2.6）：做過的時間；補算了過去的相處補到哪一天 */
@@ -6335,7 +6339,25 @@ export interface BondRecord {
     syncPending?: BondSyncProposal[];
     /** 同一段聊天／同一筆總結看到的關係變化只問一次：來源鍵 → 問過的時間 */
     syncAsked?: Record<string, number>;
+    /** 每日總結提到圖鑑裡的禮物、等你確認要不要記進後續的（plans/bond-batch5.md 第 6 節；先問你，不自動寫） */
+    giftFollowupPending?: BondGiftFollowupPending[];
+    /** 對過禮物的總結：記憶 id → 對過的時間（同一筆只對一次，留最近的一些） */
+    giftSummaryChecked?: Record<string, number>;
     updatedAt: number;
+}
+
+/** 每日總結抓到的一筆禮物後續（等你按「記進去」） */
+export interface BondGiftFollowupPending {
+    id: string;
+    /** 圖鑑那件的 key（'o:<orderId>' 或 'e:<entryId>'） */
+    giftKey: string;
+    /** 抓到時那件叫什麼（那件刪了也看得懂） */
+    giftTitle: string;
+    text: string;
+    memoryId?: string;
+    /** 總結那天 */
+    date?: string;
+    at: number;
 }
 
 /** 同步承認（plans/bond-batch4.md 2.4）：看起來聊天裡已經發生了，等你按「對」 */
@@ -6428,7 +6450,7 @@ export interface BondLedgerRow {
 
 /** 主動產出的類型（plans/bond-batch3.md 1.4） */
 /** 主動產出的種類；'wish' 是第 4 批加的（角色寫一個自己的願望） */
-export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay' | 'wish';
+export type BondOutputKind = 'diary' | 'question' | 'note' | 'essay' | 'wish' | 'letter';
 
 export interface BondOutputSetting {
     enabled: boolean;
@@ -6449,7 +6471,7 @@ export interface BondOutputSetting {
 }
 
 export interface BondOutputEvent {
-    kind: 'daily_summary' | 'date_end' | 'moment' | 'note_received' | 'question_received';
+    kind: 'daily_summary' | 'date_end' | 'moment' | 'note_received' | 'question_received' | 'milestone' | 'anniversary' | 'silence' | 'letter_received';
     at: number;
     ref?: string;
 }
@@ -6524,7 +6546,7 @@ export type BondLink =
 export interface BondEntry {
     id: string;
     bondId: string;
-    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard';
+    kind: 'moment' | 'essay' | 'question' | 'note' | 'wish' | 'promise' | 'habit' | 'milestone' | 'eventCard' | 'gift' | 'letter' | 'capsule';
     /** 'user'＝你（哪張卡看 bondId）；角色寫的是角色 id */
     author: string;
     title?: string;
@@ -6560,7 +6582,107 @@ export interface BondEntry {
     habit?: BondHabit;
     milestone?: BondMilestone;
     eventCard?: BondEventCard;
+    /** 珍藏（plans/bond-batch5.md 第 1 節）：禮物；text 是名稱或一句描述 */
+    gift?: BondGift;
+    /** 珍藏：信件；text 是信文 */
+    letter?: BondLetter;
+    /** 珍藏：留給以後；text 是封存的內容 */
+    capsule?: BondCapsule;
     updatedAt: number;
+}
+
+/**
+ * 留給以後（plans/bond-batch5.md 1.3、第 4 節）：封起來、條件到了才拆。寫的人是 entry.author。
+ * 封著的時候連寫的人自己（你）也看不到內容；對方只知道有一封、封面那句和條件。
+ */
+export interface BondCapsule {
+    /** 給誰：'user'、角色 id、'both'（一起打開：兩人各寫一封、pairWith 互指，同時拆） */
+    to: string;
+    openWhen:
+        | { kind: 'date'; date: string }
+        /** 行事曆的紀念日：封的時候算好下一次是哪天（date） */
+        | { kind: 'anniversary'; eventId: string; title?: string; date: string }
+        | { kind: 'level'; level: number }
+        | { kind: 'stage'; stage: string; label?: string };
+    /** 封面那句（雙方都看得到） */
+    cover?: string;
+    paperStyle?: string;
+    signature?: string;
+    /** 一起附上的資料庫照片 */
+    photos?: string[];
+    sealedAt: number;
+    /** 條件達成的時間（tick 記；到這時才能照常拆） */
+    dueAt?: number;
+    openedAt?: number;
+    /** 沒到期就拆了 */
+    openedEarly?: boolean;
+    /** 一起打開：另一封的 id */
+    pairWith?: string;
+    /** 為什麼封的（TA 在大日子封的：里程碑、事件卡、相識紀念日） */
+    origin?: 'manual' | 'together' | 'milestone' | 'eventCard' | 'anniversary';
+}
+
+/**
+ * 信件（plans/bond-batch5.md 1.2）。寄件人是 entry.author（'user' 或角色 id）。
+ * 草稿＝status 'draft'、沒有 sentAt；寄出＝published＋sentAt；對方收到＝arrivedAt（馬上到的寄出就到，慢寄的到 deliverAt 由 tick 投遞）。
+ * 還沒到的信不算對方知道：不進收件人的提示詞、也不在收件人的清單上。
+ */
+export interface BondLetter {
+    /** 收件人：'user' 或角色 id */
+    to: string;
+    /** 信紙（交換日記那六種）、署名 */
+    paperStyle?: string;
+    signature?: string;
+    sentAt?: number;
+    /** 慢寄：預計這時候到（真實時間）；沒有＝寄出就到 */
+    deliverAt?: number;
+    /** 真的到了對方手上（聊天裡落「信到了」那張小卡的時間） */
+    arrivedAt?: number;
+    /** 收件人讀了（角色收的信，到了就算讀了） */
+    readAt?: number;
+    /** 回哪一封 */
+    replyTo?: string;
+    origin: 'manual' | 'reply' | 'output' | 'eventCard';
+}
+
+/**
+ * 禮物（plans/bond-batch5.md 1.1）。購物中心的送禮單不另存一份：圖鑑照訂單現排，
+ * 你在那件上補了東西才寫一張卡，用 orderId 疊上去。
+ */
+export interface BondGift {
+    /** 'out'＝你送 TA、'in'＝TA 送你 */
+    dir: 'out' | 'in';
+    /** 打算送 → 已買 → 已送；TA 送的一出現就是 given。連了訂單的照訂單配送進度算，這格只是快照 */
+    state: 'planned' | 'bought' | 'given';
+    items?: Array<{ name: string; qty?: number; emoji?: string; shop?: string; price?: number }>;
+    orderId?: string;
+    /** 打算送的前三天在首頁提醒過、你按了「知道了」 */
+    remindedAt?: number;
+    /** 聊天裡那張購物卡（跳回原文用） */
+    messageId?: number;
+    /** 資料庫照片 id */
+    photos?: string[];
+    occasion?: string;
+    /** 收到時的反應（TA 那句、或你寫的） */
+    reaction?: string;
+    /** 打算送：哪天（日期 key）、從誰的願望來、對到購物中心哪件商品 */
+    plannedFor?: string;
+    fromWishId?: string;
+    productName?: string;
+    followups?: BondGiftFollowup[];
+    boughtAt?: number;
+    givenAt?: number;
+    /** TA 偷偷打算的：送出前你看不到；送出時記「準備了幾天」 */
+    secret?: { plannedAt: number; when?: string; revealedAt?: number };
+}
+
+export interface BondGiftFollowup {
+    id: string;
+    at: number;
+    /** 'user' 或角色 id */
+    by: string;
+    text: string;
+    source?: BondSource;
 }
 
 /** 願望（plans/bond-batch4.md 1.1，紀要 3.5）：看見不等於答應；談妥才變成共同約定 */
@@ -6587,7 +6709,7 @@ export type BondPromiseRepeat =
 
 /** 共同約定的完成依據（plans/bond-batch4.md 1.2；自動判定在第 4b 批） */
 export type BondTaskCheck =
-    | { kind: 'record'; record: 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'gift'; min?: number }
+    | { kind: 'record'; record: 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'gift' | 'letter'; min?: number }
     | { kind: 'manual' }
     | { kind: 'ai'; hint: string }
     | { kind: 'keyword'; words: string[]; both: boolean };
@@ -6644,5 +6766,5 @@ export interface BondEventCard {
     /** 演過的每一次（還沒、換方向的也留著） */
     history?: Array<{ result: 'yes' | 'notYet' | 'other'; at: number; note?: string; venue?: 'chat' | 'date' }>;
     /** 開演時帶進去的願望、拾光（你可以勾掉） */
-    context?: { wishIds?: string[]; itemKeys?: string[] };
+    context?: { wishIds?: string[]; itemKeys?: string[]; giftKeys?: string[] };
 }

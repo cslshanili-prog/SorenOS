@@ -1,0 +1,141 @@
+import { describe, expect, it } from 'vitest';
+import type { BondRecord } from '../../types';
+import {
+    arriveLetter, awaitingReply, dueLetters, editLetter, formatBondLetterRecord, letterMeta, letterThread, lettersExchanged, lettersForUser,
+    markLetterRead, newLetter, outputSlowDays, sendLetter, unreadForUser,
+} from './letter';
+import { bondPromptBlock } from './prompt';
+
+const DAY = 86400_000;
+const T = 1_800_000_000_000;
+
+describe('信件：寄出、慢寄、送達、已讀', () => {
+    it('草稿可以改，寄出就不能改；馬上到的寄出就到，角色收的到了就算讀了', () => {
+        const d = newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '第一封', now: T });
+        expect(d.status).toBe('draft');
+        const d2 = editLetter(d, { text: '改過的第一封', signature: '你的 L' }, T + 1);
+        expect(d2.text).toBe('改過的第一封');
+        const s = sendLetter(d2, 0, T + 2);
+        expect(s.letter).toMatchObject({ sentAt: T + 2, arrivedAt: T + 2, readAt: T + 2, signature: '你的 L' });
+        expect(editLetter(s, { text: 'x' }).text).toBe('改過的第一封');
+    });
+    it('慢寄：到 deliverAt 才投遞；你收的要打開才算讀', () => {
+        const s = sendLetter(newLetter({ bondId: 'b', author: 'c1', to: 'user', text: '慢慢寄給你', now: T }), 2, T);
+        expect(s.letter!.arrivedAt).toBeUndefined();
+        expect(lettersForUser([s])).toEqual([]);
+        expect(dueLetters([s], T + DAY)).toEqual([]);
+        expect(dueLetters([s], T + 2 * DAY).map(e => e.id)).toEqual([s.id]);
+        const a = arriveLetter(s, T + 2 * DAY);
+        expect(lettersForUser([a]).map(e => e.id)).toEqual([a.id]);
+        expect(unreadForUser([a])).toHaveLength(1);
+        expect(unreadForUser([markLetterRead(a, T + 3 * DAY)])).toHaveLength(0);
+    });
+    it('回信串、等你回、交換了幾封', () => {
+        const a = sendLetter(newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '你好嗎', now: T }), 0, T);
+        expect(awaitingReply([a], a)).toBe(true);
+        const r = sendLetter(newLetter({ bondId: 'b', author: 'c1', to: 'user', text: '很好', replyTo: a.id, now: T + 1 }), 0, T + 1);
+        const draft = newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '草稿', replyTo: r.id, now: T + 2 });
+        expect(awaitingReply([a, r], a)).toBe(false);
+        expect(letterThread([a, r, draft], draft.id, 'user').map(e => e.text)).toEqual(['你好嗎', '很好', '草稿']);
+        expect(letterThread([a, r, draft], a.id, 'char').map(e => e.text)).toEqual(['你好嗎', '很好']);
+        expect(lettersExchanged([a, r, draft])).toBe(2);
+    });
+    it('TA 主動寫的信：同一封算出來的慢寄天數永遠一樣', () => {
+        expect(outputSlowDays('x1')).toBe(outputSlowDays('x1'));
+        expect(outputSlowDays('x1')).toBeLessThanOrEqual(3);
+    });
+    it('聊天小卡的記錄：你慢寄的信角色知道在路上、不知道內容', () => {
+        const s = sendLetter(newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '秘密的內容', now: T }), 3, T);
+        const rec = formatBondLetterRecord(letterMeta(s, 'sent'));
+        expect(rec).toContain('不知道內容');
+        expect(rec).not.toContain('秘密');
+    });
+});
+
+describe('提示詞【你們的珍藏】信件', () => {
+    const bond = { id: 'b', kind: 'persona', charId: 'c1', personaKey: 'p1', stage: 'friend', openedAt: 1, openedBy: 'auto', routeLog: [], days: {} } as unknown as BondRecord;
+    it('草稿、你寄的還在路上的：一字不差', () => {
+        const base = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [], selfId: 'c1' });
+        const draft = newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '草稿', now: T });
+        const slow = sendLetter(newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '慢', now: T }), 3, T);
+        expect(bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [draft, slow], selfId: 'c1' })).toBe(base);
+    });
+    it('寄到了的帶進去、等你回的標出來；你寄的在路上的你記得', () => {
+        const a = sendLetter(newLetter({ bondId: 'b', author: 'user', to: 'c1', text: '想你了', now: T }), 0, T);
+        const mineSlow = sendLetter(newLetter({ bondId: 'b', author: 'c1', to: 'user', text: '下雪了', now: T + 1 }), 2, T + 1);
+        const out = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', entries: [a, mineSlow], selfId: 'c1' });
+        expect(out).toContain('Liora寫給你：「想你了」（Liora在等你回信）');
+        expect(out).toContain('你寄給Liora的一封信還在路上');
+    });
+});
+
+import { buildCharLetterPrompt, parseLetter } from './outputPromptCore';
+import { dayFacts, checkDay } from './taskCheck';
+
+describe('TA 寫信', () => {
+    it('回信帶整串、主動寫帶提筆原因；解析署名', () => {
+        const reply = buildCharLetterPrompt({ selfName: 'Sully', otherName: 'Liora', thread: [{ fromName: 'Liora', text: '下雪了' }], chars: [300, 500] });
+        expect(reply).toContain('你要回信');
+        expect(reply).toContain('下雪了');
+        expect(reply).toContain('300～500 字');
+        const fresh = buildCharLetterPrompt({ selfName: 'Sully', otherName: 'Liora', occasion: '今天是你們的紀念日。' });
+        expect(fresh).toContain('今天是你們的紀念日');
+        expect(parseLetter('{"text":"親愛的你\\n今天","signature":"S."}')).toEqual({ text: '親愛的你\n今天', signature: 'S.' });
+        expect(parseLetter('{"signature":"S."}')).toBeNull();
+    });
+    it('任務「寫一封信」：你寄出那天算；慢寄的到了那天不重算', () => {
+        const m = (id: number, ev: 'sent' | 'arrived', slow?: boolean) => ({ id, role: 'user' as const, type: 'bond_invite' as const, content: '', metadata: { bondLetter: { event: ev, ...(slow ? { slow } : {}) } } });
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(1, 'arrived')]), []).done).toBe(true);
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(2, 'sent', true)]), []).done).toBe(true);
+        expect(checkDay({ kind: 'record', record: 'letter' }, dayFacts([m(3, 'arrived', true)]), []).done).toBe(false);
+    });
+});
+
+import { canOpen, capsuleList, capsulesNowDue, conditionMet, markDue, newCapsule, openCapsules, pairCapsules, yearLater } from './capsule';
+
+describe('留給以後', () => {
+    const ctx = { today: '2026-11-27', level: 3, stage: 'friend' as string, route: 'friendship' as const };
+    it('四種條件', () => {
+        expect(conditionMet({ kind: 'date', date: '2026-11-27' }, ctx)).toBe(true);
+        expect(conditionMet({ kind: 'date', date: '2026-11-28' }, ctx)).toBe(false);
+        expect(conditionMet({ kind: 'anniversary', eventId: 'e', date: '2026-11-01' }, ctx)).toBe(true);
+        expect(conditionMet({ kind: 'level', level: 4 }, ctx)).toBe(false);
+        expect(conditionMet({ kind: 'stage', stage: 'friend' }, ctx)).toBe(true);
+        expect(yearLater('2028-02-29')).toBe('2029-02-28');
+    });
+    it('到期只標記、不自動拆；你寫給 TA 的不能提前拆，TA 寫給你的可以（記提前）', () => {
+        const mine = newCapsule({ bondId: 'b', author: 'user', to: 'c1', text: '給一年後的你', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const theirs = newCapsule({ bondId: 'b', author: 'c1', to: 'user', text: '一年前的我', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        expect(capsulesNowDue([mine, theirs], ctx)).toEqual([]);
+        expect(canOpen(mine)).toEqual({ now: false, early: false });
+        expect(canOpen(theirs)).toEqual({ now: false, early: true });
+        const [o] = openCapsules([theirs], 5);
+        expect(o.capsule).toMatchObject({ openedAt: 5, openedEarly: true });
+        const due = markDue(mine, 9);
+        expect(canOpen(due).now).toBe(true);
+        expect(openCapsules([due], 10)[0].capsule!.openedEarly).toBeUndefined();
+    });
+    it('一起打開：兩封互指、清單合成一格', () => {
+        const a = newCapsule({ bondId: 'b', author: 'user', to: 'both', text: 'A', openWhen: { kind: 'level', level: 5 }, now: 1 });
+        const b = newCapsule({ bondId: 'b', author: 'c1', to: 'both', text: 'B', openWhen: { kind: 'date', date: '2030-01-01' }, now: 2 });
+        const [pa, pb] = pairCapsules(a, b);
+        expect(pb.capsule!.openWhen).toEqual(pa.capsule!.openWhen);
+        expect(capsuleList([pa, pb]).map(e => e.id)).toEqual([pa.id]);
+        expect(canOpen(pa).early).toBe(true);
+    });
+});
+
+describe('提示詞【你們的珍藏】留給以後', () => {
+    const bond = { id: 'b', kind: 'persona', charId: 'c1', personaKey: 'p1', stage: 'friend', openedAt: 1, openedBy: 'auto', routeLog: [], days: {} } as unknown as BondRecord;
+    it('你封的 TA 不知道內容；TA 封的 TA 記得；拆開的都知道', () => {
+        const mine = newCapsule({ bondId: 'b', author: 'user', to: 'c1', text: '秘密的內容', cover: '等一年', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const theirs = newCapsule({ bondId: 'b', author: 'c1', to: 'user', text: '一年前的我很怕', openWhen: { kind: 'date', date: '2027-11-27' }, now: 1 });
+        const out = bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1', entries: [mine, theirs] });
+        expect(out).toContain('Liora封給你的一封');
+        expect(out).toContain('封面寫著「等一年」');
+        expect(out).not.toContain('秘密的內容');
+        expect(out).toContain('你寫的是：「一年前的我很怕」');
+        const [opened] = openCapsules([mine], T);
+        expect(bondPromptBlock({ bond, selfName: 'Sully', otherName: 'Liora', selfId: 'c1', entries: [opened] })).toContain('提前拆了');
+    });
+});

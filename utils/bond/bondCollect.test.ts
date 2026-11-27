@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Message } from '../../types';
 import {
     buildCollectSnippet, buildMomentPickPrompt, buildMomentSummaryPrompt, cleanSummary, defaultEventDate, extendSelection,
-    lineArgFromKey, messagePlainText, numberedTranscript, parseMomentPick, unscannedMessages,
+    lineArgFromKey, messagePlainText, numberedTranscript, parseMomentPick, unscannedMessages, buildGiftFillPrompt, parseGiftFill,
 } from './collect';
 
 const msg = (id: number, role: 'user' | 'assistant', content: string, over: Partial<Message> = {}): Message =>
@@ -67,5 +67,47 @@ describe('AI 摘要與挑選', () => {
         const msgs = [msg(3, 'user', 'c'), msg(1, 'user', 'a'), msg(2, 'user', 'b')];
         expect(unscannedMessages(msgs, 1).map(m => m.id)).toEqual([2, 3]);
         expect(unscannedMessages(msgs, undefined, 2).map(m => m.id)).toEqual([2, 3]);
+    });
+});
+
+describe('挑幾件：禮物與禮物後續（第 5 批）', () => {
+    const msgs = [msg(10, 'user', '我織了一條圍巾給你'), msg(11, 'assistant', '好暖'), msg(12, 'assistant', '今天戴著你送的錶去上班')];
+    const gifts = [{ key: 'o:1', title: '手錶', dir: 'out' as const }, { key: 'e:g2', title: '書籤', dir: 'in' as const }];
+
+    it('有圖鑑才教禮物後續、列 G 編號；沒有就不提', () => {
+        const withGifts = buildMomentPickPrompt({ transcript: 't', leftName: 'Liora', rightName: 'Sully', withPact: true, gifts });
+        expect(withGifts).toContain('gift_followup');
+        expect(withGifts).toContain('G1 Liora送給Sully：手錶');
+        expect(withGifts).toContain('G2 Sully送給Liora：書籤');
+        const none = buildMomentPickPrompt({ transcript: 't', leftName: 'Liora', rightName: 'Sully', withPact: true });
+        expect(none).toContain('- gift：');
+        expect(none).not.toContain('gift_followup');
+        expect(none).not.toContain('已經在圖鑑裡的禮物');
+        // 角色 × 角色不挑禮物
+        expect(buildMomentPickPrompt({ transcript: 't', leftName: 'A', rightName: 'B' })).not.toContain('gift');
+    });
+
+    it('解析禮物：方向、場合；後續的 G 編號換回 key，對不上就丟掉', () => {
+        const raw = JSON.stringify([
+            { kind: 'gift', dir: 'out', title: '圍巾', occasion: '想到你', text: 'Liora 織了一條圍巾給 Sully', refs: [1, 2] },
+            { kind: 'gift_followup', gift: 'G1', title: '', text: 'Sully 戴著那支錶去上班', refs: [3] },
+            { kind: 'gift_followup', gift: 'G9', text: '對不上', refs: [3] },
+            { kind: 'gift', dir: 'sideways', title: '不明', text: '方向亂寫', refs: [1] },
+        ]);
+        const out = parseMomentPick(raw, msgs, gifts);
+        expect(out).toHaveLength(3);
+        expect(out[0]).toMatchObject({ kind: 'gift', dir: 'out', occasion: '想到你', messageIds: [10, 11] });
+        expect(out[1]).toMatchObject({ kind: 'giftFollowup', giftKey: 'o:1', dir: 'out', title: '手錶', messageIds: [12] });
+        expect(out[2].kind).toBe('gift');
+        expect(out[2].dir).toBeUndefined();
+    });
+
+    it('收成禮物時 AI 幫填：欄位解析、看不出來的留空', () => {
+        const p = buildGiftFillPrompt({ snippet: 'Liora：我織了一條圍巾給你', leftName: 'Liora', rightName: 'Sully' });
+        expect(p).toContain('out＝Liora送給Sully');
+        expect(parseGiftFill('```json\n{"title":"「手織圍巾」","dir":"out","occasion":"","text":"Liora 織了圍巾給 Sully"}\n```'))
+            .toEqual({ title: '手織圍巾', dir: 'out', text: 'Liora 織了圍巾給 Sully' });
+        expect(parseGiftFill('{"title":"","dir":"x","occasion":"","text":""}')).toBeNull();
+        expect(parseGiftFill('沒有 JSON')).toBeNull();
     });
 });

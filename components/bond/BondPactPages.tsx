@@ -6,7 +6,7 @@
  *   TA 提的在你這邊等你按好。
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChatCircleText, Check, Feather, Flag, Handshake, Sparkle } from '@phosphor-icons/react';
+import { ChatCircleText, Check, Feather, Flag, Gift, Handshake, Sparkle } from '@phosphor-icons/react';
 import type { APIConfig, BondEntry, BondPromiseRepeat, BondTaskCheck, CharacterProfile } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
@@ -142,8 +142,11 @@ export const BondWishPage: React.FC<{
     onMakePromise: () => void;
     onOpenPromise: (id: string) => void;
     onBringToChat?: (e: BondEntry) => void;
+    /** 珍藏（第 5 批）：TA 的願望「我想送這個」→ 打算送；已經打算了就開那件 */
+    onPlanGift?: () => void;
+    onOpenGift?: (key: string) => void;
     addToast: Toast;
-}> = ({ space, characters, apiConfig, entryId, onBack, onEdit, onMakePromise, onOpenPromise, onBringToChat, addToast }) => {
+}> = ({ space, characters, apiConfig, entryId, onBack, onEdit, onMakePromise, onOpenPromise, onBringToChat, onPlanGift, onOpenGift, addToast }) => {
     const entries = useBondEntries(space.id);
     const w = entries.find(e => e.id === entryId);
     const name = space.rightName;
@@ -250,6 +253,12 @@ export const BondWishPage: React.FC<{
 
                         <section className="flex flex-wrap gap-2">
                             {onBringToChat && <button type="button" className="bond-btn" onClick={() => onBringToChat(w)}><ChatCircleText size={14} />帶去聊聊</button>}
+                            {(() => {
+                                if (w.wish!.owner === 'user' || w.wish!.state === 'done') return null;
+                                const gift = entries.find(e => e.kind === 'gift' && e.gift?.fromWishId === w.id && e.gift.dir === 'out');
+                                if (gift && onOpenGift) return <button type="button" className="bond-btn" onClick={() => onOpenGift(`e:${gift.id}`)}><Gift size={14} />{gift.gift!.state === 'planned' ? '打算送了，去看看' : '送過了，去看看'}</button>;
+                                return onPlanGift ? <button type="button" className="bond-btn" onClick={onPlanGift}><Gift size={14} />我想送這個</button> : null;
+                            })()}
                         </section>
                     </div>
                 )}

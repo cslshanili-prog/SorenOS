@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Heart, PushPin, X } from '@phosphor-icons/react';
+import { CaretLeft, Gift, Heart, PushPin } from '@phosphor-icons/react';
 import type { MallCategory, MallKind, MallProduct } from '../../types';
 import { formatMoney } from '../../utils/realBalance';
 import { EmojiTile, inputCls, primaryBtn } from './MallParts';
@@ -19,6 +19,8 @@ interface Props {
     onTogglePinned: (product: MallProduct) => void;
     onSave: (product: MallProduct | null, draft: ProductDraft) => void;
     onDelete: (product: MallProduct) => void;
+    /** 羈絆「打算送 TA」（plans/bond-batch5.md 2.3）；外賣不給 */
+    onPlanGift?: (product: MallProduct) => void;
 }
 
 export interface ProductDraft {
@@ -37,8 +39,8 @@ const draftFrom = (p: MallProduct): ProductDraft => ({
     name: p.name, shop: p.shop ?? '', price: String(p.price), emoji: p.emoji, summary: p.summary ?? '', detail: p.detail ?? '', categoryId: p.categoryId,
 });
 
-/** 商品詳情（底部抽屜）：看、收藏、加入購物車；點「編輯」切成表單。新增商品也用同一張表單。 */
-const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, onClose, onAddToCart, onToggleFavorite, onTogglePinned, onSave, onDelete }) => {
+/** 商品詳情（全螢幕）：看、收藏、加入購物車、打算送 TA；點「編輯」切成表單。新增商品也用同一張表單。 */
+const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, onClose, onAddToCart, onToggleFavorite, onTogglePinned, onSave, onDelete, onPlanGift }) => {
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState<ProductDraft | null>(null);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -62,24 +64,22 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
     const canSave = draft.name.trim() && draft.categoryId && Number.isFinite(parseFloat(draft.price)) && parseFloat(draft.price) >= 0;
 
     return (
-        <div className="fixed inset-0 z-[110] flex items-end justify-center" onClick={e => e.stopPropagation()}>
-            <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
-            <div className="relative w-full max-w-md max-h-[88%] bg-white rounded-t-[2rem] flex flex-col animate-slide-up" style={{ paddingBottom: 'var(--safe-bottom)' }}>
-                <div className="flex items-center justify-between px-5 pt-4 pb-1 shrink-0">
-                    <div className="text-[12px] font-bold text-slate-400">
-                        {editing ? (product ? '編輯商品' : `新增${kind === 'food' ? '品項' : '商品'}`) : (category?.name || '')}
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {product && !editing && (
-                            <button onClick={() => setEditing(true)} className="text-[12px] font-bold text-slate-500">編輯</button>
-                        )}
-                        <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 active:scale-90" aria-label="關閉">
-                            <X size={14} weight="bold" />
+        <div className="fixed inset-0 z-[110] flex flex-col bg-white animate-fade-in" onClick={e => e.stopPropagation()} style={{ paddingBottom: 'var(--safe-bottom)' }}>
+                <div className="shrink-0 border-b border-slate-100" style={{ paddingTop: 'var(--safe-top)' }}>
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                        <button onClick={() => (editing && product ? setEditing(false) : onClose())} className="p-1.5 rounded-full active:bg-slate-100" aria-label="返回">
+                            <CaretLeft size={22} className="text-slate-800" />
                         </button>
+                        <div className="flex-1 min-w-0 truncate text-[16px] font-black text-slate-900">
+                            {editing ? (product ? '編輯商品' : `新增${kind === 'food' ? '品項' : '商品'}`) : (category?.name || '商品')}
+                        </div>
+                        {product && !editing && (
+                            <button onClick={() => setEditing(true)} className="px-2 text-[13px] font-bold text-slate-500">編輯</button>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar px-5 pb-5">
+                <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar px-5 pb-5 w-full max-w-md mx-auto">
                     {!editing && product ? (
                         <div>
                             <div className="flex justify-center py-4"><EmojiTile emoji={product.emoji} size="lg" /></div>
@@ -108,6 +108,12 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
                                     加入購物車{inCart > 0 ? `（已有 ${inCart}）` : ''}
                                 </button>
                             </div>
+                            {onPlanGift && product.kind !== 'food' && (
+                                <button onClick={() => onPlanGift(product)}
+                                    className="mt-3 w-full py-3 rounded-2xl border border-dashed border-slate-300 text-[13.5px] font-bold text-slate-600 flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
+                                    <Gift size={16} />打算送 TA（記進羈絆，先不買）
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <div className="space-y-3 pt-2">
@@ -146,7 +152,6 @@ const MallProductSheet: React.FC<Props> = ({ target, kind, categories, inCart, o
                         </div>
                     )}
                 </div>
-            </div>
         </div>
     );
 };

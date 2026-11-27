@@ -423,6 +423,7 @@ export const ChatParser = {
                 const record = createMallOrder({
                     kind: order.kind, items: order.items, note: order.note,
                     buyer: 'char', recipient: 'user', payer: 'char', charId, charName, paidAt, createdAt: paidAt,
+                    lineKey: line.personaKey ? `${line.charId}::${line.personaKey}` : line.charId,
                 });
                 try { await DB.saveMallOrder(record); } catch (e) { console.warn('[Mall] 記訂單失敗，卡片照發:', e); }
                 await persist({

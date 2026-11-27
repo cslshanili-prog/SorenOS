@@ -290,6 +290,85 @@ export function parseCharWish(raw: string): { wish: string; together: boolean } 
     return { wish: wish.slice(0, 200), together: str(o.owner) === 'both' };
 }
 
+/**
+ * 角色寫一封信（plans/bond-batch5.md 第 3 節）：回信（帶這一串的全文）或主動寫一封（帶最近的信、這次為什麼提筆）。
+ * 信比紙條長、比聊天慢：寫給對方一個人看的完整書信，照角色的口吻；不寫成聊天訊息、不用表情符號堆。
+ */
+export function buildCharLetterPrompt(input: OutputContext & {
+    /** 回信：這一串（舊到新，含對方最後那封）；沒有＝主動寫 */
+    thread?: Array<{ fromName: string; text: string; date?: string }>;
+    /** 主動寫：你們最近的信（一封一行的摘要） */
+    recentLetters?: string;
+    /** 這次為什麼提筆（里程碑、紀念日、見面之後、很久沒說話）；沒有就是想寫 */
+    occasion?: string;
+    relationLine?: string;
+    chars?: [number, number];
+    style?: string;
+}): string {
+    const thread = (input.thread || []).map(t => `—— ${t.fromName}${t.date ? `（${t.date}）` : ''}：\n${t.text}`).join('\n\n');
+    const replying = !!thread;
+    return `${replying ? `${input.otherName}寫了一封信給你，你要回信。` : `你想寫一封信給${input.otherName}。`}信跟聊天不一樣：是寫給對方一個人看的、比較完整、比較慢的話，可以說平常聊天說不出口的、也可以只是近況。
+${input.relationLine ? `\n（你們的關係：${input.relationLine}）\n` : ''}${input.occasion ? `\n【這次提筆的原因】${input.occasion}\n` : ''}
+${replying ? `【這一串信（舊到新，最後一封是${input.otherName}剛寄來的）】\n${thread}\n` : input.recentLetters ? `【你們之前的信】\n${input.recentLetters}\n` : ''}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份寫${replying ? '回信' : '這封信'}：
+${GROUND_RULES(input)}
+- 篇幅：${input.chars ? `大約 ${input.chars[0]}～${input.chars[1]} 字` : '大約 300～800 字'}，照你的個性；話少的人寫信也可以短、可以笨拙，但要是你會寫的信。
+- 寫成一封信：可以有稱呼、分段、近況、想說的話，結尾自然收住；不要寫成一則則聊天訊息，不要用顏文字、表情符號湊。${replying ? `\n- 回應${input.otherName}信裡真的寫到的事，不要只說謝謝。` : ''}
+- 照你們的關係寫，不是戀愛關係就不要寫曖昧的話。
+${styleLine(input)}- signature 是信末的署名（照你平常怎麼稱呼自己，可以只是名字）。
+只輸出 JSON，不要其他文字：{"text":"信的正文（用 \\n 分段，不含署名）","signature":"署名"}`;
+}
+
+/**
+ * 角色封一封「留給以後」（plans/bond-batch5.md 第 4 節）：寫給將來那個時候的對方；封面那句雙方都看得到、不洩漏內容。
+ * together＝對方也封了一封，兩封約好同時拆（你看不到對方寫什麼）。
+ */
+export function buildCharCapsulePrompt(input: OutputContext & {
+    /** 什麼時候打開（「2027 年 11 月 27 日」「關係走到『交往』」） */
+    when: string;
+    /** 為什麼這時候封（里程碑、事件卡、相識紀念日）；沒有就是對方邀你一起封 */
+    occasion?: string;
+    together?: boolean;
+    relationLine?: string;
+    chars?: [number, number];
+}): string {
+    return `你要寫一封「留給以後」的信給${input.otherName}：寫好就封起來，約好${input.when}才打開。${input.together ? `${input.otherName}也封了一封給你，兩封會一起拆；你看不到對方寫了什麼。` : ''}
+${input.relationLine ? `\n（你們的關係：${input.relationLine}）\n` : ''}${input.occasion ? `\n【這時候封的原因】${input.occasion}\n` : ''}
+${recentBlock(input)}
+
+請以「${input.selfName}」的身份寫：
+${GROUND_RULES(input)}
+- 寫給「打開那時候的${input.otherName}」：可以寫現在的你在想什麼、怕什麼、期待什麼，或想對那時候的對方說的話；不要預言那時候一定會怎樣。
+- 篇幅：${input.chars ? `大約 ${input.chars[0]}～${input.chars[1]} 字` : '大約 200～600 字'}，照你的個性。
+- cover 是寫在信封上的一句（雙方現在就看得到），像「等我們一起過完第一年再打開」；不要洩漏信的內容。
+- 照你們的關係寫，不是戀愛關係就不要寫曖昧的話。
+只輸出 JSON，不要其他文字：{"text":"信的正文（用 \\n 分段，不含署名）","cover":"信封上那句","signature":"署名"}`;
+}
+
+export function parseCapsule(raw: string): { text: string; cover?: string; signature?: string } | null {
+    const o = parseJsonObject(raw);
+    if (!o) return null;
+    const t = str(o.text);
+    if (!t) return null;
+    const cover = str(o.cover).slice(0, 40);
+    const sig = str(o.signature).slice(0, 30);
+    return { text: t.slice(0, 8000), ...(cover ? { cover } : {}), ...(sig ? { signature: sig } : {}) };
+}
+
+export function parseLetter(raw: string): { text: string; signature?: string } | null {
+    const o = parseJsonObject(raw);
+    if (o) {
+        const t = str(o.text);
+        if (!t) return null;
+        const sig = str(o.signature).slice(0, 30);
+        return { text: t.slice(0, 8000), ...(sig ? { signature: sig } : {}) };
+    }
+    const t = String(raw || '').trim();
+    return t && !t.startsWith('{') ? { text: t.slice(0, 8000) } : null;
+}
+
 export function parseNotice(raw: string): string {
     const o = parseJsonObject(raw);
     return o ? str(o.notice).slice(0, 200) : '';

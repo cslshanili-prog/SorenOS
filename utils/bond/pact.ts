@@ -90,7 +90,7 @@ export function repeatLabel(r: BondPromiseRepeat): string {
 }
 
 export const RECORD_LABEL: Record<Extract<BondTaskCheck, { kind: 'record' }>['record'], string> = {
-    chat: '聊幾句', deepChat: '深聊', goodnight: '互道晚安', photo: '分享照片', call: '通話', date: '見面', music: '一起聽歌', gift: '送禮或收禮',
+    chat: '聊幾句', deepChat: '深聊', goodnight: '互道晚安', photo: '分享照片', call: '通話', date: '見面', music: '一起聽歌', gift: '送禮或收禮', letter: '寄出一封信',
 };
 
 export function checkLabel(c: BondTaskCheck): string {
@@ -121,6 +121,8 @@ export const PROMISE_TEMPLATES: PromiseTemplate[] = [
     { id: 'date', title: { default: '見個面', romance: '約會' }, repeat: { kind: 'daily' }, check: { kind: 'record', record: 'date' }, points: 30 },
     { id: 'music', title: { default: '一起聽歌' }, repeat: { kind: 'daily' }, check: { kind: 'record', record: 'music' }, points: 10 },
     { id: 'gift', title: { default: '送點什麼' }, repeat: { kind: 'daily' }, check: { kind: 'record', record: 'gift' }, points: 10 },
+    // 第 5 批：每個月寫一封信（這個月你寄出一封就算）
+    { id: 'letter', title: { default: '寫一封信' }, repeat: { kind: 'monthly' }, check: { kind: 'record', record: 'letter' }, points: 10 },
 ];
 
 export const templateTitle = (t: PromiseTemplate, route: BondRoute | undefined): string => t.title[route || 'none'] || t.title.default;

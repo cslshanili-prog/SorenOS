@@ -10,13 +10,14 @@
  * - 見面：有見面的訊息
  * - 一起聽歌：TA 決定一起聽的音樂卡
  * - 禮物：送出或收到的禮物單（購物中心送禮、TA 的 [[ACTION:GIFT]]）
+ * - 寫信（第 5 批）：你寄出一封信（聊天裡那張信封小卡；慢寄的算寄出那天）
  *
  * 聊天則數不算通話、見面、羈絆自動的通知、系統訊息。
  */
 import type { BondTaskCheck, Message } from '../../types';
 
-export type FactKind = 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'giftIn' | 'giftOut';
-export const FACT_KINDS: FactKind[] = ['chat', 'deepChat', 'goodnight', 'photo', 'call', 'date', 'music', 'giftIn', 'giftOut'];
+export type FactKind = 'chat' | 'deepChat' | 'goodnight' | 'photo' | 'call' | 'date' | 'music' | 'giftIn' | 'giftOut' | 'letterOut';
+export const FACT_KINDS: FactKind[] = ['chat', 'deepChat', 'goodnight', 'photo', 'call', 'date', 'music', 'giftIn', 'giftOut', 'letterOut'];
 
 export const CHAT_MIN_USER = 3;
 export const CHAT_MIN_CHAR = 1;
@@ -64,6 +65,8 @@ export function dayFacts(messages: Msg[]): DayFacts {
     const giftOut = gifts.filter(m => m.role === 'user');
     if (giftIn.length) hits.giftIn = ids(giftIn.slice(0, 1));
     if (giftOut.length) hits.giftOut = ids(giftOut.slice(0, 1));
+    const letters = messages.filter(m => m.type === 'bond_invite' && m.role === 'user' && m.metadata?.bondLetter && (m.metadata.bondLetter.event === 'sent' || !m.metadata.bondLetter.slow));
+    if (letters.length) hits.letterOut = ids(letters.slice(0, 1));
     return { hits, userCount: mine.length, charCount: theirs.length };
 }
 
@@ -80,6 +83,10 @@ export function checkDay(check: BondTaskCheck, facts: DayFacts, messages: Msg[])
             const theirs = chat.filter(m => m.role === 'assistant');
             return mine.length >= check.min && theirs.length >= CHAT_MIN_CHAR
                 ? { done: true, messageIds: [mine[0].id, theirs[0].id] } : NOT_DONE;
+        }
+        if (check.record === 'letter') {
+            const ids = facts.hits.letterOut;
+            return ids ? { done: true, messageIds: ids } : NOT_DONE;
         }
         if (check.record === 'gift') {
             const ids = [...(facts.hits.giftIn || []), ...(facts.hits.giftOut || [])];

@@ -259,6 +259,7 @@ export const IMAGE_FEATURES: Array<{ key: ImageFeature; label: string; hint: str
     { key: 'dateMoment', label: '見面拍照', hint: '見面「拍下這一刻」', charScoped: true },
     { key: 'avatar', label: '頭像', hint: 'AI 生成配角、小號頭像', charScoped: true },
     { key: 'library', label: '資料庫生圖', hint: '資料庫裡你叫 AI 生的圖（不看角色、世界）', charScoped: false },
+    { key: 'bondGift', label: '禮物照片', hint: '羈絆珍藏裡禮物的「生一張」', charScoped: true },
 ];
 
 const validStyle = (cfg: Pick<ImageGenApiConfig, 'stylePresets'> | undefined, id: string | undefined | null): string | undefined => {

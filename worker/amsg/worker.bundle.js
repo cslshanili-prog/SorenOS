@@ -7629,7 +7629,7 @@ function createSingleUserCloudflareWorker(buildConfig, options = {}) {
 }
 
 // utils/amsgBundleVersion.ts
-var AMSG_BUNDLE_VERSION = "2026-11-27";
+var AMSG_BUNDLE_VERSION = "2026-11-27.2";
 
 // utils/amsgTaskKinds.ts
 var AMSG_TASK_KIND_KEY = "amsgKind";
@@ -9137,6 +9137,17 @@ function parseCharWish(raw) {
   if (!o || !wish) return null;
   return { wish: wish.slice(0, 200), together: str(o.owner) === "both" };
 }
+function parseLetter(raw) {
+  const o = parseJsonObject(raw);
+  if (o) {
+    const t2 = str(o.text);
+    if (!t2) return null;
+    const sig = str(o.signature).slice(0, 30);
+    return { text: t2.slice(0, 8e3), ...sig ? { signature: sig } : {} };
+  }
+  const t = String(raw || "").trim();
+  return t && !t.startsWith("{") ? { text: t.slice(0, 8e3) } : null;
+}
 function parseNotice(raw) {
   const o = parseJsonObject(raw);
   return o ? str(o.notice).slice(0, 200) : "";
@@ -9157,7 +9168,7 @@ var BOND_OUTPUT_RESULT_KIND = "bond-output";
 var bondOutputJobKey = (bondId) => `bond-output:${bondId}`;
 var parseBondOutputJobId = (raw) => {
   if (typeof raw !== "string") return null;
-  const m = /^bond-output\|(diary|question|note|essay|wish)\|(.+)$/.exec(raw);
+  const m = /^bond-output\|(diary|question|note|essay|wish|letter)\|(.+)$/.exec(raw);
   return m ? { kind: m[1], bondId: m[2] } : null;
 };
 var BOND_OUTPUT_LOG_KEY = "bond-output-log";
@@ -9279,6 +9290,7 @@ function bondOutputLooksValid(kind, raw, tags = []) {
   if (kind === "question") return !!parseCharAsk(raw);
   if (kind === "note") return !!parseSlip(raw, tags);
   if (kind === "wish") return !!parseCharWish(raw);
+  if (kind === "letter") return !!parseLetter(raw);
   return /"text"\s*:/.test(raw);
 }
 function buildBondOutputResult(args) {
@@ -14354,7 +14366,7 @@ var DATA_TAGS = [
     toArgs: () => ({})
   }
 ];
-var SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SEND_SAVED_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE|BLOCK_USER|BLOCK|拉黑|拉黑你|拉黑對方|拉黑对方|封鎖|封锁|SUSPECT|SUSPECT_IDENTITY|懷疑|怀疑|懷疑身份|怀疑身份|認出|认出|OPEN_ALT|NEW_ALT|開小號|开小号|ALT_ADD|ALT_FRIEND|小號加好友|小号加好友|ALT_REVEAL|REVEAL_ALT|承認小號|承认小号|說出小號|说出小号|BOND_INVITE|羈絆邀請|羁绊邀请|BOND_PROMISE|羈絆約定|羁绊约定|BOND_HABIT|羈絆默契|羁绊默契)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
+var SOREN_PASSTHROUGH_TAG_RE = /\[\[\s*ACTION\s*[:：]\s*(?:SEND_PHOTO|SEND_SAVED_PHOTO|SET_RELATIONSHIP|RELATIONSHIP|關係|关系|NO_REPLY|已讀不回|已读不回|DATE_INVITE|INVITE_DATE|約見面|约见面|見面邀約|见面邀约|CALL|PHONE_CALL|VOICE_CALL|VIDEO_CALL|打電話|打电话|視訊通話|视讯通话|視頻通話|视频通话|語音通話|语音通话|GIFT|DAIFU_ACCEPT|DAIFU_DECLINE|BLOCK_USER|BLOCK|拉黑|拉黑你|拉黑對方|拉黑对方|封鎖|封锁|SUSPECT|SUSPECT_IDENTITY|懷疑|怀疑|懷疑身份|怀疑身份|認出|认出|OPEN_ALT|NEW_ALT|開小號|开小号|ALT_ADD|ALT_FRIEND|小號加好友|小号加好友|ALT_REVEAL|REVEAL_ALT|承認小號|承认小号|說出小號|说出小号|BOND_INVITE|羈絆邀請|羁绊邀请|BOND_PROMISE|羈絆約定|羁绊约定|BOND_HABIT|羈絆默契|羁绊默契|BOND_GIFT_PLAN|GIFT_PLAN|偷偷準備禮物|偷偷准备礼物|準備禮物|准备礼物)\s*(?:[|｜](?:[^\[\]\n]|\[[^\[\]\n]*\])*)?\]\]/g;
 var SOREN_SIDE_MESSAGE_TAG_RE = /\[\[\s*(?:PRIVATE\s*(?:[|｜][^:：\]\n]*?)?|(?:DM|私訊|私讯|私信)\s*[|｜][^:：\]\n]+?)\s*[:：][^\]]*\]\]/g;
 var SIDE_EFFECT_TAGS = [
   {
@@ -16882,7 +16894,8 @@ var src_default = {
           // 這份代碼認得哪幾種後台任務（後加的種類靠它判斷：認得 backgroundJobs 的老 bundle 不一定認得新的那種，
           // 例如羈絆主動產出 bond-output）。老 bundle 沒有這個字段。
           // 'bond-output:wish'：羈絆主動產出的「願望」（第 4 批，2026-11-27 起）；舊 bundle 不認得這一種，客戶端就只在本機寫
-          backgroundJobKinds: [...Object.keys(FIRE_KIND_HANDLERS), "bond-output:wish"],
+          // 'bond-output:letter'：羈絆主動產出的「信」（第 5 批，2026-11-27 起），同上
+          backgroundJobKinds: [...Object.keys(FIRE_KIND_HANDLERS), "bond-output:wish", "bond-output:letter"],
           // 有沒有 GET /news-feeds（國際／台灣新聞 RSS 代抓）。老 bundle 沒有這個字段。
           newsFeeds: true,
           // 有沒有 POST /deepl-translate（聊天翻譯用 DeepL 時的轉發）。

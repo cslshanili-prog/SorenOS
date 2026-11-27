@@ -25,9 +25,11 @@ import { listPersonaSpaces } from '../../utils/bond/spaces';
 import { decideBondOutputs, markOutputDone, OUTPUT_KIND_LABEL, resolveOutputChars, resolveOutputSetting, type OutputCandidate } from '../../utils/bond/output';
 import {
     buildCharAskPrompt, buildSlipPrompt, buildSlipReplyPrompt, parseCharAsk, parseDiary, parseNotice, parseSlip, parseSlipReplyState,
-    buildDiaryPrompt, outputMaxTokens, buildCharWishPrompt, parseCharWish,
+    buildDiaryPrompt, outputMaxTokens, buildCharWishPrompt, parseCharWish, buildCharLetterPrompt, parseLetter,
 } from '../../utils/bond/outputPromptCore';
 import { newWish, publishWish } from '../../utils/bond/pact';
+import { lettersAwaitingCharReply, newLetter, outputSlowDays } from '../../utils/bond/letter';
+import { letterOccasion, letterThreadForPrompt, postCharLetter, recentLetterLines } from './letterRun';
 import type { BondOutputJobDiary } from '../../utils/bond/outputCloudJob';
 import { answerQuestion, newQuestion } from '../../utils/bond/question';
 import { deliverSlip, newSlip, setSlipState, slipReplies, slipTagOptions } from '../../utils/bond/slip';
@@ -43,7 +45,7 @@ const ACTIVE_MS = 14 * 86400_000;
 const HEADER = '💌 [BondOutput]';
 let running = false;
 
-export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望' } as const;
+export const KIND_ANALYTICS = { diary: '日记', question: '问答', note: '纸条', essay: '随笔', wish: '愿望', letter: '信' } as const;
 
 export interface BondOutputDone {
     bondId: string;
@@ -52,6 +54,8 @@ export interface BondOutputDone {
     charName: string;
     /** 同步私聊那句（有傳的話）＋那則訊息落在哪條線 */
     notice?: { text: string; lineKey: string };
+    /** 寫了但你還不該知道（TA 慢寄、還在路上的信）：不跳提示 */
+    silent?: boolean;
 }
 
 /** 寫好一份（本機或雲端）：OSContext 聽這個跳提示、打未讀 */
@@ -150,7 +154,7 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
     const { system, lock } = charSystemOf(space);
     const chars = resolveOutputChars(space.bond, kind);
     const style = setting.style?.trim() || undefined;
-    const base = { kind, withNotice, system, lock, maxTokens: outputMaxTokens(chars, kind === 'essay' ? 2000 : 1500) };
+    const base = { kind, withNotice, system, lock, maxTokens: outputMaxTokens(chars, kind === 'essay' || kind === 'letter' ? 2000 : 1500) };
 
     if (kind === 'essay') {
         // 隨筆：讓 TA 自己挑一件還沒寫過的，寫成草稿（你收下才算，跟第 2 批同一條路）
@@ -191,6 +195,20 @@ export async function prepareOutput(space: ResolvedSpace, kind: BondOutputKind):
                 ...ctx, relationLine: relationLineOf(space), chars, style, withNotice,
                 askedBefore: entries.filter(e => e.kind === 'question' && e.status === 'published').map(e => e.question!.prompt),
             }),
+        };
+    }
+    if (kind === 'letter') {
+        // 第 5 批：你寄來、還沒回的那封先回（帶這一串全文）；沒有就主動寫一封（帶最近的信、這次為什麼提筆）
+        const pendingLetter = lettersAwaitingCharReply(entries)[0];
+        if (pendingLetter) {
+            return {
+                ...base, purpose: '回信', replyTo: pendingLetter.id,
+                prompt: buildCharLetterPrompt({ ...ctx, relationLine: relationLineOf(space), chars, style, thread: letterThreadForPrompt(space, entries, pendingLetter.id) }),
+            };
+        }
+        return {
+            ...base, purpose: '寫信',
+            prompt: buildCharLetterPrompt({ ...ctx, relationLine: relationLineOf(space), chars, style, recentLetters: recentLetterLines(space, entries), occasion: letterOccasion(space) }),
         };
     }
     if (kind === 'wish') {
@@ -275,6 +293,19 @@ export async function applyOutput(space: ResolvedSpace, kind: BondOutputKind, ra
             await saveBondEntry(deliverSlip(newSlip({ bondId: space.id, author: space.char.id, text: out.text, tags: out.tags })));
         }
         trackEvent('投递心灵纸条', { 谁: '角色', 方式: '主动' });
+    } else if (kind === 'letter') {
+        const out = parseLetter(raw);
+        if (!out) throw new Error('信沒寫出來');
+        if (meta.replyTo && !lettersAwaitingCharReply(entries).some(e => e.id === meta.replyTo)) return null; // 已經回過了
+        const reply = meta.replyTo ? entries.find(e => e.id === meta.replyTo) : undefined;
+        const draft = newLetter({ bondId: space.id, author: space.char.id, to: 'user', text: out.text, signature: out.signature, replyTo: reply?.id, origin: 'output', paperStyle: reply?.letter?.paperStyle });
+        const slow = reply ? 0 : outputSlowDays(draft.id);
+        const sent = await postCharLetter(space, draft, slow, '主动', false);
+        console.info(HEADER, `${view.name} 寫了一封信${slow ? `（慢寄 ${slow} 天）` : ''}`);
+        return {
+            bondId: space.id, kind, charId: space.char.id, charName: view.name,
+            ...(sent.letter?.arrivedAt ? { notice: { text: '信到了', lineKey: lineKey(lineFor(space.char, space.personaKey)) } } : { silent: true }),
+        };
     } else if (kind === 'wish') {
         const out = parseCharWish(raw);
         if (!out) throw new Error('沒寫成願望');

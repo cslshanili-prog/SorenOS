@@ -124,6 +124,7 @@ import { deleteBondsOfChar, deleteBondsOfPersona, refreshBondRegistry, updateBon
 import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
+import { checkGiftFollowupFromSummary, refreshGiftOrderRegistry } from '../components/bond/giftRun';
 import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { BOND_OUTPUT_DONE_EVENT, runBondOutputTick, type BondOutputDone } from '../components/bond/outputRun';
@@ -2565,7 +2566,7 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   // 旅行登記表（plans/calendar.md 第 4 批）：時區解析要查誰在旅行；行事曆改了會自己刷新
   useEffect(() => { void refreshTripRegistry(); }, []);
   // 羈絆空間的登記表（提示詞同步讀，plans/bond.md 3.1）
-  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); }, []);
+  useEffect(() => { void refreshBondRegistry(); void refreshBondEntryRegistry(); void refreshBondLedgerRegistry(); void refreshGiftOrderRegistry(); }, []);
   // 羈絆的日記登記表（plans/bond-batch3.md 第 2 節）：角色讀進來後讀一次，順便替舊交換日記補上掛在哪段關係
   const diaryRegistryLoadedRef = useRef(false);
   useEffect(() => {
@@ -2656,9 +2657,9 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
   useEffect(() => {
     const onDone = (e: Event) => {
       const done = (e as CustomEvent<BondOutputDone>).detail;
-      if (!done) return;
-      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）', wish: '寫了一個願望' }[done.kind];
-      if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的心意裡`, 'success');
+      if (!done || done.silent) return;
+      const label = { diary: '寫了日記', question: '出了一題問答', note: '丟了一張紙條', essay: '寫了一篇隨筆（草稿）', wish: '寫了一個願望', letter: '寫了一封信給你' }[done.kind];
+      if (document.visibilityState === 'visible') addToast(`${done.charName}${label}，在羈絆的${done.kind === 'letter' ? '珍藏' : '心意'}裡`, 'success');
       if (done.notice) {
         setLastMsgTimestamp(Date.now());
         const viewing = activeAppRef.current === AppID.Chat && activeCharIdScheduleRef.current === done.charId;
@@ -2693,6 +2694,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         void settleFeelingFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('💗 [BondFeeling] 總結結算失敗', e));
         // 同步承認：那天的總結裡有沒有已經發生的關係轉折（plans/bond-batch4.md 2.4）
         if (isOnStage(c)) void checkSyncFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🤝 [BondSync] 總結判斷失敗', e));
+        // 禮物後續：總結提到圖鑑裡哪件後來怎麼了，先放進待確認，珍藏分頁問你（plans/bond-batch5.md 第 6 節）
+        if (isOnStage(c)) void checkGiftFollowupFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🎁 [BondGift] 總結對禮物失敗', e));
       }
     }
   }, [characters]);

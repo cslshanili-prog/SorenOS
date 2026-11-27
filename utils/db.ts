@@ -1,4 +1,5 @@
 import { toMountedWorldbook } from './worldbook';
+import { dropGiftOrderFromRegistry, putGiftOrderInRegistry } from './bond/giftOrderRegistry';
 import { dropDiaryFromRegistry, putDiaryInRegistry } from './bond/diaryRegistry';
 import { lineViewPersonaKey } from './userPersona';
 import { parseLineScheduleId } from './chatLine';
@@ -4078,7 +4079,7 @@ export const DB = {
       return new Promise((resolve, reject) => {
           const transaction = db.transaction(STORE_MALL_ORDERS, 'readwrite');
           transaction.objectStore(STORE_MALL_ORDERS).put(order);
-          transaction.oncomplete = () => resolve();
+          transaction.oncomplete = () => { putGiftOrderInRegistry(order); resolve(); };
           transaction.onerror = () => reject(transaction.error);
       });
   },
@@ -4087,6 +4088,7 @@ export const DB = {
       const db = await openDB();
       const transaction = db.transaction(STORE_MALL_ORDERS, 'readwrite');
       transaction.objectStore(STORE_MALL_ORDERS).delete(id);
+      dropGiftOrderFromRegistry(id);
   },
 
   // ── LifeSim (模擬人生) ────────────────────────────────────

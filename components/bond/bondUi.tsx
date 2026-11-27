@@ -5,6 +5,9 @@
 import React from 'react';
 import { CaretLeft } from '@phosphor-icons/react';
 import TokenImg from '../os/TokenImg';
+import { GIFTBOX_CSS } from './treasure/GiftBox';
+import { ENVELOPE_CSS } from './treasure/Envelope';
+import { CAPSULE_CSS } from './treasure/CapsuleBand';
 
 export const BOND_CSS = `
 .bond-root {
@@ -44,7 +47,7 @@ export const BOND_CSS = `
 .bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
 `;
 
-export const BondStyle: React.FC = () => <style>{BOND_CSS}</style>;
+export const BondStyle: React.FC = () => <style>{BOND_CSS + GIFTBOX_CSS + ENVELOPE_CSS + CAPSULE_CSS}</style>;
 
 /** 全螢幕頁的頂欄：返回、標題（襯線）、右邊放一顆動作 */
 export const BondHeader: React.FC<{ title: string; onBack: () => void; right?: React.ReactNode; backLabel?: string }> = ({ title, onBack, right, backLabel = '返回' }) => (
@@ -87,17 +90,18 @@ export const SectionLabel: React.FC<{ children: React.ReactNode; right?: React.R
 );
 
 /** 羈絆空間的分頁（我們／拾光／心意；之後的分頁做了才出現）。像書的章節標，細線底、選中的字變深 */
-export type BondTab = 'us' | 'moments' | 'heart' | 'pact';
+export type BondTab = 'us' | 'moments' | 'heart' | 'pact' | 'treasure';
 export const BOND_TABS: Array<{ id: BondTab; label: string }> = [
     { id: 'us', label: '我們' },
     { id: 'moments', label: '拾光' },
     { id: 'heart', label: '心意' },
     { id: 'pact', label: '約定' },
+    { id: 'treasure', label: '珍藏' },
 ];
-/** 角色之間的空間沒有心意、約定（第 6 批） */
-export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart', 'pact']);
+/** 角色之間的空間沒有心意、約定、珍藏（第 6 批） */
+export const bondTabsFor = (kind: 'persona' | 'pair'): BondTab[] => (kind === 'pair' ? ['us', 'moments'] : ['us', 'moments', 'heart', 'pact', 'treasure']);
 export const BondTabs: React.FC<{ value: BondTab; onChange: (t: BondTab) => void; tabs?: BondTab[]; dots?: Partial<Record<BondTab, boolean>> }> = ({ value, onChange, tabs, dots }) => (
-    <div className="shrink-0 flex gap-6 px-6 border-b bond-hair" role="tablist">
+    <div className="shrink-0 flex gap-5 px-5 border-b bond-hair" role="tablist">
         {BOND_TABS.filter(t => !tabs || tabs.includes(t.id)).map(t => (
             <button key={t.id} type="button" role="tab" aria-selected={value === t.id} onClick={() => onChange(t.id)}
                 className={`bond-serif relative py-2.5 text-[14px] tracking-[0.2em] ${value === t.id ? 'text-[var(--bond-ink)]' : 'text-[var(--bond-muted)]'}`}>
