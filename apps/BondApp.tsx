@@ -29,6 +29,7 @@ import { BondOutputSettingsPage } from '../components/bond/BondOutputSettingsPag
 import { resolveOutputChars, resolveOutputSetting } from '../utils/bond/output';
 import { bondIdForChar } from '../utils/bond/model';
 import { BondMomentsPage } from '../components/bond/BondMomentsPage';
+import { BondMomentToolsPage } from '../components/bond/BondMomentTools';
 import { BondItemPage } from '../components/bond/BondItemPage';
 import { BondMemoryEditor, BondMomentEditor } from '../components/bond/BondMomentEditor';
 import { useSpaceTimeline } from '../components/bond/useSpaceTimeline';
@@ -99,6 +100,7 @@ type Page =
     | { page: 'memory-edit'; id: string; memoryId: string; key: string }
     | { page: 'collect'; id: string; request: BondCollectRequest }
     | { page: 'pick'; id: string }
+    | { page: 'moment-tools'; id: string }
     | { page: 'essay'; id: string; essayId: string; chosen?: boolean; key?: string; exitOnBack?: boolean }
     | { page: 'essay-write'; id: string; mode: EssayMode; key?: string; baseId?: string }
     | { page: 'essay-edit'; id: string; essayId: string; chosen?: boolean; key?: string }
@@ -319,7 +321,7 @@ const BondAppInner: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
     };
 
     if (page.page === 'space' || page.page === 'route' || page.page === 'days' || page.page === 'mine'
-        || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit' || page.page === 'collect' || page.page === 'pick'
+        || page.page === 'item' || page.page === 'moment-edit' || page.page === 'memory-edit' || page.page === 'collect' || page.page === 'pick' || page.page === 'moment-tools'
         || page.page === 'essay' || page.page === 'essay-write' || page.page === 'essay-edit'
         || page.page === 'diary' || page.page === 'question' || page.page === 'question-new' || page.page === 'slip' || page.page === 'slip-edit' || page.page === 'output'
         || page.page === 'wish' || page.page === 'wish-edit' || page.page === 'promise' || page.page === 'promise-edit'
@@ -386,11 +388,15 @@ const BondAppInner: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
             <div className="h-full w-full relative bond-root overflow-hidden">
                 <BondStyle />
                 {page.page === 'space' && page.tab === 'moments' && (
-                    <BondMomentsPage space={s} characters={chars} tabBar={tabBar('moments')} onBack={back}
-                        onOpenItem={openItem} onNewMoment={() => setPage({ page: 'moment-edit', id: s.id })}
-                        onPick={() => setPage({ page: 'pick', id: s.id })}
+                    <BondMomentsPage space={s} characters={chars} apiConfig={apiConfig} tabBar={tabBar('moments')} onBack={back}
+                        onOpenItem={openItem} onOpenTools={() => setPage({ page: 'moment-tools', id: s.id })}
                         onOpenEssay={essayId => openEssay(essayId)}
                         onChooseEssay={() => setPage({ page: 'essay-write', id: s.id, mode: 'choose' })} />
+                )}
+                {page.page === 'moment-tools' && (
+                    <BondMomentToolsPage space={s} apiConfig={apiConfig} onBack={toMoments} addToast={addToast}
+                        onNewMoment={() => setPage({ page: 'moment-edit', id: s.id })}
+                        onPick={s.kind === 'persona' ? () => setPage({ page: 'pick', id: s.id }) : undefined} />
                 )}
                 {page.page === 'pick' && (
                     <BondPickPage space={s} characters={chars} apiConfig={apiConfig} onBack={toMoments}

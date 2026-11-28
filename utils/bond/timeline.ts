@@ -1,9 +1,9 @@
 /**
  * 拾光時間線怎麼組（plans/bond-batch2.md 1.2、第 4 節）。純邏輯，有測試。
  *
- * - 骨幹是記憶，不另存：身份卡 × 角色讀角色的 memories（照線篩），角色 × 角色讀雙方通訊錄裡
- *   對方那格的話題盒（角色私聊每滿 100 則整理一次）。
- * - 加上收存的片刻（bond_entries 的 moment）。
+ * - 2026-11-28 改版（plans/bond-moments-v2.md）：拾光不再讀記憶；主體是從這條線的聊天、見面生成的片段
+ *   （bond_entries 的 moment＋fragment），加上你收存的片刻、里程碑。memories／topics 兩個輸入留著給舊測試，
+ *   App 不再傳。
  * - 隨筆不單獨占一列（「隨筆」篩選才列），掛在它寫的那件事底下算數量。
  * - 收藏、收起：片刻存在卡上；記憶存在 bonds.memoryMarks，不改記憶本身。
  */
@@ -93,7 +93,7 @@ export function buildTimeline(input: BuildTimelineInput): TimelineItem[] {
         if (e.kind !== 'moment' && !(e.kind === 'milestone' && e.status === 'published')) continue;
         const key = `e:${e.id}`;
         items.push({
-            key, kind: e.kind === 'milestone' ? 'milestone' : 'moment', eventDate: e.eventDate, sortKey: eventSortKey(e.eventDate), tieBreak: e.writtenAt,
+            key, kind: e.kind === 'milestone' ? 'milestone' : 'moment', eventDate: e.eventDate, sortKey: eventSortKey(e.eventDate), tieBreak: e.fragment?.at ?? e.writtenAt,
             title: e.kind === 'milestone' ? (e.title || milestoneLabel(e.milestone?.what || '')) : e.title, text: e.text, favorite: !!e.favorite, hidden: !!e.hidden,
             essays: essaysByKey.get(key) || [], ref: { type: 'entry', entry: e },
         });

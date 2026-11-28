@@ -5,12 +5,13 @@
  */
 import React, { useState } from 'react';
 import { ArrowCounterClockwise, ChatCircleText, EyeSlash, Feather, PencilSimple, Star, Trash } from '@phosphor-icons/react';
-import type { BondSource, CharacterProfile, MemoryFragment } from '../../types';
+import type { BondEntry, BondSource, CharacterProfile, MemoryFragment } from '../../types';
 import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { useSpaceTimeline } from './useSpaceTimeline';
 import type { TimelineItem } from '../../utils/bond/timeline';
-import { itemKindLabel } from './BondMomentsPage';
+import { itemKindLabel, quoteSpeaker } from './BondMomentsPage';
+import { fragmentTagsFor, tagTone } from '../../utils/bond/fragment';
 import { BondPhotoStrip } from './BondPhotoPicker';
 import { formatEventDate } from '../../utils/bond/eventDate';
 import { essayThread } from '../../utils/bond/essay';
@@ -107,6 +108,10 @@ export const BondItemPage: React.FC<{
         <div className="absolute inset-0 flex flex-col bond-root">
             <BondHeader title="拾光" onBack={onBack} />
             <div className="flex-1 overflow-y-auto no-scrollbar">
+                {entry?.fragment ? (
+                    <FragmentArticle space={space} entry={entry} onSetTag={tag => void saveBondEntry({ ...entry, fragment: { ...entry.fragment!, tag }, updatedAt: Date.now() })}
+                        onOpenSource={onOpenSource} />
+                ) : (
                 <article className="px-6 pt-7 pb-6 border-b bond-hair">
                     <div className="bond-note">{itemKindLabel(item, space)} · {formatEventDate(item.eventDate)}</div>
                     {entry?.title?.trim() && <h2 className="bond-serif mt-3 text-[20px] leading-snug">{entry.title}</h2>}
@@ -131,9 +136,10 @@ export const BondItemPage: React.FC<{
                     )}
                     {ref.type === 'topic' && <div className="mt-4 text-[11.5px] text-[var(--bond-muted)]">這是他們私下聊滿一段之後自動整理的，只能收藏或收起。</div>}
                 </article>
+                )}
 
                 <div className="px-5 py-6 space-y-7">
-                    {entry && (entry.sources.some(src => src.type !== 'photo') || (entry.orphanedLinks?.length || 0) > 0) && (
+                    {entry && !entry.fragment && (entry.sources.some(src => src.type !== 'photo') || (entry.orphanedLinks?.length || 0) > 0) && (
                         <section>
                             <SectionLabel>來 源</SectionLabel>
                             <ul className="space-y-2.5">
@@ -214,7 +220,7 @@ export const BondItemPage: React.FC<{
                             <div className="text-[13px] leading-relaxed">
                                 {memory
                                     ? '這筆記憶會從神經鏈接的記憶裡刪掉（跟在神經鏈接刪除一樣，只刪檔案記錄，記憶宮殿裡關聯的那筆保留）。'
-                                    : '刪掉這個片刻？'}
+                                    : entry?.fragment ? '刪掉這則片段？' : '刪掉這個片刻？'}
                             </div>
                             {dependents.length > 0 && (
                                 <div className="mt-2 text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">
@@ -237,5 +243,44 @@ export const BondItemPage: React.FC<{
                 </div>
             </div>
         </div>
+    );
+};
+
+/** 拾光片段（plans/bond-moments-v2.md）：時刻、tag（可以改）、寫的人的心裡話、引的那句原話（點了回到那時） */
+const FragmentArticle: React.FC<{ space: ResolvedSpace; entry: BondEntry; onSetTag: (tag: string) => void; onOpenSource?: (source: BondSource) => void }> = ({ space, entry, onSetTag, onOpenSource }) => {
+    const f = entry.fragment!;
+    const [editing, setEditing] = useState(false);
+    const source = entry.sources.find(src => src.type === 'message' || src.type === 'date');
+    const writer = f.voice === space.char.id ? (space.kind === 'pair' ? space.char.name : space.rightName) : space.other?.id === f.voice ? space.other.name : '';
+    const speaker = quoteSpeaker(space, f.quote?.who);
+    const tags = fragmentTagsFor(space.bond.route);
+    return (
+        <article className="px-5 pt-6 pb-6">
+            <div className="flex items-center gap-2">
+                <span className="text-[12px] tabular-nums text-[var(--bond-muted)]">{formatEventDate(entry.eventDate)}{f.time ? ` ${f.time}` : ''}{f.from === 'date' ? ' · 見面' : ''}</span>
+                <button type="button" className="ml-auto bond-tag" data-tone={tagTone(f.tag)} onClick={() => setEditing(v => !v)} aria-label="改 tag">{f.tag}</button>
+            </div>
+            {editing && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                    {tags.map(t => (
+                        <button key={t} type="button" className="bond-chip !text-[11.5px]" aria-pressed={t === f.tag} onClick={() => { onSetTag(t); setEditing(false); }}>{t}</button>
+                    ))}
+                </div>
+            )}
+            <div className="mt-5 bond-block bg-[var(--bond-block-sand)] px-5 py-5">
+                {writer && <div className="text-[11px] tracking-[0.2em] text-[var(--bond-muted)]">{writer} 當時想</div>}
+                <p className="bond-serif mt-2 whitespace-pre-wrap text-[17px] leading-[1.9] text-[var(--bond-ink)]">{entry.text}</p>
+            </div>
+            {f.quote?.text && (
+                <div className="mt-4 rounded-r-xl border-l-[3px] border-[var(--bond-accent)] bg-[var(--bond-paper-2)] px-4 py-3">
+                    {speaker && <div className="text-[11px] tracking-wider text-[var(--bond-accent)]">{speaker} 說</div>}
+                    <div className="bond-serif mt-1 text-[14.5px] leading-relaxed text-[var(--bond-ink-2)]">「{f.quote.text}」</div>
+                    {source && onOpenSource && (
+                        <button type="button" className="mt-2 text-[12px] text-[var(--bond-accent)]" onClick={() => onOpenSource(source)}>回到那時 ›</button>
+                    )}
+                </div>
+            )}
+            {entry.revisedAt && <div className="mt-3 text-[11px] text-[var(--bond-muted)]">你改過這則。</div>}
+        </article>
     );
 };

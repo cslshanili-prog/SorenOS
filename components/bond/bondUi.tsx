@@ -77,6 +77,22 @@ export const BOND_CSS = `
 }
 .bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
 .bond-tabbar { background: var(--bond-bar); border-top: 1px solid var(--bond-line); }
+/* 拾光片段的 tag（plans/bond-moments-v2.md）：大事深、甜的偏紅、難受的灰紫、日常淡 */
+.bond-tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 9px; font-size: 11px; letter-spacing: .08em; line-height: 1.6; }
+.bond-tag[data-tone="cherry"] { background: #3a0e1e; color: #f5e9ed; }
+.bond-tag[data-tone="cranberry"] { background: #8e2d3b; color: #fdf3f5; }
+.bond-tag[data-tone="mauve"] { background: #ead9dc; color: #6e4a51; }
+.bond-tag[data-tone="blush"] { background: #f5e9ed; color: #8e2d3b; border: 1px solid #ecd3da; }
+[data-bond-theme="dark"] .bond-tag[data-tone="cherry"] { background: #e7c7cf; color: #3a0e1e; }
+[data-bond-theme="dark"] .bond-tag[data-tone="cranberry"] { background: #b8505f; color: #fff4f6; }
+[data-bond-theme="dark"] .bond-tag[data-tone="mauve"] { background: #4a2d34; color: #e2c4ca; }
+[data-bond-theme="dark"] .bond-tag[data-tone="blush"] { background: #3a2229; color: #e7c7cf; border-color: #4f2f37; }
+.bond-dot[data-tone="cherry"] { background: #3a0e1e; }
+.bond-dot[data-tone="cranberry"] { background: #8e2d3b; }
+.bond-dot[data-tone="mauve"] { background: #a07a80; }
+.bond-dot[data-tone="blush"] { background: #e7c7cf; }
+[data-bond-theme="dark"] .bond-dot[data-tone="cherry"] { background: #f5e9ed; }
+[data-bond-theme="dark"] .bond-dot[data-tone="cranberry"] { background: #d47282; }
 /* iOS Safari 換頁回來重排時，line-clamp 有時照全文留高度（只畫兩行、底下一大片空白）：鎖住最高幾行 */
 .bond-root .line-clamp-1 { max-height: 1lh; }
 .bond-root .line-clamp-2 { max-height: 2lh; }

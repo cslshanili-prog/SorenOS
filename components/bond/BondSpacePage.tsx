@@ -270,7 +270,7 @@ export const BondSpacePage: React.FC<{
                                 <PanelLabel>{recent.favorite ? '最近拾光 · 收藏' : '最近拾光'}</PanelLabel>
                                 <div className="bond-serif mt-2.5 text-[17px] font-semibold leading-snug line-clamp-2">{itemHeadline(recent, 60)}</div>
                                 <div className="mt-3 flex items-baseline justify-between gap-3 text-[12.5px] text-[var(--bond-ink-2)]">
-                                    <span className="min-w-0 truncate">{formatEventDate(recent.eventDate)} · {ITEM_KIND[recent.kind]}</span>
+                                    <span className="min-w-0 truncate">{formatEventDate(recent.eventDate)} · {recent.ref.type === 'entry' && recent.ref.entry.fragment ? recent.ref.entry.fragment.tag : ITEM_KIND[recent.kind]}</span>
                                     <span className="shrink-0">回到那一天 ›</span>
                                 </div>
                             </button>
