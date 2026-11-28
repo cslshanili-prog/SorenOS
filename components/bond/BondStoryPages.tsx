@@ -82,7 +82,7 @@ export const PairStoryHome: React.FC<{
                         <button type="button" className="w-full text-left" onClick={() => onOpen(latest.id)}>
                             <div className="text-[11px] text-[var(--bond-muted)]">{formatEventDate(latest.eventDate)}</div>
                             <div className="bond-serif mt-1 text-[15px]">{chapterLabel(latest)}</div>
-                            <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-2">{latest.text.replace(/\s+/g, ' ')}</p>
+                            <p className="mt-1.5 text-[12.5px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-2">{latest.text.replace(/\s+/g, ' ').slice(0, 160)}</p>
                         </button>
                         <div className="mt-3 flex gap-2">
                             <button type="button" className="bond-btn flex-1" onClick={() => onOpen(latest.id)}><BookOpen size={14} />讀下去</button>
