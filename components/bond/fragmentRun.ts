@@ -3,7 +3,7 @@
  * 一鍵補全是模組層級的工作（離開頁面也繼續、能訂閱進度、能停）；每日總結寫好時自動寫那一天。
  * 純邏輯在 utils/bond/fragment.ts。
  */
-import type { APIConfig, BondEntry, BondSource, CharacterProfile, MemoryFragment, Message, UserProfile } from '../../types';
+import type { APIConfig, BondEntry, BondSource, CharacterProfile, GroupProfile, MemoryFragment, Message, MomentPost, UserProfile } from '../../types';
 import type { ResolvedSpace } from './space';
 import { resolveSpace } from './space';
 import { DB } from '../../utils/db';
@@ -24,7 +24,12 @@ import { bondOrBlank, updateBond } from '../../utils/bond/store';
 import { isBondOpen } from '../../utils/bond/openState';
 import { bondIdForChar, pairBondId } from '../../utils/bond/model';
 import { lineFor, lineKey, lineView, withLineFields } from '../../utils/chatLine';
-import { pairSpeakerOf } from '../../utils/pairLine';
+import { pairLineId, pairSpeakerOf } from '../../utils/pairLine';
+import {
+    dialogueMaterials, innerMaterials, lifeMaterials, materialsBlock, mentionNames, mentionsAny, momentMaterials, numberMaterials,
+    type FragmentMaterial,
+} from '../../utils/bond/fragmentSources';
+import { memberVisibleGroupMessages, userMessageKey } from '../../utils/groupChat/presence';
 import { makeChatClock, makeDateClock } from '../../utils/dateStoryTime';
 import { getLocalDateKey } from '../../utils/localDate';
 import { nowInTimeZone, resolveCharTimeZone } from '../../utils/timezone';
@@ -44,7 +49,10 @@ export interface FragmentPart {
 
 export interface FragmentDayUnit {
     dayKey: string;
+    /** 私聊、見面（角色之間：他們的私聊）；只有其他角度的日子是空的 */
     parts: FragmentPart[];
+    /** 其他角度的素材（群聊、私下提起、朋友圈、心聲；TA 的一天寫的時候才讀） */
+    materials: Omit<FragmentMaterial, 'ref'>[];
     /** 這天總共幾則（給清單顯示） */
     count: number;
 }
@@ -67,40 +75,160 @@ function clockOf(space: ResolvedSpace, kind: 'chat' | 'date' | 'pair', story?: P
 
 const said = (m: Message) => m.type !== 'system' && !!messagePlainText(m).trim();
 
-/** 這段關係所有值得寫的日子（舊到新），每天可能有私聊和好幾場見面 */
-export async function listFragmentDays(space: ResolvedSpace): Promise<FragmentDayUnit[]> {
-    const byDay = new Map<string, FragmentPart[]>();
-    const add = (dayKey: string, part: FragmentPart) => {
-        const list = byDay.get(dayKey);
-        if (list) list.push(part); else byDay.set(dayKey, [part]);
+type Mat = Omit<FragmentMaterial, 'ref'>;
+
+const charNames = (c: Pick<CharacterProfile, 'name' | 'aliases'>) => mentionNames([c.name, ...(c.aliases || [])]);
+
+/** 群聊、TA 私下跟別人提起、朋友圈：這段關係每一天的素材（plans/bond-moments-v2.md「多角度」） */
+async function collectMaterials(space: ResolvedSpace, clock: { dayOf: (ts: number) => string; timeOf: (ts: number) => string }): Promise<Map<string, Mat[]>> {
+    const byDay = new Map<string, Mat[]>();
+    const push = (day: string, list: Mat[]) => { if (!list.length) return; const cur = byDay.get(day); if (cur) cur.push(...list); else byDay.set(day, [...list]); };
+    const isPair = space.kind === 'pair';
+    const a = space.char;
+    const b = space.other;
+    const [characters, groups, posts] = await Promise.all([
+        DB.getAllCharacters().catch(() => [] as CharacterProfile[]),
+        DB.getGroups().catch(() => [] as GroupProfile[]),
+        DB.getAllMomentPosts().catch(() => [] as MomentPost[]),
+    ]);
+    const nameOfId = (id: string | undefined) => characters.find(c => c.id === id)?.name;
+    const key = space.personaKey;
+    // 沒有身份卡鍵（舊資料）就當主線；舊訊息、舊貼文沒記卡的算主線那張
+    const isPrimary = !key || key === a.primaryPersonaKey;
+    const youNames = isPair ? [] : mentionNames([space.leftName, ...((space.user as UserProfile | undefined)?.aliases || [])]);
+    const aNames = charNames(a);
+    const bNames = b ? charNames(b) : [];
+    const byDayOf = (msgs: Message[]) => {
+        const map = new Map<string, Message[]>();
+        for (const m of [...msgs].sort((x, y) => x.id - y.id)) { const k = clock.dayOf(m.timestamp); const l = map.get(k); if (l) l.push(m); else map.set(k, [m]); }
+        return map;
     };
+
+    // 群聊：身份卡 × 角色＝角色在群裡、你（這張卡）那天說過話或有人提到你；角色之間＝兩人都在的群
+    for (const g of groups) {
+        const members = g.members || [];
+        if (!members.includes(a.id) || (isPair && (!b || !members.includes(b.id)))) continue;
+        const msgs = memberVisibleGroupMessages((await DB.getGroupMessages(g.id).catch(() => [] as Message[])).filter(said), false);
+        if (!msgs.length) continue;
+        const isYou = (m: Message) => !isPair && m.role === 'user' && (!key || userMessageKey(m, isPrimary ? key : '\u0000') === key);
+        const nameOf = (m: Message) => m.role === 'user' ? (isYou(m) ? space.leftName : '群友') : (nameOfId(m.charId) || String(m.metadata?.senderName || '某人'));
+        const speakerIdOf = (m: Message) => isYou(m) ? 'user' : (m.charId === a.id || (b && m.charId === b.id)) ? m.charId! : nameOf(m);
+        for (const [day, list] of byDayOf(msgs)) {
+            let isHit: (m: Message) => boolean;
+            if (isPair) {
+                const aSpoke = list.some(m => m.charId === a.id);
+                const bSpoke = list.some(m => m.charId === b!.id);
+                isHit = m => (m.charId === a.id && mentionsAny(messagePlainText(m), bNames)) || (m.charId === b!.id && mentionsAny(messagePlainText(m), aNames))
+                    || (aSpoke && bSpoke && (m.charId === a.id || m.charId === b!.id));
+            } else {
+                isHit = m => isYou(m) || (m.role !== 'user' && mentionsAny(messagePlainText(m), youNames));
+            }
+            push(day, dialogueMaterials({
+                angle: 'group', context: `群「${g.name}」`, msgs: list, isHit, nameOf, speakerIdOf, timeOf: clock.timeOf, radius: isPair ? 0 : 1,
+                sourceOf: (m, snippet) => ({ type: 'group', groupId: g.id, messageIds: [m.id], snippet, at: m.timestamp }),
+            }));
+        }
+    }
+
+    // TA 私下跟別人提起你（角色之間：各自跟第三人提起對方）
+    const asideOf = async (self: CharacterProfile, about: string[], exclude: string[]) => {
+        if (!about.length) return;
+        for (const x of characters) {
+            if (x.id === self.id || exclude.includes(x.id)) continue;
+            const lineId = pairLineId(self.id, x.id);
+            const msgs = (await DB.getMessagesByCharId(lineId, true).catch(() => [] as Message[])).filter(said);
+            if (!msgs.length) continue;
+            const nameOf = (m: Message) => (pairSpeakerOf(m) === self.id ? self.name : x.name);
+            for (const [day, list] of byDayOf(msgs)) {
+                push(day, dialogueMaterials({
+                    angle: 'aside', context: `跟${x.name}私聊`, msgs: list, nameOf, timeOf: clock.timeOf,
+                    isHit: m => mentionsAny(messagePlainText(m), about),
+                    speakerIdOf: m => (pairSpeakerOf(m) === self.id ? self.id : x.name),
+                    sourceOf: (m, snippet) => ({ type: 'message', lineId, messageIds: [m.id], snippet, at: m.timestamp }),
+                }).map(mat => ({ ...mat, ownerId: self.id })));
+            }
+        }
+    };
+    if (isPair) {
+        await asideOf(a, bNames, [b!.id]);
+        await asideOf(b!, aNames, [a.id]);
+    } else {
+        await asideOf(a, youNames, []);
+    }
+
+    // 朋友圈
+    const isA = (x: MomentPost['author']) => x.kind === 'character' && x.id === a.id;
+    const isB = isPair
+        ? (x: MomentPost['author']) => x.kind === 'character' && x.id === b!.id
+        : (x: MomentPost['author']) => x.kind === 'user' && (x.personaKey && key ? x.personaKey === key : isPrimary);
+    const relevant = posts.filter(p => isA(p.author) || isB(p.author));
+    const days = new Set<string>();
+    for (const p of relevant) { days.add(clock.dayOf(p.createdAt)); for (const c of p.comments || []) days.add(clock.dayOf(c.at)); }
+    for (const day of days) {
+        push(day, momentMaterials({
+            posts: relevant, dayKey: day, dayOf: clock.dayOf, timeOf: clock.timeOf, isSelf: isA, isOther: isB,
+            selfName: a.name, otherName: isPair ? b!.name : space.leftName, needOther: isPair,
+        }));
+    }
+    return byDay;
+}
+
+/** 這段關係所有值得寫的日子（舊到新）：有私聊／見面，或有其他角度的素材 */
+export async function listFragmentDays(space: ResolvedSpace): Promise<FragmentDayUnit[]> {
+    const byDay = new Map<string, { parts: FragmentPart[]; materials: Mat[] }>();
+    const slot = (dayKey: string) => { let v = byDay.get(dayKey); if (!v) { v = { parts: [], materials: [] }; byDay.set(dayKey, v); } return v; };
+    let mainClock: { dayOf: (ts: number) => string; timeOf: (ts: number) => string };
     if (space.kind === 'pair') {
         const msgs = (await DB.getMessagesByCharId(space.id, true)).filter(said);
-        const { dayOf, timeOf } = clockOf(space, 'pair');
-        for (const d of groupByDay(msgs, dayOf)) {
-            if (dayWorthWriting(d.messages, true)) add(d.dayKey, { from: 'chat', lineId: space.id, messages: d.messages, timeOf });
+        mainClock = clockOf(space, 'pair');
+        for (const d of groupByDay(msgs, mainClock.dayOf)) {
+            if (dayWorthWriting(d.messages, true)) slot(d.dayKey).parts.push({ from: 'chat', lineId: space.id, messages: d.messages, timeOf: mainClock.timeOf });
         }
     } else {
         const line = lineFor(space.char, space.personaKey);
         const lineId = lineKey(line);
         const all = (await DB.getMessagesByCharId(line, true)).filter(said);
         const chat = all.filter(m => !m.metadata?.dateStoryId);
-        const chatClock = clockOf(space, 'chat');
-        for (const d of groupByDay(chat, chatClock.dayOf)) {
-            if (dayWorthWriting(d.messages)) add(d.dayKey, { from: 'chat', lineId, messages: d.messages, timeOf: chatClock.timeOf });
+        mainClock = clockOf(space, 'chat');
+        for (const d of groupByDay(chat, mainClock.dayOf)) {
+            if (dayWorthWriting(d.messages)) slot(d.dayKey).parts.push({ from: 'chat', lineId, messages: d.messages, timeOf: mainClock.timeOf });
+            // 心聲跟著私聊那天（回覆上記的 metadata.innerState）
+            const inner = innerMaterials(d.messages, mainClock.timeOf);
+            if (inner.length) slot(d.dayKey).materials.push(...inner);
         }
         const storyIds = [...new Set(all.map(m => m.metadata?.dateStoryId).filter((x): x is string => typeof x === 'string' && !!x))];
         for (const storyId of storyIds) {
             const story = await DB.getDateStory(storyId).catch(() => undefined);
             const c = clockOf(space, 'date', story);
             for (const d of groupByDay(all.filter(m => m.metadata?.dateStoryId === storyId), c.dayOf)) {
-                if (dayWorthWriting(d.messages)) add(d.dayKey, { from: 'date', lineId, storyId, messages: d.messages, timeOf: c.timeOf });
+                if (dayWorthWriting(d.messages)) slot(d.dayKey).parts.push({ from: 'date', lineId, storyId, messages: d.messages, timeOf: c.timeOf });
             }
         }
     }
+    try {
+        for (const [day, mats] of await collectMaterials(space, mainClock)) slot(day).materials.push(...mats);
+    } catch (e) {
+        console.warn('[拾光] 其他角度的素材沒讀到，只看對話', e);
+    }
     return [...byDay.entries()]
+        .filter(([, v]) => v.parts.length || v.materials.some(m => m.angle !== 'inner'))
         .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-        .map(([dayKey, parts]) => ({ dayKey, parts, count: parts.reduce((s, p) => s + p.messages.length, 0) }));
+        .map(([dayKey, v]) => ({ dayKey, parts: v.parts, materials: v.materials, count: v.parts.reduce((s, p) => s + p.messages.length, 0) + v.materials.length }));
+}
+
+/** TA 的一天（日程＋獨白）：寫那天的時候才讀；角色之間只留跟對方有關的 */
+async function lifeOf(space: ResolvedSpace, dayKey: string): Promise<Mat[]> {
+    const atOf = (hhmm: string) => { const t = new Date(`${dayKey}T${/^\d{1,2}:\d{2}$/.test(hhmm) ? hhmm.padStart(5, '0') : '12:00'}:00`).getTime(); return Number.isFinite(t) ? t : Date.parse(dayKey); };
+    const one = async (self: CharacterProfile, other?: CharacterProfile): Promise<Mat[]> => {
+        const schedule = await DB.getDailySchedule(self.id, dayKey).catch(() => null);
+        const names = other ? charNames(other) : [];
+        return lifeMaterials({
+            schedule, context: other ? `${self.name}的一天` : 'TA 的一天', atOf,
+            ...(other ? { onlyIf: (text: string, slot?: { participants?: Array<{ id?: string }> }) => mentionsAny(text, names) || !!slot?.participants?.some(p => p.id === other.id) } : {}),
+        }).map(m => ({ ...m, ownerId: self.id }));
+    };
+    if (space.kind === 'pair') return [...await one(space.char, space.other), ...await one(space.other!, space.char)];
+    return one(space.char);
 }
 
 // ─── 寫一天 ─────────────────────────────────────────
@@ -136,11 +264,13 @@ export interface WriteDayOptions {
     how: '某一天' | '补全' | '自动';
 }
 
-/** 寫一天的片段，回傳新寫的卡 */
+/** 寫一天的片段，回傳新寫的卡。對話照段寫；其他角度的素材跟第一段一起給（沒有對話就單獨寫一次） */
 export async function writeFragmentDay(space: ResolvedSpace, day: FragmentDayUnit, opts: WriteDayOptions): Promise<BondEntry[]> {
     const isPair = space.kind === 'pair';
     const tags = fragmentTagsFor(space.bond.route);
     const dayLabel = formatEventDate({ precision: 'day', date: day.dayKey });
+    const selfName = isPair ? space.char.name : space.rightName;
+    const otherName = isPair ? space.other!.name : space.leftName;
     const nameOf = (m: Pick<Message, 'role' | 'charId' | 'metadata'>): string => {
         if (isPair) { const id = pairSpeakerOf(m); return id === space.other?.id ? space.other!.name : id === space.char.id ? space.char.name : '某人'; }
         return m.role === 'user' ? space.leftName : m.role === 'assistant' ? space.rightName : '旁白';
@@ -149,40 +279,70 @@ export async function writeFragmentDay(space: ResolvedSpace, day: FragmentDayUni
         const old = fragmentsOfDay(bondEntriesOf(space.id), day.dayKey);
         if (old.length) await deleteBondEntries(old.map(e => e.id));
     }
+    // 其他角度：群聊、私下提起、朋友圈、心聲（列日子時讀好的）＋ TA 的一天（現在讀）
+    const life = await lifeOf(space, day.dayKey).catch(() => [] as Mat[]);
+    const materials = numberMaterials([...(day.materials || []), ...life]);
+    const block = materialsBlock(materials, selfName, otherName, isPair);
+    const extraMax = materials.length ? Math.min(3, Math.ceil(materials.length / 4)) : 0;
+
+    type Round = { part?: FragmentPart; chunk: Message[]; withMaterials: boolean };
+    const rounds: Round[] = [];
+    for (const part of day.parts) for (const chunk of splitParts(part.messages)) rounds.push({ part, chunk, withMaterials: false });
+    if (materials.length) {
+        if (rounds.length) rounds[0].withMaterials = true;
+        else rounds.push({ chunk: [], withMaterials: true });
+    }
+
+    const voiceFor = (who: string | undefined, fallback: string): string => {
+        if (!isPair) return space.char.id;
+        if (who === space.other!.name) return space.other!.id;
+        if (who === space.char.name) return space.char.id;
+        return fallback;
+    };
     const written: BondEntry[] = [];
-    for (const part of day.parts) {
-        for (const chunk of splitParts(part.messages)) {
-            if (opts.signal?.aborted) throw new DOMException('stopped', 'AbortError');
-            const prompt = buildFragmentPrompt({
-                selfName: isPair ? space.char.name : space.rightName,
-                otherName: isPair ? space.other!.name : space.leftName,
-                pair: isPair, dayLabel, from: part.from, tags, route: space.bond.route, max: maxFor(chunk.length),
-                transcript: fragmentTranscript(chunk, nameOf, part.timeOf),
-                already: written.map(e => e.text),
-            });
-            const raw = isPair
-                ? await askPair(space, prompt, opts.apiConfig, opts.signal)
-                : await requestEssay({ writer: space.view!, user: space.user, bond: space.bond, apiConfig: opts.apiConfig, prompt, signal: opts.signal });
-            const picks = parseFragmentPick(raw, chunk, tags, maxFor(chunk.length));
-            const now = Date.now();
-            const cards = picks.map(p => {
-                const msg = p.msg;
-                const speaker = isPair ? (pairSpeakerOf(msg) || space.char.id) : msg.role === 'user' ? 'user' : space.char.id;
-                const voice = isPair
-                    ? (p.who === space.other!.name ? space.other!.id : p.who === space.char.name ? space.char.id : speaker === 'user' ? space.char.id : speaker)
-                    : space.char.id;
-                const snippet = messagePlainText(msg).slice(0, 300);
-                const source: BondSource = part.from === 'date' && part.storyId
-                    ? { type: 'date', storyId: part.storyId, charId: space.char.id, messageIds: [msg.id], snippet, at: msg.timestamp }
-                    : { type: 'message', lineId: part.lineId, messageIds: [msg.id], snippet, at: msg.timestamp };
-                return newFragmentEntry({
+    for (const round of rounds) {
+        if (opts.signal?.aborted) throw new DOMException('stopped', 'AbortError');
+        const mats = round.withMaterials ? materials : [];
+        const max = (round.chunk.length ? maxFor(round.chunk.length) : 0) + (round.withMaterials ? Math.max(1, extraMax) : 0);
+        const prompt = buildFragmentPrompt({
+            selfName, otherName, pair: isPair, dayLabel, from: round.part?.from || 'chat', tags, route: space.bond.route, max,
+            transcript: round.part ? fragmentTranscript(round.chunk, nameOf, round.part.timeOf) : '',
+            already: written.map(e => e.text),
+            ...(round.withMaterials ? { materials: block } : {}),
+        });
+        const raw = isPair
+            ? await askPair(space, prompt, opts.apiConfig, opts.signal)
+            : await requestEssay({ writer: space.view!, user: space.user, bond: space.bond, apiConfig: opts.apiConfig, prompt, signal: opts.signal });
+        const picks = parseFragmentPick(raw, round.chunk, tags, max, mats);
+        const now = Date.now();
+        const cards: BondEntry[] = [];
+        for (const p of picks) {
+            if (p.material) {
+                const mat = p.material;
+                const fallback = mat.ownerId || (mat.speakerId && [space.char.id, space.other?.id].includes(mat.speakerId) ? mat.speakerId : space.char.id);
+                cards.push(newFragmentEntry({
                     bondId: space.id, dayKey: day.dayKey, tag: p.tag, note: p.note,
-                    quote: { who: speaker, text: p.quote, messageId: msg.id },
-                    voice, time: part.timeOf(msg.timestamp), at: msg.timestamp, from: part.from, source, now,
-                });
-            });
-            if (cards.length) written.push(...(await saveBondEntries(cards)));
+                    ...(mat.quotable && p.quote ? { quote: { who: mat.speakerId || mat.speaker || '', text: p.quote, ...(mat.source && 'messageIds' in mat.source ? { messageId: mat.source.messageIds[0] } : {}) } } : {}),
+                    voice: voiceFor(p.who, fallback), time: mat.time, at: mat.at, from: mat.angle,
+                    ...(mat.context ? { context: mat.context } : {}),
+                    ...(mat.source ? { source: mat.source } : {}), now,
+                }));
+                continue;
+            }
+            const msg = p.msg!;
+            const part = round.part!;
+            const speaker = isPair ? (pairSpeakerOf(msg) || space.char.id) : msg.role === 'user' ? 'user' : space.char.id;
+            const snippet = messagePlainText(msg).slice(0, 300);
+            const source: BondSource = part.from === 'date' && part.storyId
+                ? { type: 'date', storyId: part.storyId, charId: space.char.id, messageIds: [msg.id], snippet, at: msg.timestamp }
+                : { type: 'message', lineId: part.lineId, messageIds: [msg.id], snippet, at: msg.timestamp };
+            cards.push(newFragmentEntry({
+                bondId: space.id, dayKey: day.dayKey, tag: p.tag, note: p.note,
+                quote: { who: speaker, text: p.quote, messageId: msg.id },
+                voice: voiceFor(p.who, speaker === 'user' ? space.char.id : speaker), time: part.timeOf(msg.timestamp), at: msg.timestamp, from: part.from, source, now,
+            }));
         }
+        if (cards.length) written.push(...(await saveBondEntries(cards)));
     }
     await updateBond(space.id, b => ({ ...b, fragmentDays: { ...(b.fragmentDays || {}), [day.dayKey]: Date.now() } }));
     trackEvent('拾光片段', { 方式: opts.how, 类型: isPair ? '角色之间' : '我和角色', 结果: written.length ? '有' : '无' });
@@ -268,6 +428,7 @@ export async function clearAiFragments(spaceId: string, ids: string[]): Promise<
 // ─── 每日總結寫好時自動寫那一天 ─────────────────────────────────────────
 
 const autoRunning = new Set<string>();
+const pairCheckedAt = new Map<string, number>();
 
 /** OSContext 的每日總結 hook 叫：那條線的空間開著、角色在戲上、那天還沒寫過，就寫 */
 export async function autoFragmentsAfterSummary(input: {
@@ -310,6 +471,10 @@ export async function autoFragmentsForPair(input: { a: CharacterProfile; b: Char
     if (a.altOf || b.altOf || !isOnStage(a) || !isOnStage(b)) return 0;
     const id = pairBondId(a.id, b.id);
     if (!isBondOpen(bondOrBlank(id)) || autoRunning.has(id)) return 0;
+    // 每聊完一輪都會叫：半小時內看過就不再讀一次（列日子要讀群聊、朋友圈）
+    const last = pairCheckedAt.get(id) || 0;
+    if (Date.now() - last < 30 * 60_000) return 0;
+    pairCheckedAt.set(id, Date.now());
     const space = resolveSpace(id, [a, b], {} as UserProfile, () => true);
     if (!space) return 0;
     const done = bondOrBlank(id).fragmentDays || {};

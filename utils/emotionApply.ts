@@ -4,6 +4,8 @@ import type { CharacterProfile, CharacterBuff } from '../types';
 import { landAmbientEventFromEval } from './roomAmbient';
 import { CHAT_GEN_EVENTS } from './chatGenEvents';
 import { settleBuffs } from './emotionDecay';
+import { lineArgOf, lineFor } from './chatLine';
+import { parseBondId } from './bond/model';
 
 // 情緒評估失敗的用戶可見信號（OSContext 監聽彈 toast）。本函數是本地 / instant(worker)
 // 兩條路徑的共用落點，在這裡派發能覆蓋「worker 推回的 raw 解析全滅」這類雲端失敗。
@@ -434,6 +436,7 @@ export async function applyEmotionEvalRaw(
             try { localStorage.setItem(lastInnerStateKey(charData.id), innerStateOut); } catch { /* ignore */ }
             // 角色名片開著時跟著換（components/chat/CharacterCard.tsx）；跟雲端回程的 emotion-innerstate-updated 分開，免得影響聊天那頭
             try { window.dispatchEvent(new CustomEvent(INNER_STATE_CACHED_EVENT, { detail: { charId: charData.id, innerState: innerStateOut } })); } catch { /* 沒有 window（測試）就算了 */ }
+            void recordInnerStateOnReply(charData, innerStateOut, opts.bondId);
         }
 
         // 小屋生活動態（可選順風車產出，見 utils/roomAmbient.ts）：落 room_card 進私聊。
@@ -489,5 +492,23 @@ export async function applyEmotionEvalRaw(
         console.warn('🎭 [Emotion] applyEmotionEvalRaw failed:', e?.message);
         announceEmotionFailed(charData, `評估結果落庫失敗：${e?.message || '未知錯誤'}`);
         return null;
+    }
+}
+
+/**
+ * 心聲照線記下來（拾光的「心聲」角度，plans/bond-moments-v2.md）：寫在這條線最近一則 TA 的回覆上
+ * （metadata.innerState），跟著訊息走、跟著備份走，不另開表。十分鐘內沒有回覆就不記（評估跟回覆對不上）。
+ * 失敗只記日誌，不影響聊天。
+ */
+export async function recordInnerStateOnReply(charData: CharacterProfile, innerState: string, bondId?: string): Promise<void> {
+    try {
+        const parsed = bondId ? parseBondId(bondId) : null;
+        const line = parsed?.kind === 'persona' ? lineFor(charData, parsed.personaKey) : lineArgOf(charData);
+        const { messages } = await DB.getRecentMessagesWithCount(line, 8, m => m.role === 'assistant');
+        const last = [...messages].filter(m => m.role === 'assistant').sort((a, b) => b.id - a.id)[0];
+        if (!last || Date.now() - last.timestamp > 10 * 60_000) return;
+        await DB.updateMessageMetadata(last.id, prev => ({ ...(prev || {}), innerState: innerState.slice(0, 1200) }));
+    } catch (e) {
+        console.warn('[心聲] 沒記到回覆上', e);
     }
 }

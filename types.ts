@@ -6553,7 +6553,11 @@ export type BondSource =
     | { type: 'memory'; charId: string; memoryId: string }
     | { type: 'photo'; galleryId: string }
     /** 角色之間：從哪一章故事長出來的（plans/bond-batch6.md 2.3） */
-    | { type: 'story'; entryId: string };
+    | { type: 'story'; entryId: string }
+    /** 拾光片段從群聊來的（plans/bond-moments-v2.md「多角度」）；點了開那個群 */
+    | { type: 'group'; groupId: string; messageIds: number[]; snippet: string; at: number }
+    /** 拾光片段從朋友圈來的 */
+    | { type: 'moment'; postId: string; snippet: string; at: number };
 
 /** 一張卡建在什麼上面（隨筆 → 片刻／記憶；後記 → 原隨筆）；撤回時用來找誰依賴誰 */
 export type BondLink =
@@ -6589,12 +6593,21 @@ export interface BondFragment {
     time?: string;
     /** 引的那則訊息的時間戳（真實） */
     at: number;
-    /** 引一句原話：誰說的（'user'＝你；角色寫角色 id）、照抄的字、哪一則 */
+    /** 引一句原話：誰說的（'user'＝你；角色寫角色 id；群裡別人說的寫名字）、照抄的字、哪一則 */
     quote?: { who: string; text: string; messageId?: number };
     /** 寫那句心裡話的角色 id */
     voice: string;
-    from: 'chat' | 'date';
+    /**
+     * 從哪個角度來的（plans/bond-moments-v2.md「多角度」）：
+     * chat 私聊、date 見面、group 群聊（你在場的群）、aside TA 跟別人私下提起你、
+     * life TA 的一天（日程、意識流）、moments 朋友圈、inner 心聲（回覆後的內心獨白）。
+     */
+    from: BondFragmentFrom;
+    /** 角度的小標：群名、「跟小雨私聊」…；私聊、見面不帶 */
+    context?: string;
 }
+
+export type BondFragmentFrom = 'chat' | 'date' | 'group' | 'aside' | 'life' | 'moments' | 'inner';
 
 /** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
 export interface BondEntry {

@@ -19,7 +19,7 @@ import { dependentsOf, planRetract, type DerivationRef } from '../../utils/bond/
 import { deleteBondEntries, saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { updateBond } from '../../utils/bond/store';
 
-const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片', story: '故事' } as const;
+const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片', story: '故事', group: '群聊', moment: '朋友圈' } as const;
 
 export const BondItemPage: React.FC<{
     space: ResolvedSpace;
