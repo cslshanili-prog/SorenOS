@@ -68,22 +68,30 @@ export const PROMPT_ANSWER_CHARS = 120;
 export const PROMPT_SLIP_CHARS = 120;
 const SLIP_STATE_TEXT = { want_to_talk: '想再談', responded: '已回應', resolved: '已說開' } as const;
 
-export const PROMPT_MOMENT_LIMIT = 8;
+/** 進提示詞的拾光（plans/bond-moments-v2.md 第 6 點）：收藏的最多 6 則＋最近 12 則 */
+export const PROMPT_MOMENT_LIMIT = 12;
+export const PROMPT_FAVORITE_LIMIT = 6;
 export const PROMPT_ESSAY_LIMIT = 3;
 export const PROMPT_ESSAY_CHARS = 200;
 
 const oneLine = (s: string | undefined) => String(s || '').replace(/\s+/g, ' ').trim();
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
 
-/** 會進提示詞的片刻：已收存、沒收起，照事件日期新到舊 */
+const momentOrder = (a: BondEntry, b: BondEntry) => {
+    const ka = eventSortKey(a.eventDate); const kb = eventSortKey(b.eventDate);
+    if (ka !== kb) return ka < kb ? 1 : -1;
+    return (b.fragment?.at ?? b.writtenAt) - (a.fragment?.at ?? a.writtenAt);
+};
+
+/** 會進提示詞的片刻與片段：已收存、沒收起；收藏的（最多 6）＋最近的（最多 12），照事件日期新到舊 */
 export function promptMoments(entries: BondEntry[] | undefined): BondEntry[] {
-    return (entries || [])
+    const all = (entries || [])
         .filter(e => e.kind === 'moment' && e.status === 'published' && !e.hidden && oneLine(e.text || e.title))
-        .sort((a, b) => {
-            const ka = eventSortKey(a.eventDate); const kb = eventSortKey(b.eventDate);
-            return ka === kb ? b.writtenAt - a.writtenAt : ka < kb ? 1 : -1;
-        })
-        .slice(0, PROMPT_MOMENT_LIMIT);
+        .sort(momentOrder);
+    const favs = all.filter(e => e.favorite).slice(0, PROMPT_FAVORITE_LIMIT);
+    const picked = new Set(favs.map(e => e.id));
+    const recent = all.filter(e => !picked.has(e.id)).slice(0, PROMPT_MOMENT_LIMIT);
+    return [...favs, ...recent].sort(momentOrder);
 }
 
 /** 會進提示詞的隨筆：「你」寫的、已收下的，最近幾篇 */
@@ -101,6 +109,19 @@ function entryLines(input: BondPromptInput): string[] {
     if (moments.length) {
         lines.push(`你們收存的片刻（實際發生過的事，${input.otherName}也記得）：`);
         for (const m of moments) {
+            if (m.fragment) {
+                // 拾光片段：時刻、tag、寫的人當下的心裡話、引的那句原話
+                const f = m.fragment;
+                const time = f.time ? ` ${f.time}` : '';
+                const who = !f.quote ? '' : f.quote.who === 'user' ? input.otherName : f.quote.who === input.selfId ? '你' : (input.pair && f.quote.who === input.pair.otherId ? input.otherName : '你');
+                const quote = f.quote ? `${who}說：「${oneLine(f.quote.text)}」` : '';
+                // 心裡話只有寫的人自己知道（像日記）；別人寫的只帶那句原話
+                const mine = !input.selfId || f.voice === input.selfId;
+                if (!mine && !quote) continue;
+                const body = mine ? `你當時想：${oneLine(m.text)}${quote ? `；${quote}` : ''}` : quote;
+                lines.push(`  - ${promptEventDate(m.eventDate)}${time}｜[${f.tag}] ${body}`);
+                continue;
+            }
             const head = oneLine(m.title);
             const body = oneLine(m.text);
             const what = head && body && head !== body ? `${head}：${body}` : (head || body);
