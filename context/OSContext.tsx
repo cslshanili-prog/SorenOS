@@ -125,6 +125,7 @@ import { parseBondId, personaBondId } from '../utils/bond/model';
 import { deleteBondEntriesOfChar, deleteBondEntriesOfPersona, refreshBondEntryRegistry } from '../utils/bond/entries';
 import { deleteBondLedgerOfChar, deleteBondLedgerOfPersona, refreshBondLedgerRegistry } from '../utils/bond/ledgerStore';
 import { checkGiftFollowupFromSummary, refreshGiftOrderRegistry } from '../components/bond/giftRun';
+import { autoFragmentsAfterSummary } from '../components/bond/fragmentRun';
 import { deleteFeelingLogOfChar, deleteFeelingLogOfPersona } from '../utils/bond/feelingStore';
 import { refreshDiaryRegistry } from '../utils/bond/diaryStore';
 import { diariesOfBondSync, diaryBondIds } from '../utils/bond/diaryRegistry';
@@ -2708,6 +2709,8 @@ export const OSProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         if (isOnStage(c)) void checkSyncFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🤝 [BondSync] 總結判斷失敗', e));
         // 禮物後續：總結提到圖鑑裡哪件後來怎麼了，先放進待確認，珍藏分頁問你（plans/bond-batch5.md 第 6 節）
         if (isOnStage(c)) void checkGiftFollowupFromSummary(c, m, userName, apiConfigRef.current).catch(e => console.warn('🎁 [BondGift] 總結對禮物失敗', e));
+        // 拾光片段：那天的對話寫成時間線上的幾個時刻（plans/bond-moments-v2.md）
+        void autoFragmentsAfterSummary({ char: c, memory: m, characters, profileBase: userProfileBase, apiConfig: apiConfigRef.current }).catch(e => console.warn('🕰 [BondFragment] 每日自動寫失敗', e));
       }
     }
   }, [characters]);
