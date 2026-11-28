@@ -132,8 +132,8 @@ describe('提示詞：片刻與隨筆', () => {
         expect(out).toContain('你們收存的片刻（實際發生過的事');
         expect(out).toContain('  - 2026-05-01｜海邊：一起看了海（Liora想留著它，因為：那天很開心）');
     });
-    it('收起的、草稿不進；最多 8 則', () => {
-        const many = Array.from({ length: 10 }, (_, i) => entry({ id: `m${i}`, writtenAt: i }));
+    it('收起的、草稿不進；最多 12 則＋收藏的', () => {
+        const many = Array.from({ length: 14 }, (_, i) => entry({ id: `m${i}`, writtenAt: i }));
         expect(promptMoments([...many, entry({ id: 'h', hidden: true })]).length).toBe(PROMPT_MOMENT_LIMIT);
         expect(promptMoments([entry({ status: 'draft' })])).toEqual([]);
     });

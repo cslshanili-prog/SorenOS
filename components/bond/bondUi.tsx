@@ -10,45 +10,47 @@ import { ENVELOPE_CSS } from './treasure/Envelope';
 import { CAPSULE_CSS } from './treasure/CapsuleBand';
 
 export const BOND_CSS = `
+/* 玫瑰色板（Liora 2026-11-28 給的）：Black Cherry #3A0E1E、Cranberry Silk #8E2D3B、
+   Dusty Mauve #A07A80、Blush Veil #E7C7CF、Porcelain Pink #F5E9ED。淺色以瓷粉為紙、黑櫻桃為字；深色倒過來。 */
 .bond-root {
-  --bond-paper: #f8f5f1;
-  --bond-paper-2: #efe8e2;
-  --bond-card: #fffdfa;
-  --bond-ink: #352e30;
-  --bond-ink-2: #62575b;
-  --bond-muted: #9b9094;
-  --bond-line: #e8dfd8;
-  --bond-accent: #7d4c63;
-  --bond-accent-soft: #f0e4ea;
-  --bond-rose: #c49cad;
-  --bond-on-accent: #fdf9f6;
-  --bond-block-sand: #f0e8e0;
-  --bond-block-blush: #f2e5eb;
-  --bond-block-mist: #ece9f1;
-  --bond-track: #e3d8dd;
-  --bond-bar: #fffdfa;
-  --bond-shadow: 0 1px 2px rgba(70, 45, 55, .04), 0 10px 24px -18px rgba(70, 45, 55, .2);
+  --bond-paper: #faf4f6;
+  --bond-paper-2: #f5e9ed;
+  --bond-card: #fffcfd;
+  --bond-ink: #3a0e1e;
+  --bond-ink-2: #6b3d48;
+  --bond-muted: #9a737a;
+  --bond-line: #eedde2;
+  --bond-accent: #8e2d3b;
+  --bond-accent-soft: #f5e9ed;
+  --bond-rose: #a07a80;
+  --bond-on-accent: #fdf3f5;
+  --bond-block-sand: #f6ebee;
+  --bond-block-blush: #f1dbe1;
+  --bond-block-mist: #efe6e8;
+  --bond-track: #e7c7cf;
+  --bond-bar: #fffcfd;
+  --bond-shadow: 0 1px 2px rgba(58, 14, 30, .04), 0 10px 24px -18px rgba(58, 14, 30, .22);
   color-scheme: light;
   background: var(--bond-paper);
   color: var(--bond-ink);
 }
 [data-bond-theme="dark"] .bond-root, .bond-root[data-bond-theme="dark"] {
-  --bond-paper: #1c1b1e;
-  --bond-paper-2: #2b292d;
-  --bond-card: #262428;
-  --bond-ink: #f0eaed;
-  --bond-ink-2: #c4bac0;
-  --bond-muted: #8e858b;
-  --bond-line: #38343a;
-  --bond-accent: #dcafc8;
-  --bond-accent-soft: #3a2f38;
-  --bond-rose: #a98196;
-  --bond-on-accent: #2a1e25;
-  --bond-block-sand: #2a282c;
-  --bond-block-blush: #3a2f39;
-  --bond-block-mist: #2c2a33;
-  --bond-track: #48404a;
-  --bond-bar: #232125;
+  --bond-paper: #1d0a11;
+  --bond-paper-2: #34111d;
+  --bond-card: #28111a;
+  --bond-ink: #f5e9ed;
+  --bond-ink-2: #dcbfc6;
+  --bond-muted: #a8858b;
+  --bond-line: #44212c;
+  --bond-accent: #e7c7cf;
+  --bond-accent-soft: #42182a;
+  --bond-rose: #a07a80;
+  --bond-on-accent: #3a0e1e;
+  --bond-block-sand: #2e1219;
+  --bond-block-blush: #47192a;
+  --bond-block-mist: #2a1720;
+  --bond-track: #5a2c3a;
+  --bond-bar: #220c14;
   --bond-shadow: none;
   color-scheme: dark;
 }
@@ -77,6 +79,22 @@ export const BOND_CSS = `
 }
 .bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
 .bond-tabbar { background: var(--bond-bar); border-top: 1px solid var(--bond-line); }
+/* 拾光片段的 tag（plans/bond-moments-v2.md）：大事深、甜的偏紅、難受的灰紫、日常淡 */
+.bond-tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 9px; font-size: 11px; letter-spacing: .08em; line-height: 1.6; }
+.bond-tag[data-tone="cherry"] { background: #3a0e1e; color: #f5e9ed; }
+.bond-tag[data-tone="cranberry"] { background: #8e2d3b; color: #fdf3f5; }
+.bond-tag[data-tone="mauve"] { background: #ead9dc; color: #6e4a51; }
+.bond-tag[data-tone="blush"] { background: #f5e9ed; color: #8e2d3b; border: 1px solid #ecd3da; }
+[data-bond-theme="dark"] .bond-tag[data-tone="cherry"] { background: #e7c7cf; color: #3a0e1e; }
+[data-bond-theme="dark"] .bond-tag[data-tone="cranberry"] { background: #b8505f; color: #fff4f6; }
+[data-bond-theme="dark"] .bond-tag[data-tone="mauve"] { background: #4a2d34; color: #e2c4ca; }
+[data-bond-theme="dark"] .bond-tag[data-tone="blush"] { background: #3a2229; color: #e7c7cf; border-color: #4f2f37; }
+.bond-dot[data-tone="cherry"] { background: #3a0e1e; }
+.bond-dot[data-tone="cranberry"] { background: #8e2d3b; }
+.bond-dot[data-tone="mauve"] { background: #a07a80; }
+.bond-dot[data-tone="blush"] { background: #e7c7cf; }
+[data-bond-theme="dark"] .bond-dot[data-tone="cherry"] { background: #f5e9ed; }
+[data-bond-theme="dark"] .bond-dot[data-tone="cranberry"] { background: #d47282; }
 /* iOS Safari 換頁回來重排時，line-clamp 有時照全文留高度（只畫兩行、底下一大片空白）：鎖住最高幾行 */
 .bond-root .line-clamp-1 { max-height: 1lh; }
 .bond-root .line-clamp-2 { max-height: 2lh; }

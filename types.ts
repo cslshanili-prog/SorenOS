@@ -6327,6 +6327,8 @@ export interface BondRecord {
      */
     memoryMarks?: Record<string, BondMemoryMark>;
     /** 「從最近的聊天挑幾件」上次掃到的那則訊息 id（plans/bond-batch2.md 3.2），之後只挑更新的 */
+    /** 拾光片段寫過哪幾天（故事日期 key → 寫的時間）；一鍵補全照這個跳過，清空 AI 寫的時一起清（plans/bond-moments-v2.md） */
+    fragmentDays?: Record<string, number>;
     lastMomentScanId?: number;
     /** 主動產出設定（plans/bond-batch3.md 1.4）；沒設的類型照預設（utils/bond/output.ts） */
     output?: Partial<Record<BondOutputKind, Partial<BondOutputSetting>>>;
@@ -6579,6 +6581,21 @@ export interface BondStory {
     };
 }
 
+/** 拾光的一則片段（plans/bond-moments-v2.md）：哪個時刻、什麼樣的事、引一句原話 */
+export interface BondFragment {
+    /** 日常／約會／爭執…（utils/bond/fragment.ts 的清單；你改過也存這格） */
+    tag: string;
+    /** 'HH:MM'，故事時鐘 */
+    time?: string;
+    /** 引的那則訊息的時間戳（真實） */
+    at: number;
+    /** 引一句原話：誰說的（'user'＝你；角色寫角色 id）、照抄的字、哪一則 */
+    quote?: { who: string; text: string; messageId?: number };
+    /** 寫那句心裡話的角色 id */
+    voice: string;
+    from: 'chat' | 'date';
+}
+
 /** 羈絆裡的一張卡（bond_entries 表）。第 2 批：片刻、隨筆；第 3 批：問答、紙條（日記在 diaries 表） */
 export interface BondEntry {
     id: string;
@@ -6623,6 +6640,8 @@ export interface BondEntry {
     gift?: BondGift;
     /** 珍藏：信件；text 是信文 */
     letter?: BondLetter;
+    /** 拾光片段（plans/bond-moments-v2.md）：從聊天／見面生成的一則；text 是寫的人那一兩句心裡話 */
+    fragment?: BondFragment;
     /** 珍藏：留給以後；text 是封存的內容 */
     capsule?: BondCapsule;
     /** 角色之間：一章故事（plans/bond-batch6.md 2.5）；text 是全文、title 是章名 */
