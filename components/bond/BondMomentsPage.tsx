@@ -45,7 +45,7 @@ export function itemKindLabel(item: TimelineItem, space: ResolvedSpace): string 
 export function quoteSpeaker(space: ResolvedSpace, who: string | undefined): string {
     if (!who) return '';
     if (who === 'user') return space.leftName;
-    if (who === space.char.id) return space.kind === 'pair' ? space.char.name : space.rightName;
+    if (who === space.char.id || who === 'char') return space.kind === 'pair' ? space.char.name : space.rightName;
     if (space.other && who === space.other.id) return space.other.name;
     return '';
 }
