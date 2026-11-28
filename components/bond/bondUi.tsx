@@ -77,6 +77,11 @@ export const BOND_CSS = `
 }
 .bond-chip[aria-pressed="true"] { border-color: var(--bond-accent); color: var(--bond-accent); background: var(--bond-accent-soft); }
 .bond-tabbar { background: var(--bond-bar); border-top: 1px solid var(--bond-line); }
+/* iOS Safari 換頁回來重排時，line-clamp 有時照全文留高度（只畫兩行、底下一大片空白）：鎖住最高幾行 */
+.bond-root .line-clamp-1 { max-height: 1lh; }
+.bond-root .line-clamp-2 { max-height: 2lh; }
+.bond-root .line-clamp-3 { max-height: 3lh; }
+.bond-root .line-clamp-4 { max-height: 4lh; }
 `;
 
 export const BondStyle: React.FC = () => <style>{BOND_CSS + GIFTBOX_CSS + ENVELOPE_CSS + CAPSULE_CSS}</style>;

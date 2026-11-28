@@ -142,7 +142,7 @@ export const PairHeartPage: React.FC<{
                                             {e.diary?.origin === 'story' && <span>・故事之後</span>}
                                             {e.diary?.origin === 'auto' && <span>・私下聊完</span>}
                                         </div>
-                                        <div className="mt-1 bond-serif text-[13.5px] leading-relaxed line-clamp-2">{e.text}</div>
+                                        <div className="mt-1 bond-serif text-[13.5px] leading-relaxed line-clamp-2">{e.text.replace(/\s+/g, ' ').slice(0, 160)}</div>
                                     </button>
                                 ))}
                             </div>
@@ -525,7 +525,7 @@ export const PairTreasurePage: React.FC<{
                                             <span className="block text-[11px] text-[var(--bond-muted)]">
                                                 {nameOfId(space, e.author)} 寫給 {nameOfId(space, e.letter!.to)}{e.letter!.replyTo ? '・回信' : ''}{e.letter!.origin === 'story' ? '・故事裡' : ''}
                                             </span>
-                                            <span className="block mt-0.5 bond-serif text-[13.5px] line-clamp-1">{e.text.replace(/\s+/g, ' ')}</span>
+                                            <span className="block mt-0.5 bond-serif text-[13.5px] line-clamp-1">{e.text.replace(/\s+/g, ' ').slice(0, 80)}</span>
                                         </span>
                                         <span className="shrink-0 text-[10.5px] text-[var(--bond-muted)]">{e.letter!.sentAt ? new Date(e.letter!.sentAt).toLocaleDateString() : ''}</span>
                                     </button>
@@ -604,7 +604,7 @@ export const PairLetterWritePage: React.FC<{
             <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-5 space-y-5">
                 <p className="text-[12.5px] leading-relaxed text-[var(--bond-ink-2)]">{self.name}會照最近發生的事寫一封信給{to.name}{replyTo ? '（回那一封）' : ''}，寄出就到。</p>
                 {replyTo && (
-                    <div className="rounded-xl border border-[var(--bond-line)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-4 bond-serif">{replyTo.text}</div>
+                    <div className="rounded-xl border border-[var(--bond-line)] px-3.5 py-3 text-[12.5px] leading-relaxed text-[var(--bond-ink-2)] bond-serif"><div className="line-clamp-4">{replyTo.text.slice(0, 300)}</div></div>
                 )}
                 <section>
                     <SectionLabel>想 寫 的 方 向（可 以 空 著）</SectionLabel>

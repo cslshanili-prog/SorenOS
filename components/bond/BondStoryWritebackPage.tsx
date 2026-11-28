@@ -289,7 +289,7 @@ export const BondStoryRetractPage: React.FC<{
                                             {ENTRY_KIND_LABEL[e.kind] || e.kind}{e.kind === 'diary' || e.kind === 'letter' ? `・${nameOf(e.author)}` : ''}
                                             {dependent ? '・建在上面的' : ''}{e.sources.some(s => s.type !== 'story') ? '・另有來源，會留著' : ''}
                                         </div>
-                                        <div className="mt-0.5 text-[13px] leading-relaxed line-clamp-2">{e.title ? `${e.title}：` : ''}{e.text}</div>
+                                        <div className="mt-0.5 text-[13px] leading-relaxed line-clamp-2">{e.title ? `${e.title}：` : ''}{e.text.slice(0, 160)}</div>
                                     </div>
                                 </div>
                             );
