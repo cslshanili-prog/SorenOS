@@ -129,6 +129,9 @@ export async function archivePairIfNeeded(args: {
     a: CharacterProfile; b: CharacterProfile; aFull: string; api: MiniApiConfig; updateCharacter: Updater;
 }): Promise<number> {
     const { a, b, aFull, api, updateCharacter } = args;
+    // 拾光改版（plans/bond-moments-v2.md）：聊完一輪順手把他們前幾天還沒寫的拾光片段補上（空間開著才寫，今天的等過了再寫）
+    void import('../components/bond/fragmentRun').then(m => m.autoFragmentsForPair({ a, b, apiConfig: api as any }))
+        .catch(e => console.warn('[角色之間] 拾光片段沒寫成', e));
     const lines = parseTranscript(aFull);
     const startMark = contactOf(a, b)?.archivedThru ?? 0;
     let mark = startMark;

@@ -10,45 +10,47 @@ import { ENVELOPE_CSS } from './treasure/Envelope';
 import { CAPSULE_CSS } from './treasure/CapsuleBand';
 
 export const BOND_CSS = `
+/* 玫瑰色板（Liora 2026-11-28 給的）：Black Cherry #3A0E1E、Cranberry Silk #8E2D3B、
+   Dusty Mauve #A07A80、Blush Veil #E7C7CF、Porcelain Pink #F5E9ED。淺色以瓷粉為紙、黑櫻桃為字；深色倒過來。 */
 .bond-root {
-  --bond-paper: #f8f5f1;
-  --bond-paper-2: #efe8e2;
-  --bond-card: #fffdfa;
-  --bond-ink: #352e30;
-  --bond-ink-2: #62575b;
-  --bond-muted: #9b9094;
-  --bond-line: #e8dfd8;
-  --bond-accent: #7d4c63;
-  --bond-accent-soft: #f0e4ea;
-  --bond-rose: #c49cad;
-  --bond-on-accent: #fdf9f6;
-  --bond-block-sand: #f0e8e0;
-  --bond-block-blush: #f2e5eb;
-  --bond-block-mist: #ece9f1;
-  --bond-track: #e3d8dd;
-  --bond-bar: #fffdfa;
-  --bond-shadow: 0 1px 2px rgba(70, 45, 55, .04), 0 10px 24px -18px rgba(70, 45, 55, .2);
+  --bond-paper: #faf4f6;
+  --bond-paper-2: #f5e9ed;
+  --bond-card: #fffcfd;
+  --bond-ink: #3a0e1e;
+  --bond-ink-2: #6b3d48;
+  --bond-muted: #9a737a;
+  --bond-line: #eedde2;
+  --bond-accent: #8e2d3b;
+  --bond-accent-soft: #f5e9ed;
+  --bond-rose: #a07a80;
+  --bond-on-accent: #fdf3f5;
+  --bond-block-sand: #f6ebee;
+  --bond-block-blush: #f1dbe1;
+  --bond-block-mist: #efe6e8;
+  --bond-track: #e7c7cf;
+  --bond-bar: #fffcfd;
+  --bond-shadow: 0 1px 2px rgba(58, 14, 30, .04), 0 10px 24px -18px rgba(58, 14, 30, .22);
   color-scheme: light;
   background: var(--bond-paper);
   color: var(--bond-ink);
 }
 [data-bond-theme="dark"] .bond-root, .bond-root[data-bond-theme="dark"] {
-  --bond-paper: #1c1b1e;
-  --bond-paper-2: #2b292d;
-  --bond-card: #262428;
-  --bond-ink: #f0eaed;
-  --bond-ink-2: #c4bac0;
-  --bond-muted: #8e858b;
-  --bond-line: #38343a;
-  --bond-accent: #dcafc8;
-  --bond-accent-soft: #3a2f38;
-  --bond-rose: #a98196;
-  --bond-on-accent: #2a1e25;
-  --bond-block-sand: #2a282c;
-  --bond-block-blush: #3a2f39;
-  --bond-block-mist: #2c2a33;
-  --bond-track: #48404a;
-  --bond-bar: #232125;
+  --bond-paper: #1d0a11;
+  --bond-paper-2: #34111d;
+  --bond-card: #28111a;
+  --bond-ink: #f5e9ed;
+  --bond-ink-2: #dcbfc6;
+  --bond-muted: #a8858b;
+  --bond-line: #44212c;
+  --bond-accent: #e7c7cf;
+  --bond-accent-soft: #42182a;
+  --bond-rose: #a07a80;
+  --bond-on-accent: #3a0e1e;
+  --bond-block-sand: #2e1219;
+  --bond-block-blush: #47192a;
+  --bond-block-mist: #2a1720;
+  --bond-track: #5a2c3a;
+  --bond-bar: #220c14;
   --bond-shadow: none;
   color-scheme: dark;
 }

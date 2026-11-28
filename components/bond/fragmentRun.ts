@@ -22,7 +22,7 @@ import { bondEntriesOf } from '../../utils/bond/entryRegistry';
 import { deleteBondEntries, saveBondEntries } from '../../utils/bond/entries';
 import { bondOrBlank, updateBond } from '../../utils/bond/store';
 import { isBondOpen } from '../../utils/bond/openState';
-import { bondIdForChar } from '../../utils/bond/model';
+import { bondIdForChar, pairBondId } from '../../utils/bond/model';
 import { lineFor, lineKey, lineView, withLineFields } from '../../utils/chatLine';
 import { pairSpeakerOf } from '../../utils/pairLine';
 import { makeChatClock, makeDateClock } from '../../utils/dateStoryTime';
@@ -293,6 +293,30 @@ export async function autoFragmentsAfterSummary(input: {
         // 總結那天，加上那天之前幾天還沒寫的（總結有時晚一兩天才跑）
         const memDay = String(memory.date || '').slice(0, 10);
         const recent = days.filter(d => !done[d.dayKey] && d.dayKey <= (memDay || '9999')).slice(-3);
+        let n = 0;
+        for (const d of recent) n += (await writeFragmentDay({ ...space, bond: bondOrBlank(id) }, d, { apiConfig, how: '自动' })).length;
+        return n;
+    } finally {
+        autoRunning.delete(id);
+    }
+}
+
+/**
+ * 角色之間：他們私下聊完一輪就叫（utils/pairChatRun.ts 的 archivePairIfNeeded 開頭）。
+ * 只寫「今天以前」還沒寫的日子（今天還在聊，等過了再寫），最多補最近 3 天；空間沒開、有人下戲就不寫。
+ */
+export async function autoFragmentsForPair(input: { a: CharacterProfile; b: CharacterProfile; apiConfig: APIConfig }): Promise<number> {
+    const { a, b, apiConfig } = input;
+    if (a.altOf || b.altOf || !isOnStage(a) || !isOnStage(b)) return 0;
+    const id = pairBondId(a.id, b.id);
+    if (!isBondOpen(bondOrBlank(id)) || autoRunning.has(id)) return 0;
+    const space = resolveSpace(id, [a, b], {} as UserProfile, () => true);
+    if (!space) return 0;
+    const done = bondOrBlank(id).fragmentDays || {};
+    autoRunning.add(id);
+    try {
+        const days = await listFragmentDays(space);
+        const recent = days.filter(d => !done[d.dayKey] && d.dayKey < space.todayKey).slice(-3);
         let n = 0;
         for (const d of recent) n += (await writeFragmentDay({ ...space, bond: bondOrBlank(id) }, d, { apiConfig, how: '自动' })).length;
         return n;
