@@ -1,14 +1,16 @@
 /**
  * 拾光片段（plans/bond-moments-v2.md）：從這條線真的發生過的對話生成的時間線。純邏輯，有測試。
  *
- * - 來源只有這條線的私聊、見面（角色之間是他們的私聊），不讀記憶。
- * - 一則片段＝一個時刻：tag、TA 的一兩句心裡話、照抄的一句原話（點了跳回那則）。
+ * - 主體是這條線的私聊、見面（角色之間是他們的私聊），不讀記憶；
+ *   另外可以從群聊、TA 私下跟別人提起你、TA 的一天、朋友圈、心聲挑（素材在 ./fragmentSources.ts）。
+ * - 一則片段＝一個時刻：tag、TA 的一兩句心裡話、照抄的一句原話（點了跳回那則；一天、朋友圈、心聲沒有原話）。
  * - 一天一天寫：照故事日期分組；寫過哪幾天記在 bonds.fragmentDays。
  */
-import type { BondEntry, BondEventDate, BondFragment, BondRoute, BondSource, Message } from '../../types';
+import type { BondEntry, BondEventDate, BondFragment, BondFragmentFrom, BondRoute, BondSource, Message } from '../../types';
 import { messagePlainText } from './collect';
 import { newBondEntryId } from './ids';
 import { parseJsonObject } from './outputPromptCore';
+import type { FragmentMaterial } from './fragmentSources';
 
 // ─── tag ─────────────────────────────────────────
 
@@ -97,9 +99,20 @@ const ROUTE_HINT: Record<BondRoute | 'none', string> = {
     none: '',
 };
 
+/** 多角度那段的規則（有素材才加） */
+function anglesRule(pair: boolean, otherName: string, hasDialogue: boolean): string {
+    const who = pair ? '跟他們兩個的關係' : `跟${otherName}`;
+    return `
+除了${hasDialogue ? '對話' : '上面'}，也可以從其他角度挑（寫 ref 編號，例如 "ref":"G2"）：
+- 只挑${who}有關的，或${pair ? '其中一位' : '你'}會想說給${pair ? '對方' : otherName}聽的（看到什麼、遇到什麼、想到${pair ? '對方' : otherName}的時候）；純粹自己過日子、跟${pair ? '對方' : otherName}無關的不要挑
+- 群聊、私下聊到的那幾則要寫 quote（照抄那一則裡的一句話）；一天、朋友圈、心聲沒有原話，quote 留空
+- 角度要混：有別的素材時，對話引文不要超過一半${hasDialogue ? '' : '\n- 這天沒有' + (pair ? '他們的私聊' : '你們的私聊') + '，只從這些素材挑'}`;
+}
+
 /**
  * 身份卡 × 角色：角色本人寫（system 是角色自己的核心上下文），從那天的對話挑幾個時刻。
  * 角色之間：旁觀的寫法，心裡話由那一刻比較有感觸的那位寫（who 填名字）。
+ * materials：多角度的素材（utils/bond/fragmentSources.ts 的 materialsBlock）；沒有就跟以前一樣只看對話。
  */
 export function buildFragmentPrompt(args: {
     /** persona：角色名；pair：兩位 */
@@ -108,6 +121,7 @@ export function buildFragmentPrompt(args: {
     pair?: boolean;
     dayLabel: string;
     from: 'chat' | 'date';
+    /** 對話紀錄；這天沒有對話、只有素材時給空字串 */
     transcript: string;
     tags: string[];
     route?: BondRoute;
@@ -115,44 +129,57 @@ export function buildFragmentPrompt(args: {
     max: number;
     /** 同一天已經寫過的（分段寫時，後面幾段不要重複） */
     already?: string[];
+    /** 多角度素材（已編號） */
+    materials?: string;
 }): string {
     const where = args.from === 'date' ? '見面' : args.pair ? '私下聊天' : '聊天';
     const already = args.already?.length ? `\n這天已經記下的（不要重複同一件事）：\n${args.already.map(a => `- ${a}`).join('\n')}\n` : '';
     const routeHint = ROUTE_HINT[args.route || 'none'];
+    const hasDialogue = !!args.transcript.trim();
+    const mats = args.materials?.trim() ? `\n${args.materials.trim()}\n` : '';
+    const angles = mats ? anglesRule(!!args.pair, args.otherName, hasDialogue) : '';
+    const nLine = (extra: string) => hasDialogue
+        ? `- n：那個時刻最有代表性的那一則對話的編號${extra}${mats ? '（從其他角度挑的不寫 n，改寫 ref）' : ''}`
+        : '- ref：素材的編號';
+    const quoteLine = hasDialogue || mats ? '- quote：照抄那一則裡的一句話，不超過 40 字，一個字都不要改' : '';
     if (args.pair) {
-        return `下面是${args.selfName}和${args.otherName}在${args.dayLabel}的${where}紀錄（用戶不在場）。
-
-${args.transcript}
-${already}
-請從裡面挑出值得記下的時刻，最多 ${args.max} 個（平淡的一天挑 1 個就好；真的什麼都沒有就不挑）。
+        const head = hasDialogue
+            ? `下面是${args.selfName}和${args.otherName}在${args.dayLabel}的${where}紀錄（用戶不在場）。\n\n${args.transcript}\n`
+            : `下面是${args.selfName}和${args.otherName}在${args.dayLabel}的一些片段（用戶不在場）。\n`;
+        return `${head}${mats}${already}
+請挑出值得記下的時刻，最多 ${args.max} 個（平淡的一天挑 1 個就好；真的什麼都沒有就不挑）。
 每個時刻：
-- n：那個時刻最有代表性的那一則的編號
-- quote：照抄那一則裡的一句話，不超過 40 字，一個字都不要改
+${nLine('')}
+${quoteLine}
 - tag：從這些裡選一個：${args.tags.join('、')}
 - who：寫心裡話的人，「${args.selfName}」或「${args.otherName}」，選那一刻比較有感觸的那位
-- note：who 當下的心裡話，第一人稱，一兩句，不超過 60 字；說感受，不要重述對話
+- note：who 當下的心裡話，第一人稱，一兩句，不超過 60 字；說感受，不要重述對話${angles}
 ${routeHint ? `\n${routeHint}` : ''}
-只輸出 JSON：{"pick":[{"n":3,"quote":"…","tag":"日常","who":"${args.selfName}","note":"…"}]}`;
+只輸出 JSON：{"pick":[{${hasDialogue ? '"n":3' : '"ref":"G1"'},"quote":"…","tag":"日常","who":"${args.selfName}","note":"…"}${mats && hasDialogue ? ',{"ref":"L1","quote":"","tag":"日常","who":"' + args.otherName + '","note":"…"}' : ''}]}`;
     }
-    return `下面是你和${args.otherName}在${args.dayLabel}的${where}紀錄。
-
-${args.transcript}
-${already}
-請從裡面挑出你想記下的時刻，最多 ${args.max} 個（平淡的一天挑 1 個就好；真的什麼都沒有就不挑）。
+    const head = hasDialogue
+        ? `下面是你和${args.otherName}在${args.dayLabel}的${where}紀錄。\n\n${args.transcript}\n`
+        : `${args.dayLabel}你和${args.otherName}沒有私聊，但這天有這些。\n`;
+    return `${head}${mats}${already}
+請挑出你想記下的時刻，最多 ${args.max} 個（平淡的一天挑 1 個就好；真的什麼都沒有就不挑）。
 每個時刻：
-- n：那個時刻最有代表性的那一則的編號（${args.otherName}說的、你說的都可以）
-- quote：照抄那一則裡的一句話，不超過 40 字，一個字都不要改
+${nLine(`（${args.otherName}說的、你說的都可以）`)}
+${quoteLine}
 - tag：從這些裡選一個：${args.tags.join('、')}
-- note：你當下的心裡話，第一人稱，一兩句，不超過 60 字；說你的感受和在意的點，不要重述對話，也不要用「用戶」稱呼${args.otherName}
+- note：你當下的心裡話，第一人稱，一兩句，不超過 60 字；說你的感受和在意的點，不要重述對話，也不要用「用戶」稱呼${args.otherName}${angles}
 ${routeHint ? `\n${routeHint}` : ''}
-只輸出 JSON：{"pick":[{"n":3,"quote":"…","tag":"日常","note":"…"}]}`;
+只輸出 JSON：{"pick":[{${hasDialogue ? '"n":3' : '"ref":"G1"'},"quote":"…","tag":"日常","note":"…"}${mats && hasDialogue ? ',{"ref":"L1","quote":"","tag":"日常","note":"…"}' : ''}]}`;
 }
 
 // ─── 解析 ─────────────────────────────────────────
 
 export interface FragmentPick<T> {
-    msg: T;
+    /** 對話裡的那一則（從其他角度挑的沒有） */
+    msg?: T;
+    /** 從其他角度挑的素材 */
+    material?: FragmentMaterial;
     tag: string;
+    /** 原話；沒有原話的素材是空字串 */
     quote: string;
     note: string;
     /** pair：寫心裡話的人的名字（照 AI 回的） */
@@ -192,20 +219,35 @@ function pickArray(raw: string): unknown[] {
     return [];
 }
 
-export function parseFragmentPick<T extends Pick<Message, 'type' | 'content' | 'metadata'>>(raw: string, msgs: T[], tags: string[], max = 6): FragmentPick<T>[] {
+export function parseFragmentPick<T extends Pick<Message, 'type' | 'content' | 'metadata'>>(
+    raw: string, msgs: T[], tags: string[], max = 6, materials: FragmentMaterial[] = [],
+): FragmentPick<T>[] {
     const out: FragmentPick<T>[] = [];
-    const used = new Set<number>();
+    const used = new Set<string>();
+    const byRef = new Map(materials.map(m => [m.ref.toUpperCase(), m]));
     for (const it of pickArray(raw)) {
         if (!it || typeof it !== 'object') continue;
         const o = it as Record<string, unknown>;
-        const n = Number(o.n);
-        if (!Number.isInteger(n) || n < 1 || n > msgs.length || used.has(n)) continue;
         const note = cleanNote(o.note);
         if (!note) continue;
-        const msg = msgs[n - 1];
-        used.add(n);
         const tag = typeof o.tag === 'string' && tags.includes(o.tag.trim()) ? o.tag.trim() : tags[0] || '日常';
-        out.push({ msg, tag, quote: settleQuote(String(o.quote ?? ''), messagePlainText(msg)), note, ...(typeof o.who === 'string' && o.who.trim() ? { who: o.who.trim() } : {}) });
+        const who = typeof o.who === 'string' && o.who.trim() ? { who: o.who.trim() } : {};
+        // ref 可能寫成 "G2"、"#3"、或數字
+        const refRaw = typeof o.ref === 'string' ? o.ref.trim().toUpperCase().replace(/^[\[【]|[\]】]$/g, '') : '';
+        const mat = refRaw ? byRef.get(refRaw) : undefined;
+        if (mat) {
+            if (used.has(mat.ref)) continue;
+            used.add(mat.ref);
+            const quote = mat.quotable ? settleQuote(String(o.quote ?? ''), mat.text) : '';
+            out.push({ material: mat, tag, quote, note, ...who });
+        } else {
+            const nRaw = o.n ?? (refRaw.startsWith('#') ? refRaw.slice(1) : /^\d+$/.test(refRaw) ? refRaw : undefined);
+            const n = Number(nRaw);
+            if (!Number.isInteger(n) || n < 1 || n > msgs.length || used.has(`#${n}`)) continue;
+            used.add(`#${n}`);
+            const msg = msgs[n - 1];
+            out.push({ msg, tag, quote: settleQuote(String(o.quote ?? ''), messagePlainText(msg)), note, ...who });
+        }
         if (out.length >= max) break;
     }
     return out;
@@ -222,8 +264,10 @@ export function newFragmentEntry(input: {
     voice: string;
     time?: string;
     at: number;
-    from: 'chat' | 'date';
-    source: BondSource;
+    from: BondFragmentFrom;
+    context?: string;
+    /** 一天、心聲沒有可以跳回去的地方 */
+    source?: BondSource;
     now?: number;
 }): BondEntry {
     const now = input.now ?? Date.now();
@@ -236,7 +280,7 @@ export function newFragmentEntry(input: {
         text: input.note,
         eventDate,
         writtenAt: now,
-        sources: [input.source],
+        sources: input.source ? [input.source] : [],
         links: [],
         status: 'published',
         createdBy: 'ai',
@@ -247,6 +291,7 @@ export function newFragmentEntry(input: {
             ...(input.quote ? { quote: input.quote } : {}),
             voice: input.voice,
             from: input.from,
+            ...(input.context ? { context: input.context } : {}),
         },
         updatedAt: now,
     };

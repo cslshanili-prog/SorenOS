@@ -137,7 +137,7 @@ const BondApp: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
 };
 
 const BondAppInner: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
-    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine, updateCharacter, memoryPalaceConfig, remoteVectorConfig, setActivePersonaId, setActiveCharacterId, activeCharacterId, activeLineFor } = useOS();
+    const { closeApp, openApp, characters, userProfileBase, apiConfig, addToast, updateLine, updateCharacter, memoryPalaceConfig, remoteVectorConfig, setActivePersonaId, setActiveCharacterId, activeCharacterId, activeLineFor, openGroupChat } = useOS();
     /** 進 App 直接到上次停留的那一對（還開著的）；一個都沒開就是歡迎頁 */
     const homeFor = (): Page => {
         const alive = new Set(characters.filter(c => !c.altOf).map(c => c.id));
@@ -229,6 +229,15 @@ const BondAppInner: React.FC<{ entry?: 'journal' }> = ({ entry }) => {
      * 角色私聊直接開那頁；按返回回到羈絆的這件事。原訊息已刪就不跳。
      */
     const openSource = async (spaceId: string, itemKey: string | undefined, source: BondSource) => {
+        if (source.type === 'group') {
+            // 拾光片段從群聊來的：開那個群（群聊不支援跳到某一則，開在最新的地方）
+            const backHere = () => { bondLaunch.request(itemKey ? { bondId: spaceId, itemKey } : { bondId: spaceId }); openApp(AppID.Bond); };
+            if (!(await DB.getGroups().catch(() => [])).some(g => g.id === source.groupId)) { addToast('這個群已經不在了', 'info'); return; }
+            trackEvent('从拾光跳回原文', { 来源: '群聊' });
+            appReturn.set(AppID.GroupChat, backHere);
+            openGroupChat(source.groupId);
+            return;
+        }
         if (source.type !== 'message' && source.type !== 'date') return;
         const firstId = source.messageIds[0];
         if (!firstId || !(await DB.getMessageById(firstId).catch(() => null))) { addToast('原訊息已經刪掉了，這裡留著收存時的原文', 'info'); return; }

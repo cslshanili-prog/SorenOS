@@ -103,6 +103,9 @@ export function promptEssays(entries: BondEntry[] | undefined, selfId: string | 
         .slice(0, PROMPT_ESSAY_LIMIT);
 }
 
+/** 片段從哪個角度來的（私聊、見面不寫）；提示詞裡用「你」的口吻 */
+const FRAGMENT_FROM_WORD: Record<string, string> = { group: '群聊', aside: '私下跟別人聊到', life: '你那天的日子', moments: '朋友圈', inner: '心裡' };
+
 function entryLines(input: BondPromptInput): string[] {
     const lines: string[] = [];
     const moments = promptMoments(input.entries);
@@ -113,13 +116,16 @@ function entryLines(input: BondPromptInput): string[] {
                 // 拾光片段：時刻、tag、寫的人當下的心裡話、引的那句原話
                 const f = m.fragment;
                 const time = f.time ? ` ${f.time}` : '';
-                const who = !f.quote ? '' : f.quote.who === 'user' ? input.otherName : f.quote.who === input.selfId ? '你' : (input.pair && f.quote.who === input.pair.otherId ? input.otherName : '你');
+                // 原話是誰說的：你／對方；群裡別的人存的是名字（utils/bond/fragmentSources.ts）
+                const who = !f.quote ? '' : f.quote.who === 'user' ? input.otherName : f.quote.who === input.selfId ? '你'
+                    : (input.pair && f.quote.who === input.pair.otherId ? input.otherName : (f.quote.who || '有人'));
                 const quote = f.quote ? `${who}說：「${oneLine(f.quote.text)}」` : '';
                 // 心裡話只有寫的人自己知道（像日記）；別人寫的只帶那句原話
                 const mine = !input.selfId || f.voice === input.selfId;
                 if (!mine && !quote) continue;
                 const body = mine ? `你當時想：${oneLine(m.text)}${quote ? `；${quote}` : ''}` : quote;
-                lines.push(`  - ${promptEventDate(m.eventDate)}${time}｜[${f.tag}] ${body}`);
+                const where = f.from === 'chat' || f.from === 'date' ? '' : `・${f.context || FRAGMENT_FROM_WORD[f.from]}`;
+                lines.push(`  - ${promptEventDate(m.eventDate)}${time}｜[${f.tag}${where}] ${body}`);
                 continue;
             }
             const head = oneLine(m.title);

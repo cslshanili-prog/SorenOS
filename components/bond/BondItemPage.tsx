@@ -10,7 +10,7 @@ import { BondHeader, SectionLabel } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { useSpaceTimeline } from './useSpaceTimeline';
 import type { TimelineItem } from '../../utils/bond/timeline';
-import { itemKindLabel, quoteSpeaker } from './BondMomentsPage';
+import { fragmentWhere, itemKindLabel, quoteSpeaker } from './BondMomentsPage';
 import { fragmentTagsFor, tagTone } from '../../utils/bond/fragment';
 import { BondPhotoStrip } from './BondPhotoPicker';
 import { formatEventDate } from '../../utils/bond/eventDate';
@@ -19,7 +19,7 @@ import { dependentsOf, planRetract, type DerivationRef } from '../../utils/bond/
 import { deleteBondEntries, saveBondEntries, saveBondEntry } from '../../utils/bond/entries';
 import { updateBond } from '../../utils/bond/store';
 
-const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片', story: '故事' } as const;
+const SOURCE_LABEL = { message: '私聊', date: '見面', memory: '記憶', photo: '照片', story: '故事', group: '群聊', moment: '朋友圈' } as const;
 
 export const BondItemPage: React.FC<{
     space: ResolvedSpace;
@@ -250,15 +250,15 @@ export const BondItemPage: React.FC<{
 const FragmentArticle: React.FC<{ space: ResolvedSpace; entry: BondEntry; onSetTag: (tag: string) => void; onOpenSource?: (source: BondSource) => void }> = ({ space, entry, onSetTag, onOpenSource }) => {
     const f = entry.fragment!;
     const [editing, setEditing] = useState(false);
-    const source = entry.sources.find(src => src.type === 'message' || src.type === 'date');
+    const source = entry.sources.find(src => src.type === 'message' || src.type === 'date' || src.type === 'group');
     const writer = f.voice === space.char.id ? (space.kind === 'pair' ? space.char.name : space.rightName) : space.other?.id === f.voice ? space.other.name : '';
     const speaker = quoteSpeaker(space, f.quote?.who);
     const tags = fragmentTagsFor(space.bond.route);
     return (
         <article className="px-5 pt-6 pb-6">
             <div className="flex items-center gap-2">
-                <span className="text-[12px] tabular-nums text-[var(--bond-muted)]">{formatEventDate(entry.eventDate)}{f.time ? ` ${f.time}` : ''}{f.from === 'date' ? ' · 見面' : ''}</span>
-                <button type="button" className="ml-auto bond-tag" data-tone={tagTone(f.tag)} onClick={() => setEditing(v => !v)} aria-label="改 tag">{f.tag}</button>
+                <span className="min-w-0 text-[12px] tabular-nums text-[var(--bond-muted)]">{formatEventDate(entry.eventDate)}{f.time ? ` ${f.time}` : ''}{fragmentWhere(f, space) ? ` · ${fragmentWhere(f, space)}` : ''}</span>
+                <button type="button" className="ml-auto shrink-0 whitespace-nowrap bond-tag" data-tone={tagTone(f.tag)} onClick={() => setEditing(v => !v)} aria-label="改 tag">{f.tag}</button>
             </div>
             {editing && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -267,8 +267,8 @@ const FragmentArticle: React.FC<{ space: ResolvedSpace; entry: BondEntry; onSetT
                     ))}
                 </div>
             )}
-            <div className="mt-5 bond-block bg-[var(--bond-block-sand)] px-5 py-5">
-                {writer && <div className="text-[11px] tracking-[0.2em] text-[var(--bond-muted)]">{writer} 當時想</div>}
+            <div className={`mt-5 bond-block px-5 py-5 ${f.from === 'inner' ? 'bg-[var(--bond-block-mist)]' : 'bg-[var(--bond-block-sand)]'}`}>
+                {writer && <div className="text-[11px] tracking-[0.2em] text-[var(--bond-muted)]">{writer} {f.from === 'inner' ? '心裡' : '當時想'}</div>}
                 <p className="bond-serif mt-2 whitespace-pre-wrap text-[17px] leading-[1.9] text-[var(--bond-ink)]">{entry.text}</p>
             </div>
             {f.quote?.text && (
@@ -276,10 +276,19 @@ const FragmentArticle: React.FC<{ space: ResolvedSpace; entry: BondEntry; onSetT
                     {speaker && <div className="text-[11px] tracking-wider text-[var(--bond-accent)]">{speaker} 說</div>}
                     <div className="bond-serif mt-1 text-[14.5px] leading-relaxed text-[var(--bond-ink-2)]">「{f.quote.text}」</div>
                     {source && onOpenSource && (
-                        <button type="button" className="mt-2 text-[12px] text-[var(--bond-accent)]" onClick={() => onOpenSource(source)}>回到那時 ›</button>
+                        <button type="button" className="mt-2 text-[12px] text-[var(--bond-accent)]" onClick={() => onOpenSource(source)}>{source.type === 'group' ? '打開這個群 ›' : '回到那時 ›'}</button>
                     )}
                 </div>
             )}
+            {!f.quote?.text && (() => {
+                const post = entry.sources.find(src => src.type === 'moment');
+                return post && post.type === 'moment' && post.snippet ? (
+                    <div className="mt-4 rounded-xl bg-[var(--bond-paper-2)] px-4 py-3">
+                        <div className="text-[11px] tracking-wider text-[var(--bond-muted)]">那篇朋友圈</div>
+                        <div className="mt-1 text-[13.5px] leading-relaxed text-[var(--bond-ink-2)] line-clamp-4">{post.snippet}</div>
+                    </div>
+                ) : null;
+            })()}
             {entry.revisedAt && <div className="mt-3 text-[11px] text-[var(--bond-muted)]">你改過這則。</div>}
         </article>
     );

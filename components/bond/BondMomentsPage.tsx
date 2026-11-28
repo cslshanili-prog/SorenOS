@@ -1,17 +1,19 @@
 /**
  * 拾光分頁（plans/bond-moments-v2.md）：從你們的聊天、見面生成的時間線。
- * 左邊一條細線，每天一個節點（大號日期＋星期）；節點旁是那天的片段（時間、tag、TA 的心裡話、引的那句原話），
+ * 左邊一條細線，每天一個節點（大號日期＋星期）；節點旁是那天的片段（時間、來源、tag、TA 的心裡話、引的那句原話），
+ * 來源除了私聊、見面，還有群聊、TA 私下跟別人提起你、TA 的一天、朋友圈、心聲（心聲用淡紫底）；
  * 你收存的片刻、里程碑用不同底色。你是讀者：片段每天自動寫，也能在「＋」的拾光工具一鍵補全、生成某一天。
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Feather, Plus, Sparkle, Star, Stop } from '@phosphor-icons/react';
-import type { APIConfig, BondEntry, CharacterProfile } from '../../types';
+import type { APIConfig, BondEntry, BondFragmentFrom, CharacterProfile } from '../../types';
 import { BondHeader } from './bondUi';
 import type { ResolvedSpace } from './space';
 import { useSpaceTimeline } from './useSpaceTimeline';
 import { essayItems, type TimelineItem } from '../../utils/bond/timeline';
 import { eventMonthKey, formatEventDate, formatMonthKey } from '../../utils/bond/eventDate';
 import { fragmentTagsFor, tagTone } from '../../utils/bond/fragment';
+import { ANGLE_LABEL } from '../../utils/bond/fragmentSources';
 import { backfillState, onBackfillChange, startBackfill, stopBackfill, type BackfillState } from './fragmentRun';
 
 /** 日期那一欄的短寫法 */
@@ -47,7 +49,15 @@ export function quoteSpeaker(space: ResolvedSpace, who: string | undefined): str
     if (who === 'user') return space.leftName;
     if (who === space.char.id || who === 'char') return space.kind === 'pair' ? space.char.name : space.rightName;
     if (space.other && who === space.other.id) return space.other.name;
-    return '';
+    // 群裡別人、私下聊天的第三人存的是名字
+    return who;
+}
+
+/** 片段從哪個角度來的小字：私聊不寫；見面寫「見面」；其他寫群名、「跟小雨私聊」、「TA 的一天」… */
+export function fragmentWhere(f: NonNullable<BondEntry['fragment']>, space: ResolvedSpace): string {
+    if (f.from === 'chat') return '';
+    if (f.from === 'life' && space.kind !== 'pair') return (f.context || ANGLE_LABEL.life).replace(/^TA\s*/, space.rightName);
+    return f.context || ANGLE_LABEL[f.from] || '';
 }
 
 const WEEK = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
@@ -62,7 +72,7 @@ export function useBackfill(spaceId: string): BackfillState | undefined {
     return backfillState(spaceId);
 }
 
-type Filter = { kind: 'all' } | { kind: 'tag'; tag: string } | { kind: 'mine' } | { kind: 'milestone' } | { kind: 'essay' } | { kind: 'favorite' };
+type Filter = { kind: 'all' } | { kind: 'tag'; tag: string } | { kind: 'from'; from: BondFragmentFrom } | { kind: 'mine' } | { kind: 'milestone' } | { kind: 'essay' } | { kind: 'favorite' };
 
 const fragOf = (it: TimelineItem): BondEntry['fragment'] => (it.ref.type === 'entry' ? it.ref.entry.fragment : undefined);
 
@@ -94,10 +104,17 @@ export const BondMomentsPage: React.FC<{
         return [...order.filter(t => used.has(t)), ...[...used].filter(t => !order.includes(t))];
     }, [items, space.bond.route]);
 
+    // 來源篩選：私聊以外有用到的角度才列（見面、群聊、私下提起、TA 的一天、朋友圈、心聲）
+    const froms = useMemo(() => {
+        const used = new Set(items.map(it => fragOf(it)?.from).filter((x): x is BondFragmentFrom => !!x && x !== 'chat'));
+        return (['date', 'group', 'aside', 'life', 'moments', 'inner'] as BondFragmentFrom[]).filter(x => used.has(x));
+    }, [items]);
+
     const shown = useMemo(() => items.filter(it => {
         if (it.hidden && !showHidden) return false;
         switch (filter.kind) {
             case 'tag': return fragOf(it)?.tag === filter.tag;
+            case 'from': return fragOf(it)?.from === filter.from;
             case 'mine': return it.kind === 'moment' && !fragOf(it);
             case 'milestone': return it.kind === 'milestone';
             case 'favorite': return it.favorite;
@@ -141,6 +158,12 @@ export const BondMomentsPage: React.FC<{
                     {chip(filter.kind === 'essay', '隨筆', () => setFilter({ kind: 'essay' }))}
                     {chip(filter.kind === 'favorite', '收藏', () => setFilter({ kind: 'favorite' }))}
                 </div>
+                {froms.length > 0 && (
+                    <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
+                        <span className="shrink-0 self-center text-[11px] tracking-[0.15em] text-[var(--bond-muted)]">來源</span>
+                        {froms.map(x => chip(filter.kind === 'from' && filter.from === x, x === 'life' && !isPair ? `${space.rightName}的一天` : ANGLE_LABEL[x], () => setFilter({ kind: 'from', from: x })))}
+                    </div>
+                )}
                 {hiddenCount > 0 && filter.kind !== 'essay' && (
                     <div className="px-5 -mt-0.5 mb-1 text-right">
                         <button type="button" className="text-[11.5px] text-[var(--bond-muted)] underline underline-offset-4 decoration-[var(--bond-line)]" onClick={() => setShowHidden(v => !v)}>
@@ -246,10 +269,10 @@ const TimelineCard: React.FC<{ item: TimelineItem; space: ResolvedSpace; onOpen:
     if (f) {
         const speaker = quoteSpeaker(space, f.quote?.who);
         return (
-            <button type="button" onClick={onOpen} className={`block w-full text-left bond-panel px-4 py-3.5 ${item.hidden ? 'opacity-50' : ''}`}>
+            <button type="button" onClick={onOpen} className={`block w-full text-left px-4 py-3.5 ${f.from === 'inner' ? 'bond-block bg-[var(--bond-block-mist)]' : 'bond-panel'} ${item.hidden ? 'opacity-50' : ''}`}>
                 <div className="flex items-center gap-2">
-                    <span className="text-[11.5px] tabular-nums text-[var(--bond-muted)]">{f.time || ''}{f.from === 'date' ? ' · 見面' : ''}</span>
-                    <span className="ml-auto inline-flex items-center gap-1.5">{fav}{extra}<span className="bond-tag" data-tone={tagTone(f.tag)}>{f.tag}</span></span>
+                    <span className="min-w-0 truncate text-[11.5px] tabular-nums text-[var(--bond-muted)]">{f.time || ''}{fragmentWhere(f, space) ? ` · ${fragmentWhere(f, space)}` : ''}</span>
+                    <span className="ml-auto shrink-0 inline-flex items-center gap-1.5">{fav}{extra}<span className="bond-tag whitespace-nowrap" data-tone={tagTone(f.tag)}>{f.tag}</span></span>
                 </div>
                 <p className="bond-serif mt-2 text-[14.5px] leading-[1.75] text-[var(--bond-ink)] line-clamp-4">{item.text}</p>
                 {f.quote?.text && (
